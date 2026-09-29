@@ -1,6 +1,7 @@
 import qs
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.services
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -25,7 +26,7 @@ Item {
             visible: Config.options.bar.utilButtons.showScreenSnip
             sourceComponent: CircleUtilButton {
                 Layout.alignment: Qt.AlignVCenter
-                onClicked: Quickshell.execDetached(["qs", "-p", Quickshell.shellPath(""), "ipc", "call", "region", "screenshot"]);
+                onClicked: Hyprland.dispatch(`hl.dsp.global("quickshell:regionScreenshot")`)
                 MaterialSymbol {
                     horizontalAlignment: Qt.AlignHCenter
                     fill: 1
@@ -101,15 +102,40 @@ Item {
         }
 
         Loader {
+            id: supergfxctlToggleLoader
+            active: Config.options.bar.utilButtons.showSupergfxctlToggle
+            visible: Config.options.bar.utilButtons.showSupergfxctlToggle
+            sourceComponent: CircleUtilButton {
+                id: supergfxButton
+                property bool containsMouse: hovered
+
+                Layout.alignment: Qt.AlignVCenter
+                colBackground: "transparent"
+                colBackgroundHover: "transparent"
+                onClicked: Supergfxctl.toggle()
+
+                MaterialSymbol {
+                    horizontalAlignment: Qt.AlignHCenter
+                    fill: 0
+                    text: Supergfxctl.icon
+                    iconSize: Appearance.font.pixelSize.large
+                    color: Supergfxctl.lastError.length > 0
+                        ? Appearance.colors.colError
+                        : Appearance.colors.colOnLayer2
+                }
+            }
+        }
+
+        Loader {
             active: Config.options.bar.utilButtons.showDarkModeToggle
             visible: Config.options.bar.utilButtons.showDarkModeToggle
             sourceComponent: CircleUtilButton {
                 Layout.alignment: Qt.AlignVCenter
                 onClicked: event => {
                     if (Appearance.m3colors.darkmode) {
-                        Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --mode light --noswitch`])
+                        Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--mode", "light", "--noswitch"]);
                     } else {
-                        Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --mode dark --noswitch`])
+                        Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--mode", "dark", "--noswitch"]);
                     }
                 }
                 MaterialSymbol {
@@ -152,6 +178,21 @@ Item {
                     iconSize: Appearance.font.pixelSize.large
                     color: Appearance.colors.colOnLayer2
                 }
+            }
+        }
+    }
+
+    StyledPopup {
+        hoverTarget: supergfxctlToggleLoader.item ?? null
+
+        ColumnLayout {
+            anchors.centerIn: parent
+            spacing: 4
+
+            StyledPopupValueRow {
+                icon: Supergfxctl.icon
+                label: "GPU:"
+                value: Supergfxctl.statusText
             }
         }
     }

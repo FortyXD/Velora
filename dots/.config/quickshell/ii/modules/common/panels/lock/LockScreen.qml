@@ -75,6 +75,9 @@ Scope {
             // fallback lock you can't interact with.
             GlobalStates.screenLocked = false;
 
+            // Refocus last focused window on unlock (hack)
+            Quickshell.execDetached(["bash", "-c", `sleep 0.2; hyprctl --batch "dispatch togglespecialworkspace; dispatch togglespecialworkspace"`])
+
             // Reset
             lockContext.reset();
 

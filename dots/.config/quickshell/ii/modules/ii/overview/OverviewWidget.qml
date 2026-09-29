@@ -284,10 +284,10 @@ Item {
 
                             if (event.button === Qt.LeftButton) {
                                 GlobalStates.overviewOpen = false
-                                Hyprland.dispatch(`hl.dsp.focus({window = "address:${windowData.address}"})`)
+                                Hyprland.dispatch(`hl.dsp.focus({ window = "address:${windowData.address}" })`)
                                 event.accepted = true
                             } else if (event.button === Qt.MiddleButton) {
-                                Hyprland.dispatch(`hl.dsp.window.close({window = "address:${windowData.address}"})`)
+                                Hyprland.dispatch(`hl.dsp.window.close({ window = "address:${windowData.address}" })`)
                                 event.accepted = true
                             }
                         }

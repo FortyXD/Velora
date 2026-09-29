@@ -21,7 +21,6 @@ Singleton {
     property string to: Config.options?.light?.night?.to ?? "06:30"
     property bool automatic: Config.options?.light?.night?.automatic && (Config?.ready ?? true)
     property int colorTemperature: Config.options?.light?.night?.colorTemperature ?? 5000
-    property int defaultColorTemperature: 6000
     property int gamma: 100
     property bool shouldBeOn
     property bool firstEvaluation: true
@@ -113,7 +112,7 @@ Singleton {
     function disableTemperature() {
         root.temperatureActive = false;
         // console.log("[Hyprsunset] Disabling");
-        Quickshell.execDetached(["bash", "-c", `hyprctl hyprsunset temperature ${root.defaultColorTemperature}`]);
+        Quickshell.execDetached(["hyprctl", "hyprsunset", "identity"]);
     }
 
     function setGamma(gamma) {
@@ -140,7 +139,7 @@ Singleton {
                 if (output.length == 0 || output.startsWith("Couldn't"))
                     root.temperatureActive = false;
                 else
-                    root.temperatureActive = (output != root.defaultColorTemperature); // 6000 is the default when off
+                    root.temperatureActive = (output != "6500"); // 6500 is the default when off
                 // console.log("[Hyprsunset] Fetched state:", output, "->", root.temperatureActive);
             }
         }
@@ -166,6 +165,7 @@ Singleton {
         target: Config.options.light.night
         function onColorTemperatureChanged() {
             if (!root.temperatureActive) return;
+            Hyprland.dispatch(`hyprctl hyprsunset temperature ${Config.options.light.night.colorTemperature}`);
             Quickshell.execDetached(["hyprctl", "hyprsunset", "temperature", `${Config.options.light.night.colorTemperature}`]);
         }
     }

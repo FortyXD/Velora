@@ -47,7 +47,7 @@ def edit_hyprland_config(file_path, set_args, reset_args):
         if len(key_parts) > 1:
             # Build pattern to match nested structure
             pattern_parts = [rf'\s*{re.escape(part)}\s*=' for part in key_parts]
-            nested_pattern = '\{'.join(pattern_parts)
+            nested_pattern = r'\{'.join(pattern_parts)
             patterns[k] = re.compile(rf'^\s*hl\.config\(\{{\s*{nested_pattern}')
         else:
             patterns[k] = re.compile(rf'^\s*hl\.config\(\{{\s*{re.escape(main_key)}\s*=')
@@ -112,7 +112,7 @@ def edit_hyprland_config(file_path, set_args, reset_args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Edit a Hyprland config file. Subkeys use colon (:) for nesting.")
-    parser.add_argument("--file", default="~/.config/hypr/hyprland.conf", help="Path to the Hyprland config file (default: ~/.config/hypr/hyprland.conf).")
+    parser.add_argument("--file", default="~/.config/hypr/hyprland/shellOverrides/main.lua", help="Path to the Lua override file.")
     
     parser.add_argument("--set", nargs=2, action="append", metavar=("KEY", "VALUE"), help="Set a configuration key to a value.")
     parser.add_argument("--reset", action="append", metavar="KEY", help="Remove a configuration key.")

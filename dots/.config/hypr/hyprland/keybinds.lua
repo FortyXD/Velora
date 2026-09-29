@@ -1,359 +1,381 @@
-require("hyprland.lib")
-require("hyprland.variables")
-if is_file_exists(HOME .. "/.config/hypr/custom/variables.lua") then
-    require("custom.variables")
-end
+local h = require("hyprland.helpers")
+local bind = h.bind
+local exec = h.exec
 
-local qsScripts = "$HOME/.config/quickshell/$qsConfig/scripts"
-local hyprScripts = "$HOME/.config/hypr/hyprland/scripts"
-local qsIpcCall = "qs -c $qsConfig ipc call"
-local qsIsAlive = qsIpcCall .. " TEST_ALIVE"
+hl.define_submap("global", function()
+    -- Shell. These must stay at the top for consistent behavior.
+    local search_release_armed = {
+        Super_L = false,
+        Super_R = false,
+    }
 
-hl.bind("SUPER + SUPER_L", hl.dsp.global("quickshell:searchToggleRelease"), { description = "Shell: Toggle search" })
-hl.bind("SUPER + SUPER_R", hl.dsp.global("quickshell:searchToggleRelease"))
-hl.bind("SUPER + SUPER_L", hl.dsp.exec_cmd(qsIsAlive .. " || pkill fuzzel || fuzzel"))
-hl.bind("SUPER + SUPER_R", hl.dsp.exec_cmd(qsIsAlive .. " || pkill fuzzel || fuzzel"))
-
-hl.bind("SUPER_L", hl.dsp.global("quickshell:workspaceNumber"), { ignore_mods = true, transparent = true })
-hl.bind("SUPER_R", hl.dsp.global("quickshell:workspaceNumber"), { ignore_mods = true, transparent = true })
-hl.bind("SUPER_L", hl.dsp.global("quickshell:workspaceNumber"),
-    { ignore_mods = true, transparent = true, release = true })
-hl.bind("SUPER_R", hl.dsp.global("quickshell:workspaceNumber"),
-    { ignore_mods = true, transparent = true, release = true })
-hl.bind("SUPER + Tab", hl.dsp.global("quickshell:overviewWorkspacesToggle"), { description = "Shell: Toggle overview" })
-hl.bind("SUPER + V", hl.dsp.global("quickshell:overviewClipboardToggle"))
-hl.bind("SUPER + Period", hl.dsp.global("quickshell:overviewEmojiToggle"))
-hl.bind("SUPER + A", hl.dsp.global("quickshell:sidebarLeftToggle"), { description = "Shell: Toggle left sidebar" })
-hl.bind("SUPER + ALT + A", hl.dsp.global("quickshell:sidebarLeftToggleDetach"))
-hl.bind("SUPER + B", hl.dsp.global("quickshell:sidebarLeftToggle"))
-hl.bind("SUPER + O", hl.dsp.global("quickshell:sidebarLeftToggle"))
-hl.bind("SUPER + N", hl.dsp.global("quickshell:sidebarRightToggle"), { description = "Shell: Toggle right sidebar" })
-hl.bind("SUPER + Slash", hl.dsp.global("quickshell:cheatsheetToggle"), { description = "Shell: Toggle cheatsheet" })
-hl.bind("SUPER + K", hl.dsp.global("quickshell:oskToggle"), { description = "Shell: Toggle on-screen keyboard" })
-hl.bind("SUPER + M", hl.dsp.global("quickshell:mediaControlsToggle"), { description = "Shell: Toggle media controls" })
-hl.bind("SUPER + G", hl.dsp.global("quickshell:overlayToggle"), { description = "Shell: Toggle widget overlay" })
-hl.bind("CTRL + ALT + Delete", hl.dsp.global("quickshell:sessionToggle"), { description = "Shell: Toggle session menu" })
-hl.bind("SUPER + J", hl.dsp.global("quickshell:barToggle"), { description = "Shell: Toggle bar" })
-hl.bind("CTRL + ALT + Delete", hl.dsp.exec_cmd(qsIsAlive .. " || pkill wlogout || wlogout -p layer-shell"))
-hl.bind("SHIFT + SUPER + ALT + Slash", hl.dsp.exec_cmd("qs -p $HOME/.config/quickshell/$qsConfig/welcome.qml"))
-
-hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd(qsIpcCall .. " brightness increment || brightnessctl s 5%+"),
-    { locked = true, repeating = true })
-hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd(qsIpcCall .. " brightness decrement || brightnessctl s 5%-"),
-    { locked = true, repeating = true })
-hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%+ -l 1.5"),
-    { locked = true, repeating = true })
-hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-"),
-    { locked = true, repeating = true })
-
-hl.bind("CTRL + SUPER + T", hl.dsp.global("quickshell:wallpaperSelectorToggle"),
-    { description = "Shell: Change wallpaper" })
-hl.bind("CTRL + SUPER + ALT + T", hl.dsp.global("quickshell:wallpaperSelectorRandom"),
-    { description = "Shell: Random wallpaper" })
-hl.bind("CTRL + SUPER + SHIFT + D", hl.dsp.global("quickshell:toggleLightDark"),
-    { description = "Shell: Toggle light/dark mode" })
-hl.bind("CTRL + SUPER + T", hl.dsp.exec_cmd(qsIsAlive .. " || " .. qsScripts .. "/colors/switchwall.sh"))
-hl.bind("CTRL + SUPER + R", hl.dsp.exec_cmd("killall ydotool qs quickshell; qs -c $qsConfig &"),
-    { description = "Shell: Restart widgets" })
-hl.bind("CTRL + SUPER + P", hl.dsp.global("quickshell:panelFamilyCycle"), { description = "Shell: Cycle panel family" })
-
---##! Utilities
---# Screenshot, Record, OCR, Color picker, Clipboard history
-hl.bind("SUPER + V", hl.dsp.exec_cmd(
-        qsIsAlive .. " || pkill fuzzel || cliphist list | fuzzel --match-mode fzf --dmenu | cliphist decode | wl-copy"),
-    { description = "Utilities: Clipboard history >> clipboard" })
-hl.bind("SUPER + Period", hl.dsp.exec_cmd(
-        qsIsAlive .. " || pkill fuzzel || " .. hyprScripts .. "/fuzzel-emoji.sh copy"),
-    { description = "Utilities: Emoji >> clipboard" })
-hl.bind("SUPER + SHIFT + S", hl.dsp.global("quickshell:regionScreenshot"), { description = "Utilities: Screen snip" })
-hl.bind("SUPER + SHIFT + S",
-    hl.dsp.exec_cmd(qsIsAlive .. " || pidof slurp || hyprshot --freeze --clipboard-only --mode region --silent"))
-hl.bind("SUPER + SHIFT + A", hl.dsp.global("quickshell:regionSearch"), { description = "Utilities: Google Lens" })
-hl.bind("SUPER + SHIFT + A", hl.dsp.exec_cmd(qsIsAlive .. " || pidof slurp || " .. hyprScripts .. "/snip_to_search.sh"))
---# OCR
-hl.bind("SUPER + SHIFT + X", hl.dsp.global("quickshell:regionOcr"),
-    { description = "Utilities: Character recognition >> clipboard" })
-hl.bind("SUPER + SHIFT + T", hl.dsp.global("quickshell:screenTranslate"),
-    { description = "Utilities: Translate screen content" })
-hl.bind("SUPER + SHIFT + X", hl.dsp.exec_cmd(
-    qsIsAlive ..
-    " || pidof slurp || grim -g \"$(slurp $SLURP_ARGS)\" \"/tmp/ocr_image.png\" && tesseract \"/tmp/ocr_image.png\" stdout -l $(tesseract --list-langs | awk 'NR>1{print $1}' | tr '\\\\n' '+' | sed 's/\\\\+$/\\\\n/') | wl-copy && rm \"/tmp/ocr_image.png\""
-))
---# Color picker
-hl.bind("SUPER + SHIFT + C", hl.dsp.exec_cmd("hyprpicker -a"),
-    { description = "Utilities: Pick color #RRGGBB >> clipboard" })
---# Recording stuff
-hl.bind("SUPER + SHIFT + R", hl.dsp.global("quickshell:regionRecord"),
-    { locked = true, description = "Utilities: Record region (no sound)" })
-hl.bind("SUPER + SHIFT + R", hl.dsp.exec_cmd(qsIsAlive .. " || " .. qsScripts .. "/videos/record.sh"), { locked = true })
-hl.bind("SUPER + ALT + R", hl.dsp.global("quickshell:regionRecord"), { locked = true })
-hl.bind("SUPER + ALT + R", hl.dsp.exec_cmd(qsIsAlive .. " || " .. qsScripts .. "/videos/record.sh"), { locked = true })
-hl.bind("CTRL + ALT + R", hl.dsp.exec_cmd(qsScripts .. "/videos/record.sh --fullscreen"), { locked = true })
-hl.bind("SUPER + SHIFT + ALT + R", hl.dsp.exec_cmd(qsScripts .. "/videos/record.sh --fullscreen --sound"),
-    { locked = true, description = "Utilities: Record screen (with sound)" })
---# Fullscreen screenshot
-local grimhyprctl = "grim -o \"$(hyprctl activeworkspace -j | jq -r '.monitor')\""
-hl.bind("Print", hl.dsp.exec_cmd(grimhyprctl .. " - | wl-copy"),
-    { locked = true, description = "Utilities: Screenshot >> clipboard" })
-hl.bind("CTRL + Print", hl.dsp.exec_cmd(
-    "mkdir -p $(xdg-user-dir PICTURES)/Screenshots && " ..
-    grimhyprctl .. " $(xdg-user-dir PICTURES)/Screenshots/Screenshot_\"$(date '+%Y-%m-%d_%H.%M.%S')\".png"
-), { locked = true, non_consuming = true, description = "Utilities: Screenshot >> clipboard & file" })
-hl.bind("CTRL + Print", hl.dsp.exec_cmd(grimhyprctl .. " - | wl-copy"), { locked = true, non_consuming = true })
---# AI
-hl.bind("SUPER + SHIFT + ALT + mouse:273", hl.dsp.exec_cmd(hyprScripts .. "/ai/primary-buffer-query.sh"),
-    { description = "Utilities: Generate AI summary for selected text" })
--- (requires a running ollama model)
-
---##! Screen
---# Zoom
-local function zoomfunction(value)
-    local zoomvalue = hl.get_config("cursor:zoom_factor")
-    if (zoomvalue + value) > 3.0 then
-        hl.config({ cursor = { zoom_factor = 3.0 } })
-    elseif (zoomvalue + value) < 1.0 then
-        hl.config({ cursor = { zoom_factor = 1.0 } })
-    else
-        hl.config({ cursor = { zoom_factor = zoomvalue + value } })
+    local function arm_search_release(key)
+        search_release_armed.Super_L = false
+        search_release_armed.Super_R = false
+        search_release_armed[key] = true
     end
-end
-hl.bind("SUPER + Minus", function() zoomfunction(-0.3) end, { repeating = true, description = "Screen: Zoom out" })
-hl.bind("SUPER + Equal", function() zoomfunction(0.3) end, { repeating = true, description = "Screen: Zoom in" })
 
---# Zoom with keypad
-hl.bind("SUPER + code:82", function() zoomfunction(-0.3) end, { repeating = true })
-hl.bind("SUPER + code:86", function() zoomfunction(0.3) end, { repeating = true })
+    local function interrupt_search_release()
+        search_release_armed.Super_L = false
+        search_release_armed.Super_R = false
+    end
 
---##! Media
-local mediaNextCommand =
-"playerctl next || playerctl position `bc <<< \"100 * $(playerctl metadata mpris:length) / 1000000 / 100\"`"
-hl.bind("SUPER + SHIFT + N", hl.dsp.exec_cmd(mediaNextCommand), { locked = true, description = "Media: Next track" })
-hl.bind("XF86AudioNext", hl.dsp.exec_cmd(mediaNextCommand), { locked = true })
-hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"), { locked = true })
-hl.bind("SUPER + SHIFT + ALT + mouse:275", hl.dsp.exec_cmd("playerctl previous"))
-hl.bind("SUPER + SHIFT + ALT + mouse:276", hl.dsp.exec_cmd(mediaNextCommand))
-hl.bind("SUPER + SHIFT + B", hl.dsp.exec_cmd("playerctl previous"),
-    { locked = true, description = "Media: Previous track" })
-hl.bind("SUPER + SHIFT + P", hl.dsp.exec_cmd("playerctl play-pause"),
-    { locked = true, description = "Media: Play/pause media" })
-hl.bind("XF86AudioPlay", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
-hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
-hl.bind("XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_SINK@ toggle"), { locked = true })
-hl.bind("SUPER + SHIFT + M", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_SINK@ toggle"),
-    { locked = true, description = "Media: Toggle mute" })
-hl.bind("ALT + XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_SOURCE@ toggle"), { locked = true })
-hl.bind("XF86AudioMicMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_SOURCE@ toggle"), { locked = true })
-hl.bind("SUPER + ALT + M", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_SOURCE@ toggle"),
-    { locked = true, description = "Media: Toggle mic" })
-
---#!
---##! Window
---# Focusing
-hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true, description = "Window: Move" })
-hl.bind("SUPER + mouse:274", hl.dsp.window.drag(), { mouse = true })
-hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true, description = "Window: Resize" })
---#/# bind = SUPER + ←/↑/→/↓,, -- Focus in direction
-for i = 1, 4 do
-    local arrowkey = { "Left", "Right", "Up", "Down" }
-    local focusdir = { "l", "r", "u", "d" }
-    hl.bind("SUPER + " .. arrowkey[i], hl.dsp.focus({ direction = focusdir[i] }),
-        { description = "Window: Focus " .. arrowkey[i] })
-end
-for i = 1, 2 do
-    local arrowkey = { "BracketLeft", "BracketRight" }
-    local focusdir = { "l", "r" }
-    hl.bind("SUPER + " .. arrowkey[i], hl.dsp.focus({ direction = focusdir[i] }))
-end
---#/# bind = SUPER + SHIFT, ←/↑/→/↓,, -- Move in direction
-for i = 1, 4 do
-    local arrowkey = { "Left", "Right", "Up", "Down" }
-    local focusdir = { "l", "r", "u", "d" }
-    hl.bind("SUPER + SHIFT + " .. arrowkey[i], hl.dsp.window.move({ direction = focusdir[i] }),
-        { description = "Window: Move " .. arrowkey[i] })
-end
-
-hl.bind("ALT + F4",
-    function()
-        hl.exec_cmd(
-            "notify-send \"Wrong close keybind\" \"Super+Q to close. Use Alt+F4 for Windows VMs\" -a Hyprland")
-    end,
-    { non_consuming = true })
-hl.bind("SUPER + Q", hl.dsp.window.close(), { description = "Window: Close" })
-hl.bind("SUPER + SHIFT + ALT + Q", hl.dsp.exec_cmd("hyprctl kill"), { description = "Window: Forcefully zap a window" })
-
---# Window split ratio
---#/# binde = SUPER, ;/',, -- Adjust split ratio
-hl.bind("SUPER + Semicolon", hl.dsp.layout("splitratio -0.1"), { repeating = true })
-hl.bind("SUPER + Apostrophe", hl.dsp.layout("splitratio +0.1"), { repeating = true })
---# Positioning mode
-hl.bind("SUPER + ALT + Space", hl.dsp.window.float({ action = "toggle" }), { description = "Window: Float/Tile" })
-hl.bind("SUPER + D", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }),
-    { description = "Window: Maximize" })
-hl.bind("SUPER + F", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }),
-    { description = "Window: Fullscreen" })
-hl.bind("SUPER + ALT + F", hl.dsp.window.fullscreen_state({ internal = 0, client = 3, action = "toggle" }),
-    { description = "Window: Fullscreen spoof" })
-hl.bind("SUPER + P", hl.dsp.window.pin(), { description = "Window: Pin" })
-
---#/# bind = SUPER+ALT, Hash,, -- Send to workspace -- (1, 2, 3,...)
-for i = 1, 10 do
-    hl.bind("SUPER + ALT + " .. (i % 10), function()
-        hl.dispatch(hl.dsp.window.move({ workspace = workspace_in_group(i), follow = false }))
-    end, { description = "Window: Send to workspace " .. i })
-end
---# We also use raw keycodes because some keyboard layouts register number keys as different chars. The codes can be verified with `wev`
--- for i = 1, 10 do
---     local numberkey = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }
---     hl.bind("SUPER + ALT + code:" .. numberkey[i], function()
---         hl.dispatch(hl.dsp.window.move({ workspace = workspace_in_group(i), follow = false }))
---     end)
--- end
---# keypad numbers
-for i = 1, 10 do
-    local numpadkey = { 87, 88, 89, 83, 84, 85, 79, 80, 81, 90 }
-    hl.bind("SUPER + ALT + code:" .. numpadkey[i], function()
-        hl.dispatch(hl.dsp.window.move({ workspace = workspace_in_group(i), follow = false }))
-    end)
-end
-
---# #/# bind = SUPER+SHIFT, Scroll ↑/↓,, -- Send to workspace left/right
-for i = 1, 4 do
-    local key = { "SUPER + SHIFT + mouse_", "SUPER + ALT + mouse_" }
-    local keycombos = { key[1] .. "down", key[1] .. "up", key[2] .. "down", key[2] .. "up" }
-    local prefix = { "r-", "r+", "r-", "r+" }
-    hl.bind(keycombos[i], hl.dsp.window.move({ workspace = prefix[i] .. "1" }))
-end
-
---#/# bind = SUPER+SHIFT, Page_↑/↓,, -- Send to workspace left/right
-for i = 1, 2 do
-    local keydirs = { "Up", "Down" }
-    local prefix = { "r-", "r+" }
-    local descdir = { "left", "right" }
-    hl.bind("SUPER + SHIFT + Page_" .. keydirs[i], hl.dsp.window.move({ workspace = prefix[i] .. "1" }), {description = "Window: Send to workspace " .. descdir[i]})
-end
-for i = 1, 4 do
-    local key = { "SUPER + ALT + Page_", "CTRL + SUPER + SHIFT + " }
-    local keycombos = { key[1] .. "down", key[1] .. "up", key[2] .. "Right", key[2] .. "Left" }
-    local prefix = { "r+", "r-", "r+", "r-" }
-    hl.bind(keycombos[i], hl.dsp.window.move({ workspace = prefix[i] .. "1" })) -- # [hidden]
-end
-
-hl.bind("SUPER + ALT + S",
-    hl.dsp.window.move({ workspace = "special:special", follow = false }), { description = "Window: Send to scratchpad" })
-hl.bind("CTRL + SUPER + S", hl.dsp.workspace.toggle_special("special"))
-
---##! Workspace
---# Switching
---#/# bind = SUPER, Hash,, -- Focus workspace -- (1, 2, 3,...)
-for i = 1, 10 do
-    hl.bind("SUPER + " .. (i % 10), function()
-        hl.dispatch(hl.dsp.focus({ workspace = workspace_in_group(i) }))
-    end, { description = "Workspace: Focus " .. i })
-end
---# We also use raw keycodes because some keyboard layouts register number keys as different chars. The codes can be verified with `wev`
-for i = 1, 10 do
-    local numberkey = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }
-    hl.bind("SUPER + code:" .. numberkey[i], function()
-        hl.dispatch(hl.dsp.focus({ workspace = workspace_in_group(i) }))
-    end)
-end
---# keypad numbers
-for i = 1, 10 do
-    local numpadkey = { 87, 88, 89, 83, 84, 85, 79, 80, 81, 90 }
-    hl.bind("SUPER + code:" .. numpadkey[i], function()
-        hl.dispatch(hl.dsp.focus({ workspace = workspace_in_group(i) }))
-    end)
-end
-
---#/# bind = CTRL+SUPER, ←/→,, -- Focus left/right
---#/# bind = CTRL+SUPER+ALT, ←/→,, -- # [hidden] Focus busy left/right
-for i = 1, 2 do
-    local keys = { "Left", "Right" }
-    local prefix = { "r-", "r+" }
-    local descdir = { "left", "right" }
-    hl.bind("CTRL + SUPER + " .. keys[i], hl.dsp.focus({ workspace = prefix[i] .. "1" }), {description = "Workspace: Focus " .. descdir[i]})
-end
-for i = 1, 2 do
-    local keys = { "Left", "Right" }
-    local prefix = { "m-", "m+" }
-    hl.bind("CTRL + SUPER + ALT + " .. keys[i], hl.dsp.focus({ workspace = prefix[i] .. "1" }))
-end
---#/# bind = SUPER, Page_↑/↓,, -- Focus left/right
-for i = 1, 4 do
-    local key = { "SUPER + Page_Down", "SUPER + Page_Up" }
-    local keycombos = { key[1], key[2], "CTRL + " .. key[1], "CTRL + " .. key[2] }
-    local prefix = { "r+", "r-", "r+", "r-" }
-    hl.bind(keycombos[i], hl.dsp.focus({ workspace = prefix[i] .. "1" }))
-end
---#/# bind = SUPER, Scroll ↑/↓,, -- Focus left/right
-for i = 1, 4 do
-    local key = { "SUPER + mouse_up", "SUPER + mouse_down" }
-    local keycombos = { key[1], key[2], "CTRL + " .. key[1], "CTRL + " .. key[2] }
-    local prefix = { "+", "-", "r+", "r-" }
-    hl.bind(keycombos[i], hl.dsp.focus({ workspace = prefix[i] .. "1" }))
-end
---## Special
-hl.bind("SUPER + S", hl.dsp.workspace.toggle_special("special"), { description = "Workspace: Toggle scratchpad" })
-hl.bind("SUPER + mouse:275", hl.dsp.workspace.toggle_special("special"))
-for i = 1, 4 do
-    local key = { "BracketLeft", "BracketRight", "Up", "Down" }
-    local prefix = { "-1", "+1", "r-5", "r+5" }
-    hl.bind("CTRL + SUPER + " .. key[i], hl.dsp.focus({ workspace = prefix[i] }))
-end
-
---##! Virtual machines
-hl.define_submap("virtual-machine", function()
-    hl.bind("SUPER + ALT + F1", function()
-        local currentsubmap = hl.get_current_submap()
-        if currentsubmap == "virtual-machine" then
-            hl.dispatch(hl.dsp.exec_cmd(
-                "notify-send 'Exited Virtual Machine submap' 'Keybinds re-enabled' -a 'Hyprland'"))
-            hl.dispatch(hl.dsp.submap("reset"))
-        elseif currentsubmap == "" then
-            hl.dispatch(hl.dsp.exec_cmd(
-                "notify-send 'Entered Virtual Machine submap' 'Keybinds disabled. hit SUPER+ALT+F1 to escape' -a 'Hyprland'"))
-            hl.dispatch(hl.dsp.submap("virtual-machine"))
+    local function toggle_search_on_release(key)
+        if not search_release_armed[key] then
+            return
         end
-    end, { submap_universal = true })
+
+        interrupt_search_release()
+        hl.dispatch(exec([=[qs -c $qsConfig ipc call search toggle || pkill fuzzel || fuzzel]=]))
+    end
+
+    -- A catchall bind only runs when no regular bind matches. Wrap every
+    -- configured Super shortcut as well, so Super+2/Super+D/etc. disarm the
+    -- standalone-Super action before running their original dispatcher.
+    local raw_bind = bind
+    local function bind(modifiers, key, dispatcher, options)
+        local has_super = modifiers:upper():find("SUPER", 1, true) ~= nil
+        local is_super_key = key == "Super_L" or key == "Super_R"
+
+        if has_super and not is_super_key then
+            local original_dispatcher = dispatcher
+            dispatcher = function(...)
+                interrupt_search_release()
+
+                if type(original_dispatcher) == "function" then
+                    return original_dispatcher(...)
+                end
+
+                return hl.dispatch(original_dispatcher)
+            end
+        end
+
+        return raw_bind(modifiers, key, dispatcher, options)
+    end
+
+    bind("Super", "Super_L", function()
+        arm_search_release("Super_L")
+    end, {
+        ignore_mods = true,
+        transparent = true,
+        description = "Toggle search",
+    })
+    bind("Super", "Super_R", function()
+        arm_search_release("Super_R")
+    end, {
+        ignore_mods = true,
+        transparent = true,
+        description = "Toggle search",
+    }) -- [hidden]
+    bind("Super", "Super_L", function()
+        toggle_search_on_release("Super_L")
+    end, {
+        ignore_mods = true,
+        release = true,
+        transparent = true,
+    }) -- [hidden]
+    bind("Super", "Super_R", function()
+        toggle_search_on_release("Super_R")
+    end, {
+        ignore_mods = true,
+        release = true,
+        transparent = true,
+    }) -- [hidden]
+    hl.bind("catchall", interrupt_search_release, {
+        transparent = true,
+        non_consuming = true,
+    }) -- [hidden]
+    bind("Ctrl", "Super_L", interrupt_search_release) -- [hidden]
+    bind("Ctrl", "Super_R", interrupt_search_release) -- [hidden]
+    bind("Super", "mouse:272", interrupt_search_release) -- [hidden]
+    bind("Super", "mouse:273", interrupt_search_release) -- [hidden]
+    bind("Super", "mouse:274", interrupt_search_release) -- [hidden]
+    bind("Super", "mouse:275", interrupt_search_release) -- [hidden]
+    bind("Super", "mouse:276", interrupt_search_release) -- [hidden]
+    bind("Super", "mouse:277", interrupt_search_release) -- [hidden]
+    bind("Super", "mouse_up", interrupt_search_release) -- [hidden]
+    bind("Super", "mouse_down", interrupt_search_release) -- [hidden]
+
+    bind("", "Super_L", hl.dsp.global("quickshell:workspaceNumber"), {
+        ignore_mods = true,
+        transparent = true,
+    }) -- [hidden]
+    bind("", "Super_R", hl.dsp.global("quickshell:workspaceNumber"), {
+        ignore_mods = true,
+        transparent = true,
+    }) -- [hidden]
+    bind("", "Super_L", hl.dsp.global("quickshell:workspaceNumber"), {
+        ignore_mods = true,
+        release = true,
+        transparent = true,
+    }) -- [hidden]
+    bind("", "Super_R", hl.dsp.global("quickshell:workspaceNumber"), {
+        ignore_mods = true,
+        release = true,
+        transparent = true,
+    }) -- [hidden]
+    bind("Super", "Tab", hl.dsp.global("quickshell:overviewWorkspacesToggle")) -- Toggle overview
+    bind("Super", "V", hl.dsp.global("quickshell:overviewClipboardToggle"), {
+        description = "Clipboard history >> clipboard",
+    })
+    bind("Super", "Period", hl.dsp.global("quickshell:overviewEmojiToggle"), {
+        description = "Emoji >> clipboard",
+    })
+    bind("Super", "A", hl.dsp.global("quickshell:sidebarLeftToggle")) -- Toggle left sidebar
+    bind("Super", "O", hl.dsp.global("quickshell:sidebarLeftToggle")) -- [hidden]
+    bind("Super", "N", hl.dsp.global("quickshell:sidebarRightToggle"), {
+        description = "Toggle right sidebar",
+    })
+    bind("Super", "Slash", hl.dsp.global("quickshell:cheatsheetToggle"), {
+        description = "Toggle cheatsheet",
+    })
+    bind("Super", "K", hl.dsp.global("quickshell:oskToggle"), {
+        description = "Toggle on-screen keyboard",
+    })
+    bind("Super", "M", hl.dsp.global("quickshell:mediaControlsToggle"), {
+        description = "Toggle media controls",
+    })
+    bind("Super", "G", hl.dsp.global("quickshell:overlayToggle")) -- Toggle overlay
+    bind("Ctrl+Alt", "Delete", hl.dsp.global("quickshell:sessionToggle"), {
+        description = "Toggle session menu",
+    })
+    bind("Super", "J", hl.dsp.global("quickshell:barToggle"), {
+        description = "Toggle bar",
+    })
+    bind("Ctrl+Alt", "Delete", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pkill wlogout || wlogout -p layer-shell]=])) -- [hidden]
+    bind("Shift+Super+Alt", "Slash", exec([=[qs -p ~/.config/quickshell/$qsConfig/welcome.qml]=])) -- [hidden]
+
+    bind("", "XF86MonBrightnessUp", exec([=[qs -c $qsConfig ipc call brightness increment || brightnessctl s 5%+]=]), {
+        locked = true,
+        repeating = true,
+    }) -- [hidden]
+    bind("", "XF86MonBrightnessDown", exec([=[qs -c $qsConfig ipc call brightness decrement || brightnessctl s 5%-]=]), {
+        locked = true,
+        repeating = true,
+    }) -- [hidden]
+    bind("", "XF86AudioRaiseVolume", exec([=[wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%+ -l 1.5]=]), {
+        locked = true,
+        repeating = true,
+    }) -- [hidden]
+    bind("", "XF86AudioLowerVolume", exec([=[wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-]=]), {
+        locked = true,
+        repeating = true,
+    }) -- [hidden]
+
+    bind("", "XF86AudioMute", exec([=[wpctl set-mute @DEFAULT_SINK@ toggle]=]), { locked = true }) -- [hidden]
+    bind("Super+Shift", "M", exec([=[wpctl set-mute @DEFAULT_SINK@ toggle]=]), {
+        locked = true,
+        description = "Toggle mute",
+    }) -- [hidden]
+    bind("Alt", "XF86AudioMute", exec([=[wpctl set-mute @DEFAULT_SOURCE@ toggle]=]), { locked = true }) -- [hidden]
+    bind("", "XF86AudioMicMute", exec([=[wpctl set-mute @DEFAULT_SOURCE@ toggle]=]), { locked = true }) -- [hidden]
+    bind("Super+Alt", "M", exec([=[wpctl set-mute @DEFAULT_SOURCE@ toggle]=]), {
+        locked = true,
+        description = "Toggle mic",
+    }) -- [hidden]
+    bind("Ctrl+Super", "T", hl.dsp.global("quickshell:wallpaperSelectorToggle"), {
+        description = "Toggle wallpaper selector",
+    })
+    bind("Ctrl+Super+Alt", "T", hl.dsp.global("quickshell:wallpaperSelectorRandom"), {
+        description = "Select random wallpaper",
+    })
+    bind("Ctrl+Super", "T", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || ~/.config/quickshell/$qsConfig/scripts/colors/switchwall.sh]=]), {
+        description = "Change wallpaper",
+    }) -- [hidden]
+    bind("Ctrl+Super", "R", exec([=[killall ydotool qs quickshell; qs -c $qsConfig &]=])) -- Restart widgets
+    bind("Ctrl+Super", "P", hl.dsp.global("quickshell:panelFamilyCycle")) -- Cycle panel family
+
+    -- Utilities: screenshots, recording, OCR, color picker, clipboard and AI.
+    bind("Super", "V", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pkill fuzzel || cliphist list | fuzzel --match-mode fzf --dmenu | cliphist decode | wl-copy]=]), {
+        description = "Copy clipboard history entry",
+    }) -- [hidden]
+    bind("Super", "Period", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pkill fuzzel || ~/.config/hypr/hyprland/scripts/fuzzel-emoji.sh copy]=]), {
+        description = "Copy an emoji",
+    }) -- [hidden]
+    bind("Super+Shift", "S", hl.dsp.global("quickshell:regionScreenshot")) -- Screen snip
+    bind("Super+Shift", "S", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pidof slurp || hyprshot --freeze --clipboard-only --mode region --silent]=])) -- [hidden]
+    bind("Super+Shift", "A", hl.dsp.global("quickshell:regionSearch")) -- Google Lens
+    bind("Super+Shift", "A", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pidof slurp || ~/.config/hypr/hyprland/scripts/snip_to_search.sh]=])) -- [hidden]
+    bind("Super+Shift", "X", hl.dsp.global("quickshell:regionOcr")) -- Character recognition >> clipboard
+    bind("Super+Shift", "T", hl.dsp.global("quickshell:screenTranslate")) -- Translate screen content
+    bind("Super+Shift", "X", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pidof slurp || grim -g "$(slurp $SLURP_ARGS)" "/tmp/ocr_image.png" && tesseract "/tmp/ocr_image.png" stdout -l $(tesseract --list-langs | awk 'NR>1{print $1}' | tr '\n' '+' | sed 's/\+$/\n/') | wl-copy && rm "/tmp/ocr_image.png"]=])) -- [hidden]
+    bind("Super+Shift", "C", exec([=[hyprpicker -a]=]), {
+        description = "Color picker",
+    }) -- Pick color (Hex) >> clipboard
+    bind("Super+Shift", "R", hl.dsp.global("quickshell:regionRecord"), { locked = true }) -- Record region (no sound)
+    bind("Super+Shift", "R", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || ~/.config/quickshell/$qsConfig/scripts/videos/record.sh]=]), { locked = true }) -- [hidden]
+    bind("Super+Alt", "R", hl.dsp.global("quickshell:regionRecord"), { locked = true }) -- [hidden]
+    bind("Super+Alt", "R", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || ~/.config/quickshell/$qsConfig/scripts/videos/record.sh]=]), { locked = true }) -- [hidden]
+    bind("Ctrl+Alt", "R", exec([=[~/.config/quickshell/$qsConfig/scripts/videos/record.sh --fullscreen]=]), { locked = true }) -- [hidden]
+    bind("Super+Shift+Alt", "R", exec([=[~/.config/quickshell/$qsConfig/scripts/videos/record.sh --fullscreen --sound]=]), { locked = true }) -- Record screen (with sound)
+    bind("", "Print", exec([=[grim -o "$(hyprctl activeworkspace -j | jq -r '.monitor')" - | wl-copy]=]), { locked = true }) -- Screenshot >> clipboard
+    bind("Ctrl", "Print", exec([=[mkdir -p $(xdg-user-dir PICTURES)/Screenshots && grim -o "$(hyprctl activeworkspace -j | jq -r '.monitor')" $(xdg-user-dir PICTURES)/Screenshots/Screenshot_"$(date '+%Y-%m-%d_%H.%M.%S')".png]=]), {
+        locked = true,
+        non_consuming = true,
+    }) -- Screenshot >> clipboard & file
+    bind("Ctrl", "Print", exec([=[grim -o "$(hyprctl activeworkspace -j | jq -r '.monitor')" - | wl-copy]=]), {
+        locked = true,
+        non_consuming = true,
+    }) -- [hidden]
+    bind("Super+Shift+Alt", "mouse:273", exec([=[~/.config/hypr/hyprland/scripts/ai/primary-buffer-query.sh]=]), {
+        description = "Generate AI summary for selected text",
+    }) -- [hidden]
+
+    -- Window focus and movement.
+    bind("Super", "mouse:272", hl.dsp.window.drag(), { mouse = true }) -- Move
+    bind("Super", "mouse:274", hl.dsp.window.drag(), { mouse = true }) -- [hidden]
+    bind("Super", "mouse:273", hl.dsp.window.resize(), { mouse = true }) -- Resize
+    bind("Super", "Left", hl.dsp.focus({ direction = "l" })) -- [hidden]
+    bind("Super", "Right", hl.dsp.focus({ direction = "r" })) -- [hidden]
+    bind("Super", "Up", hl.dsp.focus({ direction = "u" })) -- [hidden]
+    bind("Super", "Down", hl.dsp.focus({ direction = "d" })) -- [hidden]
+    bind("Super", "BracketLeft", hl.dsp.focus({ direction = "l" })) -- [hidden]
+    bind("Super", "BracketRight", hl.dsp.focus({ direction = "r" })) -- [hidden]
+    bind("Super+Shift", "Left", hl.dsp.window.move({ direction = "l" })) -- [hidden]
+    bind("Super+Shift", "Right", hl.dsp.window.move({ direction = "r" })) -- [hidden]
+    bind("Super+Shift", "Up", hl.dsp.window.move({ direction = "u" })) -- [hidden]
+    bind("Super+Shift", "Down", hl.dsp.window.move({ direction = "d" })) -- [hidden]
+    bind("Alt", "F4", hl.dsp.window.close()) -- [hidden] Close (Windows)
+    bind("Super", "Q", hl.dsp.window.close()) -- Close
+    bind("Super+Shift+Alt", "Q", exec([=[hyprctl kill]=])) -- Forcefully zap a window
+
+    bind("Super", "Semicolon", hl.dsp.layout("splitratio -0.1"), { repeating = true }) -- [hidden]
+    bind("Super", "Apostrophe", hl.dsp.layout("splitratio +0.1"), { repeating = true }) -- [hidden]
+    bind("Super+Alt", "Space", hl.dsp.window.float()) -- Float/Tile
+    bind("Super", "D", hl.dsp.window.fullscreen({ mode = "maximized" })) -- Maximize
+    bind("Super", "F", hl.dsp.window.fullscreen({ mode = "fullscreen" })) -- Fullscreen
+    bind("Super+Alt", "F", hl.dsp.window.fullscreen_state({ internal = 0, client = 3 })) -- Fullscreen spoof
+    bind("Super", "P", hl.dsp.window.pin()) -- Pin
+
+    -- Move windows to numbered workspaces using raw keycodes.
+    local number_keycodes = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }
+    for workspace, keycode in ipairs(number_keycodes) do
+        bind("Super+Alt", "code:" .. keycode, exec("~/.config/hypr/hyprland/scripts/workspace_action.sh movetoworkspacesilent " .. workspace)) -- [hidden]
+    end
+
+    local keypad_keycodes = { 87, 88, 89, 83, 84, 85, 79, 80, 81, 90 }
+    for workspace, keycode in ipairs(keypad_keycodes) do
+        bind("Super+Alt", "code:" .. keycode, exec("~/.config/hypr/hyprland/scripts/workspace_action.sh movetoworkspacesilent " .. workspace)) -- [hidden]
+    end
+
+    bind("Super+Shift", "mouse_down", hl.dsp.window.move({ workspace = "r-1", follow = true })) -- [hidden]
+    bind("Super+Shift", "mouse_up", hl.dsp.window.move({ workspace = "r+1", follow = true })) -- [hidden]
+    bind("Super+Alt", "mouse_down", hl.dsp.window.move({ workspace = "-1", follow = true })) -- [hidden]
+    bind("Super+Alt", "mouse_up", hl.dsp.window.move({ workspace = "+1", follow = true })) -- [hidden]
+    bind("Super+Alt", "Page_Down", hl.dsp.window.move({ workspace = "+1", follow = true })) -- [hidden]
+    bind("Super+Alt", "Page_Up", hl.dsp.window.move({ workspace = "-1", follow = true })) -- [hidden]
+    bind("Super+Shift", "Page_Down", hl.dsp.window.move({ workspace = "r+1", follow = true })) -- [hidden]
+    bind("Super+Shift", "Page_Up", hl.dsp.window.move({ workspace = "r-1", follow = true })) -- [hidden]
+    bind("Ctrl+Super+Shift", "Right", hl.dsp.window.move({ workspace = "r+1", follow = true })) -- [hidden]
+    bind("Ctrl+Super+Shift", "Left", hl.dsp.window.move({ workspace = "r-1", follow = true })) -- [hidden]
+
+    bind("Super+Alt", "S", hl.dsp.window.move({ workspace = "special", follow = false })) -- Send to scratchpad
+    bind("Ctrl+Super", "S", hl.dsp.workspace.toggle_special("")) -- [hidden]
+
+    -- Workspace switching.
+    for workspace, keycode in ipairs(number_keycodes) do
+        bind("Super", "code:" .. keycode, exec("~/.config/hypr/hyprland/scripts/workspace_action.sh workspace " .. workspace)) -- [hidden]
+    end
+
+    for workspace, keycode in ipairs(keypad_keycodes) do
+        bind("Super", "code:" .. keycode, exec("~/.config/hypr/hyprland/scripts/workspace_action.sh workspace " .. workspace), {
+            dont_inhibit = true,
+        }) -- [hidden]
+    end
+
+    bind("Ctrl+Super", "Right", hl.dsp.focus({ workspace = "r+1" })) -- [hidden]
+    bind("Ctrl+Super", "Left", hl.dsp.focus({ workspace = "r-1" })) -- [hidden]
+    bind("Ctrl+Super+Alt", "Right", hl.dsp.focus({ workspace = "m+1" })) -- [hidden]
+    bind("Ctrl+Super+Alt", "Left", hl.dsp.focus({ workspace = "m-1" })) -- [hidden]
+    bind("Super", "Page_Down", hl.dsp.focus({ workspace = "+1" })) -- [hidden]
+    bind("Super", "Page_Up", hl.dsp.focus({ workspace = "-1" })) -- [hidden]
+    bind("Ctrl+Super", "Page_Down", hl.dsp.focus({ workspace = "r+1" })) -- [hidden]
+    bind("Ctrl+Super", "Page_Up", hl.dsp.focus({ workspace = "r-1" })) -- [hidden]
+    bind("Super", "mouse_up", hl.dsp.focus({ workspace = "+1" })) -- [hidden]
+    bind("Super", "mouse_down", hl.dsp.focus({ workspace = "-1" })) -- [hidden]
+    bind("Ctrl+Super", "mouse_up", hl.dsp.focus({ workspace = "r+1" })) -- [hidden]
+    bind("Ctrl+Super", "mouse_down", hl.dsp.focus({ workspace = "r-1" })) -- [hidden]
+
+    bind("Super", "S", hl.dsp.workspace.toggle_special("")) -- Toggle scratchpad
+    bind("Super", "mouse:275", hl.dsp.workspace.toggle_special("")) -- [hidden]
+    bind("Ctrl+Super", "BracketLeft", hl.dsp.focus({ workspace = "-1" })) -- [hidden]
+    bind("Ctrl+Super", "BracketRight", hl.dsp.focus({ workspace = "+1" })) -- [hidden]
+    bind("Ctrl+Super", "Up", hl.dsp.focus({ workspace = "r-5" })) -- [hidden]
+    bind("Ctrl+Super", "Down", hl.dsp.focus({ workspace = "r+5" })) -- [hidden]
+
+    -- Virtual machine passthrough submap.
+    bind("Super+Alt", "F1", exec([=[notify-send 'Entered Virtual Machine submap' 'Keybinds disabled. Hit Super+Alt+F1 to escape' -a 'Hyprland' && hyprctl dispatch 'hl.dsp.submap("virtual-machine")']=])) -- Disable keybinds
+    hl.define_submap("virtual-machine", function()
+        bind("Super+Alt", "F1", exec([=[notify-send 'Exited Virtual Machine submap' 'Keybinds re-enabled' -a 'Hyprland' && hyprctl dispatch 'hl.dsp.submap("global")']=])) -- [hidden]
+    end)
+
+    -- Testing.
+    bind("Super+Alt", "f11", exec([=[bash -c 'RANDOM_IMAGE=$(find ~/Pictures -type f | grep -v -i "nipple" | grep -v -i "pussy" | shuf -n 1); ACTION=$(notify-send "Test notification with body image" "This notification should contain your user account <b>image</b> and <a href=\"https://discord.com/app\">Discord</a> <b>icon</b>. Oh and here is a random image in your Pictures folder: <img src=\"$RANDOM_IMAGE\" alt=\"Testing image\"/>" -a "Hyprland keybind" -p -h "string:image-path:/var/lib/AccountsService/icons/$USER" -t 6000 -i "discord" -A "openImage=Profile image" -A "action2=Open the random image" -A "action3=Useless button"); [[ $ACTION == *openImage ]] && xdg-open "/var/lib/AccountsService/icons/$USER"; [[ $ACTION == *action2 ]] && xdg-open \"$RANDOM_IMAGE\"']=])) -- [hidden]
+    bind("Super+Alt", "f12", exec([=[bash -c 'RANDOM_IMAGE=$(find ~/Pictures -type f | grep -v -i "nipple" | grep -v -i "pussy" | shuf -n 1); ACTION=$(notify-send "Test notification" "This notification should contain a random image in your <b>Pictures</b> folder and <a href=\"https://discord.com/app\">Discord</a> <b>icon</b>.\n<i>Flick right to dismiss!</i>" -a "Discord (fake)" -p -h "string:image-path:$RANDOM_IMAGE" -t 6000 -i "discord" -A "openImage=Profile image" -A "action2=Useless button"); [[ $ACTION == *openImage ]] && xdg-open "/var/lib/AccountsService/icons/$USER"']=])) -- [hidden]
+    bind("Super+Alt", "Equal", exec([=[notify-send "Urgent notification" "Ah hell no" -u critical -a 'Hyprland keybind']=])) -- [hidden]
+
+    -- Session.
+    bind("Super", "L", exec([=[loginctl lock-session]=]), { description = "Lock" })
+    bind("Super+Shift", "L", exec([=[systemctl suspend || loginctl suspend]=]), {
+        locked = true,
+        description = "Suspend system",
+    })
+    bind("Ctrl+Shift+Alt+Super", "Delete", exec([=[systemctl poweroff || loginctl poweroff]=]), {
+        description = "Shutdown",
+    }) -- [hidden]
+
+    -- Screen zoom.
+    bind("Super", "Minus", exec([=[~/.config/hypr/hyprland/scripts/zoom.sh decrease 0.3]=]), { repeating = true }) -- Zoom out
+    bind("Super", "Equal", exec([=[~/.config/hypr/hyprland/scripts/zoom.sh increase 0.3]=]), { repeating = true }) -- Zoom in
+    bind("Super", "code:82", exec([=[qs -c $qsConfig ipc call zoom zoomOut]=]), { repeating = true }) -- [hidden]
+    bind("Super", "code:86", exec([=[qs -c $qsConfig ipc call zoom zoomIn]=]), { repeating = true }) -- [hidden]
+    bind("Super", "code:82", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || ~/.config/hypr/hyprland/scripts/zoom.sh decrease 0.1]=]), { repeating = true }) -- [hidden]
+    bind("Super", "code:86", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || ~/.config/hypr/hyprland/scripts/zoom.sh increase 0.1]=]), { repeating = true }) -- [hidden]
+
+    -- Media.
+    local next_track = [=[playerctl next || playerctl position `bc <<< "100 * $(playerctl metadata mpris:length) / 1000000 / 100"`]=]
+    bind("Super+Shift", "N", exec(next_track), { locked = true }) -- Next track
+    bind("", "XF86AudioNext", exec(next_track), { locked = true }) -- [hidden]
+    bind("", "XF86AudioPrev", exec([=[playerctl previous]=]), { locked = true }) -- [hidden]
+    bind("Super+Shift+Alt", "mouse:275", exec([=[playerctl previous]=])) -- [hidden]
+    bind("Super+Shift+Alt", "mouse:276", exec(next_track)) -- [hidden]
+    bind("Super+Shift", "B", exec([=[playerctl previous]=]), { locked = true }) -- Previous track
+    bind("Super+Shift", "P", exec([=[playerctl play-pause]=]), { locked = true }) -- Play/pause media
+    bind("", "XF86AudioPlay", exec([=[playerctl play-pause]=]), { locked = true }) -- [hidden]
+    bind("", "XF86AudioPause", exec([=[playerctl play-pause]=]), { locked = true }) -- [hidden]
+
+    -- Applications.
+    bind("Super", "I", exec("$settingsApp")) -- Settings app
+    bind("Ctrl+Shift", "Escape", exec("$taskManager")) -- Task manager
+
+    bind("SUPER", "RETURN", exec([=[kitty -- zsh -lc 'tmux new-session']=]))
+    bind("Super", "E", exec("$fileManager")) -- File manager
+    bind("Super", "B", exec([=[brave]=])) -- Launch Brave
+    bind("Super+Shift", "B", exec([=[firefox]=])) -- Launch Firefox
+    bind("Super", "C", exec([=[HTTP_PROXY="http://127.0.0.1:12334" HTTPS_PROXY="http://127.0.0.1:12334" NO_PROXY="localhost,127.0.0.1" code]=])) -- Launch Code
+    bind("Super", "h", exec([=[hiddify]=])) -- VPN
+    bind("Super+Shift", "W", exec([=[libreoffice]=])) -- Launch LibreOffice
+    bind("Super", "T", exec([=[Telegram]=])) -- Launch Telegram
+    bind("Super", "X", exec([=[~/.config/hypr/hyprland/scripts/launch_first_available.sh "kate" "gnome-text-editor" "emacs"]=])) -- Text editor
+    bind("Ctrl+Super", "V", exec("$volumeMixer")) -- Volume mixer
+    bind("Ctrl+Shift", "Escape", exec([=[~/.config/hypr/hyprland/scripts/launch_first_available.sh "gnome-system-monitor" "plasma-systemmonitor --page-name Processes" "command -v btop && kitty -1 fish -c btop"]=])) -- Task manager
+    bind("Super", "I", exec("$settingsApp")) -- Settings app
+
+    bind("Super", "Space", hl.dsp.global("kando:example-menu")) -- Kando fast opener
+
+    -- Cursed stuff: make a window not amogus large.
+    bind("Ctrl+Super", "Backslash", hl.dsp.window.resize({ x = 640, y = 480 })) -- [hidden]
+
+    -- Custom keybinds are sourced last, matching the legacy config order.
+    require("custom.keybinds").setup({
+        bind = bind,
+        unbind = h.unbind,
+        exec = exec,
+    })
+    end)
+
+-- A start event replaces the legacy config-time `hyprctl dispatch submap global`.
+-- Dispatching during Lua config parsing crashes Hyprland 0.56.1 verify-config.
+hl.on("hyprland.start", function()
+    hl.dispatch(hl.dsp.submap("global"))
 end)
-
-
---#!
---# Testing
-hl.bind("SUPER + ALT + F11",
-    hl.dsp.exec_cmd(
-        "bash -c 'RANDOM_IMAGE=$(find ~/Pictures -type f | shuf -n 1); ACTION=$(notify-send \"Test notification with body image\" \"This notification should contain your user account <b>image</b> and <a href=\\\"https://discord.com/app\\\">Discord</a> <b>icon</b>. Oh and here is a random image in your Pictures folder: <img src=\\\"$RANDOM_IMAGE\\\" alt=\\\"Testing image\\\"/>\" -a \"Hyprland\" -p -h \"string:image-path:/var/lib/AccountsService/icons/$USER\" -t 6000 -i \"discord\" -A \"openImage=Profile image\" -A \"action2=Open the random image\" -A \"action3=Useless button\"); [[ $ACTION == *openImage ]] && xdg-open \"/var/lib/AccountsService/icons/$USER\"; [[ $ACTION == *action2 ]] && xdg-open \"$RANDOM_IMAGE\"'")
-) -- # [hidden]
-hl.bind("SUPER + ALT + F12",
-    hl.dsp.exec_cmd(
-        "bash -c 'RANDOM_IMAGE=$(find ~/Pictures -type f | shuf -n 1); ACTION=$(notify-send \"Test notification\" \"This notification should contain a random image in your <b>Pictures</b> folder and <a href=\\\"https://discord.com/app\\\">Discord</a> <b>icon</b>.\n<i>Flick right to dismiss!</i>\" -a \"Discord (fake)\" -p -h \"string:image-path:$RANDOM_IMAGE\" -t 6000 -i \"discord\" -A \"openImage=Profile image\" -A \"action2=Useless button\"); [[ $ACTION == *openImage ]] && xdg-open \"/var/lib/AccountsService/icons/$USER\"'")
-)                                                                                                        -- # [hidden]
-hl.bind("SUPER + ALT + Equal",
-    hl.dsp.exec_cmd("notify-send 'Urgent notification' 'Ah hell no' -u critical -a 'Hyprland keybind'")) -- # [hidden]
-
---##! Session
-hl.bind("SUPER + L", hl.dsp.exec_cmd("loginctl lock-session"), { description = "Session: Lock" })
-hl.bind("SUPER + SHIFT + L", hl.dsp.exec_cmd("systemctl suspend || loginctl suspend"),
-    { locked = true, description = "Session: Sleep" }) -- Sleep
--- hl.bind("switch:on:Lid Switch", hl.dsp.exec_cmd("systemctl suspend || loginctl suspend"), {locked = true} ) -- # [hidden] Suspend when laptop lid is closed, uncomment if for whatever reason it's not the default behavior
-
-hl.bind("CTRL + SHIFT + ALT + SUPER + Delete", hl.dsp.exec_cmd("systemctl poweroff || loginctl poweroff"),
-    { description = "Session: Shut down" }) -- # [hidden] Power off
-
-
---##! Apps
-hl.bind("SUPER + Return", hl.dsp.exec_cmd(terminal), { description = "App: Terminal" })
-hl.bind("SUPER + T", hl.dsp.exec_cmd(terminal))
-hl.bind("CTRL + ALT + T", hl.dsp.exec_cmd(terminal))
-hl.bind("SUPER + E", hl.dsp.exec_cmd(fileManager), { description = "App: File manager" })
-hl.bind("SUPER + W", hl.dsp.exec_cmd(browser), { description = "App: Browser" })
-hl.bind("SUPER + C", hl.dsp.exec_cmd(codeEditor), { description = "App: Code editor" })
-hl.bind("CTRL + SUPER + SHIFT + ALT + W", hl.dsp.exec_cmd(officeSoftware), { description = "App: Office software" })
-hl.bind("SUPER + X", hl.dsp.exec_cmd(textEditor), { description = "App: Text editor" })
-hl.bind("CTRL + SUPER + V", hl.dsp.exec_cmd(volumeMixer), { description = "App: Volume mixer" })
-hl.bind("SUPER + I", hl.dsp.exec_cmd(settingsApp), { description = "App: Settings app" })
-hl.bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd(taskManager), { description = "App: Task manager" })
-
---# Cursed stuff
---## Make window not amogus large
-hl.bind("CTRL + SUPER + Backslash", hl.dsp.window.resize({ x = 640, y = 480, "exact" }))

@@ -190,19 +190,19 @@ Singleton {
         "waifu.im": {
             "name": "waifu.im",
             "url": "https://waifu.im",
-            "api": "https://api.waifu.im/images",
+            "api": "https://api.waifu.im/search",
             "description": Translation.tr("Waifus only | Excellent quality, limited quantity"),
             "mapFunc": (response) => {
-                response = response.items
+                response = response.images
                 return response.map(item => {
                     return {
-                        "id": item.id,
+                        "id": item.image_id,
                         "width": item.width,
                         "height": item.height,
                         "aspect_ratio": item.width / item.height,
                         "tags": item.tags.map(tag => {return tag.name}).join(" "),
-                        "rating": item.isNsfw ? "e" : "s",
-                        "is_nsfw": item.isNsfw,
+                        "rating": item.is_nsfw ? "e" : "s",
+                        "is_nsfw": item.is_nsfw,
                         "md5": item.md5,
                         "preview_url": item.sample_url ?? item.url, // preview_url just says access denied (maybe i fucked up and sent too many requests idk)
                         "sample_url": item.url,
@@ -212,9 +212,10 @@ Singleton {
                     }
                 })
             },
-            "tagSearchTemplate": "https://api.waifu.im/tags?Name={{query}}",
+            "tagSearchTemplate": "https://api.waifu.im/tags",
             "tagMapFunc": (response) => {
-                return response.items.map(item => {return {"name": item.name}})
+                return [...response.versatile.map(item => {return {"name": item}}),
+                    ...response.nsfw.map(item => {return {"name": item}})]
             }
         },
         "t.alcy.cc": {
@@ -275,12 +276,12 @@ Singleton {
     property var currentProvider: Persistent.states.booru.provider
 
     function getWorkingImageSource(url) {
-        if (url?.includes('pximg.net')) {
+        if (url.includes('pximg.net')) {
             return `https://www.pixiv.net/en/artworks/${url.substring(url.lastIndexOf('/') + 1).replace(/_p\d+\.(png|jpg|jpeg|gif)$/, '')}`;
         }
         return url;
     }
-    
+
     function setProvider(provider) {
         provider = provider.toLowerCase()
         if (providerList.indexOf(provider) !== -1) {
@@ -312,9 +313,9 @@ Singleton {
         var url = baseUrl
         var tagString = tags.join(" ")
         if (!nsfw && !(["zerochan", "waifu.im", "t.alcy.cc"].includes(currentProvider))) {
-            if (currentProvider == "gelbooru") 
+            if (currentProvider == "gelbooru")
                 tagString += " rating:general";
-            else 
+            else
                 tagString += " rating:safe";
         }
         var params = []
@@ -329,10 +330,10 @@ Singleton {
         else if (currentProvider === "waifu.im") {
             var tagsArray = tagString.split(" ");
             tagsArray.forEach(tag => {
-                params.push("IncludedTags=" + encodeURIComponent(tag.toLowerCase()));
+                params.push("included_tags=" + encodeURIComponent(tag));
             });
-            params.push("PageSize=" + Math.min(limit, 30)) // Only admin can do > 30
-            params.push("IsNsfw=" + (nsfw ? "All" : "False")) // null is random
+            params.push("limit=" + Math.min(limit, 30)) // Only admin can do > 30
+            params.push("is_nsfw=" + (nsfw ? "null" : "false")) // null is random
         }
         else if (currentProvider === "t.alcy.cc") {
             url += tagString
@@ -386,7 +387,7 @@ Singleton {
                     // console.log("[Booru] Mapped response: " + JSON.stringify(response))
                     newResponse.images = response
                     newResponse.message = response.length > 0 ? "" : root.failMessage
-                    
+
                 } catch (e) {
                     console.log("[Booru] Failed to parse response: " + e)
                     newResponse.message = root.failMessage
@@ -405,8 +406,8 @@ Singleton {
         }
 
         try {
-            // Required for danbooru and konachan
-            if (["danbooru", "konachan"].includes(currentProvider)) {
+            // Required for danbooru
+            if (currentProvider == "danbooru") {
                 xhr.setRequestHeader("User-Agent", defaultUserAgent)
             }
             else if (currentProvider == "zerochan") {
@@ -417,7 +418,7 @@ Singleton {
             xhr.send()
         } catch (error) {
             console.log("Could not set User-Agent:", error)
-        } 
+        }
     }
 
     property var currentTagRequest: null
@@ -457,14 +458,14 @@ Singleton {
         }
 
         try {
-            // Required for danbooru and konachan
-            if (["danbooru", "konachan"].includes(currentProvider)) {
+            // Required for danbooru
+            if (currentProvider == "danbooru") {
                 xhr.setRequestHeader("User-Agent", defaultUserAgent)
             }
             xhr.send()
         } catch (error) {
             console.log("Could not set User-Agent:", error)
-        } 
+        }
     }
 }
 

@@ -1,44 +1,36 @@
--- This file sources other files in `hyprland` and `custom` folders
--- You wanna add your stuff in files in `custom`
+-- Hyprland 0.55+ Lua configuration.
 
--- Internal stuff --
-require("hyprland.lib")
-require("hyprland.services")
-
--- Environment variables --
 require("hyprland.env")
-if is_file_exists(HOME .. "/.config/hypr/custom/env.lua") then
-    require("custom.env")
+require("custom.env")
+
+local variables = require("custom.variables")
+
+if not variables.dont_load_default_execs then
+    require("hyprland.execs")
 end
 
--- Default configurations --
-require("hyprland.execs")
-require("hyprland.general")
-require("hyprland.rules")
-require("hyprland.colors")
-require("hyprland.keybinds")
-
--- Custom configurations --
-if is_file_exists(HOME .. "/.config/hypr/custom/execs.lua") then
-    require("custom.execs")
-end
-if is_file_exists(HOME .. "/.config/hypr/custom/general.lua") then
-    require("custom.general")
-end
-if is_file_exists(HOME .. "/.config/hypr/custom/rules.lua") then
-    require("custom.rules")
-end
-if is_file_exists(HOME .. "/.config/hypr/custom/keybinds.lua") then
-    require("custom.keybinds")
+if not variables.dont_load_default_general then
+    require("hyprland.general")
 end
 
--- nwg-displays support --
-if is_file_exists(HOME .. "/.config/hypr/workspaces.lua") then
-    require("workspaces")
-end
-if is_file_exists(HOME .. "/.config/hypr/monitors.lua") then
-    require("monitors")
+if not variables.dont_load_default_rules then
+    require("hyprland.rules")
 end
 
--- Shell overrides --
+if not variables.dont_load_default_colors then
+    require("hyprland.colors")
+end
+
+if not variables.dont_load_default_keybinds then
+    require("hyprland.keybinds")
+end
+
+require("custom.execs")
+require("custom.general")
+require("custom.rules")
+
+-- nwg-displays compatibility files, converted to Lua.
+require("workspaces")
+require("monitors")
+
 require("hyprland.shellOverrides.main")

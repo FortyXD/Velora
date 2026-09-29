@@ -17,11 +17,12 @@ Item {
         id: iconImage
         anchors.fill: parent
         source: {
-            const fullPathWhenSourceIsIconName = iconFolder + "/" + root.source;
-            if (iconFolder && fullPathWhenSourceIsIconName) {
-                return fullPathWhenSourceIsIconName
-            }
-            return root.source
+            const icon = root.source || "";
+            if (icon.length === 0 || /^(file:|qrc:|https?:|\/)/.test(icon))
+                return icon;
+
+            const iconFile = icon.endsWith(".svg") ? icon : `${icon}.svg`;
+            return `${iconFolder}/${iconFile}`;
         }
         implicitSize: root.height
     }
