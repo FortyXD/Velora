@@ -54,6 +54,7 @@
     },
     "apps": {
         "bluetooth": "kcmshell6 kcm_bluetooth",
+        "changePassword": "kitty -1 --hold=yes fish -i -c 'passwd'",
         "manageUser": "kcmshell6 kcm_users",
         "network": "kcmshell6 kcm_networkmanagement",
         "networkEthernet": "kcmshell6 kcm_networkmanagement",
@@ -167,7 +168,7 @@
             "showColorPicker": false,
             "showDarkModeToggle": false,
             "showKeyboardToggle": true,
-            "showMicToggle": true,
+            "showMicToggle": false,
             "showPerformanceProfileToggle": false,
             "showScreenRecord": true,
             "showScreenSnip": true,
@@ -232,9 +233,7 @@
         ],
         "monochromeIcons": true,
         "pinnedApps": [
-            "org.kde.dolphin",
-            "kitty",
-            "org.telegram.desktop"
+            "org.kde.dolphin"
         ],
         "pinnedOnStartup": false
     },
@@ -313,7 +312,7 @@
         "timeout": 1000
     },
     "osk": {
-        "layout": "Russian",
+        "layout": "English",
         "pinnedOnStartup": false
     },
     "overlay": {
