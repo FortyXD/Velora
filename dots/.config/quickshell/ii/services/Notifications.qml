@@ -28,6 +28,7 @@ Singleton {
         property bool isTransient: notification?.hints.transient ?? false
         property string appIcon: notification?.appIcon ?? ""
         property string appName: notification?.appName ?? ""
+        property string desktopEntry: notification?.desktopEntry ?? ""
         property string body: notification?.body ?? ""
         property string image: notification?.image ?? ""
         property string summary: notification?.summary ?? ""
@@ -48,6 +49,7 @@ Singleton {
             "actions": notif.actions,
             "appIcon": notif.appIcon,
             "appName": notif.appName,
+            "desktopEntry": notif.desktopEntry,
             "body": notif.body,
             "image": notif.image,
             "summary": notif.summary,
@@ -122,6 +124,7 @@ Singleton {
                 groups[notif.appName] = {
                     appName: notif.appName,
                     appIcon: notif.appIcon,
+                    desktopEntry: notif.desktopEntry,
                     notifications: [],
                     time: 0
                 };
@@ -275,8 +278,10 @@ Singleton {
                     "actions": [], // Notification actions are meaningless if they're not tracked by the server or the sender is dead
                     "appIcon": notif.appIcon,
                     "appName": notif.appName,
+                    "desktopEntry": notif.desktopEntry ?? "",
                     "body": notif.body,
-                    "image": notif.image,
+                    // image://qsimage handles belong to the previous session's notifications and are always dead now
+                    "image": (notif.image ?? "").startsWith("image://qsimage/") ? "" : notif.image,
                     "summary": notif.summary,
                     "time": notif.time,
                     "urgency": notif.urgency,
