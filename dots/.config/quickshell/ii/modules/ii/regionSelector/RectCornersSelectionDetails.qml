@@ -15,6 +15,7 @@ Item {
     property bool showAimLines: Config.options.regionSelector.rect.showAimLines
 
     property bool breathingBorderOnly: false
+    property real scale: 1 // Monitor scale, to show the size of the resulting image
 
     // Overlay to darken screen
     // Base dark overlay around region
@@ -71,7 +72,7 @@ Item {
             margins: 8
         }
         color: root.color
-        text: `${Math.round(root.regionWidth)} x ${Math.round(root.regionHeight)}`
+        text: `${Math.round(root.regionWidth * root.scale)} x ${Math.round(root.regionHeight * root.scale)}`
     }
 
     // Coord lines

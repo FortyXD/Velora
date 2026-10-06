@@ -25,21 +25,25 @@ Singleton {
     property string imageSearchEngineBaseUrl: Config.options.search.imageSearch.imageSearchEngineBaseUrl
     property string fileUploadApiEndpoint: "https://uguu.se/upload"
 
-    function getCommand(x, y, width, height, screenshotPath, action, saveDir = "") {
+    // x/y/width/height: crop of the screenshot in physical pixels
+    // recordGeometry: "X,Y WxH" in logical global coordinates for wf-recorder (slurp format)
+    function getCommand(x, y, width, height, screenshotPath, action, saveDir = "", recordGeometry = "") {
         // Set command for action
         const rx = Math.round(x);
         const ry = Math.round(y);
         const rw = Math.round(width);
         const rh = Math.round(height);
-        const cropBase = `magick ${StringUtils.shellSingleQuoteEscape(screenshotPath)} `
+        if (rw < 1 || rh < 1) {
+            // magick treats a 0 size as "up to the image edge", which would capture a random strip
+            console.warn("[Screenshot] Empty region, skipping.");
+            return null;
+        }
+        const cropBase = `magick '${StringUtils.shellSingleQuoteEscape(screenshotPath)}' `
             + `-crop ${rw}x${rh}+${rx}+${ry} +repage`
         const cropToStdout = `${cropBase} -`
         const cropInPlace = `${cropBase} '${StringUtils.shellSingleQuoteEscape(screenshotPath)}'`
         const cleanup = `rm '${StringUtils.shellSingleQuoteEscape(screenshotPath)}'`
-        const slurpRegion = `${rx},${ry} ${rw}x${rh}`
-        const uploadAndGetUrl = (filePath) => {
-            return `curl -sF files[]=@'${StringUtils.shellSingleQuoteEscape(filePath)}' ${root.fileUploadApiEndpoint} | jq -r '.files[0].url'`
-        }
+        const slurpRegion = recordGeometry !== "" ? recordGeometry : `${rx},${ry} ${rw}x${rh}`
         const annotationCommand = `${Config.options.regionSelector.annotation.useSatty ? "satty" : "swappy"} -f -`;
         switch (action) {
             case ScreenshotAction.Action.Copy:
@@ -62,7 +66,11 @@ Singleton {
                 return ["bash", "-c", `${cropToStdout} | ${annotationCommand} && ${cleanup}`]
                 break;
             case ScreenshotAction.Action.Search:
-                return ["bash", "-c", `${cropInPlace} && xdg-open "${root.imageSearchEngineBaseUrl}$(${uploadAndGetUrl(screenshotPath)})" && ${cleanup}`]
+                return ["bash", "-c", `${cropInPlace} && bash '${StringUtils.shellSingleQuoteEscape(Directories.scriptPath + "/images/search-image.sh")}' `
+                    + `'${StringUtils.shellSingleQuoteEscape(screenshotPath)}' `
+                    + `'${StringUtils.shellSingleQuoteEscape(root.imageSearchEngineBaseUrl)}' `
+                    + `'${StringUtils.shellSingleQuoteEscape(root.fileUploadApiEndpoint)}' `
+                    + `'${StringUtils.shellSingleQuoteEscape(Config.options.search.imageSearch.proxyUrl)}'`]
                 break;
             case ScreenshotAction.Action.CharRecognition:
                 return ["bash", "-c", `${cropInPlace} && tesseract '${StringUtils.shellSingleQuoteEscape(screenshotPath)}' stdout -l $(tesseract --list-langs | awk 'NR>1{print $1}' | tr '\\n' '+' | sed 's/\\+$/\\n/') | wl-copy && ${cleanup}`]

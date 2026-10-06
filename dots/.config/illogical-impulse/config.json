@@ -378,6 +378,7 @@
         ],
         "imageSearch": {
             "imageSearchEngineBaseUrl": "https://lens.google.com/uploadbyurl?url=",
+            "proxyUrl": "http://127.0.0.1:12334",
             "useCircleSelection": false
         },
         "nonAppResultDelay": 30,

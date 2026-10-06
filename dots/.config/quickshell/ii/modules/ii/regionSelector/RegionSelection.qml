@@ -51,16 +51,35 @@ PanelWindow {
     property color imageFillColor: ColorUtils.transparentize(imageBorderColor, 0.85)
     property color onBorderColor: "#ff000000"
     property real targetRegionOpacity: Config.options.regionSelector.targetRegions.opacity
-    property bool contentRegionOpacity: Config.options.regionSelector.targetRegions.contentRegionOpacity
+    property real contentRegionOpacity: Config.options.regionSelector.targetRegions.contentRegionOpacity
 
     // Vars for indicators
-    readonly property var windows: [...HyprlandData.windowList].sort((a, b) => {
-        // Sort floating=true windows before others
-        if (a.floating === b.floating) return 0;
-        return a.floating ? -1 : 1;
-    })
+    // Windows that are actually visible on this monitor, topmost first (hit-testing relies on this order)
+    readonly property var windows: {
+        const monitorInfo = HyprlandData.monitors.find(m => m.name === root.screen.name);
+        const specialWorkspaceId = monitorInfo?.specialWorkspace?.id ?? 0;
+        const byFocus = (a, b) => a.focusHistoryID - b.focusHistoryID; // Lower = focused more recently = on top
+        const onThisMonitor = HyprlandData.windowList.filter(w => w.mapped !== false && !w.hidden
+            && (monitorInfo === undefined || w.monitor === monitorInfo.id));
+
+        const special = specialWorkspaceId !== 0 ? onThisMonitor.filter(w => w.workspace.id === specialWorkspaceId) : [];
+        let normal = onThisMonitor.filter(w => w.workspace.id !== specialWorkspaceId
+            && (w.workspace.id === root.activeWorkspaceId || w.pinned));
+
+        // A fullscreen (2) window covers everything; a maximized (1) one covers other tiled windows
+        const fullscreenWindow = normal.filter(w => w.fullscreen > 0).sort(byFocus)[0];
+        if (fullscreenWindow) {
+            normal = fullscreenWindow.fullscreen >= 2 ? [fullscreenWindow]
+                : normal.filter(w => w === fullscreenWindow || w.floating || w.pinned);
+        }
+
+        const above = normal.filter(w => w.floating || w.pinned).sort(byFocus);
+        const tiled = normal.filter(w => !(w.floating || w.pinned)).sort(byFocus);
+        return [...special.sort(byFocus), ...above, ...tiled];
+    }
     readonly property var layers: HyprlandData.layers
     readonly property real falsePositivePreventionRatio: 0.5
+    readonly property real clickThreshold: 4 // Logical px of movement still treated as a click
 
     // Screen & interaction vars
     readonly property HyprlandMonitor hyprlandMonitor: Hyprland.monitorFor(screen)
@@ -75,14 +94,14 @@ PanelWindow {
     property real draggingY: 0
     property real dragDiffX: 0
     property real dragDiffY: 0
-    property bool draggedAway: (dragDiffX !== 0 || dragDiffY !== 0)
+    property bool draggedAway: (Math.abs(dragDiffX) >= clickThreshold || Math.abs(dragDiffY) >= clickThreshold)
     property bool dragging: false
     property list<point> points: []
     property var mouseButton: null
     property var imageRegions: []
-    readonly property list<var> windowRegions: RegionFunctions.filterWindowRegionsByLayers(
-        root.windows.filter(w => w.workspace.id === root.activeWorkspaceId),
-        root.layerRegions
+    readonly property list<var> windowRegions: (root.enableLayerRegions
+        ? RegionFunctions.filterWindowRegionsByLayers(root.windows, root.layerRegions)
+        : root.windows
     ).map(window => {
         return {
             at: [window.at[0] - root.monitorOffsetX, window.at[1] - root.monitorOffsetY],
@@ -96,6 +115,7 @@ PanelWindow {
         const topLayers = layersOfThisMonitor?.levels["2"]
         if (!topLayers) return [];
         const nonBarTopLayers = topLayers
+            .filter(layer => layer.w > 1 && layer.h > 1 && layer.namespace !== "quickshell") // e.g. the 1x1 idle inhibitor
             .filter(layer => !(layer.namespace.includes(":bar") || layer.namespace.includes(":verticalBar") || layer.namespace.includes(":dock")))
             .map(layer => {
             return {
@@ -150,7 +170,7 @@ PanelWindow {
         }
 
         // Layer regions
-        const clickedLayer = root.layerRegions.find(region => {
+        const clickedLayer = root.enableLayerRegions && root.layerRegions.find(region => {
             return region.at[0] <= x && x <= region.at[0] + region.size[0] && region.at[1] <= y && y <= region.at[1] + region.size[1];
         });
         if (clickedLayer) {
@@ -162,7 +182,7 @@ PanelWindow {
         }
 
         // Window regions
-        const clickedWindow = root.windowRegions.find(region => {
+        const clickedWindow = root.enableWindowRegions && root.windowRegions.find(region => {
             return region.at[0] <= x && x <= region.at[0] + region.size[0] && region.at[1] <= y && y <= region.at[1] + region.size[1];
         });
         if (clickedWindow) {
@@ -183,6 +203,12 @@ PanelWindow {
     property real regionHeight: Math.abs(draggingY - dragStartY)
     property real regionX: Math.min(dragStartX, draggingX)
     property real regionY: Math.min(dragStartY, draggingY)
+
+    Component.onCompleted: {
+        // Layer open/close events don't refresh HyprlandData, so make sure it's current
+        HyprlandData.updateLayers();
+        HyprlandData.updateMonitors();
+    }
 
     // Screenshot stuff
     TempScreenshotProcess {
@@ -218,18 +244,32 @@ PanelWindow {
         root.visible = true;
     }
 
+    // The detector works on the grim image, which is in physical pixels: convert sizes there and back
     Process {
         id: imageDetectionProcess
-        command: ["bash", "-c", `${Directories.scriptPath}/images/find-regions-venv.sh ` 
-            + `--hyprctl ` 
-            + `--image '${StringUtils.shellSingleQuoteEscape(root.screenshotPath)}' ` 
-            + `--max-width ${Math.round(root.screen.width * root.falsePositivePreventionRatio)} ` 
-            + `--max-height ${Math.round(root.screen.height * root.falsePositivePreventionRatio)} `]
+        command: ["bash", "-c", `${Directories.scriptPath}/images/find-regions-venv.sh `
+            + `--hyprctl `
+            + `--image '${StringUtils.shellSingleQuoteEscape(root.screenshotPath)}' `
+            + `--min-width ${Math.round(200 * root.monitorScale)} `
+            + `--min-height ${Math.round(100 * root.monitorScale)} `
+            + `--max-width ${Math.round(root.screen.width * root.monitorScale * root.falsePositivePreventionRatio)} `
+            + `--max-height ${Math.round(root.screen.height * root.monitorScale * root.falsePositivePreventionRatio)} `]
         stdout: StdioCollector {
             id: imageDimensionCollector
             onStreamFinished: {
+                let detected = [];
+                try {
+                    detected = JSON.parse(imageDimensionCollector.text);
+                } catch (e) {
+                    console.warn("[Region Selector] Could not parse content regions:", e);
+                    return;
+                }
+                const scale = root.monitorScale;
                 imageRegions = RegionFunctions.filterImageRegions(
-                    JSON.parse(imageDimensionCollector.text),
+                    detected.map(region => ({
+                        at: [region.at[0] / scale, region.at[1] / scale],
+                        size: [region.size[0] / scale, region.size[1] / scale],
+                    })),
                     root.windowRegions
                 );
             }
@@ -259,17 +299,22 @@ PanelWindow {
 
     // Execution after selection
     function snip() {
+        // Clip region to screen bounds (clip, not shift: padding past an edge must not grow the other side)
+        const x1 = Math.max(0, root.regionX);
+        const y1 = Math.max(0, root.regionY);
+        const x2 = Math.min(root.screen.width, root.regionX + root.regionWidth);
+        const y2 = Math.min(root.screen.height, root.regionY + root.regionHeight);
+
         // Validity check
-        if (root.regionWidth <= 0 || root.regionHeight <= 0) {
+        if (x2 - x1 < 1 || y2 - y1 < 1) {
             console.warn("[Region Selector] Invalid region size, skipping snip.");
             root.dismiss();
+            return;
         }
-
-        // Clamp region to screen bounds
-        root.regionX = Math.max(0, Math.min(root.regionX, root.screen.width - root.regionWidth));
-        root.regionY = Math.max(0, Math.min(root.regionY, root.screen.height - root.regionHeight));
-        root.regionWidth = Math.max(0, Math.min(root.regionWidth, root.screen.width - root.regionX));
-        root.regionHeight = Math.max(0, Math.min(root.regionHeight, root.screen.height - root.regionY));
+        root.regionX = x1;
+        root.regionY = y1;
+        root.regionWidth = x2 - x1;
+        root.regionHeight = y2 - y1;
 
         // Adjust action
         if (root.action === RegionSelection.SnipAction.Copy || root.action === RegionSelection.SnipAction.Edit) {
@@ -279,16 +324,26 @@ PanelWindow {
         const screenshotDir = Config.options.screenSnip.savePath !== "" ? //
             Config.options.screenSnip.savePath : "";
         var screenshotAction = root.getScreenshotAction();
+        // Crop in physical pixels of the grim image; round edges outward so nothing is cut off
+        const scale = root.monitorScale;
+        const physicalX = Math.floor(root.regionX * scale);
+        const physicalY = Math.floor(root.regionY * scale);
+        const physicalWidth = Math.ceil((root.regionX + root.regionWidth) * scale) - physicalX;
+        const physicalHeight = Math.ceil((root.regionY + root.regionHeight) * scale) - physicalY;
+        // wf-recorder wants logical, global (all-monitor) coordinates, like slurp prints
+        const recordGeometry = `${Math.round(root.regionX + root.monitorOffsetX)},${Math.round(root.regionY + root.monitorOffsetY)} `
+            + `${Math.round(root.regionWidth)}x${Math.round(root.regionHeight)}`;
         const command = ScreenshotAction.getCommand(
-            root.regionX * root.monitorScale, //
-            root.regionY * root.monitorScale, //
-            root.regionWidth * root.monitorScale,// 
-            root.regionHeight * root.monitorScale, //
+            physicalX, //
+            physicalY, //
+            physicalWidth, //
+            physicalHeight, //
             root.screenshotPath, //
             screenshotAction, //
-            screenshotDir
+            screenshotDir, //
+            recordGeometry
         )
-        Quickshell.execDetached(command);
+        if (command) Quickshell.execDetached(command);
         if (root.action == RegionSelection.SnipAction.Record || root.action == RegionSelection.SnipAction.RecordWithSound) {
             root.phase = RegionSelection.Phase.Post
             root.selectionMode = RegionSelection.SelectionMode.RectCorners
@@ -328,19 +383,28 @@ PanelWindow {
 
         // Controls
         onPressed: (mouse) => {
+            root.updateTargetedRegion(mouse.x, mouse.y); // Also works when clicking without moving first
             root.dragStartX = mouse.x;
             root.dragStartY = mouse.y;
             root.draggingX = mouse.x;
             root.draggingY = mouse.y;
+            root.dragDiffX = 0;
+            root.dragDiffY = 0;
             root.dragging = true;
             root.mouseButton = mouse.button;
         }
         onReleased: (mouse) => {
-            // Detect if it was a click -> Try to select targeted region
-            if (root.draggingX === root.dragStartX && root.draggingY === root.dragStartY) {
-                if (root.targetedRegionValid()) {
-                    root.setRegionToTargeted();
+            // Detect if it was a click (small wobble allowed) -> Try to select targeted region
+            if (!root.draggedAway) {
+                if (!root.targetedRegionValid()) {
+                    // Clicked on nothing: stay open instead of capturing a degenerate region
+                    root.dragging = false;
+                    root.draggingX = root.dragStartX;
+                    root.draggingY = root.dragStartY;
+                    root.points = [];
+                    return;
                 }
+                root.setRegionToTargeted();
             }
             // Circle dragging?
             else if (root.selectionMode === RegionSelection.SelectionMode.Circle) {
@@ -381,6 +445,7 @@ PanelWindow {
                 color: root.selectionBorderColor
                 overlayColor: root.overlayColor
                 breathingBorderOnly: root.phase === RegionSelection.Phase.Post
+                scale: root.monitorScale
             }
         }
 

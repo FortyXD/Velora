@@ -491,6 +491,7 @@ Singleton {
                 }
                 property JsonObject imageSearch: JsonObject {
                     property string imageSearchEngineBaseUrl: "https://lens.google.com/uploadbyurl?url="
+                    property string proxyUrl: ""
                     property bool useCircleSelection: false
                 }
             }
