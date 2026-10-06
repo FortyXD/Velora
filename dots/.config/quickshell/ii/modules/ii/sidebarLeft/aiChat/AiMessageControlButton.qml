@@ -8,7 +8,7 @@ GroupButton {
     property string buttonIcon
     property bool activated: false
     toggled: activated
-    baseWidth: height
+    baseWidth: baseHeight // Square; "height" is 0 before the first layout pass
     colBackgroundHover: Appearance.colors.colSecondaryContainerHover
     colBackgroundActive: Appearance.colors.colSecondaryContainerActive
 

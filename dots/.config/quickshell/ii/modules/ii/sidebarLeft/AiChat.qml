@@ -19,6 +19,25 @@ Item {
 
     property var suggestionQuery: ""
     property var suggestionList: []
+    property bool showModelPicker: false
+    property bool showHistory: false
+
+    function toggleModelPicker() {
+        root.showHistory = false;
+        root.showModelPicker = !root.showModelPicker;
+        if (root.showModelPicker) Ai.refreshLists(); // Pick up models pulled meanwhile (reads files, doesn't start Ollama)
+    }
+    function toggleHistory() {
+        root.showModelPicker = false;
+        root.showHistory = !root.showHistory;
+    }
+    function cycleTool() {
+        const tools = Ai.availableTools;
+        if (tools.length === 0) return;
+        Ai.setTool(tools[(tools.indexOf(Ai.currentTool) + 1) % tools.length]);
+    }
+
+    Component.onCompleted: Ai.refreshLists() // Local models, prompts and saved chats
 
     onFocusChanged: focus => {
         if (focus) {
@@ -39,6 +58,10 @@ Item {
         }
         if ((event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier) && event.key === Qt.Key_O) {
             Ai.clearMessages();
+        }
+        if (event.modifiers === Qt.ControlModifier && event.key === Qt.Key_M) { // Model picker
+            root.toggleModelPicker();
+            event.accepted = true;
         }
     }
 
@@ -266,6 +289,26 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
         }
     }
 
+    component HeaderButton: RippleButton {
+        id: headerButton
+        property string symbol
+        property string tooltip
+        implicitWidth: 36
+        implicitHeight: 36
+        buttonRadius: Appearance.rounding.full
+        contentItem: MaterialSymbol {
+            anchors.centerIn: parent
+            horizontalAlignment: Text.AlignHCenter
+            iconSize: Appearance.font.pixelSize.larger
+            text: headerButton.symbol
+            color: headerButton.toggled ? Appearance.colors.colOnPrimary
+                : headerButton.enabled ? Appearance.colors.colOnLayer1 : Appearance.colors.colSubtext
+        }
+        StyledToolTip {
+            text: headerButton.tooltip
+        }
+    }
+
     component StatusSeparator: Rectangle {
         implicitWidth: 4
         implicitHeight: 4
@@ -283,13 +326,14 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
 
         Item {
             // Messages
+            id: messagesArea
             Layout.fillWidth: true
             Layout.fillHeight: true
             layer.enabled: true
             layer.effect: OpacityMask {
                 maskSource: Rectangle {
-                    width: swipeView.width
-                    height: swipeView.height
+                    width: messagesArea.width
+                    height: messagesArea.height
                     radius: Appearance.rounding.small
                 }
             }
@@ -307,12 +351,12 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 id: statusBg
                 z: 2
                 anchors {
-                    horizontalCenter: parent.horizontalCenter
+                    left: parent.left
+                    right: parent.right
                     top: parent.top
-                    topMargin: 4
+                    margins: 4
                 }
-                implicitWidth: statusRowLayout.implicitWidth + 10 * 2
-                implicitHeight: Math.max(statusRowLayout.implicitHeight, 38)
+                implicitHeight: Math.max(statusRowLayout.implicitHeight + 8, 44)
                 radius: Appearance.rounding.normal - root.padding
                 color: messageListView.atYBeginning ? Appearance.colors.colLayer2 : Appearance.colors.colLayer2Base
                 Behavior on color {
@@ -320,28 +364,82 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 }
                 RowLayout {
                     id: statusRowLayout
-                    anchors.centerIn: parent
-                    spacing: 10
+                    anchors {
+                        fill: parent
+                        leftMargin: 4
+                        rightMargin: 4
+                    }
+                    spacing: 4
 
-                    StatusItem {
-                        icon: Ai.currentModelHasApiKey ? "key" : "key_off"
-                        statusText: ""
-                        description: Ai.currentModelHasApiKey ? Translation.tr("API key is set\nChange with /key YOUR_API_KEY") : Translation.tr("No API key\nSet it with /key YOUR_API_KEY")
+                    RippleButton { // Model: opens the picker
+                        id: modelChip
+                        Layout.fillWidth: true
+                        Layout.maximumWidth: implicitWidth
+                        implicitHeight: 36
+                        leftPadding: 10
+                        rightPadding: 4
+                        buttonRadius: Appearance.rounding.full
+                        toggled: root.showModelPicker
+                        colBackground: Appearance.colors.colLayer1
+                        onClicked: root.toggleModelPicker()
+                        contentItem: RowLayout {
+                            spacing: 6
+                            CustomIcon {
+                                Layout.alignment: Qt.AlignVCenter
+                                visible: (Ai.getModel()?.icon ?? "").length > 0
+                                width: Appearance.font.pixelSize.large
+                                height: Appearance.font.pixelSize.large
+                                source: Ai.getModel()?.icon ?? ""
+                                colorize: true
+                                color: modelChip.toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer1
+                            }
+                            StyledText {
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                color: modelChip.toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer1
+                                text: Ai.getModel()?.name ?? Translation.tr("Choose a model")
+                            }
+                            MaterialSymbol {
+                                Layout.alignment: Qt.AlignVCenter
+                                iconSize: Appearance.font.pixelSize.larger
+                                color: modelChip.toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer1
+                                text: "arrow_drop_down"
+                            }
+                        }
+                        StyledToolTip {
+                            text: (Ai.getModel()?.description ?? Translation.tr("No model selected")) + "\n" + Translation.tr("Click to change")
+                        }
                     }
-                    StatusSeparator {}
-                    StatusItem {
-                        icon: "device_thermostat"
-                        statusText: Ai.temperature.toFixed(1)
-                        description: Translation.tr("Temperature\nChange with /temp VALUE")
-                    }
-                    StatusSeparator {
-                        visible: Ai.tokenCount.total > 0
-                    }
+
                     StatusItem {
                         visible: Ai.tokenCount.total > 0
                         icon: "token"
                         statusText: Ai.tokenCount.total
                         description: Translation.tr("Total token count\nInput: %1\nOutput: %2").arg(Ai.tokenCount.input).arg(Ai.tokenCount.output)
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    HeaderButton { // Tools
+                        symbol: Ai.effectiveTool === "search" ? "travel_explore" : Ai.effectiveTool === "functions" ? "build" : "block"
+                        tooltip: Translation.tr("Tools: %1 (click to change)\n%2").arg(Ai.effectiveTool).arg(Ai.toolDescriptions[Ai.effectiveTool] ?? "")
+                        onClicked: root.cycleTool()
+                    }
+                    HeaderButton {
+                        symbol: "history"
+                        tooltip: Translation.tr("Saved chats")
+                        toggled: root.showHistory
+                        onClicked: root.toggleHistory()
+                    }
+                    HeaderButton {
+                        symbol: "add_comment"
+                        tooltip: Translation.tr("New chat")
+                        enabled: Ai.messageIDs.length > 0
+                        onClicked: {
+                            Ai.clearMessages();
+                            messageInputField.forceActiveFocus();
+                        }
                     }
                 }
             }
@@ -395,17 +493,115 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
 
             PagePlaceholder {
                 z: 2
-                shown: Ai.messageIDs.length === 0
+                shown: Ai.messageIDs.length === 0 && !root.showModelPicker && !root.showHistory
                 icon: "neurology"
                 title: Translation.tr("Large language models")
-                description: Translation.tr("Type /key to get started with online models\nCtrl+O to expand sidebar\nCtrl+P to pin sidebar\nCtrl+D to detach sidebar")
+                description: Translation.tr("Pick a model at the top, then type.\nThe first local reply takes a moment.\nCtrl+O expand \u00b7 Ctrl+P pin \u00b7 Ctrl+D detach")
+                descriptionHorizontalAlignment: Text.AlignHCenter
                 shape: MaterialShape.Shape.PixelCircle
+            }
+
+            Loader { // Model picker
+                z: 5
+                active: root.showModelPicker
+                anchors {
+                    top: statusBg.bottom
+                    left: parent.left
+                    right: parent.right
+                    margins: 4
+                }
+                height: Math.min(messagesArea.height * 0.7, 420)
+                sourceComponent: ModelPicker {
+                    Component.onCompleted: focusSearch()
+                    onClosed: {
+                        root.showModelPicker = false;
+                        messageInputField.forceActiveFocus();
+                    }
+                }
+            }
+
+            Loader { // Saved chats
+                z: 5
+                active: root.showHistory
+                anchors {
+                    top: statusBg.bottom
+                    left: parent.left
+                    right: parent.right
+                    margins: 4
+                }
+                height: Math.min(messagesArea.height * 0.7, 420)
+                sourceComponent: ChatHistory {
+                    Component.onCompleted: forceActiveFocus()
+                    onClosed: {
+                        root.showHistory = false;
+                        messageInputField.forceActiveFocus();
+                    }
+                }
             }
 
             ScrollToBottomButton {
                 z: 3
                 target: messageListView
             }
+        }
+
+        Rectangle { // Inline API key entry for cloud models
+            id: apiKeyCard
+            visible: Ai.apiKeysLoaded && !Ai.currentModelHasApiKey && (Ai.getModel()?.requires_key ?? false)
+            Layout.fillWidth: true
+            implicitHeight: apiKeyColumn.implicitHeight + 16
+            radius: Appearance.rounding.normal - root.padding
+            color: Appearance.colors.colLayer2
+
+            ColumnLayout {
+                id: apiKeyColumn
+                anchors {
+                    fill: parent
+                    margins: 8
+                }
+                spacing: 6
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    color: Appearance.colors.colOnLayer2
+                    textFormat: Text.MarkdownText
+                    text: Translation.tr("**%1** needs an API key. [Get one here](%2)").arg(Ai.getModel()?.name ?? "").arg(Ai.getModel()?.key_get_link ?? "")
+                    onLinkActivated: link => Qt.openUrlExternally(link)
+                    PointingHandLinkHover {}
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    ToolbarTextField {
+                        id: apiKeyField
+                        Layout.fillWidth: true
+                        implicitHeight: 36
+                        echoMode: TextInput.Password
+                        placeholderText: Translation.tr("Paste API key")
+                        onAccepted: if (text.trim().length > 0) { Ai.setApiKey(text); text = ""; }
+                    }
+                    RippleButtonWithIcon {
+                        materialIcon: "key"
+                        mainText: Translation.tr("Save")
+                        enabled: apiKeyField.text.trim().length > 0
+                        onClicked: {
+                            Ai.setApiKey(apiKeyField.text);
+                            apiKeyField.text = "";
+                        }
+                    }
+                }
+            }
+        }
+
+        StyledText { // Cold start of a local model can take a while
+            visible: Ai.waitingForFirstToken
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            color: Appearance.colors.colSubtext
+            text: Ai.currentModelIsLocal
+                ? Translation.tr("Starting %1… the first reply after a pause takes longer").arg(Ai.getModel()?.name ?? "")
+                : Translation.tr("Waiting for %1…").arg(Ai.getModel()?.name ?? "")
         }
 
         DescriptionBox {
@@ -475,7 +671,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
             Layout.fillWidth: true
             radius: Appearance.rounding.normal - root.padding
             color: Appearance.colors.colLayer2
-            implicitHeight: Math.max(inputFieldRowLayout.implicitHeight + inputFieldRowLayout.anchors.topMargin + commandButtonsRow.implicitHeight + commandButtonsRow.anchors.bottomMargin + spacing, 45) + (attachedFileIndicator.implicitHeight + spacing + attachedFileIndicator.anchors.topMargin)
+            implicitHeight: Math.max(inputFieldRowLayout.implicitHeight + inputFieldRowLayout.anchors.bottomMargin * 2, 45) + (attachedFileIndicator.implicitHeight + spacing + attachedFileIndicator.anchors.topMargin)
             clip: true
 
             Behavior on implicitHeight {
@@ -497,7 +693,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
             RowLayout { // Input field and send button
                 id: inputFieldRowLayout
                 anchors {
-                    bottom: commandButtonsRow.top
+                    bottom: parent.bottom
                     left: parent.left
                     right: parent.right
                     bottomMargin: 5
@@ -517,7 +713,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                         wrapMode: TextArea.Wrap
                         padding: 10
                         color: activeFocus ? Appearance.m3colors.m3onSurface : Appearance.m3colors.m3onSurfaceVariant
-                        placeholderText: Translation.tr('Message the model... "%1" for commands').arg(root.commandPrefix)
+                        placeholderText: Translation.tr('Message %1… ("%2" for commands)').arg(Ai.getModel()?.name ?? Translation.tr("the model")).arg(root.commandPrefix)
 
                         background: null
 
@@ -701,13 +897,17 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                     implicitWidth: 40
                     implicitHeight: 40
                     buttonRadius: Appearance.rounding.small
-                    enabled: messageInputField.text.length > 0
+                    enabled: Ai.generating || messageInputField.text.length > 0
                     toggled: enabled
 
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: sendButton.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                         onClicked: {
+                            if (Ai.generating) { // Stop button while answering
+                                Ai.stopGeneration();
+                                return;
+                            }
                             const inputText = messageInputField.text;
                             root.handleInput(inputText);
                             messageInputField.clear();
@@ -719,74 +919,10 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                         horizontalAlignment: Text.AlignHCenter
                         iconSize: 22
                         color: sendButton.enabled ? Appearance.m3colors.m3onPrimary : Appearance.colors.colOnLayer2Disabled
-                        text: "arrow_upward"
+                        text: Ai.generating ? "stop" : "arrow_upward"
                     }
-                }
-            }
-
-            RowLayout { // Controls
-                id: commandButtonsRow
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 5
-                anchors.leftMargin: 10
-                anchors.rightMargin: 5
-                spacing: 4
-
-                property var commandsShown: [
-                    {
-                        name: "",
-                        sendDirectly: false,
-                        dontAddSpace: true
-                    },
-                    {
-                        name: "clear",
-                        sendDirectly: true
-                    },
-                ]
-
-                ApiInputBoxIndicator {
-                    // Model indicator
-                    icon: "api"
-                    text: (Ai.getModel()?.name ?? Translation.tr("AI disabled"))
-                    tooltipText: Translation.tr("Current model: %1\nSet it with %2model MODEL").arg((Ai.getModel()?.name ?? Translation.tr("AI disabled"))).arg(root.commandPrefix)
-                }
-
-                ApiInputBoxIndicator {
-                    // Tool indicator
-                    icon: "service_toolbox"
-                    text: Ai.currentTool.charAt(0).toUpperCase() + Ai.currentTool.slice(1)
-                    tooltipText: Translation.tr("Current tool: %1\nSet it with %2tool TOOL").arg(Ai.currentTool).arg(root.commandPrefix)
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                }
-
-                ButtonGroup {
-                    // Command buttons
-                    padding: 0
-
-                    Repeater {
-                        // Command buttons
-                        model: commandButtonsRow.commandsShown
-                        delegate: ApiCommandButton {
-                            property string commandRepresentation: `${root.commandPrefix}${modelData.name}`
-                            buttonText: commandRepresentation
-                            downAction: () => {
-                                if (modelData.sendDirectly) {
-                                    root.handleInput(commandRepresentation);
-                                } else {
-                                    messageInputField.text = commandRepresentation + (modelData.dontAddSpace ? "" : " ");
-                                    messageInputField.cursorPosition = messageInputField.text.length;
-                                    messageInputField.forceActiveFocus();
-                                }
-                                if (modelData.name === "clear") {
-                                    messageInputField.text = "";
-                                }
-                            }
-                        }
+                    StyledToolTip {
+                        text: Ai.generating ? Translation.tr("Stop") : Translation.tr("Send")
                     }
                 }
             }

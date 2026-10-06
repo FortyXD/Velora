@@ -21,9 +21,9 @@ ApiStrategy {
                 }),
             ],
             "stream": true,
-            "tools": tools,
             "temperature": temperature,
         };
+        if (tools && tools.length > 0) baseData.tools = tools; // An empty list makes some servers reject the request
         return model.extraParams ? Object.assign({}, baseData, model.extraParams) : baseData;
     }
 

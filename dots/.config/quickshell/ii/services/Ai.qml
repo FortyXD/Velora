@@ -28,12 +28,13 @@ Singleton {
 
     signal responseFinished()
 
-    property string systemPrompt: {
+    // Built when a request is sent: as a binding it was recomputed on every clock tick and window focus change
+    function buildSystemPrompt() {
         let prompt = Config.options?.ai?.systemPrompt ?? "";
-        for (let key in root.promptSubstitutions) {
-            // prompt = prompt.replaceAll(key, root.promptSubstitutions[key]);
+        const substitutions = root.promptSubstitutions();
+        for (let key in substitutions) {
             // QML/JS doesn't support replaceAll, so use split/join
-            prompt = prompt.split(key).join(root.promptSubstitutions[key]);
+            prompt = prompt.split(key).join(substitutions[key]);
         }
         return prompt;
     }
@@ -71,16 +72,24 @@ Singleton {
     property list<var> promptFiles: [...defaultPrompts, ...userPrompts]
     property list<var> savedChats: []
 
-    property var promptSubstitutions: {
-        "{DISTRO}": SystemInfo.distroName,
-        "{DATETIME}": `${DateTime.time}, ${DateTime.collapsedCalendarFormat}`,
-        "{WINDOWCLASS}": ToplevelManager.activeToplevel?.appId ?? "Unknown",
-        "{DE}": `${SystemInfo.desktopEnvironment} (${SystemInfo.windowingSystem})` 
+    function promptSubstitutions() {
+        return {
+            "{DISTRO}": SystemInfo.distroName,
+            "{DATETIME}": `${DateTime.time}, ${DateTime.collapsedCalendarFormat}`,
+            "{WINDOWCLASS}": ToplevelManager.activeToplevel?.appId ?? "Unknown",
+            "{DE}": `${SystemInfo.desktopEnvironment} (${SystemInfo.windowingSystem})`
+        };
     }
 
     // Gemini: https://ai.google.dev/gemini-api/docs/function-calling
     // OpenAI: https://platform.openai.com/docs/guides/function-calling
-    property string currentTool: Config?.options.ai.tool ?? "search"
+    // Local models get no tools unless enabled: many of them error out or ramble when tools are sent
+    readonly property bool currentModelIsLocal: models[currentModelId]?.local ?? false
+    property string currentTool: (root.currentModelIsLocal ? Config?.options.ai.localTool : Config?.options.ai.tool) ?? "none"
+    property string toolOverride: "" // Set for one response by switch_to_search_mode
+    readonly property string effectiveTool: root.toolOverride.length > 0 ? root.toolOverride : root.currentTool
+    readonly property bool generating: requester.running
+    readonly property bool waitingForFirstToken: requester.running && (requester.message?.thinking ?? false)
     property var tools: {
         "gemini": {
             "functions": [{"functionDeclarations": [
@@ -296,7 +305,14 @@ Singleton {
         }),
     }
     property var modelList: Object.keys(root.models)
-    property var currentModelId: Persistent.states?.ai?.model || modelList[0]
+    // Saved choice if it still exists, otherwise the smallest local model (cheapest to run)
+    property var currentModelId: {
+        const saved = Persistent.states?.ai?.model;
+        if (saved && root.models[saved]) return saved;
+        const local = Object.keys(root.models).filter(id => root.models[id].local)
+            .sort((a, b) => root.models[a].size - root.models[b].size);
+        return local[0] ?? root.modelList[0];
+    }
 
     property var apiStrategies: {
         "openai": openaiApiStrategy.createObject(this),
@@ -355,17 +371,24 @@ Singleton {
         });
     }
 
+    // Nothing here runs at shell startup: the AI tab calls this when it's first opened
+    function refreshLists() {
+        getOllamaModels.running = true;
+        getDefaultPrompts.running = true;
+        getUserPrompts.running = true;
+        getSavedChats.running = true;
+    }
+
     Process {
         id: getOllamaModels
-        running: true
         command: ["bash", "-c", `${Directories.scriptPath}/ai/show-installed-ollama-models.sh`.replace(/file:\/\//, "")]
         stdout: SplitParser {
             onRead: data => {
                 try {
                     if (data.length === 0) return;
                     const dataJson = JSON.parse(data);
-                    root.modelList = [...root.modelList, ...dataJson];
-                    dataJson.forEach(model => {
+                    dataJson.forEach(entry => {
+                        const model = entry.name ?? entry; // {name, size} (size in bytes), or a plain name
                         const safeModelName = root.safeModelName(model);
                         root.addModel(safeModelName, {
                             "name": guessModelName(model),
@@ -375,6 +398,8 @@ Singleton {
                             "endpoint": "http://localhost:11434/v1/chat/completions",
                             "model": model,
                             "requires_key": false,
+                            "local": true,
+                            "size": entry.size ?? 0,
                         })
                     });
 
@@ -389,7 +414,6 @@ Singleton {
 
     Process {
         id: getDefaultPrompts
-        running: true
         command: ["ls", "-1", Directories.defaultAiPrompts]
         stdout: StdioCollector {
             onStreamFinished: {
@@ -403,7 +427,6 @@ Singleton {
 
     Process {
         id: getUserPrompts
-        running: true
         command: ["ls", "-1", Directories.userAiPrompts]
         stdout: StdioCollector {
             onStreamFinished: {
@@ -417,7 +440,6 @@ Singleton {
 
     Process {
         id: getSavedChats
-        running: true
         command: ["ls", "-1", Directories.aiChats]
         stdout: StdioCollector {
             onStreamFinished: {
@@ -505,7 +527,7 @@ Singleton {
                 }
             }
         } else {
-            if (feedback) root.addMessage(Translation.tr("Invalid model. Supported: \n```\n") + modelList.join("\n```\n```\n"), Ai.interfaceRole) + "\n```"
+            if (feedback) root.addMessage(Translation.tr("Invalid model. Supported: \n```\n") + modelList.join("\n```\n```\n") + "\n```", Ai.interfaceRole)
         }
     }
 
@@ -514,7 +536,8 @@ Singleton {
             root.addMessage(Translation.tr("Invalid tool. Supported tools:\n- %1").arg(root.availableTools.join("\n- ")), root.interfaceRole);
             return false;
         }
-        Config.options.ai.tool = tool;
+        if (root.currentModelIsLocal) Config.options.ai.localTool = tool;
+        else Config.options.ai.tool = tool;
         return true;
     }
     
@@ -523,7 +546,7 @@ Singleton {
     }
 
     function setTemperature(value) {
-        if (value == NaN || value < 0 || value > 2) {
+        if (isNaN(value) || value < 0 || value > 2) {
             root.addMessage(Translation.tr("Temperature must be between 0 and 2"), Ai.interfaceRole);
             return;
         }
@@ -552,7 +575,7 @@ Singleton {
         if (model.requires_key) {
             const key = root.apiKeys[model.key_id];
             if (key) {
-                root.addMessage(Translation.tr("API key:\n\n```txt\n%1\n```").arg(key), Ai.interfaceRole);
+                root.addMessage(Translation.tr("API key is set (ends with `%1`)").arg(key.slice(-4)), Ai.interfaceRole);
             } else {
                 root.addMessage(Translation.tr("No API key set for %1").arg(model.name), Ai.interfaceRole);
             }
@@ -596,8 +619,12 @@ Singleton {
         function makeRequest() {
             const model = models[currentModelId];
 
-            // Fetch API keys if needed
-            if (model?.requires_key && !KeyringStorage.loaded) KeyringStorage.fetchKeyringData();
+            // Fetch API keys first if needed; the request continues once they're loaded
+            if (model?.requires_key && !KeyringStorage.loaded) {
+                root.requestAfterKeyring = true;
+                KeyringStorage.fetchKeyringData();
+                return;
+            }
             
             requester.currentStrategy = root.currentApiStrategy;
             requester.currentStrategy.reset(); // Reset strategy state
@@ -609,7 +636,7 @@ Singleton {
             const endpoint = root.currentApiStrategy.buildEndpoint(model);
             const messageArray = root.messageIDs.map(id => root.messageByID[id]);
             const filteredMessageArray = messageArray.filter(message => message.role !== Ai.interfaceRole);
-            const data = root.currentApiStrategy.buildRequestData(model, filteredMessageArray, root.systemPrompt, root.temperature, root.tools[model.api_format][root.currentTool], root.pendingFilePath);
+            const data = root.currentApiStrategy.buildRequestData(model, filteredMessageArray, root.buildSystemPrompt(), root.temperature, root.tools[model.api_format][root.effectiveTool], root.pendingFilePath);
             // console.log("[Ai] Request data: ", JSON.stringify(data, null, 2));
 
             let requestHeaders = {
@@ -717,6 +744,20 @@ Singleton {
         }
     }
 
+    property bool requestAfterKeyring: false
+    Connections {
+        target: KeyringStorage
+        function onLoadedChanged() {
+            if (!KeyringStorage.loaded || !root.requestAfterKeyring) return;
+            root.requestAfterKeyring = false;
+            requester.makeRequest();
+        }
+    }
+
+    function stopGeneration() {
+        if (requester.running) requester.running = false; // onExited marks the message done
+    }
+
     function sendUserMessage(message) {
         if (message.length === 0) return;
         root.addMessage(message, "user");
@@ -803,8 +844,8 @@ Singleton {
     function handleFunctionCall(name, args: var, message: AiMessageData) {
         if (name === "switch_to_search_mode") {
             const modelId = root.currentModelId;
-            root.currentTool = "search"
-            root.postResponseHook = () => { root.currentTool = "functions" }
+            root.toolOverride = "search"
+            root.postResponseHook = () => { root.toolOverride = "" }
             addFunctionOutputMessage(name, Translation.tr("Switched to search mode. Continue with the user's request."))
             requester.makeRequest();
         } else if (name === "get_shell_config") {
@@ -819,6 +860,8 @@ Singleton {
             const key = args.key;
             const value = args.value;
             Config.setNestedValue(key, value);
+            addFunctionOutputMessage(name, Translation.tr("Set %1 to %2").arg(key).arg(JSON.stringify(value)));
+            requester.makeRequest(); // Continue
         } else if (name === "run_shell_command") {
             if (!args.command || args.command.length === 0) {
                 addFunctionOutputMessage(name, Translation.tr("Invalid arguments. Must provide `command`."));
