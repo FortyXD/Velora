@@ -139,6 +139,17 @@ Rectangle {
             }
         }
 
+        StyledText { // Loading
+            Layout.fillWidth: true
+            Layout.margins: responsePadding
+            visible: root.responseData.pending
+            font.pixelSize: Appearance.font.pixelSize.small
+            color: Appearance.colors.colSubtext
+            text: root.responseData.tags.length > 0
+                ? Translation.tr("Searching %1 for “%2”…").arg(Booru.providers[root.responseData.provider].name).arg(root.responseData.tags.join(" "))
+                : Translation.tr("Loading popular images from %1…").arg(Booru.providers[root.responseData.provider].name)
+        }
+
         StyledText { // Message
             id: messageText
             Layout.fillWidth: true
@@ -230,7 +241,7 @@ Rectangle {
                         rowHeight: imageRow.rowHeight
                         imageRadius: imageRow.modelData.images.length == 1 ? 50 : Appearance.rounding.normal
                         // Download manually to reduce redundant requests or make sure downloading works
-                        manualDownload: ["danbooru", "waifu.im", "t.alcy.cc"].includes(root.responseData.provider)
+                        manualDownload: ["danbooru", "waifu.im", "t.alcy.cc", "wallhaven"].includes(root.responseData.provider)
                         previewDownloadPath: root.previewDownloadPath
                         downloadPath: root.downloadPath
                         nsfwPath: root.nsfwPath
@@ -239,20 +250,47 @@ Rectangle {
             }
         }
 
+        RowLayout { // Recovery actions for failed requests
+            visible: root.responseData.failed
+            Layout.alignment: Qt.AlignRight
+            spacing: 5
+
+            RippleButtonWithIcon {
+                materialIcon: "refresh"
+                mainText: Translation.tr("Retry")
+                buttonRadius: Appearance.rounding.small
+                colBackground: Appearance.colors.colSurfaceContainerHighest
+                colBackgroundHover: Appearance.colors.colSurfaceContainerHighestHover
+                onClicked: Booru.retry(root.responseData)
+            }
+            RippleButtonWithIcon {
+                visible: root.responseData.provider !== "wallhaven"
+                materialIcon: "swap_horiz"
+                mainText: Translation.tr("Use Wallhaven")
+                buttonRadius: Appearance.rounding.small
+                colBackground: Appearance.colors.colSecondaryContainer
+                colBackgroundHover: Appearance.colors.colSecondaryContainerHover
+                onClicked: {
+                    const failedResponse = root.responseData;
+                    Booru.setProvider("wallhaven", false);
+                    Booru.responses = Booru.responses.filter(item => item !== failedResponse);
+                    Booru.makeRequest(failedResponse.tags, failedResponse.nsfw, failedResponse.limit, 1, "wallhaven");
+                }
+            }
+        }
+
         RippleButton { // Next page button
             id: button
             property string buttonText
-            visible: root.responseData.page != "" && root.responseData.page > 0
+            visible: !root.responseData.pending && !root.responseData.failed
+                && root.responseData.images.length > 0 && root.responseData.page > 0
 
             Layout.alignment: Qt.AlignRight
             implicitHeight: 30
             leftPadding: 10
             rightPadding: 5
 
-            onClicked: {
-                tagInputField.text = `${responseData.tags.join(" ")} ${parseInt(root.responseData.page) + 1}`
-                tagInputField.accept()
-            }
+            onClicked: Booru.nextPage(root.responseData)
 
             buttonRadius: Appearance.rounding.small
             colBackground: Appearance.colors.colSurfaceContainerHighest
@@ -271,7 +309,7 @@ Rectangle {
                     StyledText {
                         Layout.alignment: Qt.AlignVCenter
                         verticalAlignment: Text.AlignVCenter
-                        text: "Next page"
+                        text: Translation.tr("Load more")
                         color: Appearance.m3colors.m3onSurface
                     }
                     MaterialSymbol {

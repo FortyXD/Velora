@@ -506,7 +506,7 @@ Singleton {
                 }
                 property JsonObject booru: JsonObject {
                     property bool allowNsfw: false
-                    property string defaultProvider: "yandere"
+                    property string defaultProvider: "wallhaven"
                     property int limit: 20
                     property JsonObject zerochan: JsonObject {
                         property string username: "[unset]"

@@ -17,8 +17,13 @@ Process {
     }
 
     running: true
+    // Download to a temp file and move it into place only when complete: a stalled transfer
+    // must not leave a broken file in the cache (an existing file is never downloaded again)
     command: ["bash", "-c", 
-        `mkdir -p $(dirname '${processFilePath()}'); [ -f '${processFilePath()}' ] || curl -sSL '${sourceUrl}' -o '${processFilePath()}' && file '${processFilePath()}'`
+        `mkdir -p $(dirname '${processFilePath()}'); [ -f '${processFilePath()}' ] || `
+        + `{ curl -sSL --fail --connect-timeout 8 --speed-limit 1024 --speed-time 10 --max-time 60 '${sourceUrl}' -o '${processFilePath()}.part' `
+        + `&& mv -f '${processFilePath()}.part' '${processFilePath()}' || { rm -f '${processFilePath()}.part'; false; }; } `
+        + `&& file '${processFilePath()}'`
     ]
     stdout: StdioCollector {
         id: imageSizeOutputCollector

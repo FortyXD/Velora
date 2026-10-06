@@ -26,6 +26,15 @@ Button {
     property real imageRadius: Appearance.rounding.small
 
     property bool showActions: false
+
+    function openExternally(url) {
+        Hyprland.dispatch("keyword cursor:no_warps true")
+        Qt.openUrlExternally(url)
+        Hyprland.dispatch("keyword cursor:no_warps false")
+    }
+
+    onClicked: root.openExternally(root.imageData.file_url) // Full image in the default viewer/browser
+
     ImageDownloaderProcess {
         id: imageDownloader
         running: root.manualDownload
@@ -66,7 +75,7 @@ Button {
             width: root.rowHeight * modelData.aspect_ratio
             height: root.rowHeight
             fillMode: Image.PreserveAspectFit
-            source: modelData.preview_url
+            source: root.manualDownload ? "" : modelData.preview_url // Manual: set once curl has cached it
 
             layer.enabled: true
             layer.effect: OpacityMask {
@@ -144,12 +153,31 @@ Button {
                         MenuButton {
                             id: openFileLinkButton
                             Layout.fillWidth: true
-                            buttonText: Translation.tr("Open file link")
+                            buttonText: Translation.tr("Open full image")
                             onClicked: {
                                 root.showActions = false
-                                Hyprland.dispatch("keyword cursor:no_warps true")
-                                Qt.openUrlExternally(root.imageData.file_url)
-                                Hyprland.dispatch("keyword cursor:no_warps false")
+                                root.openExternally(root.imageData.file_url)
+                            }
+                        }
+                        MenuButton {
+                            id: copyLinkButton
+                            Layout.fillWidth: true
+                            buttonText: Translation.tr("Copy link")
+                            onClicked: {
+                                root.showActions = false
+                                Quickshell.clipboardText = root.imageData.file_url
+                            }
+                        }
+                        MenuButton {
+                            id: setWallpaperButton
+                            Layout.fillWidth: true
+                            buttonText: Translation.tr("Set as wallpaper")
+                            onClicked: {
+                                root.showActions = false
+                                Quickshell.execDetached([
+                                    FileUtils.trimFileProtocol(`${Directories.scriptPath}/colors/random/wallpaper_from_url.sh`),
+                                    root.imageData.file_url
+                                ])
                             }
                         }
                         MenuButton {
@@ -160,9 +188,7 @@ Button {
                             enabled: root.imageData.source && root.imageData.source.length > 0
                             onClicked: {
                                 root.showActions = false
-                                Hyprland.dispatch("keyword cursor:no_warps true")
-                                Qt.openUrlExternally(root.imageData.source)
-                                Hyprland.dispatch("keyword cursor:no_warps false")
+                                root.openExternally(root.imageData.source)
                             }
                         }
                         MenuButton {
@@ -171,9 +197,13 @@ Button {
                             buttonText: Translation.tr("Download")
                             onClicked: {
                                 root.showActions = false;
-                                const targetPath = root.imageData.is_nsfw ? root.nsfwPath : root.downloadPath;
-                                Quickshell.execDetached(["bash", "-c", 
-                                    `mkdir -p '${targetPath}' && curl '${root.imageData.file_url}' -o '${targetPath}/${root.fileName}' && notify-send '${Translation.tr("Download complete")}' '${root.downloadPath}/${root.fileName}' -a 'Shell'`
+                                const targetDir = StringUtils.shellSingleQuoteEscape(FileUtils.trimFileProtocol(root.imageData.is_nsfw ? root.nsfwPath : root.downloadPath));
+                                const target = `${targetDir}/${StringUtils.shellSingleQuoteEscape(root.fileName)}`;
+                                const url = StringUtils.shellSingleQuoteEscape(root.imageData.file_url);
+                                Quickshell.execDetached(["bash", "-c",
+                                    `mkdir -p '${targetDir}' && curl -sSL --fail --connect-timeout 8 --speed-limit 1024 --speed-time 10 --retry 2 '${url}' -o '${target}.part' `
+                                    + `&& mv -f '${target}.part' '${target}' && notify-send -a 'Shell' '${Translation.tr("Download complete")}' '${target}' `
+                                    + `|| { rm -f '${target}.part'; notify-send -a 'Shell' -u critical '${Translation.tr("Download failed")}' '${url}'; }`
                                 ])
                             }
                         }

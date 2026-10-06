@@ -9,18 +9,13 @@ import qs.modules.common.widgets
 import qs.modules.common.functions
 
 ContentPage {
+    id: root
     forceWidth: true
 
-    Process {
-        id: randomWallProc
-        property string status: ""
-        property string scriptPath: `${Directories.scriptPath}/colors/random/random_konachan_wall.sh`
-        command: ["bash", "-c", FileUtils.trimFileProtocol(randomWallProc.scriptPath)]
-        stdout: SplitParser {
-            onRead: data => {
-                randomWallProc.status = data.trim();
-            }
-        }
+    // Detached so the download survives switching settings pages or closing the window.
+    // The script reports progress and errors through notifications.
+    function runRandomWallpaperScript(scriptName) {
+        Quickshell.execDetached([FileUtils.trimFileProtocol(`${Directories.scriptPath}/colors/random/${scriptName}`)]);
     }
 
     component SmallLightDarkPreferenceButton: RippleButton {
@@ -87,33 +82,25 @@ ContentPage {
 
             ColumnLayout {
                 RippleButtonWithIcon {
-                    enabled: !randomWallProc.running
                     visible: Config.options.policies.weeb === 1
                     Layout.fillWidth: true
                     buttonRadius: Appearance.rounding.small
                     materialIcon: "ifl"
-                    mainText: randomWallProc.running ? Translation.tr("Be patient...") : Translation.tr("Random: Konachan")
-                    onClicked: {
-                        randomWallProc.scriptPath = `${Directories.scriptPath}/colors/random/random_konachan_wall.sh`;
-                        randomWallProc.running = true;
-                    }
+                    mainText: Translation.tr("Random: Wallhaven")
+                    onClicked: root.runRandomWallpaperScript("random_wallhaven_wall.sh")
                     StyledToolTip {
-                        text: Translation.tr("Random SFW Anime wallpaper from Konachan\nImage is saved to ~/Pictures/Wallpapers")
+                        text: Translation.tr("Random SFW anime wallpaper from Wallhaven\nImage is saved to ~/Pictures/Wallpapers")
                     }
                 }
                 RippleButtonWithIcon {
-                    enabled: !randomWallProc.running
                     visible: Config.options.policies.weeb === 1
                     Layout.fillWidth: true
                     buttonRadius: Appearance.rounding.small
                     materialIcon: "ifl"
-                    mainText: randomWallProc.running ? Translation.tr("Be patient...") : Translation.tr("Random: osu! seasonal")
-                    onClicked: {
-                        randomWallProc.scriptPath = `${Directories.scriptPath}/colors/random/random_osu_wall.sh`;
-                        randomWallProc.running = true;
-                    }
+                    mainText: Translation.tr("Random: Konachan")
+                    onClicked: root.runRandomWallpaperScript("random_konachan_wall.sh")
                     StyledToolTip {
-                        text: Translation.tr("Random osu! seasonal background\nImage is saved to ~/Pictures/Wallpapers")
+                        text: Translation.tr("Random SFW anime wallpaper from Konachan (may need a VPN)\nImage is saved to ~/Pictures/Wallpapers")
                     }
                 }
                 RippleButtonWithIcon {

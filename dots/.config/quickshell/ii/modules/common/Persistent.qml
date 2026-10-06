@@ -77,7 +77,8 @@ Singleton {
 
             property JsonObject booru: JsonObject {
                 property bool allowNsfw: false
-                property string provider: "yandere"
+                property string provider: "wallhaven"
+                property list<string> recentTags: []
             }
 
             property JsonObject idle: JsonObject {

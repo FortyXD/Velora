@@ -192,6 +192,12 @@ switch() {
             exit 0
         fi
 
+        # A damaged image (e.g. an interrupted download) would blank the background and break color generation
+        if ! is_video "$imgpath" && ! magick "${imgpath}[0]" null: &>/dev/null; then
+            notify-send -a "Wallpaper switcher" -u critical "Can't use this wallpaper" "The image is damaged or in an unsupported format: $imgpath"
+            exit 1
+        fi
+
         check_and_prompt_upscale "$imgpath" &
         kill_existing_mpvpaper
 
@@ -305,8 +311,15 @@ switch() {
 
     matugen "${matugen_args[@]}"
     source "$(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate"
-    python3 "$SCRIPT_DIR/generate_colors_material.py" "${generate_colors_material_args[@]}" \
-        > "$STATE_DIR"/user/generated/material_colors.scss
+    # Write to a temp file first so a failure can't leave material_colors.scss empty
+    material_scss="$STATE_DIR"/user/generated/material_colors.scss
+    if python3 "$SCRIPT_DIR/generate_colors_material.py" "${generate_colors_material_args[@]}" \
+        > "$material_scss.tmp"; then
+        mv -f "$material_scss.tmp" "$material_scss"
+    else
+        rm -f "$material_scss.tmp"
+        notify-send -a "Wallpaper switcher" -u critical "Color generation failed" "Kept the previous terminal colors."
+    fi
     "$SCRIPT_DIR"/applycolor.sh
     deactivate
 

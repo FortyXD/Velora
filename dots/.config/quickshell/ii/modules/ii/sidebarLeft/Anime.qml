@@ -149,15 +149,88 @@ Item {
         }
         spacing: root.padding
 
+        RowLayout { // Source, NSFW, clear
+            id: topBar
+            Layout.fillWidth: true
+            Layout.fillHeight: false // Nested layouts fill height by default
+            spacing: 5
+
+            StyledComboBox {
+                id: providerSelector
+                Layout.fillWidth: true
+                implicitHeight: 36
+                buttonIcon: "api"
+                model: Booru.providerList.map(id => Booru.providers[id].name
+                    + (Booru.unreachableProviders[id] ? "  ⚠" : ""))
+                currentIndex: Booru.providerList.indexOf(Booru.currentProvider)
+                onActivated: (index) => Booru.setProvider(Booru.providerList[index], false)
+                StyledToolTip {
+                    text: (Booru.providers[Booru.currentProvider]?.description ?? "")
+                        + (Booru.unreachableProviders[Booru.currentProvider] ? "\n" + Translation.tr("Not responding on this network right now") : "")
+                }
+            }
+
+            MouseArea { // NSFW toggle
+                implicitWidth: switchesRow.implicitWidth
+                Layout.fillHeight: true
+                hoverEnabled: true
+                PointingHandInteraction {}
+                onPressed: nsfwSwitch.checked = !nsfwSwitch.checked
+
+                RowLayout {
+                    id: switchesRow
+                    spacing: 0
+                    anchors.centerIn: parent
+
+                    StyledText {
+                        Layout.alignment: Qt.AlignVCenter
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: nsfwSwitch.enabled ? Appearance.colors.colOnLayer1 : Appearance.m3colors.m3outline
+                        text: Translation.tr("NSFW")
+                    }
+                    StyledSwitch {
+                        id: nsfwSwitch
+                        enabled: Booru.currentProvider !== "zerochan"
+                        scale: 0.6
+                        Layout.alignment: Qt.AlignVCenter
+                        checked: (Persistent.states.booru.allowNsfw && Booru.currentProvider !== "zerochan")
+                        onCheckedChanged: {
+                            if (!nsfwSwitch.enabled) return;
+                            Persistent.states.booru.allowNsfw = checked;
+                        }
+                    }
+                }
+            }
+
+            RippleButton { // Clear
+                implicitWidth: 36
+                implicitHeight: 36
+                buttonRadius: Appearance.rounding.full
+                enabled: root.responses.length > 0
+                onClicked: Booru.clearResponses()
+                contentItem: MaterialSymbol {
+                    anchors.centerIn: parent
+                    horizontalAlignment: Text.AlignHCenter
+                    iconSize: Appearance.font.pixelSize.larger
+                    text: "delete_sweep"
+                    color: parent.enabled ? Appearance.colors.colOnLayer1 : Appearance.colors.colOnLayer2Disabled
+                }
+                StyledToolTip {
+                    text: Translation.tr("Clear results")
+                }
+            }
+        }
+
         Item {
+            id: responsesArea
             Layout.fillWidth: true
             Layout.fillHeight: true
 
             layer.enabled: true
             layer.effect: OpacityMask {
                 maskSource: Rectangle {
-                    width: swipeView.width
-                    height: swipeView.height
+                    width: responsesArea.width
+                    height: responsesArea.height
                     radius: Appearance.rounding.small
                 }
             }
@@ -215,7 +288,8 @@ Item {
                 shown: root.responses.length === 0
                 icon: "bookmark_heart"
                 title: Translation.tr("Anime boorus")
-                description: ""
+                description: Translation.tr("Type tags and press Enter, or press Enter with an empty field to browse popular images.\nPick a source above. Wallhaven works without a VPN.")
+                descriptionHorizontalAlignment: Text.AlignHCenter
                 shape: MaterialShape.Shape.Bun
             }
 
@@ -326,8 +400,7 @@ Item {
             radius: Appearance.rounding.normal - root.padding
             color: Appearance.colors.colLayer2
             implicitWidth: tagInputField.implicitWidth
-            implicitHeight: Math.max(inputFieldRowLayout.implicitHeight + inputFieldRowLayout.anchors.topMargin 
-                + commandButtonsRow.implicitHeight + commandButtonsRow.anchors.bottomMargin + columnSpacing, 45)
+            implicitHeight: Math.max(inputFieldRowLayout.implicitHeight + inputFieldRowLayout.anchors.topMargin * 2, 45)
             clip: true
 
             Behavior on implicitHeight {
@@ -349,7 +422,7 @@ Item {
                     padding: 10
                     color: activeFocus ? Appearance.m3colors.m3onSurface : Appearance.m3colors.m3onSurfaceVariant
                     renderType: Text.NativeRendering
-                    placeholderText: Translation.tr('Enter tags, or "%1" for commands').arg(root.commandPrefix)
+                    placeholderText: Translation.tr("Search tags, or Enter to browse")
 
                     background: null
 
@@ -416,10 +489,10 @@ Item {
                         if (event.key === Qt.Key_Tab) {
                             tagSuggestions.acceptSelectedTag();
                             event.accepted = true;
-                        } else if (event.key === Qt.Key_Up) {
+                        } else if (event.key === Qt.Key_Up && tagSuggestions.visible) {
                             tagSuggestions.selectedIndex = Math.max(0, tagSuggestions.selectedIndex - 1);
                             event.accepted = true;
-                        } else if (event.key === Qt.Key_Down) {
+                        } else if (event.key === Qt.Key_Down && tagSuggestions.visible) {
                             tagSuggestions.selectedIndex = Math.min(root.suggestionList.length - 1, tagSuggestions.selectedIndex + 1);
                             event.accepted = true;
                         } else if ((event.key === Qt.Key_Enter || event.key === Qt.Key_Return)) {
@@ -444,12 +517,11 @@ Item {
                     implicitWidth: 40
                     implicitHeight: 40
                     buttonRadius: Appearance.rounding.small
-                    enabled: tagInputField.text.length > 0
-                    toggled: enabled
+                    toggled: true
 
                     MouseArea {
                         anchors.fill: parent
-                        cursorShape: sendButton.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                        cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             const inputText = tagInputField.text
                             root.handleInput(inputText)
@@ -461,115 +533,11 @@ Item {
                         anchors.centerIn: parent
                         horizontalAlignment: Text.AlignHCenter
                         iconSize: 22
-                        color: sendButton.enabled ? Appearance.m3colors.m3onPrimary : Appearance.colors.colOnLayer2Disabled
-                        text: "arrow_upward"
+                        color: Appearance.m3colors.m3onPrimary
+                        text: tagInputField.text.length > 0 ? "search" : "explore"
                     }
                 }
             }
-
-            RowLayout { // Controls
-                id: commandButtonsRow
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 5
-                anchors.leftMargin: 5
-                anchors.rightMargin: 5
-                spacing: 5
-
-                property var commandsShown: [
-                    {
-                        name: "mode",
-                        sendDirectly: false,
-                    },
-                    {
-                        name: "clear",
-                        sendDirectly: true,
-                    }, 
-                ]
-
-                ApiInputBoxIndicator { // Tool indicator
-                    icon: "api"
-                    text: Booru.providers[Booru.currentProvider].name
-                    tooltipText: Translation.tr("Current API endpoint: %1\nSet it with %2mode PROVIDER")
-                        .arg(Booru.providers[Booru.currentProvider].url)
-                        .arg(root.commandPrefix)
-                }
-
-                StyledText {
-                    font.pixelSize: Appearance.font.pixelSize.large
-                    color: Appearance.colors.colOnLayer1
-                    text: "•"
-                }
-
-                MouseArea { // NSFW toggle
-                    visible: width > 0
-                    implicitWidth: switchesRow.implicitWidth
-                    Layout.fillHeight: true
-
-                    hoverEnabled: true
-                    PointingHandInteraction {}
-                    onPressed: {
-                        nsfwSwitch.checked = !nsfwSwitch.checked
-                    }
-
-                    RowLayout {
-                        id: switchesRow
-                        spacing: 5
-                        anchors.centerIn: parent
-
-                        StyledText {
-                            Layout.fillHeight: true
-                            Layout.leftMargin: 10
-                            Layout.alignment: Qt.AlignVCenter
-                            font.pixelSize: Appearance.font.pixelSize.smaller
-                            color: nsfwSwitch.enabled ? Appearance.colors.colOnLayer1 : Appearance.m3colors.m3outline
-                            text: Translation.tr("Allow NSFW")
-                        }
-                        StyledSwitch {
-                            id: nsfwSwitch
-                            enabled: Booru.currentProvider !== "zerochan"
-                            scale: 0.6
-                            Layout.alignment: Qt.AlignVCenter
-                            checked: (Persistent.states.booru.allowNsfw && Booru.currentProvider !== "zerochan")
-                            onCheckedChanged: {
-                                if (!nsfwSwitch.enabled) return;
-                                Persistent.states.booru.allowNsfw = checked;
-                            }
-                        }
-                    }
-
-                }
-
-                Item { Layout.fillWidth: true }
-
-                ButtonGroup {
-                    padding: 0
-                    Repeater { // Command buttons
-                        id: commandRepeater
-                        model: commandButtonsRow.commandsShown
-                        delegate: ApiCommandButton {
-                            property string commandRepresentation: `${root.commandPrefix}${modelData.name}`
-                            buttonText: commandRepresentation
-                            colBackground: Appearance.colors.colLayer2
-
-                            downAction: () => {
-                                if (modelData.sendDirectly) {
-                                    root.handleInput(commandRepresentation)
-                                } else {
-                                    tagInputField.text = commandRepresentation + " "
-                                    tagInputField.cursorPosition = tagInputField.text.length
-                                    tagInputField.forceActiveFocus()
-                                }
-                                if (modelData.name === "clear") {
-                                    tagInputField.text = ""
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
         }
     }
 }
