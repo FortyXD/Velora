@@ -173,6 +173,10 @@ if command -v xdg-mime >/dev/null 2>&1 && [[ -f /usr/share/applications/org.kde.
   fi
 fi
 
+if command -v ollama >/dev/null 2>&1 && [[ ! -e /etc/systemd/system/ollama-proxy.socket ]]; then
+  printf 'Tip: to run Ollama only when it is used (saves power), run:\n  sudo %s\n' "$repo_root/dots/.local/share/folis/systemd/ollama-on-demand.sh"
+fi
+
 if command -v kwriteconfig6 >/dev/null 2>&1; then
   if $dry_run; then
     printf 'Would hide Dolphin Activities and use the configured Kitty terminal on F4.\n'

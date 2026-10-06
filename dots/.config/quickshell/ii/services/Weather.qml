@@ -105,6 +105,8 @@ Singleton {
     Component.onCompleted: {
         if (!root.gpsActive) return;
         console.info("[WeatherService] Starting the GPS service.");
+        // The GeoClue agent is only needed for this, so it's started here instead of at login
+        Quickshell.execDetached(["bash", "-c", "~/.config/hypr/hyprland/scripts/start_geoclue_agent.sh"]);
         positionSource.start();
     }
 

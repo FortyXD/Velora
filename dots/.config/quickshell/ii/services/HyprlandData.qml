@@ -83,13 +83,56 @@ Singleton {
         updateAll();
     }
 
+    // Hyprland sends a lot of events (a terminal or browser changes its title all the time).
+    // Running every hyprctl query for each one wakes the CPU for nothing, so titles are patched
+    // in place and other events only mark what they affect; a short timer batches the queries.
+    readonly property var clientEvents: ["openwindow", "closewindow", "movewindow", "movewindowv2", "changefloatingmode",
+        "fullscreen", "pin", "minimized", "activewindow", "activewindowv2", "togglegroup", "moveintogroup", "moveoutofgroup"]
+    readonly property var workspaceEvents: ["workspace", "workspacev2", "createworkspace", "createworkspacev2",
+        "destroyworkspace", "destroyworkspacev2", "renameworkspace", "activespecial", "activespecialv2", "focusedmon", "focusedmonv2"]
+    readonly property var ignoredEvents: ["openlayer", "closelayer", "screencast", "screencastv2", "windowtitle", "activelayout", "submap", "bell"]
+    property var dirty: ({})
+
+    function markDirty(kinds) {
+        for (const kind of kinds) root.dirty[kind] = true;
+        if (!refreshTimer.running) refreshTimer.start();
+    }
+
+    function patchWindowTitle(data) { // windowtitlev2: "ADDRESS,TITLE" (address without 0x)
+        const comma = data.indexOf(",");
+        const win = root.windowByAddress[`0x${data.substring(0, comma)}`];
+        if (!win) {
+            root.markDirty(["clients"]);
+            return;
+        }
+        win.title = data.substring(comma + 1);
+        root.windowList = root.windowList.slice(); // Notify bindings
+    }
+
+    Timer {
+        id: refreshTimer
+        interval: 50
+        onTriggered: {
+            const dirty = root.dirty;
+            root.dirty = {};
+            if (dirty.clients) root.updateWindowList();
+            if (dirty.monitors) root.updateMonitors();
+            if (dirty.layers) root.updateLayers();
+            if (dirty.workspaces) root.updateWorkspaces();
+        }
+    }
+
     Connections {
         target: Hyprland
 
         function onRawEvent(event) {
-            // console.log("Hyprland raw event:", event.name);
-            if (["openlayer", "closelayer", "screencast"].includes(event.name)) return;
-            updateAll()
+            const name = event.name;
+            if (root.ignoredEvents.includes(name)) return;
+            if (name === "windowtitlev2") root.patchWindowTitle(event.data);
+            else if (root.clientEvents.includes(name)) root.markDirty(["clients", "workspaces"]); // Workspaces hold window counts
+            else if (root.workspaceEvents.includes(name)) root.markDirty(["workspaces", "monitors"]);
+            else if (name.startsWith("moveworkspace")) root.markDirty(["workspaces", "monitors", "clients"]);
+            else root.markDirty(["clients", "monitors", "layers", "workspaces"]); // Unknown event: refresh everything
         }
     }
 

@@ -1,0 +1,10 @@
+[Unit]
+Description=Ollama on demand (starts the server, stops it after 10 idle minutes)
+Requires=ollama.service ollama-proxy.socket
+After=ollama.service ollama-proxy.socket
+
+[Service]
+# Wait until the server answers before taking over the socket
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 150); do /usr/bin/curl -sf -o /dev/null http://127.0.0.1:11435/ && exit 0; sleep 0.2; done; exit 1'
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd --exit-idle-time=10min 127.0.0.1:11435
+PrivateTmp=yes
