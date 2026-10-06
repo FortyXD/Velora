@@ -104,6 +104,7 @@ link_item() {
 for name in hypr quickshell kitty foot fuzzel matugen fish fontconfig Kvantum kde-material-you-colors mpv wlogout xdg-desktop-portal zshrc.d tmux illogical-impulse; do
   link_item "$repo_root/dots/.config/$name" "$config_home/$name"
 done
+link_item "$repo_root/dots/.config/wireplumber/wireplumber.conf.d/51-auto-audio-routes.conf" "$config_home/wireplumber/wireplumber.conf.d/51-auto-audio-routes.conf"
 link_item "$repo_root/dots/.config/starship.toml" "$config_home/starship.toml"
 link_item "$repo_root/home/.zshrc" "$HOME/.zshrc"
 link_item "$repo_root/home/.tmux.conf" "$HOME/.tmux.conf"

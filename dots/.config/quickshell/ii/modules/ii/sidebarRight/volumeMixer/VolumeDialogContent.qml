@@ -43,6 +43,7 @@ ColumnLayout {
         Layout.fillHeight: false
         Layout.fillWidth: true
         Layout.bottomMargin: 6
+        enabled: root.devices.length > 0
         model: root.devices.map(node => Audio.friendlyDeviceName(node))
         currentIndex: root.devices.findIndex(item => {
             if (root.isSink) {
@@ -52,8 +53,8 @@ ColumnLayout {
             }
         })
         onActivated: (index) => {
-            print(index)
             const item = root.devices[index]
+            if (!item) return;
             if (root.isSink) {
                 Audio.setDefaultSink(item)
             } else {

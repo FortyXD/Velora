@@ -5,7 +5,7 @@ import qs.modules.waffle.looks
 OSDValue {
     id: root
     iconName: WIcons.volumeIcon
-    value: Audio.sink?.audio.volume ?? 0
+    value: Audio.sink?.audio?.volume ?? 0
 
     Connections {
         // Listen to volume changes

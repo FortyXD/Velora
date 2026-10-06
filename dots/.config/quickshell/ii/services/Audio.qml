@@ -12,23 +12,23 @@ Singleton {
     id: root
 
     // Misc props
-    property bool ready: Pipewire.defaultAudioSink?.ready ?? false
+    property bool ready: (sink?.ready && sink?.audio) ?? false
     property PwNode sink: Pipewire.defaultAudioSink
     property PwNode source: Pipewire.defaultAudioSource
     readonly property real hardMaxValue: 2.00 // People keep joking about setting volume to 5172% so...
     property string audioTheme: Config.options.sounds.theme
-    property real value: sink?.audio.volume ?? 0
+    property real value: sink?.audio?.volume ?? 0
     
     function friendlyDeviceName(node) {
-        return (node.nickname || node.description || Translation.tr("Unknown"));
+        return (node?.nickname || node?.description || Translation.tr("Unknown"));
     }
     function appNodeDisplayName(node) {
-        return (node.properties["application.name"] || node.description || node.name)
+        return node?.properties?.["application.name"] || node?.description || node?.name || Translation.tr("Unknown")
     }
 
     // Lists
     function correctType(node, isSink) {
-        return (node.isSink === isSink) && node.audio
+        return node && (node.isSink === isSink) && node.audio
     }
     function appNodes(isSink) {
         return Pipewire.nodes.values.filter((node) => { // Should be list<PwNode> but it breaks ScriptModel
@@ -50,31 +50,31 @@ Singleton {
 
     // Controls
     function toggleMute() {
-        Audio.sink.audio.muted = !Audio.sink.audio.muted
+        if (sink?.audio) sink.audio.muted = !sink.audio.muted
     }
 
     function toggleMicMute() {
-        Audio.source.audio.muted = !Audio.source.audio.muted
+        if (source?.audio) source.audio.muted = !source.audio.muted
     }
 
     function incrementVolume() {
-        const currentVolume = Audio.value;
-        const step = currentVolume < 0.1 ? 0.01 : 0.02 || 0.2;
-        Audio.sink.audio.volume = Math.min(1, Audio.sink.audio.volume + step);
+        if (!sink?.audio) return;
+        const step = value < 0.1 ? 0.01 : 0.02;
+        sink.audio.volume = Math.min(1, sink.audio.volume + step);
     }
     
     function decrementVolume() {
-        const currentVolume = Audio.value;
-        const step = currentVolume < 0.1 ? 0.01 : 0.02 || 0.2;
-        Audio.sink.audio.volume -= step;
+        if (!sink?.audio) return;
+        const step = value < 0.1 ? 0.01 : 0.02;
+        sink.audio.volume = Math.max(0, sink.audio.volume - step);
     }
 
     function setDefaultSink(node) {
-        Pipewire.preferredDefaultAudioSink = node;
+        if (node) Pipewire.preferredDefaultAudioSink = node;
     }
 
     function setDefaultSource(node) {
-        Pipewire.preferredDefaultAudioSource = node;
+        if (node) Pipewire.preferredDefaultAudioSource = node;
     }
 
     // Internals
@@ -82,13 +82,22 @@ Singleton {
         objects: [sink, source]
     }
 
+    Connections {
+        target: root
+        function onSinkChanged() {
+            volumeProtection.lastReady = false;
+            volumeProtection.lastVolume = 0;
+        }
+    }
+
     Connections { // Protection against sudden volume changes
+        id: volumeProtection
         target: sink?.audio ?? null
         property bool lastReady: false
         property real lastVolume: 0
         function onVolumeChanged() {
-            if (!Config.options.audio.protection.enable) return;
-            const newVolume = sink.audio.volume;
+            if (!Config.options.audio.protection.enable || !root.sink?.audio) return;
+            const newVolume = root.sink.audio.volume;
             // when resuming from suspend, we should not write volume to avoid pipewire volume reset issues
             if (isNaN(newVolume) || newVolume === undefined || newVolume === null) {
                 lastReady = false;

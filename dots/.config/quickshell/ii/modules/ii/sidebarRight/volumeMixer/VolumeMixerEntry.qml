@@ -28,7 +28,9 @@ Item {
             Layout.preferredHeight: size
 
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.node.audio.muted = !root.node.audio.muted
+            onClicked: {
+                if (root.node?.audio) root.node.audio.muted = !root.node.audio.muted
+            }
 
             hoverEnabled: true
             property bool hovered: containsMouse
@@ -90,7 +92,7 @@ Item {
                 text: {
                     // application.name -> description -> name
                     const app = Audio.appNodeDisplayName(root.node);
-                    const media = root.node.properties["media.name"];
+                    const media = root.node?.properties?.["media.name"];
                     return media != undefined ? `${app} • ${media}` : app;
                 }
             }
@@ -98,7 +100,9 @@ Item {
             StyledSlider {
                 id: slider
                 value: root.node?.audio.volume ?? 0
-                onMoved: root.node.audio.volume = value
+                onMoved: {
+                    if (root.node?.audio) root.node.audio.volume = value
+                }
                 configuration: StyledSlider.Configuration.S
             }
         }

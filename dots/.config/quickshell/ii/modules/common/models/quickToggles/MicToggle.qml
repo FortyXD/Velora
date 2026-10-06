@@ -8,9 +8,10 @@ import qs.modules.common.widgets
 
 QuickToggleModel {
     name: Translation.tr("Audio input")
-    statusText: toggled ? Translation.tr("Enabled") : Translation.tr("Muted")
-    toggled: !Audio.source?.audio?.muted
-    icon: Audio.source?.audio?.muted ? "mic_off" : "mic"
+    statusText: !Audio.source?.audio ? Translation.tr("No input device") : toggled ? Translation.tr("Enabled") : Translation.tr("Muted")
+    toggled: !!Audio.source?.audio && !Audio.source.audio.muted
+    available: Audio.inputDevices.length > 0
+    icon: !Audio.source?.audio || Audio.source.audio.muted ? "mic_off" : "mic"
     mainAction: () => {
         Audio.toggleMicMute()
     }
