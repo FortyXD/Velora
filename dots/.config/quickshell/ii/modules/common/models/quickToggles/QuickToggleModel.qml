@@ -11,6 +11,7 @@ QtObject {
     property bool hasStatusText: true
     property bool available: true
     property bool toggled: false
+    property bool busy: false
 
     // Interactions
     required property var mainAction

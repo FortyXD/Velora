@@ -9,6 +9,9 @@ QtObject {
     readonly property bool active: lastIpcObject.active
     readonly property string security: lastIpcObject.security
     readonly property bool isSecure: security.length > 0
+    readonly property string savedUuid: lastIpcObject.savedUuid ?? ""
+    readonly property bool savedCredentials: lastIpcObject.savedCredentials ?? false
 
     property bool askingPassword: false
+    property string errorText: ""
 }

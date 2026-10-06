@@ -30,6 +30,7 @@ GroupButton {
     property bool available: toggleModel?.available ?? true
     toggled: toggleModel?.toggled ?? false
     property var mainAction: toggleModel?.mainAction ?? null
+    property bool busy: toggleModel?.busy ?? false
     altAction: toggleModel?.hasMenu ? (() => root.openMenu()) : (toggleModel?.altAction ?? null)
 
     // Edit mode state
@@ -38,14 +39,9 @@ GroupButton {
     // Sizing shenanigans
     baseWidth: root.baseCellWidth * cellSize + cellSpacing * (cellSize - 1)
     baseHeight: root.baseCellHeight
-    enableImplicitWidthAnimation: !editMode && root.mouseArea.containsMouse
-    enableImplicitHeightAnimation: !editMode && root.mouseArea.containsMouse
-    Behavior on baseWidth {
-        animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
-    }
-    Behavior on baseHeight {
-        animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
-    }
+    bounce: false
+    enableImplicitWidthAnimation: false
+    enableImplicitHeightAnimation: false
     opacity: 0
     Component.onCompleted: {
         opacity = 1
@@ -70,7 +66,7 @@ GroupButton {
 
     onClicked: {
         if (root.expandedSize && root.altAction) root.altAction();
-        else root.mainAction();
+        else if (root.mainAction) root.mainAction();
     }
 
     contentItem: RowLayout {
@@ -87,7 +83,8 @@ GroupButton {
         MouseArea {
             id: iconMouseArea
             hoverEnabled: true
-            acceptedButtons: (root.expandedSize && root.altAction) ? Qt.LeftButton : Qt.NoButton
+            acceptedButtons: (root.expandedSize && root.altAction && root.mainAction) ? Qt.LeftButton : Qt.NoButton
+            property bool holdHandled: false
             Layout.alignment: Qt.AlignHCenter
             Layout.fillHeight: true
             Layout.topMargin: root.verticalPadding
@@ -96,7 +93,16 @@ GroupButton {
             implicitWidth: iconBackground.implicitWidth
             cursorShape: Qt.PointingHandCursor
 
-            onClicked: root.mainAction()
+            onPressed: holdHandled = false
+            onPressAndHold: {
+                if (root.altAction) {
+                    holdHandled = true;
+                    root.altAction();
+                }
+            }
+            onClicked: {
+                if (!holdHandled && root.mainAction) root.mainAction();
+            }
 
             Rectangle {
                 id: iconBackground
@@ -122,6 +128,13 @@ GroupButton {
                     iconSize: root.expandedSize ? 22 : 24
                     color: root.colIcon
                     text: root.buttonIcon
+                    RotationAnimation on rotation {
+                        from: 0
+                        to: 360
+                        duration: 1000
+                        loops: Animation.Infinite
+                        running: root.busy
+                    }
                 }
 
                 // State layer

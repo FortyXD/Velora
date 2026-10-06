@@ -130,10 +130,12 @@ Item {
         dialog: BluetoothDialog {}
         onShownChanged: {
             if (!shown) {
-                Bluetooth.defaultAdapter.discovering = false;
+                if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.discovering = false;
             } else {
-                Bluetooth.defaultAdapter.enabled = true;
-                Bluetooth.defaultAdapter.discovering = true;
+                if (Bluetooth.defaultAdapter) {
+                    Bluetooth.defaultAdapter.enabled = true;
+                    Bluetooth.defaultAdapter.discovering = true;
+                }
             }
         }
     }
@@ -147,8 +149,11 @@ Item {
         shownPropertyString: "showWifiDialog"
         dialog: WifiDialog {}
         onShownChanged: {
-            if (!shown) return;
-            Network.enableWifi();
+            if (!shown) {
+                Network.cancelPasswordPrompt();
+                return;
+            }
+            Network.update();
             Network.rescanWifi();
         }
     }

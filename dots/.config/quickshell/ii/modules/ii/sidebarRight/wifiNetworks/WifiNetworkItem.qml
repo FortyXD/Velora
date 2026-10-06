@@ -9,14 +9,15 @@ import QtQuick.Layouts
 DialogListItem {
     id: root
     required property WifiAccessPoint wifiNetwork
-    enabled: !(Network.wifiConnectTarget === root.wifiNetwork && !wifiNetwork?.active)
+    readonly property bool connecting: Network.connectionPending && Network.wifiConnectSsid === (wifiNetwork?.ssid ?? "")
+    enabled: wifiNetwork !== null && Network.wifiEnabled && !Network.connectionPending
+    active: (wifiNetwork?.active ?? false) || (wifiNetwork?.askingPassword ?? false) || connecting
 
-    active: (wifiNetwork?.askingPassword || wifiNetwork?.active) ?? false
     onClicked: {
-        Network.connectToWifiNetwork(wifiNetwork);
+        if (wifiNetwork && !wifiNetwork.active) Network.connectToWifiNetwork(wifiNetwork);
     }
 
-    contentItem: ColumnLayout {
+    contentItem: RowLayout {
         anchors {
             fill: parent
             topMargin: root.verticalPadding
@@ -24,96 +25,50 @@ DialogListItem {
             leftMargin: root.horizontalPadding
             rightMargin: root.horizontalPadding
         }
-        spacing: 0
+        spacing: 10
 
-        RowLayout {
-            // Name
-            spacing: 10
-            MaterialSymbol {
-                iconSize: Appearance.font.pixelSize.larger
-                property int strength: root.wifiNetwork?.strength ?? 0
-                text: strength > 80 ? "signal_wifi_4_bar" : strength > 60 ? "network_wifi_3_bar" : strength > 40 ? "network_wifi_2_bar" : strength > 20 ? "network_wifi_1_bar" : "signal_wifi_0_bar"
-                color: Appearance.colors.colOnSurfaceVariant
-            }
+        MaterialSymbol {
+            iconSize: Appearance.font.pixelSize.larger
+            property int strength: root.wifiNetwork?.strength ?? 0
+            text: strength > 80 ? "signal_wifi_4_bar" : strength > 60 ? "network_wifi_3_bar" : strength > 40 ? "network_wifi_2_bar" : strength > 20 ? "network_wifi_1_bar" : "signal_wifi_0_bar"
+            color: Appearance.colors.colOnSurfaceVariant
+        }
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 0
             StyledText {
                 Layout.fillWidth: true
                 color: Appearance.colors.colOnSurfaceVariant
                 elide: Text.ElideRight
-                text: root.wifiNetwork?.ssid ?? Translation.tr("Unknown")
+                text: root.wifiNetwork?.ssid ?? ""
                 textFormat: Text.PlainText
             }
-            MaterialSymbol {
-                visible: (root.wifiNetwork?.isSecure || root.wifiNetwork?.active) ?? false
-                text: root.wifiNetwork?.active ? "check" : Network.wifiConnectTarget === root.wifiNetwork ? "settings_ethernet" : "lock"
-                iconSize: Appearance.font.pixelSize.larger
+            StyledText {
+                Layout.fillWidth: true
                 color: Appearance.colors.colOnSurfaceVariant
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                elide: Text.ElideRight
+                text: root.connecting ? Translation.tr("Connecting…") : Network.credentialErrorSsid === (root.wifiNetwork?.ssid ?? "") ? Translation.tr("Saved password rejected") : (root.wifiNetwork?.active ?? false) ? Translation.tr("Connected") : (root.wifiNetwork?.savedUuid ?? "") ? Translation.tr("Saved network") : (root.wifiNetwork?.isSecure ?? false) ? Translation.tr("Password required") : Translation.tr("Available network")
             }
         }
-
-        ColumnLayout { // Password
-            id: passwordPrompt
-            Layout.topMargin: 8
-            visible: root.wifiNetwork?.askingPassword ?? false
-
-            MaterialTextField {
-                id: passwordField
-                Layout.fillWidth: true
-                placeholderText: Translation.tr("Password")
-
-                // Password
-                echoMode: TextInput.Password
-                inputMethodHints: Qt.ImhSensitiveData
-
-                onAccepted: {
-                    Network.changePassword(root.wifiNetwork, passwordField.text);
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-
-                Item {
-                    Layout.fillWidth: true
-                }
-
-                DialogButton {
-                    buttonText: Translation.tr("Cancel")
-                    onClicked: {
-                        root.wifiNetwork.askingPassword = false;
-                    }
-                }
-
-                DialogButton {
-                    buttonText: Translation.tr("Connect")
-                    onClicked: {
-                        Network.changePassword(root.wifiNetwork, passwordField.text);
-                    }
-                }
+        MaterialSymbol {
+            visible: root.connecting
+            text: "sync"
+            iconSize: Appearance.font.pixelSize.larger
+            color: Appearance.colors.colOnSurfaceVariant
+            RotationAnimation on rotation {
+                from: 0
+                to: 360
+                duration: 1000
+                loops: Animation.Infinite
+                running: root.connecting
             }
         }
-
-        ColumnLayout { // Public wifi login page
-            id: publicWifiPortal
-            Layout.topMargin: 8
-            visible: (root.wifiNetwork?.active && (root.wifiNetwork?.security ?? "").trim().length === 0) ?? false
-
-            RowLayout {
-                DialogButton {
-                    Layout.fillWidth: true
-                    buttonText: Translation.tr("Open network portal")
-                    colBackground: Appearance.colors.colLayer4
-                    colBackgroundHover: Appearance.colors.colLayer4Hover
-                    colRipple: Appearance.colors.colLayer4Active
-                    onClicked: {
-                        Network.openPublicWifiPortal()
-                        GlobalStates.sidebarRightOpen = false
-                    }
-                }
-            }
-        }
-
-        Item {
-            Layout.fillHeight: true
+        MaterialSymbol {
+            visible: !root.connecting && ((root.wifiNetwork?.isSecure ?? false) || (root.wifiNetwork?.active ?? false))
+            text: (root.wifiNetwork?.active ?? false) ? "check" : "lock"
+            iconSize: Appearance.font.pixelSize.larger
+            color: Appearance.colors.colOnSurfaceVariant
         }
     }
 }
