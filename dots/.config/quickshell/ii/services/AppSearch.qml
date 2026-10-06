@@ -20,6 +20,7 @@ Singleton {
         "wps": "wps-office2019-kprometheus",
         "wpsoffice": "wps-office2019-kprometheus",
         "footclient": "foot",
+        "app.hiddify.com": "hiddify",
     })
     property var regexSubstitutions: [
         {
@@ -96,15 +97,18 @@ Singleton {
     }
 
     function guessIcon(str) {
-        if (!str || str.length == 0) return "image-missing";
+        if (!str || str.length == 0) return "application-x-executable";
 
-        // Quickshell's desktop entry lookup
+        // Desktop entries can reference icons absent from the current theme.
         const entry = DesktopEntries.byId(str);
-        if (entry) return entry.icon;
+        if (entry && iconExists(entry.icon)) return entry.icon;
+
+        const heuristicEntry = DesktopEntries.heuristicLookup(str);
+        if (heuristicEntry && iconExists(heuristicEntry.icon)) return heuristicEntry.icon;
 
         // Normal substitutions
-        if (substitutions[str]) return substitutions[str];
-        if (substitutions[str.toLowerCase()]) return substitutions[str.toLowerCase()];
+        if (iconExists(substitutions[str])) return substitutions[str];
+        if (iconExists(substitutions[str.toLowerCase()])) return substitutions[str.toLowerCase()];
 
         // Regex substitutions
         for (let i = 0; i < regexSubstitutions.length; i++) {
@@ -113,7 +117,7 @@ Singleton {
                 substitution.regex,
                 substitution.replace,
             );
-            if (replacedName != str) return replacedName;
+            if (replacedName != str && iconExists(replacedName)) return replacedName;
         }
 
         // Icon exists -> return as is
@@ -143,20 +147,16 @@ Singleton {
         }).map(r => {
             return r.obj.entry
         });
-        if (iconSearchResults.length > 0) {
-            const guess = iconSearchResults[0].icon
+        for (const result of iconSearchResults) {
+            const guess = result.icon
             if (iconExists(guess)) return guess;
         }
 
         const nameSearchResults = root.fuzzyQuery(str);
-        if (nameSearchResults.length > 0) {
-            const guess = nameSearchResults[0].icon
+        for (const result of nameSearchResults) {
+            const guess = result.icon
             if (iconExists(guess)) return guess;
         }
-
-        // Quickshell's desktop entry lookup
-        const heuristicEntry = DesktopEntries.heuristicLookup(str);
-        if (heuristicEntry) return heuristicEntry.icon;
 
         // Give up
         return "application-x-executable";

@@ -112,6 +112,9 @@ link_item "$repo_root/dots/.local/share/icons/illogical-impulse.svg" "$data_home
 link_item "$repo_root/dots/.local/share/kxmlgui5/dolphin/dolphinui.rc" "$data_home/kxmlgui5/dolphin/dolphinui.rc"
 link_item "$repo_root/dots/.local/share/folis/dolphin-create-archive.py" "$data_home/folis/dolphin-create-archive.py"
 link_item "$repo_root/dots/.local/share/dbus-1/services/org.freedesktop.FileManager1.service" "$data_home/dbus-1/services/org.freedesktop.FileManager1.service"
+if [[ -x /usr/local/racket/bin/drracket ]]; then
+  link_item "$repo_root/dots/.local/share/applications/drracket.desktop" "$data_home/applications/drracket.desktop"
+fi
 
 archive_menu="$data_home/kio/servicemenus/folis-create-archive.desktop"
 if $dry_run; then

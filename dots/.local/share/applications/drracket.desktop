@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=DrRacket
+GenericName=IDE for Racket
+Comment=Interactive development environment for Racket
+Type=Application
+Terminal=false
+Categories=Development;IDE;
+Exec=/usr/local/racket/bin/drracket -singleInstance %F
+TryExec=/usr/local/racket/bin/drracket
+Icon=/usr/local/racket/share/drracket-exe-icon.png
+StartupWMClass=drracket
