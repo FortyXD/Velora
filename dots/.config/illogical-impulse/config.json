@@ -255,6 +255,8 @@
     "language": {
         "translator": {
             "engine": "auto",
+            "llmModel": "",
+            "mode": "offline",
             "sourceLanguage": "auto",
             "targetLanguage": "auto"
         },
@@ -455,7 +457,7 @@
         },
         "translator": {
             "delay": 300,
-            "enable": false
+            "enable": true
         }
     },
     "sounds": {

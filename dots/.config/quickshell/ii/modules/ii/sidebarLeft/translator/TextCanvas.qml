@@ -14,13 +14,14 @@ Rectangle {
     property var inputTextArea: isInput ? inputLoader.item : undefined
     readonly property string displayedText: isInput ? inputLoader.item.text : 
         root.text.length > 0 ? outputLoader.item.text : ""
-    default property alias actionButtons: actions.data
+    default property alias actionButtons: actions.groupData // Into the group's row, so it can lay them out
     Layout.fillWidth: true
     implicitHeight: Math.max(150, inputColumn.implicitHeight)
     color: Appearance.colors.colLayer2
     radius: Appearance.rounding.normal
 
     signal inputTextChanged(); // Signal emitted when text changes
+    signal accepted(); // Enter pressed in the input (Shift+Enter inserts a new line)
 
     ColumnLayout {
         id: inputColumn
@@ -42,6 +43,12 @@ Rectangle {
                 padding: 15
                 background: null
                 onTextChanged: root.inputTextChanged()
+                Keys.onPressed: (event) => {
+                    if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
+                        root.accepted();
+                        event.accepted = true;
+                    }
+                }
             }
         }
 

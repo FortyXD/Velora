@@ -351,8 +351,10 @@ Singleton {
             property JsonObject language: JsonObject {
                 property string ui: "auto" // UI language. "auto" for system locale, or specific language code like "zh_CN", "en_US"
                 property JsonObject translator: JsonObject {
-                    property string engine: "auto" // Run `trans -list-engines` for available engines. auto should use google
-                    property string targetLanguage: "auto" // Run `trans -list-all` for available languages
+                    property string mode: "auto" // "offline" (English <-> Russian on this machine), "online" (trans), or "auto": offline once installed
+                    property string llmModel: "" // Ollama model for "Refine"; empty = smallest installed
+                    property string engine: "auto" // Online only. Run `trans -list-engines` for available engines. auto should use google
+                    property string targetLanguage: "auto" // Online only. Run `trans -list-all` for available languages
                     property string sourceLanguage: "auto"
                 }
             }
