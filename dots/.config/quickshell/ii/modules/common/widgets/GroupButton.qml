@@ -31,8 +31,8 @@ Button {
     property int clickIndex: parentGroup?.clickIndex ?? -1
     property bool isAtSide: indexInParent === 0 || indexInParent === (parentGroup?.childrenCount - 1)
 
-    Layout.fillWidth: (clickIndex - 1 <= indexInParent && indexInParent <= clickIndex + 1)
-    Layout.fillHeight: (clickIndex - 1 <= indexInParent && indexInParent <= clickIndex + 1)
+    Layout.fillWidth: clickIndex >= 0 && (clickIndex - 1 <= indexInParent && indexInParent <= clickIndex + 1)
+    Layout.fillHeight: clickIndex >= 0 && (clickIndex - 1 <= indexInParent && indexInParent <= clickIndex + 1)
     implicitWidth: (root.down && bounce) ? clickedWidth : baseWidth
     implicitHeight: (root.down && bounce) ? clickedHeight : baseHeight
 
@@ -55,8 +55,8 @@ Button {
             colBackground)) : colBackground
 
     onDownChanged: {
-        if (root.down) {
-            if (root.parent.clickIndex !== undefined) {
+        if (root.down && root.bounce) {
+            if (root.parent?.clickIndex !== undefined) {
                 root.parent.clickIndex = parent.children.indexOf(root)
             }
         }
@@ -85,6 +85,7 @@ Button {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+        property bool holdHandled: false
         onPressed: (event) => { 
             if(event.button === Qt.RightButton) {
                 if (root.altAction) root.altAction();
@@ -94,6 +95,7 @@ Button {
                 if (root.middleClickAction) root.middleClickAction();
                 return;
             }
+            holdHandled = false
             root.down = true
             if (root.downAction) root.downAction();
         }
@@ -103,7 +105,7 @@ Button {
             if (root.releaseAction) root.releaseAction();
         }
         onClicked: (event) => {
-            if (event.button != Qt.LeftButton) return;
+            if (event.button != Qt.LeftButton || holdHandled) return;
             root.click()
         }
         onCanceled: (event) => {
@@ -111,9 +113,10 @@ Button {
         }
 
         onPressAndHold: () => {
-            altAction(); 
-            root.down = false; 
-            root.clicked = false;
+            if (!root.altAction) return;
+            holdHandled = true;
+            root.down = false;
+            root.altAction();
         };
     }
 

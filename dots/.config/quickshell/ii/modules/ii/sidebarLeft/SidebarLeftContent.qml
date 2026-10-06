@@ -1,3 +1,4 @@
+import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -21,20 +22,67 @@ Item {
         ...(root.translatorEnabled ? [{"icon": "translate", "name": Translation.tr("Translator")}] : []),
         ...((root.animeEnabled && !root.animeCloset) ? [{"icon": "bookmark_heart", "name": Translation.tr("Anime")}] : [])
     ]
+    // Pages in swipe order. Closet anime has no tab button but stays reachable by swiping.
+    property var pageList: [
+        ...(root.aiChatEnabled ? ["ai"] : []),
+        ...(root.translatorEnabled ? ["translator"] : []),
+        ...((root.tabButtonList.length === 0 || (!root.aiChatEnabled && !root.translatorEnabled && root.animeCloset)) ? ["placeholder"] : []),
+        ...(root.animeEnabled ? ["anime"] : []),
+    ]
     property int tabCount: swipeView.count
 
     function focusActiveItem() {
-        swipeView.currentItem.forceActiveFocus()
+        swipeView.currentItem?.item?.forceActiveFocus()
+    }
+
+    property bool tabRestored: false // Don't overwrite the saved tab before it has been read
+
+    function setTab(index) {
+        if (index < 0 || index >= swipeView.count) return;
+        if (tabBar.currentIndex !== index) tabBar.setCurrentIndex(index);
+        if (swipeView.currentIndex !== index) swipeView.setCurrentIndex(index);
+        if (root.tabRestored) Persistent.states.sidebar.leftTab = index;
+        if (GlobalStates.sidebarLeftOpen) Qt.callLater(root.focusActiveItem); // Typing goes to the visible tab
+    }
+
+    function restoreTab() {
+        if (root.tabRestored || !Persistent.ready) return;
+        root.setTab(Math.min(Persistent.states.sidebar.leftTab, swipeView.count - 1));
+        root.tabRestored = true;
+    }
+
+    Component.onCompleted: root.restoreTab()
+
+    Connections {
+        target: Persistent
+        function onReadyChanged() {
+            root.restoreTab();
+        }
+    }
+
+    // A tab restored while the sidebar was hidden is positioned before the pages have a size,
+    // which leaves the view scrolled to an empty gap: snap it to the current page again
+    function snapToCurrentPage() {
+        swipeView.contentItem.positionViewAtIndex(swipeView.currentIndex, ListView.Beginning);
+    }
+
+    Connections {
+        target: GlobalStates
+        function onSidebarLeftOpenChanged() {
+            if (!GlobalStates.sidebarLeftOpen) return;
+            root.snapToCurrentPage();
+            root.focusActiveItem();
+        }
     }
 
     Keys.onPressed: (event) => {
         if (event.modifiers === Qt.ControlModifier) {
             if (event.key === Qt.Key_PageDown) {
-                swipeView.incrementCurrentIndex()
+                root.setTab(swipeView.currentIndex + 1)
                 event.accepted = true;
             }
             else if (event.key === Qt.Key_PageUp) {
-                swipeView.decrementCurrentIndex()
+                root.setTab(swipeView.currentIndex - 1)
                 event.accepted = true;
             }
         }
@@ -55,7 +103,7 @@ Item {
                 id: tabBar
                 Layout.alignment: Qt.AlignHCenter
                 tabButtonList: root.tabButtonList
-                currentIndex: swipeView.currentIndex
+                onCurrentIndexChanged: root.setTab(currentIndex)
             }
         }
 
@@ -71,7 +119,8 @@ Item {
                 id: swipeView
                 anchors.fill: parent
                 spacing: 10
-                currentIndex: tabBar.currentIndex
+                onCurrentIndexChanged: root.setTab(currentIndex) // Swiping
+                onWidthChanged: Qt.callLater(root.snapToCurrentPage)
 
                 clip: true
                 layer.enabled: true
@@ -83,12 +132,29 @@ Item {
                     }
                 }
 
-                contentChildren: [
-                    ...(root.aiChatEnabled ? [aiChat.createObject()] : []),
-                    ...(root.translatorEnabled ? [translator.createObject()] : []),
-                    ...((root.tabButtonList.length === 0 || (!root.aiChatEnabled && !root.translatorEnabled && root.animeCloset)) ? [placeholder.createObject()] : []),
-                    ...(root.animeEnabled ? [anime.createObject()] : []),
-                ]
+                // Each page is built the first time it's shown, then kept so its state survives tab switches
+                Repeater {
+                    model: root.pageList
+                    delegate: Loader {
+                        id: pageLoader
+                        required property string modelData
+                        // Not built while the sidebar is hidden, even for the remembered tab
+                        property bool shown: SwipeView.isCurrentItem && GlobalStates.sidebarLeftOpen
+                        property bool visited: false
+                        active: visited
+                        onShownChanged: if (shown) visited = true
+                        Component.onCompleted: if (shown) visited = true
+                        sourceComponent: {
+                            switch (pageLoader.modelData) {
+                                case "ai": return aiChat;
+                                case "translator": return translator;
+                                case "anime": return anime;
+                                default: return placeholder;
+                            }
+                        }
+                        onLoaded: if (SwipeView.isCurrentItem && GlobalStates.sidebarLeftOpen) item.forceActiveFocus()
+                    }
+                }
             }
         }
 

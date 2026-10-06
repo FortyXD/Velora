@@ -27,6 +27,7 @@ Item {
 
     ColumnLayout {
         anchors.centerIn: parent
+        width: Math.min(implicitWidth, root.width - 32) // Long descriptions wrap instead of overflowing
         spacing: 5
 
         MaterialShapeWrappedMaterialSymbol {

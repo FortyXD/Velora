@@ -16,20 +16,19 @@ Rectangle {
     property alias clickIndex: rowLayout.clickIndex
     property alias childrenCount: rowLayout.childrenCount
 
+    readonly property var visibleChildren: rowLayout.children.filter(child =>
+        child.visible && (child.baseWidth ?? child.implicitWidth ?? child.width) > 0)
     property real contentWidth: {
         let total = 0;
-        for (let i = 0; i < rowLayout.children.length; ++i) {
-            const child = rowLayout.children[i];
-            if (!child.visible) continue;
+        for (const child of visibleChildren)
             total += child.baseWidth ?? child.implicitWidth ?? child.width;
-        }
-        return total + rowLayout.spacing * (rowLayout.children.length - 1);
+        return total + rowLayout.spacing * Math.max(0, visibleChildren.length - 1);
     }
 
-    topLeftRadius: rowLayout.children.length > 0 ? (rowLayout.children[0].radius + padding) : 
+    topLeftRadius: visibleChildren.length > 0 ? ((visibleChildren[0].radius ?? Appearance.rounding.small) + padding) :
         Appearance?.rounding?.small
     bottomLeftRadius: topLeftRadius
-    topRightRadius: rowLayout.children.length > 0 ? (rowLayout.children[rowLayout.children.length - 1].radius + padding) : 
+    topRightRadius: visibleChildren.length > 0 ? ((visibleChildren[visibleChildren.length - 1].radius ?? Appearance.rounding.small) + padding) :
         Appearance?.rounding?.small
     bottomRightRadius: topRightRadius
 
