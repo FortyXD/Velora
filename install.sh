@@ -109,12 +109,85 @@ link_item "$repo_root/dots/.config/starship.toml" "$config_home/starship.toml"
 link_item "$repo_root/home/.zshrc" "$HOME/.zshrc"
 link_item "$repo_root/home/.tmux.conf" "$HOME/.tmux.conf"
 link_item "$repo_root/dots/.local/share/icons/illogical-impulse.svg" "$data_home/icons/illogical-impulse.svg"
+link_item "$repo_root/dots/.local/share/kxmlgui5/dolphin/dolphinui.rc" "$data_home/kxmlgui5/dolphin/dolphinui.rc"
+link_item "$repo_root/dots/.local/share/folis/dolphin-create-archive.py" "$data_home/folis/dolphin-create-archive.py"
+link_item "$repo_root/dots/.local/share/dbus-1/services/org.freedesktop.FileManager1.service" "$data_home/dbus-1/services/org.freedesktop.FileManager1.service"
+
+archive_menu="$data_home/kio/servicemenus/folis-create-archive.desktop"
+if $dry_run; then
+  printf 'Would install Dolphin archive menu: %s\n' "$archive_menu"
+else
+  mkdir -p -- "$(dirname -- "$archive_menu")"
+  archive_menu_tmp=$(mktemp "${archive_menu}.XXXXXX")
+  cat > "$archive_menu_tmp" <<EOF
+[Desktop Entry]
+Type=Service
+Name=Compress
+Name[ru]=Создать архив
+MimeType=all/allfiles;inode/directory;
+X-KDE-Protocols=file
+X-KDE-MinNumberOfUrls=1
+X-KDE-Priority=TopLevel
+X-KDE-Submenu=Compress
+X-KDE-Submenu[ru]=Создать архив
+Actions=zip;tarGz;
+
+[Desktop Action zip]
+Name=ZIP archive
+Name[ru]=Архив ZIP
+Icon=archive-insert
+Exec=/usr/bin/python3 "$data_home/folis/dolphin-create-archive.py" zip %F
+
+[Desktop Action tarGz]
+Name=tar.gz archive
+Name[ru]=Архив tar.gz
+Icon=archive-insert
+Exec=/usr/bin/python3 "$data_home/folis/dolphin-create-archive.py" tar.gz %F
+EOF
+  chmod 755 "$archive_menu_tmp"
+  if [[ -e $archive_menu || -L $archive_menu ]]; then
+    if cmp -s -- "$archive_menu_tmp" "$archive_menu"; then
+      rm -- "$archive_menu_tmp"
+    else
+      relative=${archive_menu#"$HOME"/}
+      mkdir -p -- "$backup_root/$(dirname -- "$relative")"
+      mv -- "$archive_menu" "$backup_root/$relative"
+      mv -- "$archive_menu_tmp" "$archive_menu"
+    fi
+  else
+    mv -- "$archive_menu_tmp" "$archive_menu"
+  fi
+fi
 
 if command -v xdg-mime >/dev/null 2>&1 && [[ -f /usr/share/applications/org.kde.dolphin.desktop ]]; then
   if $dry_run; then
     printf 'Would make Dolphin the default handler for directories.\n'
   else
     xdg-mime default org.kde.dolphin.desktop inode/directory
+    if command -v gio >/dev/null 2>&1; then
+      gio mime inode/directory org.kde.dolphin.desktop
+    fi
+    if command -v busctl >/dev/null 2>&1; then
+      busctl --user call org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus ReloadConfig >/dev/null 2>&1 || true
+    fi
+  fi
+fi
+
+if command -v kwriteconfig6 >/dev/null 2>&1; then
+  if $dry_run; then
+    printf 'Would hide Dolphin Activities and use the configured Kitty terminal on F4.\n'
+  else
+    kwriteconfig6 --file "$config_home/kservicemenurc" --group Show --key kactivitymanagerd_fileitem_linking_plugin false
+    kwriteconfig6 --file "$config_home/dolphinrc" --group ContextMenu --key ShowAddToPlaces false
+    kwriteconfig6 --file "$config_home/dolphinrc" --group Shortcuts --key show_terminal_panel none
+    kwriteconfig6 --file "$config_home/dolphinrc" --group Shortcuts --key open_terminal F4
+    terminal_launcher="$config_home/hypr/custom/scripts/launch-terminal.sh"
+    if [[ -x $terminal_launcher ]]; then
+      kwriteconfig6 --file "$config_home/kdeglobals" --group General --key TerminalApplication "$terminal_launcher"
+    else
+      kwriteconfig6 --file "$config_home/kdeglobals" --group General --key TerminalApplication 'kitty -1'
+    fi
+    kwriteconfig6 --file "$config_home/kdeglobals" --group General --key TerminalService --delete
   fi
 fi
 
