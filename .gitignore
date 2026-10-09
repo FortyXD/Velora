@@ -20,3 +20,6 @@ __pycache__/
 /dots/.config/illogical-impulse/installed_*
 /dots/.config/fish/fish_history
 /dots/.config/hypr/nvim.log
+
+# Local screenshots and previews produced while testing
+/artifacts/
