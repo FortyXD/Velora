@@ -641,7 +641,7 @@ exit
 🍌 banana fruit food monkey
 🍍 pineapple fruit nature food
 🥭 mango fruit food tropical
-🍎 red apple fruit mac school
+🍎 red apple fruit school
 🍏 green apple fruit nature
 🍐 pear fruit nature food
 🍑 peach fruit nature food
@@ -854,7 +854,7 @@ exit
 🛴 kick scooter vehicle kick razor
 🛹 skateboard board
 🚏 bus stop transportation wait
-🛣️ motorway road cupertino interstate highway
+🛣️ motorway road interstate highway
 🛤️ railway track train transportation
 🛢️ oil drum barrell
 ⛽ fuel pump gas station petroleum
@@ -1111,8 +1111,8 @@ exit
 🎻 violin music instrument orchestra symphony
 🪕 banjo music instructment
 🥁 drum music instrument drumsticks snare
-📱 mobile phone technology apple gadgets dial
-📲 mobile phone with arrow iphone incoming
+📱 mobile phone technology gadgets dial
+📲 mobile phone with arrow incoming
 ☎️ telephone technology communication dial telephone
 📞 telephone receiver technology communication dial
 📟 pager bbcall oldschool 90s
@@ -1298,7 +1298,7 @@ exit
 🚯 no littering trash bin garbage circle
 🚱 non potable water drink faucet tap circle
 🚷 no pedestrians rules crossing walking circle
-📵 no mobile phones iphone mute circle
+📵 no mobile phones mute circle
 🔞 no one under eighteen 18 drink pub night minor circle
 ☢️ radioactive nuclear danger
 ☣️ biohazard danger

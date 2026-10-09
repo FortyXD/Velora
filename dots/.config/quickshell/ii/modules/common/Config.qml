@@ -300,11 +300,11 @@ Singleton {
 
             property JsonObject cheatsheet: JsonObject {
                 // Use a nerdfont to see the icons
-                // 0: 󰖳  | 1: 󰌽 | 2: 󰘳 | 3:  | 4: 󰨡
-                // 5:  | 6:  | 7: 󰣇 | 8:  | 9: 
+                // 0: 󰖳  | 1: 󰌽 | 2: ⌘ | 3:  | 4: 󰨡
+                // 5:  | 7: 󰣇 | 8:  | 9: 
                 // 10:  | 11:  | 12:  | 13:  | 14: 󱄛
                 property string superKey: ""
-                property bool useMacSymbol: false
+                property bool useModifierSymbols: false
                 property bool splitButtons: false
                 property bool useMouseSymbol: false
                 property bool useFnSymbol: false
@@ -398,7 +398,7 @@ Singleton {
             }
 
             property JsonObject networking: JsonObject {
-                property string userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+                property string userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
             }
 
             property JsonObject notifications: JsonObject {

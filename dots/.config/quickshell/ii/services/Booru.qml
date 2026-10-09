@@ -20,7 +20,7 @@ Singleton {
     property string failMessage: Translation.tr("Nothing found. Tips:\n- Check your tags and the NSFW switch\n- Send an empty search to browse popular images")
     property var responses: []
     property int runningRequests: 0
-    property var defaultUserAgent: Config.options?.networking?.userAgent || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+    property var defaultUserAgent: Config.options?.networking?.userAgent || "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
     property var providerList: Object.keys(providers).filter(provider => provider !== "system" && providers[provider].api)
     property var providers: {
         "system": { "name": Translation.tr("System") },

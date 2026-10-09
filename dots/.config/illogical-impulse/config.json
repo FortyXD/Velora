@@ -214,7 +214,7 @@
         "splitButtons": false,
         "superKey": "",
         "useFnSymbol": false,
-        "useMacSymbol": false,
+        "useModifierSymbols": false,
         "useMouseSymbol": false
     },
     "conflictKiller": {
@@ -303,7 +303,7 @@
         "timeout": 16
     },
     "networking": {
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
     },
     "notifications": {
         "timeout": 7000

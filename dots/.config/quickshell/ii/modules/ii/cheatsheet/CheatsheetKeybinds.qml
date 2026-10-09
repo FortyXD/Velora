@@ -17,10 +17,10 @@ Item {
     // Excellent symbol explaination and source :
     // http://xahlee.info/comp/unicode_computing_symbols.html
     // https://www.nerdfonts.com/cheat-sheet
-    property var macSymbolMap: ({
-        "Ctrl": "󰘴",
-        "Alt": "󰘵",
-        "Shift": "󰘶",
+    property var modifierSymbolMap: ({
+        "Ctrl": "⌃",
+        "Alt": "⌥",
+        "Shift": "⇧",
         "Space": "󱁐",
         "Tab": "↹",
         "Equal": "󰇼",
@@ -72,7 +72,7 @@ Item {
       !!Config.options.cheatsheet.superKey ? {
           "Super": Config.options.cheatsheet.superKey,
       }: {},
-      Config.options.cheatsheet.useMacSymbol ? macSymbolMap : {},
+      Config.options.cheatsheet.useModifierSymbols ? modifierSymbolMap : {},
       Config.options.cheatsheet.useFnSymbol ? functionSymbolMap : {},
       Config.options.cheatsheet.useMouseSymbol ? mouseSymbolMap : {},
     )

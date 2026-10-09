@@ -34,7 +34,7 @@ Note 1:
   You need a VNC client to connect to it.
   Recommended VNC client:
   - Android: AVNC (https://github.com/gujjwal00/avnc)
-  - Linux X11, Windows and MacOS: TigerVNC (https://github.com/TigerVNC/tigervnc)
+  - Linux X11 and Windows: TigerVNC (https://github.com/TigerVNC/tigervnc)
   - Linux Wayland: Remmina-VNC (https://remmina.org/remmina-vnc)
 
 Note 2:
