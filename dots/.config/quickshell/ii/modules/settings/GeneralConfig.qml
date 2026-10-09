@@ -1,155 +1,97 @@
 import QtQuick
-import Quickshell
-import Quickshell.Io
+import QtQuick.Controls
 import QtQuick.Layouts
+import Quickshell
 import qs.services
 import qs.modules.common
 import qs.modules.common.functions
 import qs.modules.common.widgets
 
 ContentPage {
-    forceWidth: true
+    id: root
 
-    Process {
-        id: translationProc
-        property string locale: ""
-        command: [Directories.aiTranslationScriptPath, translationProc.locale]
+    readonly property date now: DateTime.clock.date
+
+    // Native names, so a language can be found without knowing its code
+    readonly property var languageNames: ({
+        "de_DE": "Deutsch", "en_US": "English (US)", "es_MX": "Español (México)", "fr_FR": "Français",
+        "he_HE": "עברית", "id_ID": "Bahasa Indonesia", "it_IT": "Italiano", "ja_JP": "日本語",
+        "pt_BR": "Português (Brasil)", "ru_RU": "Русский", "tr_TR": "Türkçe", "uk_UA": "Українська",
+        "vi_VN": "Tiếng Việt", "zh_CN": "简体中文"
+    })
+    function languageName(code) {
+        return root.languageNames[code] ? `${root.languageNames[code]} · ${code}` : code;
     }
 
-    ContentSection {
-        icon: "volume_up"
-        title: Translation.tr("Audio")
+    // Each style sets the three date formats used around the shell together
+    readonly property var dateStyles: [
+        { long: "ddd, dd/MM", short: "dd/MM", withYear: "dd/MM/yyyy" },
+        { long: "ddd, dd.MM", short: "dd.MM", withYear: "dd.MM.yyyy" },
+        { long: "ddd, MM/dd", short: "MM/dd", withYear: "MM/dd/yyyy" },
+        { long: "ddd, d MMM", short: "d MMM", withYear: "d MMM yyyy" }
+    ]
 
-        ConfigSwitch {
-            buttonIcon: "hearing"
-            text: Translation.tr("Earbang protection")
-            checked: Config.options.audio.protection.enable
-            onCheckedChanged: {
-                Config.options.audio.protection.enable = checked;
-            }
-            StyledToolTip {
-                text: Translation.tr("Prevents abrupt increments and restricts volume limit")
-            }
-        }
-        ConfigRow {
-            enabled: Config.options.audio.protection.enable
-            ConfigSpinBox {
-                icon: "arrow_warm_up"
-                text: Translation.tr("Max allowed increase")
-                value: Config.options.audio.protection.maxAllowedIncrease
-                from: 0
-                to: 100
-                stepSize: 2
-                onValueChanged: {
-                    Config.options.audio.protection.maxAllowedIncrease = value;
-                }
-            }
-            ConfigSpinBox {
-                icon: "vertical_align_top"
-                text: Translation.tr("Volume limit")
-                value: Config.options.audio.protection.maxAllowed
-                from: 0
-                to: 154 // pavucontrol allows up to 153%
-                stepSize: 2
-                onValueChanged: {
-                    Config.options.audio.protection.maxAllowed = value;
-                }
-            }
+    component AppCommandRow: ConfigTextRow {
+        required property string appKey
+        inline: true
+        inlineFieldWidth: 300
+        monospace: true
+        wrapMode: TextEdit.NoWrap
+        value: Config.options.apps[appKey]
+        onEditingFinished: {
+            if (value.trim().length > 0 && value.trim() !== Config.options.apps[appKey]) Config.options.apps[appKey] = value.trim();
         }
     }
 
     ContentSection {
-        icon: "battery_android_full"
-        title: Translation.tr("Battery")
+        title: ""
 
-        ConfigRow {
-            uniform: true
-            ConfigSpinBox {
-                icon: "warning"
-                text: Translation.tr("Low warning")
-                value: Config.options.battery.low
-                from: 0
-                to: 100
-                stepSize: 5
-                onValueChanged: {
-                    Config.options.battery.low = value;
-                }
-            }
-            ConfigSpinBox {
-                icon: "dangerous"
-                text: Translation.tr("Critical warning")
-                value: Config.options.battery.critical
-                from: 0
-                to: 100
-                stepSize: 5
-                onValueChanged: {
-                    Config.options.battery.critical = value;
-                }
-            }
-        }
-        ConfigRow {
-            uniform: false
-            Layout.fillWidth: false
-            ConfigSwitch {
-                buttonIcon: "pause"
-                text: Translation.tr("Automatic suspend")
-                checked: Config.options.battery.automaticSuspend
-                onCheckedChanged: {
-                    Config.options.battery.automaticSuspend = checked;
-                }
-                StyledToolTip {
-                    text: Translation.tr("Automatically suspends the system when battery is low")
-                }
-            }
-            ConfigSpinBox {
-                enabled: Config.options.battery.automaticSuspend
-                text: Translation.tr("at")
-                value: Config.options.battery.suspend
-                from: 0
-                to: 100
-                stepSize: 5
-                onValueChanged: {
-                    Config.options.battery.suspend = value;
-                }
-            }
-        }
-        ConfigRow {
-            uniform: true
-            ConfigSpinBox {
-                icon: "charger"
-                text: Translation.tr("Full warning")
-                value: Config.options.battery.full
-                from: 0
-                to: 101
-                stepSize: 5
-                onValueChanged: {
-                    Config.options.battery.full = value;
-                }
-            }
+        ConfigNavRow {
+            buttonIcon: "info"
+            title: Translation.tr("About")
+            valueText: `${SystemInfo.distroName} · Folis`
+            onClicked: ApplicationWindow.window?.openPage("about")
         }
     }
 
     ContentSection {
-        icon: "language"
         title: Translation.tr("Language")
+        description: Translation.tr("Applies to the bar, sidebars, settings and other parts of the shell")
 
-        ContentSubsection {
-            title: Translation.tr("Interface Language")
-            tooltip: Translation.tr("Select the language for the user interface.\n\"Auto\" will use your system's locale.")
+        RowLayout {
+            readonly property bool settingsSearchable: true
+            property string searchText: Translation.tr("Interface Language")
+            property string text: Translation.tr("Interface Language")
+            Layout.fillWidth: true
+            Layout.leftMargin: 12
+            Layout.rightMargin: 12
+            Layout.topMargin: 6
+            Layout.bottomMargin: 6
+            spacing: 12
 
+            ConfigIconTile {
+                icon: "translate"
+            }
+            StyledText {
+                Layout.fillWidth: true
+                text: Translation.tr("Interface Language")
+                font.pixelSize: Appearance.font.pixelSize.small
+                color: Appearance.colors.colOnLayer2
+            }
             StyledComboBox {
                 id: languageSelector
+                Layout.preferredWidth: 280
                 buttonIcon: "language"
                 textRole: "displayName"
 
                 model: [
                     {
-                        displayName: Translation.tr("Auto (System)"),
+                        displayName: Translation.tr("Auto (System)") + ` · ${root.languageName(Qt.locale().name)}`,
                         value: "auto"
                     },
                     ...Translation.allAvailableLanguages.map(lang => {
                         return {
-                            displayName: lang,
+                            displayName: root.languageName(lang),
                             value: lang
                         };
                     })]
@@ -164,196 +106,93 @@ ContentPage {
                 }
             }
         }
-        ContentSubsection {
-            title: Translation.tr("Generate translation with Gemini")
-            tooltip: Translation.tr("You'll need to enter your Gemini API key first.\nType /key on the sidebar for instructions.")
-
-            ConfigRow {
-                MaterialTextArea {
-                    id: localeInput
-                    Layout.fillWidth: true
-                    placeholderText: Translation.tr("Locale code, e.g. fr_FR, de_DE, zh_CN...")
-                    text: Config.options.language.ui === "auto" ? Qt.locale().name : Config.options.language.ui
-                }
-                RippleButtonWithIcon {
-                    id: generateTranslationBtn
-                    Layout.fillHeight: true
-                    nerdIcon: ""
-                    enabled: !translationProc.running || (translationProc.locale !== localeInput.text.trim())
-                    mainText: enabled ? Translation.tr("Generate\nTypically takes 2 minutes") : Translation.tr("Generating...\nDon't close this window!")
-                    onClicked: {
-                        translationProc.locale = localeInput.text.trim();
-                        translationProc.running = false;
-                        translationProc.running = true;
-                    }
-                }
-            }
-        }
     }
 
     ContentSection {
-        icon: "rule"
-        title: Translation.tr("Policies")
-
-        ConfigRow {
-
-            // AI policy
-            ColumnLayout {
-                ContentSubsectionLabel {
-                    text: Translation.tr("AI")
-                }
-
-                ConfigSelectionArray {
-                    currentValue: Config.options.policies.ai
-                    onSelected: newValue => {
-                        Config.options.policies.ai = newValue;
-                    }
-                    options: [
-                        {
-                            displayName: Translation.tr("No"),
-                            icon: "close",
-                            value: 0
-                        },
-                        {
-                            displayName: Translation.tr("Yes"),
-                            icon: "check",
-                            value: 1
-                        },
-                        {
-                            displayName: Translation.tr("Local only"),
-                            icon: "sync_saved_locally",
-                            value: 2
-                        }
-                    ]
-                }
-            }
-
-            // Weeb policy
-            ColumnLayout {
-
-                ContentSubsectionLabel {
-                    text: Translation.tr("Weeb")
-                }
-
-                ConfigSelectionArray {
-                    currentValue: Config.options.policies.weeb
-                    onSelected: newValue => {
-                        Config.options.policies.weeb = newValue;
-                    }
-                    options: [
-                        {
-                            displayName: Translation.tr("No"),
-                            icon: "close",
-                            value: 0
-                        },
-                        {
-                            displayName: Translation.tr("Yes"),
-                            icon: "check",
-                            value: 1
-                        },
-                        {
-                            displayName: Translation.tr("Closet"),
-                            icon: "ev_shadow",
-                            value: 2
-                        }
-                    ]
-                }
-            }
-        }
-    }
-
-    ContentSection {
-        icon: "notification_sound"
-        title: Translation.tr("Sounds")
-        ConfigRow {
-            uniform: true
-            ConfigSwitch {
-                buttonIcon: "battery_android_full"
-                text: Translation.tr("Battery")
-                checked: Config.options.sounds.battery
-                onCheckedChanged: {
-                    Config.options.sounds.battery = checked;
-                }
-            }
-            ConfigSwitch {
-                buttonIcon: "av_timer"
-                text: Translation.tr("Pomodoro")
-                checked: Config.options.sounds.pomodoro
-                onCheckedChanged: {
-                    Config.options.sounds.pomodoro = checked;
-                }
-            }
-        }
-    }
-
-    ContentSection {
-        icon: "nest_clock_farsight_analog"
-        title: Translation.tr("Time")
-
-        ConfigSwitch {
-            buttonIcon: "pace"
-            text: Translation.tr("Second precision")
-            checked: Config.options.time.secondPrecision
-            onCheckedChanged: {
-                Config.options.time.secondPrecision = checked;
-            }
-            StyledToolTip {
-                text: Translation.tr("Enable if you want clocks to show seconds accurately")
-            }
-        }
+        title: Translation.tr("Date & time")
+        description: Translation.tr("How the clock and dates look in the bar, sidebars and on the lock screen")
 
         ContentSubsection {
-            title: Translation.tr("Format")
-            tooltip: ""
-
+            title: Translation.tr("Time format")
             ConfigSelectionArray {
                 currentValue: Config.options.time.format
                 onSelected: newValue => {
+                    // Hyprlock has its own clock, keep it in line
                     if (newValue === "hh:mm") {
                         Quickshell.execDetached(["bash", "-c", `sed -i 's/\\TIME12\\b/TIME/' '${FileUtils.trimFileProtocol(Directories.config)}/hypr/hyprlock.conf'`]);
                     } else {
                         Quickshell.execDetached(["bash", "-c", `sed -i 's/\\TIME\\b/TIME12/' '${FileUtils.trimFileProtocol(Directories.config)}/hypr/hyprlock.conf'`]);
                     }
-
                     Config.options.time.format = newValue;
                 }
-                options: [
-                    {
-                        displayName: Translation.tr("24h"),
-                        value: "hh:mm"
-                    },
-                    {
-                        displayName: Translation.tr("12h am/pm"),
-                        value: "h:mm ap"
-                    },
-                    {
-                        displayName: Translation.tr("12h AM/PM"),
-                        value: "h:mm AP"
-                    },
-                ]
+                options: ["hh:mm", "h:mm ap", "h:mm AP"].map(format => ({
+                    displayName: Qt.locale().toString(root.now, format),
+                    value: format
+                }))
+            }
+        }
+
+        ContentSubsection {
+            title: Translation.tr("Date format")
+            ConfigSelectionArray {
+                currentValue: Config.options.time.dateFormat
+                onSelected: newValue => {
+                    const style = root.dateStyles.find(style => style.long === newValue);
+                    Config.options.time.dateFormat = style.long;
+                    Config.options.time.shortDateFormat = style.short;
+                    Config.options.time.dateWithYearFormat = style.withYear;
+                }
+                options: root.dateStyles.map(style => ({
+                    displayName: Qt.locale().toString(root.now, style.long),
+                    value: style.long
+                }))
+            }
+        }
+
+        ConfigSwitch {
+            buttonIcon: "pace"
+            text: Translation.tr("Show seconds")
+            description: Translation.tr("Clocks update every second instead of every minute")
+            checked: Config.options.time.secondPrecision
+            onCheckedChanged: {
+                Config.options.time.secondPrecision = checked;
             }
         }
     }
 
     ContentSection {
-        icon: "work_alert"
-        title: Translation.tr("Work safety")
+        title: Translation.tr("Default apps")
+        description: Translation.tr("Commands the shell runs from its buttons, like the volume mixer link or the network settings. Press Enter to save.")
 
-        ConfigSwitch {
-            buttonIcon: "assignment"
-            text: Translation.tr("Hide clipboard images copied from sussy sources")
-            checked: Config.options.workSafety.enable.clipboard
-            onCheckedChanged: {
-                Config.options.workSafety.enable.clipboard = checked;
-            }
+        AppCommandRow {
+            appKey: "terminal"
+            icon: "terminal"
+            label: Translation.tr("Terminal")
         }
-        ConfigSwitch {
-            buttonIcon: "wallpaper"
-            text: Translation.tr("Hide sussy/anime wallpapers")
-            checked: Config.options.workSafety.enable.wallpaper
-            onCheckedChanged: {
-                Config.options.workSafety.enable.wallpaper = checked;
-            }
+        AppCommandRow {
+            appKey: "taskManager"
+            icon: "monitor_heart"
+            label: Translation.tr("Task manager")
+        }
+        AppCommandRow {
+            appKey: "volumeMixer"
+            icon: "tune"
+            label: Translation.tr("Volume mixer")
+        }
+        AppCommandRow {
+            appKey: "network"
+            icon: "wifi"
+            label: Translation.tr("Network settings")
+        }
+        AppCommandRow {
+            appKey: "bluetooth"
+            icon: "bluetooth"
+            label: Translation.tr("Bluetooth settings")
+        }
+        AppCommandRow {
+            appKey: "update"
+            icon: "system_update_alt"
+            label: Translation.tr("System update")
         }
     }
 }

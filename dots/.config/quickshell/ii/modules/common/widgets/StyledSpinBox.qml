@@ -12,12 +12,15 @@ SpinBox {
     property real baseHeight: 35
     property real radius: Appearance.rounding.small
     property real innerButtonRadius: Appearance.rounding.unsharpen
+    property color colBackground: Appearance.colors.colLayer2
+    property color colButtonHover: Appearance.colors.colLayer2Hover
+    property color colButtonActive: Appearance.colors.colLayer2Active
     editable: true
 
     opacity: root.enabled ? 1 : 0.4
 
     background: Rectangle {
-        color: Appearance.colors.colLayer2
+        color: root.colBackground
         radius: root.radius
     }
 
@@ -52,9 +55,9 @@ SpinBox {
         topRightRadius: root.innerButtonRadius
         bottomRightRadius: root.innerButtonRadius
 
-        color: root.down.pressed ? Appearance.colors.colLayer2Active : 
-            root.down.hovered ? Appearance.colors.colLayer2Hover : 
-            ColorUtils.transparentize(Appearance.colors.colLayer2)
+        color: root.down.pressed ? root.colButtonActive :
+            root.down.hovered ? root.colButtonHover :
+            ColorUtils.transparentize(root.colBackground)
         Behavior on color {
             animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
         }
@@ -79,9 +82,9 @@ SpinBox {
         topLeftRadius: root.innerButtonRadius
         bottomLeftRadius: root.innerButtonRadius
 
-        color: root.up.pressed ? Appearance.colors.colLayer2Active : 
-            root.up.hovered ? Appearance.colors.colLayer2Hover : 
-            ColorUtils.transparentize(Appearance.colors.colLayer2)
+        color: root.up.pressed ? root.colButtonActive :
+            root.up.hovered ? root.colButtonHover :
+            ColorUtils.transparentize(root.colBackground)
         Behavior on color {
             animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
         }

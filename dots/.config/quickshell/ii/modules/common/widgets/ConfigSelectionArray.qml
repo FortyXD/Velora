@@ -8,6 +8,10 @@ import qs.modules.common.functions
 Flow {
     id: root
     Layout.fillWidth: true
+    Layout.leftMargin: 12
+    Layout.rightMargin: 12
+    Layout.topMargin: 2
+    Layout.bottomMargin: 6
     spacing: 2
     property list<var> options: [
         {

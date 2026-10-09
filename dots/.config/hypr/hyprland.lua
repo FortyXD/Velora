@@ -29,6 +29,9 @@ require("custom.execs")
 require("custom.general")
 require("custom.rules")
 
+-- Options changed in the settings app (Super+I). Generated, see custom/shell_settings.lua.
+pcall(require, "custom.shell_settings")
+
 -- nwg-displays compatibility files, converted to Lua.
 require("workspaces")
 require("monitors")

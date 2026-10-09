@@ -9,7 +9,7 @@ Rectangle {
     property alias text: noticeText.text
     default property alias boxData: buttonRow.data
 
-    radius: Appearance.rounding.normal
+    radius: Appearance.rounding.large
     color: Appearance.colors.colPrimaryContainer
     implicitWidth: mainRowLayout.implicitWidth + mainRowLayout.anchors.margins * 2
     implicitHeight: mainRowLayout.implicitHeight + mainRowLayout.anchors.margins * 2
@@ -17,34 +17,43 @@ Rectangle {
     RowLayout {
         id: mainRowLayout
         anchors.fill: parent
-        anchors.margins: 8
-        spacing: 8
+        anchors.margins: 12
+        spacing: 12
 
-        MaterialSymbol {
-            id: icon
-            Layout.fillWidth: false
+        Rectangle {
             Layout.alignment: Qt.AlignTop
-            text: "info"
-            iconSize: Appearance.font.pixelSize.huge
-            color: Appearance.colors.colOnPrimaryContainer
+            implicitWidth: 34
+            implicitHeight: 34
+            radius: Appearance.rounding.full
+            color: Appearance.colors.colPrimary
+            MaterialSymbol {
+                id: icon
+                anchors.centerIn: parent
+                text: "info"
+                iconSize: 20
+                fill: 1
+                color: Appearance.colors.colOnPrimary
+            }
         }
 
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: 4
+            Layout.alignment: Qt.AlignVCenter
+            spacing: 6
 
             StyledText {
                 id: noticeText
                 Layout.fillWidth: true
                 text: "Notice message"
                 color: Appearance.colors.colOnPrimaryContainer
+                font.pixelSize: Appearance.font.pixelSize.small
                 wrapMode: Text.WordWrap
             }
 
             RowLayout {
                 id: buttonRow
                 visible: children.length > 0
-                Layout.fillWidth: true 
+                Layout.fillWidth: true
             }
         }
     }
