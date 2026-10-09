@@ -25,6 +25,14 @@ Singleton {
     property int pomodoroLapDuration: pomodoroLongBreak ? longBreakTime : pomodoroBreak ? breakTime : focusTime // This is a binding that's to be kept
     property int pomodoroSecondsLeft: pomodoroLapDuration // Reasonable init value, to be changed
     property int pomodoroCycle: Persistent.states.timer.pomodoro.cycle
+    // A lap that hasn't been started yet follows duration changes from the settings
+    readonly property bool pomodoroLapFresh: !pomodoroRunning && pomodoroSecondsLeft === lastLapDuration
+    property int lastLapDuration: 0
+    onPomodoroLapDurationChanged: {
+        if (!pomodoroRunning && pomodoroSecondsLeft === lastLapDuration)
+            pomodoroSecondsLeft = pomodoroLapDuration;
+        lastLapDuration = pomodoroLapDuration;
+    }
 
     property bool stopwatchRunning: Persistent.states.timer.stopwatch.running
     property int stopwatchTime: 0
@@ -33,6 +41,7 @@ Singleton {
 
     // General
     Component.onCompleted: {
+        lastLapDuration = pomodoroLapDuration;
         if (!stopwatchRunning)
             stopwatchReset();
     }
@@ -90,6 +99,12 @@ Singleton {
             // Start/Resume
             Persistent.states.timer.pomodoro.start = getCurrentTimeInSeconds() + pomodoroSecondsLeft - pomodoroLapDuration;
         }
+    }
+
+    // Ends the current focus or break period right away and moves to the next one
+    function skipPomodoro() {
+        Persistent.states.timer.pomodoro.start = getCurrentTimeInSeconds() - pomodoroLapDuration;
+        refreshPomodoro();
     }
 
     function resetPomodoro() {

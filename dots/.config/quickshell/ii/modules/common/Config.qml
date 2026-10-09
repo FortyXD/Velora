@@ -210,6 +210,59 @@ Singleton {
                         property real x: 400
                         property real y: 100
                     }
+                    property string cardStyle: "tonal" // Card background of the widgets below: "tonal", "surface", "transparent"
+                    property JsonObject systemMonitor: JsonObject {
+                        property bool enable: false
+                        property string placementStrategy: "free"
+                        property real x: 80
+                        property real y: 520
+                        property bool showCpu: true
+                        property bool showMemory: true
+                        property bool showSwap: false
+                        property bool showTemperature: true
+                        property bool showDisk: true
+                        property bool showNetwork: true
+                        property bool showGraphs: true
+                    }
+                    property JsonObject media: JsonObject {
+                        property bool enable: false
+                        property string placementStrategy: "free"
+                        property real x: 80
+                        property real y: 340
+                        property bool hideWhenIdle: true
+                    }
+                    property JsonObject calendar: JsonObject {
+                        property bool enable: false
+                        property string placementStrategy: "free"
+                        property real x: 640
+                        property real y: 120
+                        property bool highlightWeekends: true
+                    }
+                    property JsonObject countdown: JsonObject {
+                        property bool enable: false
+                        property string placementStrategy: "free"
+                        property real x: 640
+                        property real y: 480
+                        property string title: ""
+                        property string date: "" // yyyy-MM-dd
+                        property int hour: 0
+                        property int minute: 0
+                        property bool showHours: true
+                    }
+                    property JsonObject note: JsonObject {
+                        property bool enable: false
+                        property string placementStrategy: "free"
+                        property real x: 960
+                        property real y: 120
+                        property string title: ""
+                        property string text: ""
+                    }
+                    property JsonObject pomodoro: JsonObject {
+                        property bool enable: false
+                        property string placementStrategy: "free"
+                        property real x: 960
+                        property real y: 480
+                    }
                 }
                 property string wallpaperPath: ""
                 property string thumbnailPath: ""

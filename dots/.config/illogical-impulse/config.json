@@ -83,6 +83,14 @@
         "thumbnailPath": "",
         "wallpaperPath": "/home/andrey/Pictures/Wallpapers/gj194-wallpaper.cam.png",
         "widgets": {
+            "calendar": {
+                "enable": false,
+                "highlightWeekends": true,
+                "placementStrategy": "free",
+                "x": 1367.6796875,
+                "y": 414.84375
+            },
+            "cardStyle": "tonal",
             "clock": {
                 "cookie": {
                     "aiStyling": false,
@@ -123,11 +131,56 @@
                 "x": 265,
                 "y": 485
             },
+            "countdown": {
+                "date": "",
+                "enable": false,
+                "hour": 0,
+                "minute": 0,
+                "placementStrategy": "free",
+                "showHours": false,
+                "title": "",
+                "x": 1639.20703125,
+                "y": 95.40625
+            },
+            "media": {
+                "enable": false,
+                "hideWhenIdle": true,
+                "placementStrategy": "free",
+                "x": 80,
+                "y": 340
+            },
+            "note": {
+                "enable": false,
+                "placementStrategy": "free",
+                "text": "",
+                "title": "",
+                "x": 960,
+                "y": 120
+            },
+            "pomodoro": {
+                "enable": false,
+                "placementStrategy": "free",
+                "x": 1017.7265625,
+                "y": 490.7734375
+            },
+            "systemMonitor": {
+                "enable": false,
+                "placementStrategy": "free",
+                "showCpu": true,
+                "showDisk": true,
+                "showGraphs": true,
+                "showMemory": true,
+                "showNetwork": true,
+                "showSwap": false,
+                "showTemperature": true,
+                "x": 1517.625,
+                "y": 328.453125
+            },
             "weather": {
                 "enable": false,
                 "placementStrategy": "free",
-                "x": 400,
-                "y": 100
+                "x": 1314.375,
+                "y": 223.125
             }
         }
     },
@@ -157,8 +210,7 @@
             "memoryWarningThreshold": 95,
             "swapWarningThreshold": 85
         },
-        "screenList": [
-        ],
+        "screenList": [],
         "showBackground": true,
         "tooltips": {
             "clickToShow": false
@@ -229,8 +281,7 @@
         "height": 60,
         "hoverRegionHeight": 2,
         "hoverToReveal": true,
-        "ignoredAppRegexes": [
-        ],
+        "ignoredAppRegexes": [],
         "monochromeIcons": true,
         "pinnedApps": [
             "org.kde.dolphin"
