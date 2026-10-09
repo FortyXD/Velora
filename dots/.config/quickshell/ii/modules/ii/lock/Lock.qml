@@ -24,7 +24,8 @@ LockScreen {
                 var monName = Quickshell.screens[j].name
                 var wsId = root.savedWorkspaces[monName]
                 if (wsId !== undefined) {
-                    batch += "dispatch focusmonitor " + monName + "; dispatch workspace " + wsId + "; "
+                    batch += "dispatch hl.dsp.focus({ monitor = " + JSON.stringify(monName) + " }); "
+                    batch += "dispatch hl.dsp.focus({ workspace = " + JSON.stringify(String(wsId)) + " }); "
                 }
             }
             if (batch.length > 0) {
@@ -44,7 +45,7 @@ LockScreen {
             if (GlobalStates.screenLocked) {
                 // Lock: save workspace per monitor and move all to temp workspace in one batch
                 var next = {}
-                var batch = "keyword animation workspaces,1,7,menu_decel,slidevert; "
+                var batch = "eval hl.animation({ leaf = 'workspaces', enabled = true, speed = 7, bezier = 'menu_decel', style = 'slidevert' }); "
                 for (var i = 0; i < Quickshell.screens.length; ++i) {
                     var mon = Quickshell.screens[i].name
                     var mData = HyprlandData.monitors.find(m => m.name === mon)
@@ -53,7 +54,8 @@ LockScreen {
                     }
                     var ws = (mData?.activeWorkspace?.id ?? 1)
                     next[mon] = ws
-                    batch += "dispatch focusmonitor " + mon + "; dispatch workspace " + (2147483647 - ws) + "; "
+                    batch += "dispatch hl.dsp.focus({ monitor = " + JSON.stringify(mon) + " }); "
+                    batch += "dispatch hl.dsp.focus({ workspace = " + JSON.stringify(String(2147483647 - ws)) + " }); "
                 }
                 root.savedWorkspaces = next
                 Quickshell.execDetached(["hyprctl", "--batch", batch + "reload"])

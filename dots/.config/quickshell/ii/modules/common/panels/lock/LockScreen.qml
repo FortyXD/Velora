@@ -43,6 +43,35 @@ Scope {
         })
     }
 
+    // Passwords are typed on the first layout, whatever each keyboard was left on.
+    // Every keyboard keeps its own layout in Hyprland, so remember each one for unlock.
+    property var savedLayouts: ({})
+
+    Process {
+        id: layoutSaveProc
+        command: ["hyprctl", "-j", "devices"]
+        stdout: StdioCollector {
+            id: layoutSaveCollector
+            onStreamFinished: {
+                const saved = {};
+                try {
+                    for (const keyboard of JSON.parse(layoutSaveCollector.text).keyboards) {
+                        if (keyboard.active_layout_index > 0) saved[keyboard.name] = keyboard.active_layout_index;
+                    }
+                } catch (e) {}
+                root.savedLayouts = saved;
+                Quickshell.execDetached(["hyprctl", "switchxkblayout", "all", "0"]);
+            }
+        }
+    }
+
+    function restoreLayouts() {
+        const commands = Object.keys(root.savedLayouts).map(name =>
+            `hyprctl switchxkblayout '${StringUtils.shellSingleQuoteEscape(name)}' ${root.savedLayouts[name]}`);
+        root.savedLayouts = {};
+        if (commands.length > 0) Quickshell.execDetached(["bash", "-c", commands.join("; ")]);
+    }
+
     // This stores all the information shared between the lock surfaces on each screen.
     // https://github.com/quickshell-mirror/quickshell-examples/tree/master/lockscreen
     LockContext {
@@ -54,6 +83,10 @@ Scope {
                 if (GlobalStates.screenLocked) {
                     lockContext.reset();
                     lockContext.tryFingerUnlock();
+                    layoutSaveProc.running = true;
+                    lockContext.refreshKeyboardState();
+                } else {
+                    root.restoreLayouts();
                 }
             }
         }
@@ -76,7 +109,7 @@ Scope {
             GlobalStates.screenLocked = false;
 
             // Refocus last focused window on unlock (hack)
-            Quickshell.execDetached(["bash", "-c", `sleep 0.2; hyprctl --batch "dispatch togglespecialworkspace; dispatch togglespecialworkspace"`])
+            Quickshell.execDetached(["bash", "-c", `sleep 0.2; hyprctl --batch "dispatch hl.dsp.focus({ last = true })"`])
 
             // Reset
             lockContext.reset();

@@ -63,6 +63,7 @@ MouseArea {
     property bool ctrlHeld: false
     Keys.onPressed: event => {
         root.context.resetClearTimer();
+        root.context.noteTypedKey(event);
         if (event.key === Qt.Key_Control) {
             root.ctrlHeld = true;
         }
@@ -158,6 +159,7 @@ MouseArea {
 
             Keys.onPressed: event => {
                 root.context.resetClearTimer();
+                root.context.noteTypedKey(event);
             }
             
             layer.enabled: true
@@ -224,6 +226,51 @@ MouseArea {
                     }
                 }
                 color: confirmButton.enabled ? Appearance.colors.colOnPrimary : Appearance.colors.colSubtext
+            }
+        }
+    }
+
+    // Why the password may be rejected: lockout from PAM, wrong layout, Caps Lock
+    Rectangle {
+        id: inputWarning
+        readonly property string message: root.context.pamNotice.length > 0 ? root.context.pamNotice
+            : root.context.nonLatinInput ? Translation.tr("Not typing in Latin letters. Check the keyboard layout (%1)").arg(HyprlandXkb.currentLayoutCode)
+            : root.context.capsLock ? Translation.tr("Caps Lock is on")
+            : ""
+        property string shownMessage: ""
+        onMessageChanged: if (message.length > 0) shownMessage = message
+
+        anchors {
+            horizontalCenter: mainIsland.horizontalCenter
+            bottom: mainIsland.top
+            bottomMargin: 12
+        }
+        implicitWidth: warningRow.implicitWidth + 28
+        implicitHeight: warningRow.implicitHeight + 14
+        radius: height / 2
+        color: Appearance.colors.colErrorContainer
+        opacity: message.length > 0 ? root.toolbarOpacity : 0
+        visible: opacity > 0
+        Behavior on opacity {
+            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+        }
+
+        Row {
+            id: warningRow
+            anchors.centerIn: parent
+            spacing: 8
+            MaterialSymbol {
+                anchors.verticalCenter: parent.verticalCenter
+                fill: 1
+                text: root.context.pamNotice.length > 0 ? "lock_clock" : "warning"
+                iconSize: Appearance.font.pixelSize.larger
+                color: Appearance.colors.colOnErrorContainer
+            }
+            StyledText {
+                anchors.verticalCenter: parent.verticalCenter
+                text: inputWarning.shownMessage
+                font.pixelSize: Appearance.font.pixelSize.small
+                color: Appearance.colors.colOnErrorContainer
             }
         }
     }

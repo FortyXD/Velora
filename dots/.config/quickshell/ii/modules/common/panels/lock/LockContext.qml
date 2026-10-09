@@ -1,4 +1,5 @@
 import qs
+import qs.services
 import qs.modules.common
 import QtQuick
 import Quickshell
@@ -23,6 +24,11 @@ Scope {
     property var targetAction: LockContext.ActionEnum.Unlock
     property bool alsoInhibitIdle: false
 
+    // The password is hidden, so say when what's being typed can't be right
+    property bool capsLock: false
+    property bool nonLatinInput: false
+    property string pamNotice: "" // e.g. the account being locked after too many failed attempts
+
     function resetTargetAction() {
         root.targetAction = LockContext.ActionEnum.Unlock;
     }
@@ -39,7 +45,47 @@ Scope {
         root.resetTargetAction();
         root.clearText();
         root.unlockInProgress = false;
+        root.nonLatinInput = false;
         stopFingerPam();
+    }
+
+    function noteTypedKey(event) {
+        if (event.key === Qt.Key_CapsLock) {
+            keyboardStateTimer.restart(); // The LED state flips after this event
+            return;
+        }
+        const text = event.text;
+        if (!text || text.length !== 1 || text.toLowerCase() === text.toUpperCase()) return; // Only letters tell anything
+        root.nonLatinInput = !/[A-Za-z]/.test(text);
+        const upper = text !== text.toLowerCase();
+        const shift = (event.modifiers & Qt.ShiftModifier) !== 0;
+        root.capsLock = upper !== shift;
+    }
+
+    function refreshKeyboardState() {
+        keyboardStateProc.running = true;
+    }
+
+    Timer {
+        id: keyboardStateTimer
+        interval: 100
+        onTriggered: root.refreshKeyboardState()
+    }
+
+    Process {
+        id: keyboardStateProc
+        command: ["hyprctl", "-j", "devices"]
+        stdout: StdioCollector {
+            id: keyboardStateCollector
+            onStreamFinished: {
+                try {
+                    const keyboard = HyprlandXkb.typingKeyboard(JSON.parse(keyboardStateCollector.text).keyboards);
+                    root.capsLock = keyboard?.capsLock ?? false;
+                } catch (e) {
+                    root.capsLock = false;
+                }
+            }
+        }
     }
 
     Timer {
@@ -62,6 +108,7 @@ Scope {
     function tryUnlock(alsoInhibitIdle = false) {
         root.alsoInhibitIdle = alsoInhibitIdle;
         root.unlockInProgress = true;
+        root.pamNotice = "";
         pam.start();
     }
 
@@ -102,12 +149,16 @@ Scope {
         onPamMessage: {
             if (this.responseRequired) {
                 this.respond(root.currentText);
+            } else if (this.message.trim().length > 0) {
+                // pam_faillock explains a lockout here; without it a correct password just looks wrong
+                root.pamNotice = [root.pamNotice, this.message.trim()].filter(part => part.length > 0).join(" ");
             }
         }
 
         // pam_unix won't send any important messages so all we need is the completion status.
         onCompleted: result => {
             if (result == PamResult.Success) {
+                root.pamNotice = "";
                 root.unlocked(root.targetAction);
                 stopFingerPam();
             } else {

@@ -20,6 +20,19 @@ Singleton {
     property var baseLayoutFilePath: "/usr/share/X11/xkb/rules/base.lst"
     property bool needsLayoutRefresh: false
 
+    // Power/sleep buttons, brightness keys, laptop hotkeys and virtual input devices all show up
+    // as keyboards with their own layout state. They often become Hyprland's "main" keyboard,
+    // but nobody types on them, so their layout must not be reported as the current one.
+    function isPseudoKeyboard(name) {
+        return /power-button|sleep-button|video-bus|hotkeys|wmi|virtual|ydotool|consumer-control|system-control|lid-switch|avrcp/i.test(name ?? "");
+    }
+
+    function typingKeyboard(keyboards) {
+        return keyboards.find(kb => kb.main && !root.isPseudoKeyboard(kb.name))
+            ?? keyboards.find(kb => !root.isPseudoKeyboard(kb.name))
+            ?? keyboards.find(kb => kb.main);
+    }
+
     // Update the layout code according to the layout name (Hyprland gives the name not the code)
     onCurrentLayoutNameChanged: root.updateLayoutCode()
     function updateLayoutCode() {
@@ -82,7 +95,7 @@ Singleton {
             id: devicesCollector
             onStreamFinished: {
                 const parsedOutput = JSON.parse(devicesCollector.text);
-                const hyprlandKeyboard = parsedOutput["keyboards"].find(kb => kb.main === true);
+                const hyprlandKeyboard = root.typingKeyboard(parsedOutput["keyboards"]);
                 root.layoutCodes = hyprlandKeyboard["layout"].split(",");
                 root.currentLayoutName = hyprlandKeyboard["active_keymap"];
                 // console.log("[HyprlandXkb] Fetched | Layouts (multiple: " + (root.layoutCodes.length > 1) + "): "
@@ -106,6 +119,7 @@ Singleton {
 
                 // Update when layout might have changed
                 const dataString = event.data;
+                if (root.isPseudoKeyboard(dataString.substring(0, dataString.indexOf(",")))) return;
                 root.currentLayoutName = dataString.substring(dataString.indexOf(",") + 1);
 
                 // Update layout for on-screen keyboard (osk)
