@@ -12,19 +12,8 @@ AppButton {
 
     required property var appEntry
     readonly property bool isSeparator: appEntry.appId === "SEPARATOR"
-    property var desktopEntry: DesktopEntries.heuristicLookup(appEntry.appId)
-
-    Timer {
-        // Retry looking up the desktop entry if it failed (e.g. database not loaded yet)
-        property int retryCount: 5
-        interval: 1000
-        running: !root.isSeparator && root.desktopEntry === null && retryCount > 0
-        repeat: true
-        onTriggered: {
-            retryCount--;
-            root.desktopEntry = DesktopEntries.heuristicLookup(root.appEntry.appId);
-        }
-    }
+    // Refreshes by itself once desktop entries finish loading
+    readonly property var desktopEntry: TaskbarApps.desktopEntryFor(appEntry.appId)
 
     property bool active: root.appEntry.toplevels.some(t => t.activated)
     property bool hasWindows: appEntry.toplevels.length > 0
@@ -48,14 +37,12 @@ AppButton {
         } else if (root.appEntry.toplevels.length === 1) {
             root.appEntry.toplevels[0].activate()
         } else {
-            root.desktopEntry.execute()
+            TaskbarApps.launch(root.appEntry.appId, 0)
         }
     }
 
     middleClickAction: () => {
-        if (root.desktopEntry) {
-            desktopEntry.execute()
-        }
+        TaskbarApps.launch(root.appEntry.appId, root.appEntry.toplevels.length)
     }
 
     altAction: () => {
@@ -113,9 +100,7 @@ AppButton {
                 text: root.desktopEntry ? root.desktopEntry.name : StringUtils.toTitleCase(appEntry.appId),
                 monochromeIcon: false,
                 action: () => {
-                    if (root.desktopEntry) {
-                        root.desktopEntry.execute()
-                    }
+                    TaskbarApps.launch(root.appEntry.appId, root.appEntry.toplevels.length)
                 }
             },
             {

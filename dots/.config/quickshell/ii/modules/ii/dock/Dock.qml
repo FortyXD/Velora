@@ -3,145 +3,314 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Effects
-import QtQuick.Layouts
-import Quickshell.Io
 import Quickshell
-import Quickshell.Widgets
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
-Scope { // Scope
+Scope {
     id: root
-    property bool pinned: Config.options?.dock.pinnedOnStartup ?? false
+    readonly property bool pinned: Config.options?.dock.pinnedOnStartup ?? false
 
     Variants {
         // For each monitor
         model: Quickshell.screens
 
         PanelWindow {
-            id: dockRoot
-            // Window
+            id: dockWindow
             required property var modelData
             screen: modelData
             visible: !GlobalStates.screenLocked
 
-            property bool reveal: root.pinned || (Config.options?.dock.hoverToReveal && dockMouseArea.containsMouse) || dockApps.requestDockShow || (!ToplevelManager.activeToplevel?.activated)
+            readonly property real bottomGap: Appearance.sizes.hyprlandGapsOut
+            readonly property real hiddenOffset: dock.barHeight + bottomGap + Appearance.sizes.elevationMargin + dock.bounceHeight
+            // Stays true for a moment after the pointer leaves, so brushing past the edge doesn't flicker the dock
+            property bool hoverHold: false
+            readonly property bool reveal: root.pinned || hoverHold || dock.menuOpen || dock.previewsOpen
+                || !ToplevelManager.activeToplevel?.activated
+            property real hideOffset: 0 // Animated in onRevealChanged
+            Component.onCompleted: hideOffset = reveal ? 0 : hiddenOffset
 
             anchors {
                 bottom: true
                 left: true
                 right: true
             }
-
-            exclusiveZone: root.pinned ? implicitHeight - (Appearance.sizes.hyprlandGapsOut) - (Appearance.sizes.elevationMargin - Appearance.sizes.hyprlandGapsOut) : 0
-
-            implicitWidth: dockBackground.implicitWidth
+            exclusiveZone: root.pinned ? dock.barHeight + bottomGap : 0
             WlrLayershell.namespace: "quickshell:dock"
             color: "transparent"
-
-            implicitHeight: (Config.options?.dock.height ?? 70) + Appearance.sizes.elevationMargin + Appearance.sizes.hyprlandGapsOut
+            implicitHeight: bottomGap + dock.barHeight + dock.headroom
 
             mask: Region {
-                item: dockMouseArea
+                item: inputRegion
             }
 
-            MouseArea {
-                id: dockMouseArea
-                height: parent.height
-                anchors {
-                    top: parent.top
-                    topMargin: dockRoot.reveal ? 0 : Config.options?.dock.hoverToReveal ? (dockRoot.implicitHeight - Config.options.dock.hoverRegionHeight) : (dockRoot.implicitHeight + 1)
-                    horizontalCenter: parent.horizontalCenter
-                }
-                implicitWidth: dockHoverRegion.implicitWidth + Appearance.sizes.elevationMargin * 2
-                hoverEnabled: true
+            DockContext {
+                id: dock
+                rowWidth: row.width
+                magnifying: dockHover.hovered && dockWindow.reveal
 
-                Behavior on anchors.topMargin {
-                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                onAppMenuRequested: tile => dockWindow.openAppMenu(tile)
+                onDockMenuRequested: tile => dockWindow.openDockMenu(tile)
+            }
+
+            onRevealChanged: {
+                slideAnim.stop();
+                slideAnim.to = reveal ? 0 : hiddenOffset;
+                slideAnim.duration = reveal ? 380 : 260;
+                slideAnim.easing.bezierCurve = reveal ? Appearance.animationCurves.emphasizedDecel : Appearance.animationCurves.emphasizedAccel;
+                slideAnim.start();
+            }
+
+            NumberAnimation {
+                id: slideAnim
+                target: dockWindow
+                property: "hideOffset"
+                easing.type: Easing.BezierSpline
+            }
+
+            Timer {
+                id: hideDelay
+                interval: 300
+                onTriggered: dockWindow.hoverHold = false
+            }
+
+            function menuPoint(tile) {
+                return {
+                    x: row.x + tile.visualCenter,
+                    y: row.y + tile.visualTop - 8
+                };
+            }
+
+            function openAppMenu(tile) {
+                const point = menuPoint(tile);
+                dockMenu.openAt(dockWindow, point.x, point.y, appMenuEntries(tile));
+            }
+
+            function openDockMenu(tile) {
+                const point = tile ? menuPoint(tile) : {
+                    x: row.x + dock.pointerX,
+                    y: row.y - 8
+                };
+                dockMenu.openAt(dockWindow, point.x, point.y, dockMenuEntries());
+            }
+
+            function appMenuEntries(tile) {
+                const entries = [];
+                const appId = tile.appId;
+                const toplevels = tile.toplevels;
+
+                for (const toplevel of toplevels) {
+                    entries.push({
+                        text: toplevel.title || TaskbarApps.displayName(appId),
+                        checked: toplevel.activated,
+                        action: () => toplevel.activate()
+                    });
+                }
+                if (entries.length > 0) entries.push({ type: "separator" });
+
+                const desktopEntry = TaskbarApps.desktopEntryFor(appId);
+                const actions = desktopEntry?.actions ?? [];
+                for (const action of actions) {
+                    entries.push({
+                        text: action.name,
+                        action: () => {
+                            action.execute();
+                            TaskbarApps.markLaunching(appId, toplevels.length);
+                        }
+                    });
+                }
+                if (actions.length > 0) entries.push({ type: "separator" });
+
+                entries.push({
+                    text: toplevels.length > 0 ? Translation.tr("New window") : Translation.tr("Open"),
+                    action: () => TaskbarApps.launch(appId, toplevels.length)
+                });
+                entries.push({
+                    text: Translation.tr("Keep in dock"),
+                    checked: TaskbarApps.isPinned(appId),
+                    action: () => TaskbarApps.togglePin(appId)
+                });
+                if (toplevels.length > 0) {
+                    entries.push({ type: "separator" });
+                    entries.push({
+                        text: toplevels.length > 1 ? Translation.tr("Close all windows") : Translation.tr("Close window"),
+                        action: () => {
+                            for (const toplevel of toplevels) toplevel.close();
+                        }
+                    });
+                }
+                return entries;
+            }
+
+            function dockMenuEntries() {
+                return [
+                    {
+                        text: Translation.tr("Hide the dock automatically"),
+                        checked: !root.pinned,
+                        action: () => Config.options.dock.pinnedOnStartup = !root.pinned
+                    },
+                    {
+                        text: Translation.tr("Magnification"),
+                        checked: Config.options.dock.magnification,
+                        action: () => Config.options.dock.magnification = !Config.options.dock.magnification
+                    },
+                    { type: "separator" },
+                    {
+                        text: Translation.tr("Dock settings…"),
+                        action: () => Quickshell.execDetached(["env", "QS_SETTINGS_PAGE=desktop", "qs", "-p", Quickshell.shellPath("settings.qml")])
+                    },
+                ];
+            }
+
+            Item {
+                id: content
+                anchors.fill: parent
+
+                HoverHandler {
+                    id: dockHover
+                    onPointChanged: dock.pointerX = point.position.x - row.x
+                    onHoveredChanged: {
+                        if (hovered) {
+                            hideDelay.stop();
+                            dockWindow.hoverHold = true;
+                        } else {
+                            hideDelay.restart();
+                        }
+                    }
+                }
+
+                // Where the dock takes input: the dock itself, the space its magnified icons
+                // reach into while hovered, or a thin strip at the edge while hidden
+                Item {
+                    id: inputRegion
+                    readonly property real revealedTop: row.y - (dock.magnifying ? dock.iconSize * (dock.maxScale - 1) + dock.topPadding : 0)
+                    readonly property real stripHeight: Config.options.dock.hoverToReveal ? Config.options.dock.hoverRegionHeight : 0
+                    x: background.x
+                    width: background.width
+                    y: dockWindow.reveal ? revealedTop : dockWindow.height - stripHeight
+                    height: dockWindow.height - y
                 }
 
                 Item {
-                    id: dockHoverRegion
+                    id: slider
                     anchors.fill: parent
-                    implicitWidth: dockBackground.implicitWidth
+                    transform: Translate {
+                        y: dockWindow.hideOffset
+                    }
 
-                    Item { // Wrapper for the dock background
-                        id: dockBackground
-                        anchors {
-                            top: parent.top
-                            bottom: parent.bottom
-                            horizontalCenter: parent.horizontalCenter
-                        }
+                    StyledRectangularShadow {
+                        target: background
+                    }
 
-                        implicitWidth: dockRow.implicitWidth + 5 * 2
-                        height: parent.height - Appearance.sizes.elevationMargin - Appearance.sizes.hyprlandGapsOut
+                    Rectangle {
+                        id: background
+                        x: row.x - dock.sidePadding - dock.growth / 2
+                        y: row.y
+                        width: row.width + dock.sidePadding * 2 + dock.growth
+                        height: dock.barHeight
+                        radius: Math.min(Appearance.rounding.large, height / 2)
+                        color: Appearance.colors.colLayer0
+                        border.width: 1
+                        border.color: Appearance.colors.colLayer0Border
 
-                        StyledRectangularShadow {
-                            target: dockVisualBackground
-                        }
-                        Rectangle { // The real rectangle that is visible
-                            id: dockVisualBackground
-                            property real margin: Appearance.sizes.elevationMargin
+                        MouseArea {
                             anchors.fill: parent
-                            anchors.topMargin: Appearance.sizes.elevationMargin
-                            anchors.bottomMargin: Appearance.sizes.hyprlandGapsOut
-                            color: Appearance.colors.colLayer0
-                            border.width: 1
-                            border.color: Appearance.colors.colLayer0Border
-                            radius: Appearance.rounding.large
+                            acceptedButtons: Qt.RightButton
+                            onPressed: dockWindow.openDockMenu(null)
                         }
+                    }
 
-                        RowLayout {
-                            id: dockRow
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: 3
-                            property real padding: 5
+                    Row {
+                        id: row
+                        x: Math.round((parent.width - width) / 2)
+                        y: parent.height - dockWindow.bottomGap - dock.barHeight
+                        height: dock.barHeight
 
-                            VerticalButtonGroup {
-                                Layout.topMargin: Appearance.sizes.hyprlandGapsOut // why does this work
-                                GroupButton {
-                                    // Pin button
-                                    baseWidth: 35
-                                    baseHeight: 35
-                                    clickedWidth: baseWidth
-                                    clickedHeight: baseHeight + 20
-                                    buttonRadius: Appearance.rounding.normal
-                                    toggled: root.pinned
-                                    onClicked: root.pinned = !root.pinned
-                                    contentItem: MaterialSymbol {
-                                        text: "keep"
-                                        horizontalAlignment: Text.AlignHCenter
-                                        iconSize: Appearance.font.pixelSize.larger
-                                        color: root.pinned ? Appearance.m3colors.m3onPrimary : Appearance.colors.colOnLayer0
-                                    }
-                                }
+                        DockApps {
+                            dock: dock
+                        }
+                        DockSeparator {
+                            dock: dock
+                        }
+                        DockTile {
+                            id: overviewTile
+                            dock: dock
+                            label: Translation.tr("Apps")
+                            onClicked: {
+                                dock.tileActivated(overviewTile);
+                                GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
                             }
-                            DockSeparator {}
-                            DockApps {
-                                id: dockApps
-                                buttonPadding: dockRow.padding
-                            }
-                            DockSeparator {}
-                            DockButton {
-                                Layout.fillHeight: true
-                                onClicked: GlobalStates.overviewOpen = !GlobalStates.overviewOpen
-                                topInset: Appearance.sizes.hyprlandGapsOut + dockRow.padding
-                                bottomInset: Appearance.sizes.hyprlandGapsOut + dockRow.padding
-                                contentItem: MaterialSymbol {
-                                    anchors.fill: parent
-                                    horizontalAlignment: Text.AlignHCenter
-                                    font.pixelSize: parent.width / 2
+                            onRightClicked: dock.dockMenuRequested(overviewTile)
+
+                            Rectangle {
+                                anchors.fill: parent
+                                anchors.margins: parent.width * 0.04
+                                radius: width * 0.26
+                                color: Appearance.colors.colPrimaryContainer
+
+                                MaterialSymbol {
+                                    anchors.centerIn: parent
                                     text: "apps"
-                                    color: Appearance.colors.colOnLayer0
+                                    iconSize: parent.width * 0.55
+                                    fill: 1
+                                    color: Appearance.colors.colOnPrimaryContainer
                                 }
                             }
                         }
                     }
+
+                    // App name above the hovered icon
+                    Rectangle {
+                        id: nameLabel
+                        readonly property Item tile: dock.hoveredTile
+                        // Keeps its place and text while fading out
+                        property Item shownTile: null
+                        property string text: ""
+                        onTileChanged: {
+                            if (!tile || tile.label.length === 0) return;
+                            shownTile = tile;
+                            text = tile.label;
+                        }
+
+                        readonly property bool shown: tile !== null && tile.label.length > 0 && !tile.pressed
+                            && tile.bounceOffset === 0 && !dock.menuOpen && !dock.previewsOpen && dockWindow.reveal
+                        opacity: shown ? 1 : 0
+                        visible: opacity > 0
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: nameLabel.shown ? 120 : 80
+                            }
+                        }
+
+                        implicitWidth: labelText.implicitWidth + 20
+                        implicitHeight: labelText.implicitHeight + 10
+                        radius: Appearance.rounding.small
+                        color: Appearance.colors.colLayer0
+                        border.width: 1
+                        border.color: Appearance.colors.colLayer0Border
+                        x: shownTile ? Math.round(Math.max(4, Math.min(parent.width - width - 4, row.x + shownTile.visualCenter - width / 2))) : 0
+                        y: shownTile ? Math.round(row.y + shownTile.visualTop - height - 10) : 0
+
+                        StyledText {
+                            id: labelText
+                            anchors.centerIn: parent
+                            text: nameLabel.text
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colOnLayer0
+                        }
+                    }
                 }
+            }
+
+            DockMenu {
+                id: dockMenu
+                onVisibleChanged: dock.menuOpen = visible
+            }
+
+            DockPreviews {
+                dock: dock
+                dockWindow: dockWindow
+                rowX: row.x
+                bottomY: row.y - dock.iconSize * (dock.maxScale - 1) - dock.topPadding
             }
         }
     }

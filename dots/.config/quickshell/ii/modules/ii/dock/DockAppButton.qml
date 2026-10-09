@@ -1,140 +1,106 @@
 import qs.services
 import qs.modules.common
-import qs.modules.common.functions
-import Qt5Compat.GraphicalEffects
 import QtQuick
-import QtQuick.Layouts
+import QtQuick.Window
 import Quickshell
-import Quickshell.Widgets
 
-DockButton {
+/**
+ * A pinned or running app in the dock. Also renders the separator entry
+ * between pinned and running apps.
+ */
+DockTile {
     id: root
-    property var appToplevel
-    property var appListRoot
+
+    required property var modelData
+    readonly property string appId: modelData.appId
+    readonly property var toplevels: modelData.toplevels ?? []
+    readonly property int windowCount: toplevels.length
+    readonly property bool active: toplevels.some(t => t.activated)
+    readonly property bool urgent: toplevels.some(t => t.HyprlandToplevel?.urgent ?? false)
     property int lastFocused: -1
-    property real iconSize: 35
-    property real countDotWidth: 10
-    property real countDotHeight: 4
-    property bool appIsActive: appToplevel.toplevels.find(t => (t.activated == true)) !== undefined
 
-    readonly property bool isSeparator: appToplevel.appId === "SEPARATOR"
-    property var desktopEntry: DesktopEntries.heuristicLookup(appToplevel.appId)
-    enabled: !isSeparator
-    implicitWidth: isSeparator ? 1 : implicitHeight - topInset - bottomInset
+    separator: appId === "SEPARATOR"
+    tint: !separator && Config.options.dock.monochromeIcons
+    label: separator ? "" : TaskbarApps.displayName(appId)
+    showIndicator: windowCount > 0
+    indicatorActive: active
+    bouncing: !separator && TaskbarApps.launchingApps[appId] !== undefined
 
-    Connections {
-        target: DesktopEntries
-
-        function onApplicationsChanged() {
-            root.desktopEntry = DesktopEntries.heuristicLookup(appToplevel.appId);
-        }
+    onActiveChanged: {
+        if (active) root.lastFocused = toplevels.findIndex(t => t.activated);
+    }
+    onUrgentChanged: {
+        if (urgent && !active) root.attentionBounces = 2;
     }
 
-    Loader {
-        active: isSeparator
-        anchors {
-            fill: parent
-            topMargin: dockVisualBackground.margin + dockRow.padding + Appearance.rounding.normal
-            bottomMargin: dockVisualBackground.margin + dockRow.padding + Appearance.rounding.normal
-        }
-        sourceComponent: DockSeparator {}
+    // Slide in and out instead of popping
+    ListView.onAdd: appearAnim.restart()
+    ListView.onRemove: removeAnim.start()
+    NumberAnimation {
+        id: appearAnim
+        target: root
+        property: "appear"
+        from: 0
+        to: 1
+        duration: 340
+        easing.type: Easing.OutCubic
     }
-
-    Loader {
-        anchors.fill: parent
-        active: appToplevel.toplevels.length > 0
-        sourceComponent: MouseArea {
-            id: mouseArea
-            anchors.fill: parent
-            hoverEnabled: true
-            acceptedButtons: Qt.NoButton
-            onEntered: {
-                appListRoot.lastHoveredButton = root
-                appListRoot.buttonHovered = true
-                lastFocused = appToplevel.toplevels.length - 1
-            }
-            onExited: {
-                if (appListRoot.lastHoveredButton === root) {
-                    appListRoot.buttonHovered = false
-                }
-            }
+    SequentialAnimation {
+        id: removeAnim
+        PropertyAction {
+            target: root
+            property: "ListView.delayRemove"
+            value: true
+        }
+        NumberAnimation {
+            target: root
+            property: "appear"
+            to: 0
+            duration: 280
+            easing.type: Easing.InOutCubic
+        }
+        PropertyAction {
+            target: root
+            property: "ListView.delayRemove"
+            value: false
         }
     }
 
     onClicked: {
-        if (appToplevel.toplevels.length === 0) {
-            root.desktopEntry?.execute();
+        if (root.separator) return;
+        root.dock.tileActivated(root);
+        if (root.windowCount === 0) {
+            TaskbarApps.launch(root.appId, 0);
             return;
         }
-        lastFocused = (lastFocused + 1) % appToplevel.toplevels.length
-        appToplevel.toplevels[lastFocused].activate()
+        // Clicking the focused app cycles through its windows
+        const activeIndex = root.toplevels.findIndex(t => t.activated);
+        let target = activeIndex >= 0 ? (activeIndex + 1) % root.windowCount
+            : (root.lastFocused >= 0 && root.lastFocused < root.windowCount ? root.lastFocused : root.windowCount - 1);
+        root.lastFocused = target;
+        root.toplevels[target].activate();
     }
 
-    middleClickAction: () => {
-        root.desktopEntry?.execute();
+    onMiddleClicked: {
+        if (root.separator) return;
+        root.dock.tileActivated(root);
+        TaskbarApps.launch(root.appId, root.windowCount);
     }
 
-    altAction: () => {
-        TaskbarApps.togglePin(appToplevel.appId);
+    onRightClicked: {
+        if (root.separator) root.dock.dockMenuRequested(root);
+        else root.dock.appMenuRequested(root);
     }
 
-    contentItem: Loader {
-        active: !isSeparator
-        sourceComponent: Item {
-            anchors.centerIn: parent
-
-            Loader {
-                id: iconImageLoader
-                anchors {
-                    left: parent.left
-                    right: parent.right
-                    verticalCenter: parent.verticalCenter
-                }
-                active: !root.isSeparator
-                sourceComponent: IconImage {
-                    source: Quickshell.iconPath(AppSearch.guessIcon(appToplevel.appId), "image-missing")
-                    implicitSize: root.iconSize
-                }
-            }
-
-            Loader {
-                active: Config.options.dock.monochromeIcons
-                anchors.fill: iconImageLoader
-                sourceComponent: Item {
-                    Desaturate {
-                        id: desaturatedIcon
-                        visible: false // There's already color overlay
-                        anchors.fill: parent
-                        source: iconImageLoader
-                        desaturation: 0.8
-                    }
-                    ColorOverlay {
-                        anchors.fill: desaturatedIcon
-                        source: desaturatedIcon
-                        color: ColorUtils.transparentize(Appearance.colors.colPrimary, 0.9)
-                    }
-                }
-            }
-
-            RowLayout {
-                spacing: 3
-                anchors {
-                    top: iconImageLoader.bottom
-                    topMargin: 2
-                    horizontalCenter: parent.horizontalCenter
-                }
-                Repeater {
-                    model: Math.min(appToplevel.toplevels.length, 3)
-                    delegate: Rectangle {
-                        required property int index
-                        radius: Appearance.rounding.full
-                        implicitWidth: (appToplevel.toplevels.length <= 3) ? 
-                            root.countDotWidth : root.countDotHeight // Circles when too many
-                        implicitHeight: root.countDotHeight
-                        color: appIsActive ? Appearance.colors.colPrimary : ColorUtils.transparentize(Appearance.colors.colOnLayer0, 0.4)
-                    }
-                }
-            }
-        }
+    Image {
+        visible: !root.separator
+        anchors.fill: parent
+        source: root.separator ? "" : Quickshell.iconPath(TaskbarApps.iconFor(root.appId), "application-x-executable")
+        // Load at the magnified size so zoomed icons stay sharp
+        sourceSize.width: root.dock.iconSize * root.dock.maxScale * Screen.devicePixelRatio
+        sourceSize.height: root.dock.iconSize * root.dock.maxScale * Screen.devicePixelRatio
+        fillMode: Image.PreserveAspectFit
+        smooth: true
+        mipmap: true
     }
 }

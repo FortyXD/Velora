@@ -282,9 +282,12 @@
         "hoverRegionHeight": 2,
         "hoverToReveal": true,
         "ignoredAppRegexes": [],
+        "magnification": true,
+        "magnificationScale": 1.6,
         "monochromeIcons": true,
+        "pinnedAppCommands": {},
         "pinnedApps": [
-            "org.kde.dolphin"
+            "org.telegram.desktop"
         ],
         "pinnedOnStartup": false
     },
