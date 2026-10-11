@@ -28,8 +28,14 @@ ApplicationWindow {
         {
             key: "general", group: "basics", color: "#8E8E93", icon: "settings",
             name: Translation.tr("General"),
-            description: Translation.tr("Language, date and time, and the apps the shell opens"),
+            description: Translation.tr("Language, date and time"),
             component: "modules/settings/GeneralConfig.qml"
+        },
+        {
+            key: "apps", group: "basics", color: "#34C759", icon: "apps",
+            name: Translation.tr("Default Apps"),
+            description: Translation.tr("Browser, terminal, file manager and the apps that open your files"),
+            component: "modules/settings/DefaultAppsConfig.qml"
         },
         {
             key: "appearance", group: "basics", color: "#5856D6", icon: "palette",
@@ -82,14 +88,20 @@ ApplicationWindow {
         {
             key: "displays", group: "devices", color: "#0A84FF", icon: "desktop_windows",
             name: Translation.tr("Displays"),
-            description: Translation.tr("Connected monitors, refresh rate and screen wake"),
+            description: Translation.tr("Resolution, scale, arrangement, brightness and night light"),
             component: "modules/settings/DisplaysConfig.qml"
         },
         {
             key: "keyboard", group: "devices", color: "#8E8E93", icon: "keyboard",
             name: Translation.tr("Keyboard"),
-            description: Translation.tr("Layouts, key repeat and the shortcut cheat sheet"),
+            description: Translation.tr("Layouts and key repeat"),
             component: "modules/settings/KeyboardConfig.qml"
+        },
+        {
+            key: "shortcuts", group: "devices", color: "#5E5CE6", icon: "keyboard_command_key",
+            name: Translation.tr("Keyboard Shortcuts"),
+            description: Translation.tr("See, change and add shortcuts, and style the cheat sheet"),
+            component: "modules/settings/ShortcutsConfig.qml"
         },
         {
             key: "mouse", group: "devices", color: "#8E8E93", icon: "mouse",

@@ -201,16 +201,24 @@ ContentPage {
         RowLayout {
             Layout.fillWidth: true
             spacing: 0
-            ConfigTextRow {
+            ConfigComboRow {
                 id: localeInput
+                // The language to translate into: one from the list, or any other locale code
+                property string value: Config.options.language.ui === "auto" ? Qt.locale().name : Config.options.language.ui
+                readonly property bool known: Translation.languageNames[localeInput.value] !== undefined
                 icon: "translate"
-                label: Translation.tr("Language code")
-                inline: true
-                inlineFieldWidth: 140
-                monospace: true
-                wrapMode: TextEdit.NoWrap
-                placeholderText: "fr_FR"
-                value: Config.options.language.ui === "auto" ? Qt.locale().name : Config.options.language.ui
+                text: Translation.tr("Language")
+                maximumWidth: 260
+                currentValue: localeInput.value
+                customLabel: Translation.tr("Other locale code…")
+                customPlaceholder: "fr_FR"
+                customActive: !localeInput.known
+                customValue: localeInput.known ? "" : localeInput.value
+                onSelected: value => localeInput.value = value
+                onCustomEntered: text => localeInput.value = text
+                options: Object.keys(Translation.languageNames)
+                    .map(code => ({ displayName: Translation.languageName(code), value: code }))
+                    .sort((a, b) => a.displayName.localeCompare(b.displayName))
             }
             RippleButtonWithIcon {
                 id: generateTranslationBtn
@@ -239,15 +247,23 @@ ContentPage {
     ContentSection {
         title: Translation.tr("Networking")
 
-        ConfigTextRow {
+        ConfigComboRow {
+            readonly property var agents: [
+                { displayName: Translation.tr("Firefox on Linux"), value: "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0" },
+                { displayName: Translation.tr("Firefox on Windows"), value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0" }
+            ]
+            readonly property bool known: agents.some(agent => agent.value === Config.options.networking.userAgent)
             icon: "badge"
-            label: Translation.tr("User agent")
-            description: Translation.tr("For services that require it")
-            wrapMode: TextEdit.Wrap
-            value: Config.options.networking.userAgent
-            onValueChanged: {
-                Config.options.networking.userAgent = value;
-            }
+            text: Translation.tr("User agent")
+            description: Translation.tr("How the shell introduces itself to websites it downloads from")
+            options: agents.map(agent => Object.assign({ description: agent.value }, agent))
+            currentValue: Config.options.networking.userAgent
+            customLabel: Translation.tr("Custom…")
+            customPlaceholder: "Mozilla/5.0 …"
+            customActive: !known
+            customValue: known ? "" : Config.options.networking.userAgent
+            onSelected: value => Config.options.networking.userAgent = value
+            onCustomEntered: text => Config.options.networking.userAgent = text
         }
     }
 

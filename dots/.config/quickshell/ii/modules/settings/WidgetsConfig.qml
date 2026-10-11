@@ -311,16 +311,11 @@ ContentPage {
                 }
             }
 
-            ConfigTextRow {
+            ConfigFontRow {
                 icon: "font_download"
-                label: Translation.tr("Font family")
-                inline: true
-                wrapMode: TextEdit.NoWrap
-                placeholderText: "Google Sans Flex"
+                text: Translation.tr("Font family")
                 value: Config.options.background.widgets.clock.digital.font.family
-                onValueChanged: {
-                    Config.options.background.widgets.clock.digital.font.family = value;
-                }
+                onPicked: family => Config.options.background.widgets.clock.digital.font.family = family
             }
 
             ConfigSlider {

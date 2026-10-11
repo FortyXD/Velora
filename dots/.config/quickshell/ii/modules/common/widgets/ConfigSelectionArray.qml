@@ -29,22 +29,26 @@ Flow {
 
     signal selected(var newValue)
 
+    // Pill ends go wherever a row of buttons starts or ends, also after wrapping
+    function updateEdges() {
+        for (let i = 0; i < repeater.count; i++) {
+            const button = repeater.itemAt(i);
+            if (!button) continue;
+            const previous = i > 0 ? repeater.itemAt(i - 1) : null;
+            const next = i < repeater.count - 1 ? repeater.itemAt(i + 1) : null;
+            button.leftmost = !previous || previous.y !== button.y;
+            button.rightmost = !next || next.y !== button.y;
+        }
+    }
+    onPositioningComplete: root.updateEdges()
+
     Repeater {
+        id: repeater
         model: root.options
+        onItemAdded: Qt.callLater(root.updateEdges)
         delegate: SelectionGroupButton {
-            id: paletteButton
             required property var modelData
             required property int index
-            onYChanged: {
-                if (index === 0) {
-                    paletteButton.leftmost = true
-                } else {
-                    var prev = root.children[index - 1]
-                    var thisIsOnNewLine = prev && prev.y !== paletteButton.y
-                    paletteButton.leftmost = thisIsOnNewLine
-                    prev.rightmost = thisIsOnNewLine
-                }
-            }
             leftmost: index === 0
             rightmost: index === root.options.length - 1
             buttonIcon: modelData.icon || ""

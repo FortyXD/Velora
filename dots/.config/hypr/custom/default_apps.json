@@ -1,0 +1,15 @@
+{
+    "terminal": {
+        "command": "~/.config/hypr/custom/scripts/launch-terminal.sh",
+        "name": "Kitty + tmux"
+    },
+    "code": {
+        "command": "HTTP_PROXY=\"http://127.0.0.1:12334\" HTTPS_PROXY=\"http://127.0.0.1:12334\" NO_PROXY=\"localhost,127.0.0.1\" code",
+        "name": "Visual Studio Code (via proxy)"
+    },
+    "mail": {
+        "browser": "brave-browser.desktop",
+        "webmail": "gmail"
+    },
+    "seeded": true
+}

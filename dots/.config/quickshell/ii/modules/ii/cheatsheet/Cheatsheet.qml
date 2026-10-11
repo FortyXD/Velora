@@ -79,6 +79,10 @@ Scope { // Scope
                 border.color: Appearance.colors.colLayer0Border
                 radius: Appearance.rounding.windowRounding
                 property real padding: 20
+                // Pages get at most this much room, so the panel always fits on the screen
+                readonly property real maxPageWidth: Math.min(1320, cheatsheetRoot.width - 2 * Appearance.sizes.elevationMargin - padding * 2 - 60)
+                readonly property real maxPageHeight: cheatsheetRoot.height - 2 * Appearance.sizes.elevationMargin - padding * 2 - 100
+                focus: true
                 implicitWidth: cheatsheetColumnLayout.implicitWidth + padding * 2
                 implicitHeight: cheatsheetColumnLayout.implicitHeight + padding * 2
 
@@ -105,7 +109,6 @@ Scope { // Scope
 
                 RippleButton { // Close button
                     id: closeButton
-                    focus: cheatsheetRoot.visible
                     implicitWidth: 40
                     implicitHeight: 40
                     buttonRadius: Appearance.rounding.full
@@ -170,7 +173,12 @@ Scope { // Scope
                             }
                         }
 
-                        CheatsheetKeybinds {}
+                        CheatsheetKeybinds {
+                            maxWidth: cheatsheetBackground.maxPageWidth
+                            maxHeight: cheatsheetBackground.maxPageHeight
+                            active: swipeView.currentIndex === 0
+                            onCloseRequested: cheatsheetRoot.hide()
+                        }
                         CheatsheetPeriodicTable {}
                     }
                 }

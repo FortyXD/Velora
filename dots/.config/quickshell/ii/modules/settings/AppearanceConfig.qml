@@ -8,13 +8,10 @@ import qs.modules.common.widgets
 ContentPage {
     id: root
 
-    component FontRow: ConfigTextRow {
+    component FontRow: ConfigFontRow {
         required property string fontKey
-        inline: true
-        inlineFieldWidth: 260
-        wrapMode: TextEdit.NoWrap
         value: Config.options.appearance.fonts[fontKey]
-        onValueChanged: Config.options.appearance.fonts[fontKey] = value
+        onPicked: family => Config.options.appearance.fonts[fontKey] = family
     }
 
     ContentSection {
@@ -34,27 +31,26 @@ ContentPage {
                 ]
             }
         }
-        ContentSubsection {
-            title: Translation.tr("Palette")
-            description: Translation.tr("How colors are picked from the wallpaper. Auto chooses based on the image.")
-            ConfigSelectionArray {
-                currentValue: Config.options.appearance.palette.type
-                onSelected: newValue => {
-                    Config.options.appearance.palette.type = newValue;
-                    Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --noswitch`]);
-                }
-                options: [
-                    { "value": "auto", "displayName": Translation.tr("Auto"), "icon": "auto_awesome" },
-                    { "value": "scheme-content", "displayName": Translation.tr("Content") },
-                    { "value": "scheme-expressive", "displayName": Translation.tr("Expressive") },
-                    { "value": "scheme-fidelity", "displayName": Translation.tr("Fidelity") },
-                    { "value": "scheme-fruit-salad", "displayName": Translation.tr("Fruit Salad") },
-                    { "value": "scheme-monochrome", "displayName": Translation.tr("Monochrome") },
-                    { "value": "scheme-neutral", "displayName": Translation.tr("Neutral") },
-                    { "value": "scheme-rainbow", "displayName": Translation.tr("Rainbow") },
-                    { "value": "scheme-tonal-spot", "displayName": Translation.tr("Tonal Spot") }
-                ]
+        ConfigComboRow {
+            icon: "palette"
+            text: Translation.tr("Palette")
+            description: Translation.tr("How colors are picked from the wallpaper")
+            currentValue: Config.options.appearance.palette.type
+            onSelected: value => {
+                Config.options.appearance.palette.type = value;
+                Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --noswitch`]);
             }
+            options: [
+                { value: "auto", displayName: Translation.tr("Auto"), icon: "auto_awesome", description: Translation.tr("Picks one that suits the wallpaper") },
+                { value: "scheme-tonal-spot", displayName: Translation.tr("Tonal Spot"), icon: "contrast", description: Translation.tr("Calm and balanced, the Material default") },
+                { value: "scheme-content", displayName: Translation.tr("Content"), icon: "image", description: Translation.tr("Stays close to the wallpaper's own colors") },
+                { value: "scheme-fidelity", displayName: Translation.tr("Fidelity"), icon: "colorize", description: Translation.tr("Matches the wallpaper closely, even very bright colors") },
+                { value: "scheme-expressive", displayName: Translation.tr("Expressive"), icon: "brush", description: Translation.tr("Playful, moves hues away from the wallpaper") },
+                { value: "scheme-fruit-salad", displayName: Translation.tr("Fruit Salad"), icon: "nutrition", description: Translation.tr("A bold mix of shifted hues") },
+                { value: "scheme-rainbow", displayName: Translation.tr("Rainbow"), icon: "looks", description: Translation.tr("Colorful accents on a neutral base") },
+                { value: "scheme-neutral", displayName: Translation.tr("Neutral"), icon: "filter_b_and_w", description: Translation.tr("Muted, nearly gray") },
+                { value: "scheme-monochrome", displayName: Translation.tr("Monochrome"), icon: "invert_colors_off", description: Translation.tr("Shades of gray only") }
+            ]
         }
         ConfigSwitch {
             buttonIcon: "format_color_fill"
@@ -347,51 +343,46 @@ ContentPage {
         FontRow {
             fontKey: "main"
             icon: "match_case"
-            label: Translation.tr("Main font")
+            text: Translation.tr("Main font")
             description: Translation.tr("Used for general UI text")
-            placeholderText: "Google Sans Flex"
         }
         FontRow {
             fontKey: "title"
             icon: "title"
-            label: Translation.tr("Title font")
+            text: Translation.tr("Title font")
             description: Translation.tr("Used for headings and titles")
-            placeholderText: "Google Sans Flex"
         }
         FontRow {
             fontKey: "numbers"
             icon: "123"
-            label: Translation.tr("Numbers font")
+            text: Translation.tr("Numbers font")
             description: Translation.tr("Used for displaying numbers")
-            placeholderText: "Google Sans Flex"
         }
         FontRow {
             fontKey: "monospace"
+            kind: "monospace"
             icon: "code"
-            label: Translation.tr("Monospace font")
+            text: Translation.tr("Monospace font")
             description: Translation.tr("Used for code and terminal")
-            placeholderText: "JetBrains Mono NF"
         }
         FontRow {
             fontKey: "iconNerd"
+            kind: "nerd"
             icon: "emoji_symbols"
-            label: Translation.tr("Nerd font icons")
+            text: Translation.tr("Nerd font icons")
             description: Translation.tr("Font used for Nerd Font icons")
-            placeholderText: "JetBrains Mono NF"
         }
         FontRow {
             fontKey: "reading"
             icon: "menu_book"
-            label: Translation.tr("Reading font")
+            text: Translation.tr("Reading font")
             description: Translation.tr("Used for reading large blocks of text")
-            placeholderText: "Readex Pro"
         }
         FontRow {
             fontKey: "expressive"
             icon: "brush"
-            label: Translation.tr("Expressive font")
+            text: Translation.tr("Expressive font")
             description: Translation.tr("Used for decorative/expressive text")
-            placeholderText: "Space Grotesk"
         }
     }
 }

@@ -165,8 +165,20 @@ Singleton {
         target: Config.options.light.night
         function onColorTemperatureChanged() {
             if (!root.temperatureActive) return;
-            Hyprland.dispatch(`hyprctl hyprsunset temperature ${Config.options.light.night.colorTemperature}`);
             Quickshell.execDetached(["hyprctl", "hyprsunset", "temperature", `${Config.options.light.night.colorTemperature}`]);
+        }
+    }
+
+    // For the settings app, which runs apart from the shell
+    IpcHandler {
+        target: "nightLight"
+
+        function toggle(): void {
+            root.toggleTemperature();
+        }
+
+        function isOn(): bool {
+            return root.temperatureActive;
         }
     }
 }

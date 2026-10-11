@@ -118,7 +118,7 @@ Singleton {
             }
         }
         onMultipliedBrightnessChanged: {
-            if (monitor.animationEnabled) syncBrightness();
+            if (monitor.animateChanges) syncBrightness();
             else setTimer.restart();
         }
 
@@ -254,6 +254,17 @@ Singleton {
 
         function decrement() {
             onPressed: root.decreaseBrightness()
+        }
+
+        // Percent for an output, or -1 when it can't be changed (used by the settings app)
+        function get(output: string): int {
+            const monitor = root.monitors.find(m => m.screen.name === output);
+            return monitor?.ready ? Math.round(monitor.brightness * 100) : -1;
+        }
+
+        function set(output: string, percent: int): void {
+            const monitor = root.monitors.find(m => m.screen.name === output);
+            if (monitor?.ready) monitor.setBrightness(percent / 100);
         }
     }
 

@@ -1,10 +1,35 @@
 import QtQuick
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import qs.services
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 
 ContentPage {
+    id: root
+
+    function folderUrl(path) {
+        return path.length > 0 ? `file://${path.replace(/^~/, FileUtils.trimFileProtocol(Directories.home))}` : Directories.home;
+    }
+
+    FolderDialog {
+        id: folderDialog
+        property var onPicked: null
+        onAccepted: if (folderDialog.onPicked) folderDialog.onPicked(FileUtils.trimFileProtocol(decodeURIComponent(selectedFolder.toString())))
+    }
+    function pickFolder(current, callback) {
+        folderDialog.currentFolder = root.folderUrl(current);
+        folderDialog.onPicked = callback;
+        folderDialog.open();
+    }
+
+    FileDialog {
+        id: imageDialog
+        nameFilters: [Translation.tr("Images (*.png *.jpg *.jpeg *.gif *.webp *.svg)"), Translation.tr("All files (*)")]
+        onAccepted: Config.options.overlay.floatingImage.imageSource = FileUtils.trimFileProtocol(decodeURIComponent(selectedFile.toString()))
+    }
+
     ContentSection {
         icon: "screenshot_frame_2"
         title: Translation.tr("Screen selection")
@@ -101,24 +126,31 @@ ContentPage {
         title: Translation.tr("Save paths")
         description: Translation.tr("Where screenshots and recordings go")
 
-        ConfigTextRow {
-            icon: "videocam"
-            label: Translation.tr("Video Recording Path")
-            value: Config.options.screenRecord.savePath
-            wrapMode: TextEdit.NoWrap
-            onValueChanged: {
-                Config.options.screenRecord.savePath = value;
+        ConfigNavRow {
+            buttonIcon: "videocam"
+            title: Translation.tr("Recordings")
+            description: Config.options.screenRecord.savePath
+            trailingIcon: "folder_open"
+            onClicked: root.pickFolder(Config.options.screenRecord.savePath, path => Config.options.screenRecord.savePath = path)
+        }
+        ConfigSwitch {
+            buttonIcon: "screenshot"
+            text: Translation.tr("Save screenshots to a folder")
+            description: Translation.tr("Otherwise they are only copied to the clipboard")
+            autoToggle: false
+            checked: Config.options.screenSnip.savePath.length > 0
+            onClicked: {
+                if (checked) Config.options.screenSnip.savePath = "";
+                else root.pickFolder(FileUtils.trimFileProtocol(Directories.pictures), path => Config.options.screenSnip.savePath = path);
             }
         }
-        ConfigTextRow {
-            icon: "screenshot"
-            label: Translation.tr("Screenshot path")
-            description: Translation.tr("Leave empty to just copy to the clipboard")
-            value: Config.options.screenSnip.savePath
-            wrapMode: TextEdit.NoWrap
-            onValueChanged: {
-                Config.options.screenSnip.savePath = value;
-            }
+        ConfigNavRow {
+            visible: Config.options.screenSnip.savePath.length > 0
+            buttonIcon: "folder"
+            title: Translation.tr("Screenshots")
+            description: Config.options.screenSnip.savePath
+            trailingIcon: "folder_open"
+            onClicked: root.pickFolder(Config.options.screenSnip.savePath, path => Config.options.screenSnip.savePath = path)
         }
     }
 
@@ -175,11 +207,27 @@ ContentPage {
 
         ContentSubsection {
             title: Translation.tr("Floating image")
-            ConfigTextRow {
-                placeholderText: Translation.tr("Image source")
-                value: Config.options.overlay.floatingImage.imageSource
-                onValueChanged: {
-                    Config.options.overlay.floatingImage.imageSource = value;
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 0
+                ConfigTextRow {
+                    placeholderText: Translation.tr("Image file or link")
+                    description: Translation.tr("Press Enter to apply")
+                    wrapMode: TextEdit.NoWrap
+                    value: Config.options.overlay.floatingImage.imageSource
+                    onEditingFinished: Config.options.overlay.floatingImage.imageSource = value.trim()
+                }
+                RippleButtonWithIcon {
+                    Layout.rightMargin: 12
+                    Layout.alignment: Qt.AlignVCenter
+                    implicitHeight: 40
+                    buttonRadius: Appearance.rounding.full
+                    colBackground: Appearance.colors.colSecondaryContainer
+                    colBackgroundHover: Appearance.colors.colSecondaryContainerHover
+                    colRipple: Appearance.colors.colSecondaryContainerActive
+                    materialIcon: "image"
+                    mainText: Translation.tr("Choose file")
+                    onClicked: imageDialog.open()
                 }
             }
         }

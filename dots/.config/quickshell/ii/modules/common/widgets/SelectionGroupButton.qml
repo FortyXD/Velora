@@ -16,8 +16,11 @@ GroupButton {
     property string buttonIcon
     property bool leftmost: false
     property bool rightmost: false
-    leftRadius: (toggled || leftmost) ? (height / 2) : Appearance.rounding.unsharpenmore
-    rightRadius: (toggled || rightmost) ? (height / 2) : Appearance.rounding.unsharpenmore
+    // Same shape whether selected or not: pill ends at the edges of a row, small corners inside
+    leftRadius: leftmost ? (height / 2) : Appearance.rounding.verysmall
+    rightRadius: rightmost ? (height / 2) : Appearance.rounding.verysmall
+    // Icon-only buttons would otherwise be nearly round
+    implicitWidth: Math.max(baseWidth, buttonText?.length > 0 ? 0 : Math.round(baseHeight * 1.25))
     colBackground: Appearance.colors.colSecondaryContainer
     colBackgroundHover: Appearance.colors.colSecondaryContainerHover
     colBackgroundActive: Appearance.colors.colSecondaryContainerActive

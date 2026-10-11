@@ -156,6 +156,8 @@ layer([=[quickshell:overlay]=], { ignore_alpha = 1 })
 layer([=[quickshell:overview]=], { no_anim = true })
 layer([=[quickshell:osk]=], { animation = "slide bottom" })
 layer([=[quickshell:polkit]=], { no_anim = true })
+layer([=[quickshell:openWith]=], { no_anim = true })
+layer([=[quickshell:popup]=], { no_anim = true }) -- Bar popups animate themselves
 layer([=[quickshell:popup]=], { xray = false })
 layer([=[quickshell:popup]=], { ignore_alpha = 1 })
 layer([=[quickshell:mediaControls]=], { ignore_alpha = 1 })

@@ -96,7 +96,10 @@ hl.config({
         numlock_by_default = true,
         repeat_delay = 250,
         repeat_rate = 35,
-        kb_options = "grp:alt_shift_toggle",
+        -- No grp: toggle here: XKB would turn Shift or Alt into a layout switch whenever both
+        -- are held, so no Shift+Alt shortcut could work. keybinds.lua switches on a clean
+        -- Alt+Shift tap instead.
+        kb_options = "",
         follow_mouse = 1,
         off_window_axis_events = 2,
         touchpad = {

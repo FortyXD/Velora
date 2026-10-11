@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Quickshell
+import Quickshell.Io
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -8,14 +10,49 @@ import qs.modules.common.widgets
 ContentPage {
     id: root
 
+    // One or two characters, saved on Enter; an empty prefix would match every search
     component PrefixRow: ConfigTextRow {
+        id: prefixRow
         required property string prefixKey
         inline: true
         inlineFieldWidth: 120
         monospace: true
         wrapMode: TextEdit.NoWrap
         value: Config.options.search.prefix[prefixKey]
-        onValueChanged: Config.options.search.prefix[prefixKey] = value
+        onValueChanged: if (value.length > 2) value = value.slice(0, 2)
+        onEditingFinished: {
+            const prefix = value.trim();
+            if (prefix.length > 0) Config.options.search.prefix[prefixKey] = prefix;
+            else value = Config.options.search.prefix[prefixKey];
+        }
+    }
+
+    readonly property var searchEngines: [
+        { displayName: "Google", value: "https://www.google.com/search?q=" },
+        { displayName: "DuckDuckGo", value: "https://duckduckgo.com/?q=" },
+        { displayName: "Brave Search", value: "https://search.brave.com/search?q=" },
+        { displayName: "Bing", value: "https://www.bing.com/search?q=" },
+        { displayName: "Startpage", value: "https://www.startpage.com/do/search?q=" },
+        { displayName: "Ecosia", value: "https://www.ecosia.org/search?q=" },
+        { displayName: "Kagi", value: "https://kagi.com/search?q=" },
+        { displayName: "Yandex", value: "https://yandex.ru/search/?text=" }
+    ].map(engine => Object.assign(engine, { description: engine.value }))
+
+    // Ready-made system prompts: the shell's own and ones in ~/.config/illogical-impulse/ai/prompts
+    property var promptFiles: []
+    Process {
+        running: true
+        command: ["bash", "-c", `for dir in '${Directories.defaultAiPrompts}' '${Directories.userAiPrompts}'; do ls -1 "$dir"/*.md "$dir"/*.txt 2>/dev/null; done`]
+        stdout: StdioCollector {
+            onStreamFinished: root.promptFiles = text.split("\n").filter(line => line.length > 0)
+        }
+    }
+    FileView {
+        id: promptFile
+        onLoaded: {
+            Config.options.ai.systemPrompt = promptFile.text();
+            promptField.value = Config.options.ai.systemPrompt;
+        }
     }
 
     ContentSection {
@@ -42,6 +79,7 @@ ContentPage {
                 columnSpacing: 0
                 rowSpacing: 0
                 uniformCellWidths: true
+                PrefixRow { prefixKey: "app"; icon: "apps"; label: Translation.tr("Apps") }
                 PrefixRow { prefixKey: "action"; icon: "bolt"; label: Translation.tr("Action") }
                 PrefixRow { prefixKey: "clipboard"; icon: "content_paste"; label: Translation.tr("Clipboard") }
                 PrefixRow { prefixKey: "emojis"; icon: "mood"; label: Translation.tr("Emojis") }
@@ -51,16 +89,20 @@ ContentPage {
             }
         }
 
-        ConfigTextRow {
+        ConfigComboRow {
+            readonly property bool known: root.searchEngines.some(engine => engine.value === Config.options.search.engineBaseUrl)
             icon: "public"
-            label: Translation.tr("Web search")
-            description: Translation.tr("Base URL, the query is added to the end")
-            wrapMode: TextEdit.NoWrap
-            placeholderText: Translation.tr("Base URL")
-            value: Config.options.search.engineBaseUrl
-            onValueChanged: {
-                Config.options.search.engineBaseUrl = value;
-            }
+            text: Translation.tr("Web search")
+            description: Translation.tr("Where the web search prefix and “Search the web” go")
+            options: root.searchEngines
+            currentValue: Config.options.search.engineBaseUrl
+            customLabel: Translation.tr("Other site…")
+            customDescription: Translation.tr("A URL the search query is added to")
+            customPlaceholder: "https://example.com/search?q="
+            customActive: !known
+            customValue: known ? "" : Config.options.search.engineBaseUrl
+            onSelected: value => Config.options.search.engineBaseUrl = value
+            onCustomEntered: text => Config.options.search.engineBaseUrl = text
         }
     }
 
@@ -84,7 +126,25 @@ ContentPage {
                 ]
             }
         }
+        ConfigComboRow {
+            visible: root.promptFiles.length > 0
+            enabled: Config.options.policies.ai !== 0
+            icon: "library_books"
+            text: Translation.tr("Prompt presets")
+            description: Translation.tr("Replaces the system prompt below")
+            placeholderText: Translation.tr("Load a preset…")
+            options: root.promptFiles.map(path => ({
+                displayName: path.split("/").pop().replace(/\.(md|txt)$/, "").replace(/[-_]/g, " "),
+                value: path,
+                description: path.startsWith(Directories.userAiPrompts) ? Translation.tr("Yours") : ""
+            }))
+            onSelected: value => {
+                promptFile.path = "";
+                promptFile.path = value;
+            }
+        }
         ConfigTextRow {
+            id: promptField
             enabled: Config.options.policies.ai !== 0
             icon: "edit_note"
             label: Translation.tr("System prompt")

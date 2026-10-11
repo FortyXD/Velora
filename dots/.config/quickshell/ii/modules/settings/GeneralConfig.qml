@@ -10,17 +10,10 @@ import qs.modules.common.widgets
 ContentPage {
     id: root
 
-    readonly property date now: DateTime.clock.date
-
-    // Native names, so a language can be found without knowing its code
-    readonly property var languageNames: ({
-        "de_DE": "Deutsch", "en_US": "English (US)", "es_MX": "Español (México)", "fr_FR": "Français",
-        "he_HE": "עברית", "id_ID": "Bahasa Indonesia", "it_IT": "Italiano", "ja_JP": "日本語",
-        "pt_BR": "Português (Brasil)", "ru_RU": "Русский", "tr_TR": "Türkçe", "uk_UA": "Українська",
-        "vi_VN": "Tiếng Việt", "zh_CN": "简体中文"
-    })
-    function languageName(code) {
-        return root.languageNames[code] ? `${root.languageNames[code]} · ${code}` : code;
+    // Previews only need to change once a minute; the options list is rebuilt whenever this does
+    readonly property date now: {
+        const date = DateTime.clock.date;
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes());
     }
 
     // Each style sets the three date formats used around the shell together
@@ -30,18 +23,6 @@ ContentPage {
         { long: "ddd, MM/dd", short: "MM/dd", withYear: "MM/dd/yyyy" },
         { long: "ddd, d MMM", short: "d MMM", withYear: "d MMM yyyy" }
     ]
-
-    component AppCommandRow: ConfigTextRow {
-        required property string appKey
-        inline: true
-        inlineFieldWidth: 300
-        monospace: true
-        wrapMode: TextEdit.NoWrap
-        value: Config.options.apps[appKey]
-        onEditingFinished: {
-            if (value.trim().length > 0 && value.trim() !== Config.options.apps[appKey]) Config.options.apps[appKey] = value.trim();
-        }
-    }
 
     ContentSection {
         title: ""
@@ -58,53 +39,16 @@ ContentPage {
         title: Translation.tr("Language")
         description: Translation.tr("Applies to the bar, sidebars, settings and other parts of the shell")
 
-        RowLayout {
-            readonly property bool settingsSearchable: true
-            property string searchText: Translation.tr("Interface Language")
-            property string text: Translation.tr("Interface Language")
-            Layout.fillWidth: true
-            Layout.leftMargin: 12
-            Layout.rightMargin: 12
-            Layout.topMargin: 6
-            Layout.bottomMargin: 6
-            spacing: 12
-
-            ConfigIconTile {
-                icon: "translate"
-            }
-            StyledText {
-                Layout.fillWidth: true
-                text: Translation.tr("Interface Language")
-                font.pixelSize: Appearance.font.pixelSize.small
-                color: Appearance.colors.colOnLayer2
-            }
-            StyledComboBox {
-                id: languageSelector
-                Layout.preferredWidth: 280
-                buttonIcon: "language"
-                textRole: "displayName"
-
-                model: [
-                    {
-                        displayName: Translation.tr("Auto (System)") + ` · ${root.languageName(Qt.locale().name)}`,
-                        value: "auto"
-                    },
-                    ...Translation.allAvailableLanguages.map(lang => {
-                        return {
-                            displayName: root.languageName(lang),
-                            value: lang
-                        };
-                    })]
-
-                currentIndex: {
-                    const index = model.findIndex(item => item.value === Config.options.language.ui);
-                    return index !== -1 ? index : 0;
-                }
-
-                onActivated: index => {
-                    Config.options.language.ui = model[index].value;
-                }
-            }
+        ConfigComboRow {
+            icon: "translate"
+            text: Translation.tr("Interface Language")
+            maximumWidth: 300
+            currentValue: Config.options.language.ui
+            onSelected: value => Config.options.language.ui = value
+            options: [
+                { displayName: Translation.tr("Auto (System)") + ` · ${Translation.languageName(Qt.locale().name)}`, value: "auto", icon: "language" },
+                ...Translation.allAvailableLanguages.map(lang => ({ displayName: Translation.languageName(lang), value: lang }))
+            ]
         }
     }
 
@@ -161,38 +105,13 @@ ContentPage {
     }
 
     ContentSection {
-        title: Translation.tr("Default apps")
-        description: Translation.tr("Commands the shell runs from its buttons, like the volume mixer link or the network settings. Press Enter to save.")
+        title: Translation.tr("Apps")
 
-        AppCommandRow {
-            appKey: "terminal"
-            icon: "terminal"
-            label: Translation.tr("Terminal")
-        }
-        AppCommandRow {
-            appKey: "taskManager"
-            icon: "monitor_heart"
-            label: Translation.tr("Task manager")
-        }
-        AppCommandRow {
-            appKey: "volumeMixer"
-            icon: "tune"
-            label: Translation.tr("Volume mixer")
-        }
-        AppCommandRow {
-            appKey: "network"
-            icon: "wifi"
-            label: Translation.tr("Network settings")
-        }
-        AppCommandRow {
-            appKey: "bluetooth"
-            icon: "bluetooth"
-            label: Translation.tr("Bluetooth settings")
-        }
-        AppCommandRow {
-            appKey: "update"
-            icon: "system_update_alt"
-            label: Translation.tr("System update")
+        ConfigNavRow {
+            buttonIcon: "apps"
+            title: Translation.tr("Default Apps")
+            description: Translation.tr("Browser, terminal, file manager and the apps that open your files")
+            onClicked: ApplicationWindow.window?.openPage("apps")
         }
     }
 }

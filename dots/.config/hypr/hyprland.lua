@@ -35,5 +35,7 @@ pcall(require, "custom.shell_settings")
 -- nwg-displays compatibility files, converted to Lua.
 require("workspaces")
 require("monitors")
+-- Displays changed in the settings app. Generated, see custom/monitors.lua.
+pcall(require, "custom.monitors")
 
 require("hyprland.shellOverrides.main")

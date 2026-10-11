@@ -144,26 +144,19 @@ ApplicationWindow {
                     icon: "language"
                     title: Translation.tr("Language")
 
-                    ContentSubsection {
-                        title: Translation.tr("Select language")
-                        ConfigSelectionArray {
-                            id: languageSelector
-                            currentValue: Config.options.language.ui
-                            onSelected: newValue => {
-                                Config.options.language.ui = newValue;
-                            }
-                            options: [
-                                {
-                                    displayName: Translation.tr("Auto (System)"),
-                                    value: "auto"
-                                },
-                                ...Translation.allAvailableLanguages.map(lang => {
-                                    return {
-                                        displayName: lang,
-                                        value: lang
-                                    };
-                                })]
+                    ConfigComboRow {
+                        id: languageSelector
+                        icon: "translate"
+                        text: Translation.tr("Select language")
+                        maximumWidth: 300
+                        currentValue: Config.options.language.ui
+                        onSelected: value => {
+                            Config.options.language.ui = value;
                         }
+                        options: [
+                            { displayName: Translation.tr("Auto (System)") + ` · ${Translation.languageName(Qt.locale().name)}`, value: "auto", icon: "language" },
+                            ...Translation.allAvailableLanguages.map(lang => ({ displayName: Translation.languageName(lang), value: lang }))
+                        ]
                     }
 
                     NoticeBox {

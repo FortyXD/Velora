@@ -1,1 +1,4 @@
-{}
+{
+    "input:scroll_factor": 1,
+    "input:touchpad:scroll_factor": 0.5
+}

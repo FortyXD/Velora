@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell.Io
 import qs.services
@@ -8,26 +9,45 @@ import qs.modules.common.widgets
 ContentPage {
     id: root
 
-    // Layout codes and names known to XKB, for checking what's typed
-    property var knownLayouts: ({})
+    // Layouts, variants and options known to XKB
+    property var knownLayouts: ({})   // code -> name
+    property var knownVariants: ({})  // layout -> [{ code, name }]
+    property var optionGroups: []     // [{ id, name, options: [{ code, name }] }]
     FileView {
         path: "/usr/share/X11/xkb/rules/base.lst"
         onLoaded: {
-            const lines = text().split("\n");
-            let inLayouts = false;
+            let section = "";
             let layouts = {};
-            for (const line of lines) {
+            let variants = {};
+            let groups = [];
+            for (const line of text().split("\n")) {
                 if (line.startsWith("!")) {
-                    inLayouts = line.trim() === "! layout";
+                    section = line.slice(1).trim();
                     continue;
                 }
-                if (!inLayouts) continue;
                 const match = line.match(/^\s+(\S+)\s+(.+)$/);
-                if (match) layouts[match[1]] = match[2].trim();
+                if (!match) continue;
+                const code = match[1];
+                const name = match[2].trim();
+                if (section === "layout") {
+                    layouts[code] = name;
+                } else if (section === "variant") {
+                    const parts = name.match(/^(\S+):\s*(.+)$/);
+                    if (!parts) continue;
+                    (variants[parts[1]] = variants[parts[1]] ?? []).push({ code: code, name: parts[2] });
+                } else if (section === "option") {
+                    if (!code.includes(":")) groups.push({ id: code, name: name, options: [] });
+                    else if (groups.length > 0) groups[groups.length - 1].options.push({ code: code, name: name });
+                }
             }
             root.knownLayouts = layouts;
+            root.knownVariants = variants;
+            root.optionGroups = groups;
         }
     }
+
+    // Option groups offered as dropdowns; the rest stays reachable through "Edit as text"
+    readonly property var shownGroups: ["caps", "ctrl", "altwin", "compose", "lv3", "nbsp"]
 
     readonly property string layoutsValue: HyprlandSettings.get("input:kb_layout", "us")
     readonly property list<string> layoutCodes: root.layoutsValue.split(",").map(code => code.trim()).filter(code => code.length > 0)
@@ -39,6 +59,45 @@ ContentPage {
         return text.split(",").map(code => code.trim()).filter(code => code.length > 0 && root.knownLayouts[code] === undefined);
     }
 
+    readonly property list<string> variantCodes: {
+        const variants = HyprlandSettings.get("input:kb_variant", "").split(",").map(code => code.trim());
+        return root.layoutCodes.map((_, index) => variants[index] ?? "");
+    }
+
+    // Layouts and variants are lists that must stay in step, so they are always written together
+    function setLayouts(layouts, variants) {
+        if (layouts.length === 0) return;
+        const variantText = variants.some(code => code.length > 0) ? variants.join(",") : "";
+        if (layouts.join(",") !== root.layoutsValue) HyprlandSettings.set("input:kb_layout", layouts.join(","));
+        if (variantText !== HyprlandSettings.get("input:kb_variant", "")) HyprlandSettings.set("input:kb_variant", variantText);
+    }
+    function moveLayout(index, step) {
+        let layouts = [...root.layoutCodes];
+        let variants = [...root.variantCodes];
+        const target = index + step;
+        if (target < 0 || target >= layouts.length) return;
+        [layouts[index], layouts[target]] = [layouts[target], layouts[index]];
+        [variants[index], variants[target]] = [variants[target], variants[index]];
+        root.setLayouts(layouts, variants);
+    }
+    function removeLayout(index) {
+        root.setLayouts(root.layoutCodes.filter((_, i) => i !== index), root.variantCodes.filter((_, i) => i !== index));
+    }
+    function setVariant(index, variant) {
+        let variants = [...root.variantCodes];
+        variants[index] = variant;
+        root.setLayouts([...root.layoutCodes], variants);
+    }
+
+    function optionInGroup(group) {
+        return root.kbOptions.split(",").map(option => option.trim()).find(option => option.startsWith(`${group}:`)) ?? "";
+    }
+    function setGroupOption(group, option) {
+        let options = root.kbOptions.split(",").map(item => item.trim()).filter(item => item.length > 0 && !item.startsWith(`${group}:`));
+        if (option.length > 0) options.push(option);
+        HyprlandSettings.set("input:kb_options", options.join(","));
+    }
+
     function setSwitchOption(grpOption) {
         let options = root.kbOptions.split(",").map(option => option.trim()).filter(option => option.length > 0 && !option.startsWith("grp:"));
         if (grpOption.length > 0) options.push(grpOption);
@@ -47,51 +106,157 @@ ContentPage {
 
     ContentSection {
         title: Translation.tr("Layouts")
-        description: Translation.tr("Use XKB codes separated by commas, for example us,ru. The first one is used by default.")
+        description: Translation.tr("The first one is used by default. The switch keys go through them in this order.")
 
-        Flow { // Current layouts
-            Layout.fillWidth: true
-            Layout.margins: 12
-            spacing: 6
-            Repeater {
-                model: root.layoutCodes
-                delegate: Rectangle {
-                    id: layoutChip
-                    required property string modelData
-                    required property int index
-                    implicitHeight: 34
-                    implicitWidth: chipRow.implicitWidth + 24
+        Repeater { // Current layouts, in switching order
+            model: root.layoutCodes
+            delegate: RowLayout {
+                id: layoutRow
+                required property string modelData
+                required property int index
+                readonly property bool settingsSearchable: true
+                property string searchText: `${root.knownLayouts[layoutRow.modelData] ?? ""} ${layoutRow.modelData}`
+                readonly property var variants: root.knownVariants[layoutRow.modelData] ?? []
+                Layout.fillWidth: true
+                Layout.leftMargin: 12
+                Layout.rightMargin: 6
+                Layout.topMargin: 3
+                Layout.bottomMargin: 3
+                spacing: 10
+
+                Rectangle {
+                    implicitWidth: 40
+                    implicitHeight: 28
                     radius: Appearance.rounding.full
-                    color: index === 0 ? Appearance.colors.colPrimaryContainer : Appearance.colors.colSecondaryContainer
-                    RowLayout {
-                        id: chipRow
+                    color: layoutRow.index === 0 ? Appearance.colors.colPrimaryContainer : Appearance.colors.colSecondaryContainer
+                    StyledText {
                         anchors.centerIn: parent
-                        spacing: 8
-                        StyledText {
-                            text: layoutChip.modelData.toUpperCase()
-                            font.family: Appearance.font.family.monospace
-                            font.pixelSize: Appearance.font.pixelSize.smaller
-                            font.weight: Font.DemiBold
-                            color: layoutChip.index === 0 ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnSecondaryContainer
-                        }
-                        StyledText {
-                            text: root.knownLayouts[layoutChip.modelData] ?? ""
-                            font.pixelSize: Appearance.font.pixelSize.smaller
-                            color: layoutChip.index === 0 ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnSecondaryContainer
-                        }
+                        text: layoutRow.modelData.toUpperCase()
+                        font.family: Appearance.font.family.monospace
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        font.weight: Font.DemiBold
+                        color: layoutRow.index === 0 ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnSecondaryContainer
                     }
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 1
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: root.knownLayouts[layoutRow.modelData] ?? layoutRow.modelData
+                        elide: Text.ElideRight
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colOnLayer2
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: layoutRow.index === 0
+                        text: Translation.tr("Used by default")
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                    }
+                }
+                ChoiceDropdown {
+                    visible: layoutRow.variants.length > 0
+                    enabled: HyprlandSettings.ready
+                    maximumWidth: 220
+                    currentValue: root.variantCodes[layoutRow.index] ?? ""
+                    options: [
+                        { displayName: Translation.tr("Standard"), value: "" },
+                        ...layoutRow.variants.map(variant => ({ displayName: variant.name, value: variant.code, description: variant.code }))
+                    ]
+                    onSelected: value => root.setVariant(layoutRow.index, value)
+                }
+                LayoutIconButton {
+                    symbol: "arrow_upward"
+                    tooltip: Translation.tr("Move up")
+                    enabled: layoutRow.index > 0 && HyprlandSettings.ready
+                    onClicked: root.moveLayout(layoutRow.index, -1)
+                }
+                LayoutIconButton {
+                    symbol: "close"
+                    tooltip: Translation.tr("Remove")
+                    enabled: root.layoutCodes.length > 1 && HyprlandSettings.ready
+                    onClicked: root.removeLayout(layoutRow.index)
                 }
             }
         }
+        ConfigComboRow {
+            enabled: HyprlandSettings.ready
+            icon: "add"
+            text: Translation.tr("Add a layout")
+            placeholderText: Translation.tr("Choose…")
+            searchable: true
+            maximumWidth: 260
+            options: Object.keys(root.knownLayouts)
+                .filter(code => !root.layoutCodes.includes(code))
+                .map(code => ({ displayName: root.knownLayouts[code], value: code, description: code }))
+                .sort((a, b) => a.displayName.localeCompare(b.displayName))
+            onSelected: value => root.setLayouts([...root.layoutCodes, value], [...root.variantCodes, ""])
+        }
+        ContentSubsection {
+            enabled: HyprlandSettings.ready
+            title: Translation.tr("Switch layouts with")
+            description: root.switchOption === "" ? Translation.tr("Tap Alt+Shift. Shortcuts that hold Shift and Alt together still work.")
+                : root.switchOption === "grp:alt_shift_toggle" ? Translation.tr("This XKB toggle blocks every shortcut with both Shift and Alt. Pick the first Alt + Shift instead.")
+                : ""
+            ConfigSelectionArray {
+                currentValue: root.switchOption
+                onSelected: newValue => root.setSwitchOption(newValue)
+                // Alt + Shift is handled by the keybinds (no grp: option): an XKB toggle would
+                // turn Shift or Alt into a layout switch whenever both are held
+                options: [
+                    { displayName: "Alt + Shift", value: "" },
+                    { displayName: "Ctrl + Shift", value: "grp:ctrl_shift_toggle" },
+                    { displayName: "Super + Space", value: "grp:win_space_toggle" },
+                    { displayName: "Caps Lock", value: "grp:caps_toggle" }
+                ]
+            }
+        }
+    }
+
+    ContentSection {
+        title: Translation.tr("Keys")
+        description: Translation.tr("Change what some keys do, for every layout")
+
+        Repeater {
+            model: root.optionGroups.filter(group => root.shownGroups.includes(group.id))
+                .sort((a, b) => root.shownGroups.indexOf(a.id) - root.shownGroups.indexOf(b.id))
+            delegate: ConfigComboRow {
+                required property var modelData
+                enabled: HyprlandSettings.ready
+                icon: ({ caps: "keyboard_capslock", ctrl: "keyboard_control_key", altwin: "keyboard_option_key",
+                         compose: "edit_note", lv3: "keyboard_alt", nbsp: "space_bar" })[modelData.id] ?? "keyboard"
+                text: modelData.name
+                maximumWidth: 300
+                currentValue: root.optionInGroup(modelData.id)
+                options: [
+                    { displayName: Translation.tr("Default"), value: "" },
+                    ...modelData.options.map(option => ({ displayName: option.name, value: option.code, description: option.code }))
+                ]
+                onSelected: value => root.setGroupOption(modelData.id, value)
+            }
+        }
+
+        ConfigNavRow {
+            id: rawToggle
+            property bool open: false
+            buttonIcon: "code"
+            title: Translation.tr("Edit as text")
+            description: Translation.tr("Layouts, variants and options as XKB codes")
+            trailingIcon: rawToggle.open ? "expand_less" : "expand_more"
+            onClicked: rawToggle.open = !rawToggle.open
+        }
         ConfigTextRow {
             id: layoutsField
+            visible: rawToggle.open
             readonly property var invalid: root.invalidLayouts(value)
             enabled: HyprlandSettings.ready
             icon: "language"
             label: Translation.tr("Layout codes")
             description: invalid.length > 0 ? Translation.tr("Unknown layout: %1").arg(invalid.join(", ")) : Translation.tr("Press Enter to apply")
             inline: true
-            inlineFieldWidth: 200
+            inlineFieldWidth: 240
             monospace: true
             wrapMode: TextEdit.NoWrap
             placeholderText: "us,ru"
@@ -102,12 +267,13 @@ ContentPage {
             }
         }
         ConfigTextRow {
+            visible: rawToggle.open
             enabled: HyprlandSettings.ready
             icon: "tune"
             label: Translation.tr("Variants")
-            description: Translation.tr("Optional, one per layout, e.g. ,phonetic")
+            description: Translation.tr("One per layout, e.g. ,phonetic")
             inline: true
-            inlineFieldWidth: 200
+            inlineFieldWidth: 240
             monospace: true
             wrapMode: TextEdit.NoWrap
             value: HyprlandSettings.get("input:kb_variant", "")
@@ -115,26 +281,12 @@ ContentPage {
                 if (value.trim() !== HyprlandSettings.get("input:kb_variant", "")) HyprlandSettings.set("input:kb_variant", value.trim());
             }
         }
-        ContentSubsection {
-            enabled: HyprlandSettings.ready
-            title: Translation.tr("Switch layouts with")
-            ConfigSelectionArray {
-                currentValue: root.switchOption
-                onSelected: newValue => root.setSwitchOption(newValue)
-                options: [
-                    { displayName: "Alt + Shift", value: "grp:alt_shift_toggle" },
-                    { displayName: "Ctrl + Shift", value: "grp:ctrl_shift_toggle" },
-                    { displayName: "Super + Space", value: "grp:win_space_toggle" },
-                    { displayName: "Caps Lock", value: "grp:caps_toggle" },
-                    { displayName: Translation.tr("None"), icon: "block", value: "" }
-                ]
-            }
-        }
         ConfigTextRow {
+            visible: rawToggle.open
             enabled: HyprlandSettings.ready
             icon: "settings_applications"
             label: Translation.tr("XKB options")
-            description: Translation.tr("Advanced, e.g. caps:escape. Press Enter to apply")
+            description: Translation.tr("e.g. caps:escape. Press Enter to apply")
             inline: true
             inlineFieldWidth: 240
             monospace: true
@@ -176,90 +328,40 @@ ContentPage {
     }
 
     ContentSection {
-        icon: "keyboard"
-        title: Translation.tr("Shortcut cheat sheet")
-        description: Translation.tr("Opens with Super+/ and lists every keybind. These options change how keys are drawn in it.")
+        title: Translation.tr("Shortcuts")
 
-        ContentSubsection {
-            title: Translation.tr("Super key symbol")
-            description: Translation.tr("You can also manually edit cheatsheet.superKey")
-            ConfigSelectionArray {
-                currentValue: Config.options.cheatsheet.superKey
-                onSelected: newValue => {
-                    Config.options.cheatsheet.superKey = newValue;
-                }
-                // Use a nerdfont to see the icons
-                options: ([
-                  "󰖳", "", "󰨡", "", "󰌽", "󰣇", "", "", "", 
-                  "", "", "󱄛", "", "", "⌘", "󰀲", "󰟍", ""
-                ]).map(icon => { return {
-                  displayName: icon,
-                  value: icon
-                  }
-                })
-            }
+        ConfigNavRow {
+            buttonIcon: "keyboard_command_key"
+            title: Translation.tr("Keyboard Shortcuts")
+            description: Translation.tr("See, change and add shortcuts, and style the cheat sheet")
+            onClicked: ApplicationWindow.window?.openPage("shortcuts")
         }
+        ConfigNavRow {
+            buttonIcon: "apps"
+            title: Translation.tr("Default Apps")
+            description: Translation.tr("What Super+B, Super+E, Super+Return and other app keys open")
+            onClicked: ApplicationWindow.window?.openPage("apps")
+        }
+    }
 
-        ConfigSwitch {
-            buttonIcon: "keyboard_option_key"
-            text: Translation.tr("Use symbols for modifier keys")
-            description: Translation.tr("e.g. ⌃ for Ctrl, ⌥ for Alt, ⇧ for Shift, etc")
-            checked: Config.options.cheatsheet.useModifierSymbols
-            onCheckedChanged: {
-                Config.options.cheatsheet.useModifierSymbols = checked;
-            }
+    component LayoutIconButton: RippleButton {
+        id: iconButton
+        property string symbol
+        property string tooltip
+        implicitWidth: 34
+        implicitHeight: 34
+        buttonRadius: Appearance.rounding.full
+        colBackgroundHover: Appearance.colors.colLayer2Hover
+        colRipple: Appearance.colors.colLayer2Active
+        opacity: enabled ? 1 : 0.35
+        contentItem: MaterialSymbol {
+            horizontalAlignment: Text.AlignHCenter
+            text: iconButton.symbol
+            iconSize: 20
+            color: Appearance.colors.colSubtext
         }
-        ConfigSwitch {
-            buttonIcon: "󱊶"
-            text: Translation.tr("Use symbols for function keys")
-            description: Translation.tr("e.g. 󱊫 for F1, 󱊶  for F12")
-            checked: Config.options.cheatsheet.useFnSymbol
-            onCheckedChanged: {
-                Config.options.cheatsheet.useFnSymbol = checked;
-            }
-        }
-        ConfigSwitch {
-            buttonIcon: "󰍽"
-            text: Translation.tr("Use symbols for mouse")
-            description: Translation.tr("Replace 󱕐   for \"Scroll ↓\", 󱕑   \"Scroll ↑\", L󰍽   \"LMB\", R󰍽   \"RMB\", 󱕒   \"Scroll ↑/↓\" and ⇞/⇟ for \"Page_↑/↓\"")
-            checked: Config.options.cheatsheet.useMouseSymbol
-            onCheckedChanged: {
-                Config.options.cheatsheet.useMouseSymbol = checked;
-            }
-        }
-        ConfigSwitch {
-            buttonIcon: "highlight_keyboard_focus"
-            text: Translation.tr("Split buttons")
-            description: Translation.tr("Display modifiers and keys in multiple keycap (e.g., \"Ctrl + A\" instead of \"Ctrl A\" or \"⌃ + A\" instead of \"⌃ A\")")
-            checked: Config.options.cheatsheet.splitButtons
-            onCheckedChanged: {
-                Config.options.cheatsheet.splitButtons = checked;
-            }
-        }
-        ConfigRow {
-            uniform: true
-            ConfigSpinBox {
-                icon: "format_size"
-                text: Translation.tr("Keybind font size")
-                value: Config.options.cheatsheet.fontSize.key
-                from: 8
-                to: 30
-                stepSize: 1
-                onValueChanged: {
-                    Config.options.cheatsheet.fontSize.key = value;
-                }
-            }
-            ConfigSpinBox {
-                icon: "text_fields"
-                text: Translation.tr("Description font size")
-                value: Config.options.cheatsheet.fontSize.comment
-                from: 8
-                to: 30
-                stepSize: 1
-                onValueChanged: {
-                    Config.options.cheatsheet.fontSize.comment = value;
-                }
-            }
+        StyledToolTip {
+            text: iconButton.tooltip
         }
     }
 }
