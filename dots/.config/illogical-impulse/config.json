@@ -58,7 +58,7 @@
         "manageUser": "kcmshell6 kcm_users",
         "network": "kcmshell6 kcm_networkmanagement",
         "networkEthernet": "kcmshell6 kcm_networkmanagement",
-        "taskManager": "plasma-systemmonitor --page-name Processes",
+        "taskManager": "gnome-system-monitor",
         "terminal": "kitty -1",
         "update": "kitty -1 --hold=yes fish -i -c 'pkexec pacman -Syu'",
         "volumeMixer": "~/.config/hypr/hyprland/scripts/launch_first_available.sh \"pavucontrol-qt\" \"pavucontrol\""
@@ -199,10 +199,19 @@
         "cornerStyle": 0,
         "floatStyleShadow": true,
         "indicators": {
+            "bluetoothBattery": true,
             "notifications": {
                 "showUnreadCount": false
-            }
+            },
+            "privacy": true
         },
+        "island": {
+            "showPomodoro": true,
+            "showRecording": true,
+            "showStopwatch": true,
+            "trackToast": true
+        },
+        "microAnimations": true,
         "resources": {
             "alwaysShowCpu": true,
             "alwaysShowSwap": true,
@@ -219,8 +228,11 @@
         "utilButtons": {
             "showColorPicker": false,
             "showDarkModeToggle": false,
+            "showDoNotDisturb": true,
+            "showIdleInhibitor": true,
             "showKeyboardToggle": true,
             "showMicToggle": false,
+            "showNightLight": true,
             "showPerformanceProfileToggle": false,
             "showScreenRecord": true,
             "showScreenSnip": true,
@@ -271,7 +283,7 @@
     },
     "conflictKiller": {
         "autoKillNotificationDaemons": false,
-        "autoKillTrays": false
+        "autoKillTrays": true
     },
     "crosshair": {
         "code": "0;P;d;1;0l;10;0o;2;1b;0"
@@ -366,7 +378,7 @@
         "timeout": 1000
     },
     "osk": {
-        "layout": "Russian",
+        "layout": "English",
         "pinnedOnStartup": false
     },
     "overlay": {

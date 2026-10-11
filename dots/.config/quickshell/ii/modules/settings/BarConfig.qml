@@ -220,6 +220,82 @@ ContentPage {
                 }
             }
         }
+        ConfigRow {
+            uniform: true
+            ConfigSwitch {
+                buttonIcon: "coffee"
+                text: Translation.tr("Keep awake")
+                checked: Config.options.bar.utilButtons.showIdleInhibitor
+                onCheckedChanged: {
+                    Config.options.bar.utilButtons.showIdleInhibitor = checked;
+                }
+            }
+            ConfigSwitch {
+                buttonIcon: "bedtime"
+                text: Translation.tr("Night Light")
+                checked: Config.options.bar.utilButtons.showNightLight
+                onCheckedChanged: {
+                    Config.options.bar.utilButtons.showNightLight = checked;
+                }
+            }
+        }
+        ConfigRow {
+            uniform: true
+            ConfigSwitch {
+                buttonIcon: "notifications_paused"
+                text: Translation.tr("Do not disturb")
+                checked: Config.options.bar.utilButtons.showDoNotDisturb
+                onCheckedChanged: {
+                    Config.options.bar.utilButtons.showDoNotDisturb = checked;
+                }
+            }
+        }
+    }
+
+    ContentSection {
+        icon: "dynamic_feed"
+        title: Translation.tr("Live activities")
+        description: Translation.tr("The media slot shows what's going on right now, then returns to music")
+
+        ConfigRow {
+            uniform: true
+            ConfigSwitch {
+                buttonIcon: "screen_record"
+                text: Translation.tr("Screen recording")
+                checked: Config.options.bar.island.showRecording
+                onCheckedChanged: {
+                    Config.options.bar.island.showRecording = checked;
+                }
+            }
+            ConfigSwitch {
+                buttonIcon: "target"
+                text: Translation.tr("Pomodoro")
+                checked: Config.options.bar.island.showPomodoro
+                onCheckedChanged: {
+                    Config.options.bar.island.showPomodoro = checked;
+                }
+            }
+        }
+        ConfigRow {
+            uniform: true
+            ConfigSwitch {
+                buttonIcon: "timer"
+                text: Translation.tr("Stopwatch")
+                checked: Config.options.bar.island.showStopwatch
+                onCheckedChanged: {
+                    Config.options.bar.island.showStopwatch = checked;
+                }
+            }
+            ConfigSwitch {
+                buttonIcon: "album"
+                text: Translation.tr("Track change card")
+                description: Translation.tr("Cover and title for 3 seconds")
+                checked: Config.options.bar.island.trackToast
+                onCheckedChanged: {
+                    Config.options.bar.island.trackToast = checked;
+                }
+            }
+        }
     }
 
     ContentSection {
@@ -231,6 +307,24 @@ ContentPage {
             buttonIcon: "notifications"
             title: Translation.tr("Notification indicator")
             onClicked: ApplicationWindow.window?.openPage("notifications")
+        }
+        ConfigSwitch {
+            buttonIcon: "privacy_tip"
+            text: Translation.tr("Privacy indicator")
+            description: Translation.tr("Shows when apps use the microphone, a camera or capture the screen")
+            checked: Config.options.bar.indicators.privacy
+            onCheckedChanged: {
+                Config.options.bar.indicators.privacy = checked;
+            }
+        }
+        ConfigSwitch {
+            buttonIcon: "bluetooth"
+            text: Translation.tr("Bluetooth device battery")
+            description: Translation.tr("Charge of connected headphones and other devices that report it")
+            checked: Config.options.bar.indicators.bluetoothBattery
+            onCheckedChanged: {
+                Config.options.bar.indicators.bluetoothBattery = checked;
+            }
         }
         ConfigSwitch {
             buttonIcon: "partly_cloudy_day"
@@ -261,6 +355,21 @@ ContentPage {
             checked: Config.options.tray.monochromeIcons
             onCheckedChanged: {
                 Config.options.tray.monochromeIcons = checked;
+            }
+        }
+    }
+
+    ContentSection {
+        icon: "animation"
+        title: Translation.tr("Motion")
+
+        ConfigSwitch {
+            buttonIcon: "motion_play"
+            text: Translation.tr("Micro-animations")
+            description: Translation.tr("Rolling numbers, popup transitions, press feedback and scrolling titles. Turn off on slow hardware")
+            checked: Config.options.bar.microAnimations
+            onCheckedChanged: {
+                Config.options.bar.microAnimations = checked;
             }
         }
     }

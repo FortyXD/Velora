@@ -16,9 +16,12 @@ Item {
         anchors.centerIn: parent
         spacing: 4
 
-        StyledText {
-            font.pixelSize: Appearance.font.pixelSize.large
+        RollingText {
+            Layout.alignment: Qt.AlignVCenter
+            pixelSize: Appearance.font.pixelSize.large
+            family: Appearance.font.family.main
             color: Appearance.colors.colOnLayer1
+            animate: Config.options.bar.microAnimations
             text: DateTime.time
         }
 

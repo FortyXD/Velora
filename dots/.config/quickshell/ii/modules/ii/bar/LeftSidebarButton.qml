@@ -24,6 +24,10 @@ RippleButton {
     colBackgroundToggledHover: Appearance.colors.colSecondaryContainerHover
     colRippleToggled: Appearance.colors.colSecondaryContainerActive
     toggled: GlobalStates.sidebarLeftOpen
+    scale: down && Config.options.bar.microAnimations ? 0.9 : 1
+    Behavior on scale {
+        animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+    }
 
     onPressed: {
         GlobalStates.sidebarLeftOpen = !GlobalStates.sidebarLeftOpen;

@@ -23,6 +23,18 @@ getactivemonitor() {
     hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .name'
 }
 
+# Tell the shell (bar recording indicator) about state changes; harmless when it isn't running.
+# The config name is the folder this script lives in: ~/.config/quickshell/<config>/scripts/videos
+QS_CONFIG=$(basename "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)")
+notify_shell() {
+    qs -c "$QS_CONFIG" ipc call recorder "$1" >/dev/null 2>&1 || true
+}
+record() {
+    notify_shell started
+    wf-recorder "$@"
+    notify_shell stopped
+}
+
 mkdir -p "$RECORDING_DIR"
 cd "$RECORDING_DIR" || exit
 
@@ -49,13 +61,14 @@ done
 if pgrep wf-recorder > /dev/null; then
     notify-send "Recording Stopped" "Stopped" -a 'Recorder' &
     pkill wf-recorder &
+    notify_shell stopped
 else
     if [[ $FULLSCREEN_FLAG -eq 1 ]]; then
         notify-send "Starting recording" 'recording_'"$(getdate)"'.mp4' -a 'Recorder' & disown
         if [[ $SOUND_FLAG -eq 1 ]]; then
-            wf-recorder -o "$(getactivemonitor)" --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --audio="$(getaudiooutput)"
+            record -o "$(getactivemonitor)" --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --audio="$(getaudiooutput)"
         else
-            wf-recorder -o "$(getactivemonitor)" --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t
+            record -o "$(getactivemonitor)" --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t
         fi
     else
         # If a manual region was provided via --region, use it; otherwise run slurp as before.
@@ -70,9 +83,9 @@ else
 
         notify-send "Starting recording" 'recording_'"$(getdate)"'.mp4' -a 'Recorder' & disown
         if [[ $SOUND_FLAG -eq 1 ]]; then
-            wf-recorder --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --geometry "$region" --audio="$(getaudiooutput)"
+            record --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --geometry "$region" --audio="$(getaudiooutput)"
         else
-            wf-recorder --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --geometry "$region"
+            record --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --geometry "$region"
         fi
     fi
 fi

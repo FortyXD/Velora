@@ -60,6 +60,7 @@ Item {
                 font.pixelSize: Appearance.font.pixelSize.small
             }
 
+            // Static on purpose: these change every few seconds, and rolling them kept the bar redrawing
             StyledText {
                 id: percentageText
                 anchors.centerIn: parent

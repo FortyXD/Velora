@@ -312,6 +312,9 @@ Singleton {
                     property bool showSupergfxctlToggle: true
                     property bool showPerformanceProfileToggle: false
                     property bool showScreenRecord: false
+                    property bool showIdleInhibitor: false
+                    property bool showNightLight: false
+                    property bool showDoNotDisturb: false
                 }
                 property JsonObject workspaces: JsonObject {
                     property bool monochromeIcons: true
@@ -333,7 +336,16 @@ Singleton {
                     property JsonObject notifications: JsonObject {
                         property bool showUnreadCount: false
                     }
+                    property bool privacy: true // Microphone, camera and screen sharing in use
+                    property bool bluetoothBattery: true
                 }
+                property JsonObject island: JsonObject { // The media slot temporarily shows ongoing activities
+                    property bool showRecording: true
+                    property bool showPomodoro: true
+                    property bool showStopwatch: true
+                    property bool trackToast: true // Briefly show cover and title when the track changes
+                }
+                property bool microAnimations: true // Rolling numbers, popup transitions, press feedback, marquee
                 property JsonObject tooltips: JsonObject {
                     property bool clickToShow: false
                 }

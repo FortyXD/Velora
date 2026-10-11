@@ -81,6 +81,25 @@ Item {
         updateWorkspaceOccupied();
     }
 
+    // Live preview of the hovered workspace, for workspaces that have windows
+    property int hoveredWorkspace: 0
+    property int previewWorkspace: 0 // Kept while the pointer travels from the button to the preview
+    onHoveredWorkspaceChanged: {
+        if (hoveredWorkspace > 0 && HyprlandData.windowList.some(win => win.workspace.id === hoveredWorkspace))
+            previewWorkspace = hoveredWorkspace;
+    }
+    Item { // Centered under all workspaces, so the preview doesn't jump while moving between them
+        id: previewAnchor
+        readonly property bool containsMouse: root.hoveredWorkspace > 0 && root.hoveredWorkspace === root.previewWorkspace
+        anchors.fill: parent
+    }
+    WorkspacePreviewPopup {
+        hoverTarget: previewAnchor
+        workspaceId: root.previewWorkspace
+        firstWorkspace: root.workspaceGroup * root.workspacesShown + 1
+        lastWorkspace: (root.workspaceGroup + 1) * root.workspacesShown
+    }
+
     implicitWidth: root.vertical ? Appearance.sizes.verticalBarWidth : (root.workspaceButtonWidth * root.workspacesShown)
     implicitHeight: root.vertical ? (root.workspaceButtonWidth * root.workspacesShown) : Appearance.sizes.barHeight
 
@@ -165,13 +184,20 @@ Item {
             horizontalCenter: vertical ? parent.horizontalCenter : undefined
         }
 
+        // Rubber band: the leading edge snaps ahead, the trailing edge catches up
         AnimatedTabIndexPair {
             id: idxPair
             index: root.workspaceIndexInGroup
+            idx1Duration: 160
+            idx2Duration: 420
+            idx1Curve: Appearance.animationCurves.emphasizedDecel
+            idx2Curve: Appearance.animationCurves.expressiveDefaultSpatial
         }
+        property real stretch: Math.min(1, Math.abs(idxPair.idx1 - idxPair.idx2))
         property real indicatorPosition: Math.min(idxPair.idx1, idxPair.idx2) * workspaceButtonWidth + root.activeWorkspaceMargin
         property real indicatorLength: Math.abs(idxPair.idx1 - idxPair.idx2) * workspaceButtonWidth + workspaceButtonWidth - root.activeWorkspaceMargin * 2
-        property real indicatorThickness: workspaceButtonWidth - root.activeWorkspaceMargin * 2
+        // Thins out a little while stretched, like a band under tension
+        property real indicatorThickness: (workspaceButtonWidth - root.activeWorkspaceMargin * 2) * (Config.options.bar.microAnimations ? 1 - 0.18 * stretch : 1)
 
         x: root.vertical ? null : indicatorPosition
         implicitWidth: root.vertical ? indicatorThickness : indicatorLength
@@ -200,6 +226,10 @@ Item {
                 implicitHeight: vertical ? Appearance.sizes.verticalBarWidth : Appearance.sizes.barHeight
                 implicitWidth: vertical ? Appearance.sizes.verticalBarWidth : Appearance.sizes.verticalBarWidth
                 onPressed: Hyprland.dispatch(`hl.dsp.focus({ workspace = ${workspaceValue} })`)
+                onHoveredChanged: {
+                    if (hovered) root.hoveredWorkspace = workspaceValue;
+                    else if (root.hoveredWorkspace === workspaceValue) root.hoveredWorkspace = 0;
+                }
                 width: vertical ? undefined : workspaceButtonWidth
                 height: vertical ? workspaceButtonWidth : undefined
 

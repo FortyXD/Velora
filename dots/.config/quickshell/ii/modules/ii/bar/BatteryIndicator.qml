@@ -45,7 +45,14 @@ MouseArea {
                     fill: 1
                     text: "bolt"
                     iconSize: Appearance.font.pixelSize.smaller
-                    visible: isCharging && percentage < 1 // TODO: animation
+                    visible: isCharging && percentage < 1
+                    // Pops in once when the charger is plugged in
+                    onVisibleChanged: if (visible && Config.options.bar.microAnimations) boltPop.restart()
+                    SequentialAnimation {
+                        id: boltPop
+                        NumberAnimation { target: boltIcon; property: "scale"; from: 0; to: 1.35; duration: 220; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: boltIcon; property: "scale"; to: 1; duration: 200; easing.type: Easing.InOutSine }
+                    }
                 }
                 StyledText {
                     Layout.alignment: Qt.AlignVCenter
