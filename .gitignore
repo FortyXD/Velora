@@ -18,6 +18,7 @@ __pycache__/
 
 # Runtime data; never publish local install state or editor files.
 /dots/.config/illogical-impulse/installed_*
+/dots/.config/illogical-impulse/config.json
 /dots/.config/fish/fish_history
 /dots/.config/hypr/nvim.log
 

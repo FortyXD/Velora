@@ -139,8 +139,8 @@
                 "placementStrategy": "free",
                 "showHours": false,
                 "title": "",
-                "x": 1639.20703125,
-                "y": 95.40625
+                "x": 640,
+                "y": 480
             },
             "media": {
                 "enable": false,
@@ -378,7 +378,7 @@
         "timeout": 1000
     },
     "osk": {
-        "layout": "English",
+        "layout": "Russian",
         "pinnedOnStartup": false
     },
     "overlay": {

@@ -87,7 +87,7 @@ link_item() {
   mkdir -p -- "$(dirname -- "$target")"
   if [[ -e $target || -L $target ]]; then
     if [[ $target == "$config_home/illogical-impulse" && -d $target && ! -L $target ]]; then
-      for state_file in installed_true installed_listfile; do
+      for state_file in config.json installed_true installed_listfile; do
         if [[ -e $target/$state_file && ! -e $source/$state_file ]]; then
           cp -a -- "$target/$state_file" "$source/$state_file"
         fi
@@ -104,6 +104,17 @@ link_item() {
 for name in hypr quickshell kitty foot fuzzel matugen fish fontconfig Kvantum kde-material-you-colors mpv wlogout xdg-desktop-portal zshrc.d tmux illogical-impulse; do
   link_item "$repo_root/dots/.config/$name" "$config_home/$name"
 done
+
+# Keep runtime settings local; seed a new installation from the tracked example.
+shell_config="$config_home/illogical-impulse/config.json"
+if [[ ! -e $shell_config && ! -L $shell_config ]]; then
+  if $dry_run; then
+    printf 'Would create local shell settings from config.example.json.\n'
+  else
+    cp -- "$repo_root/dots/.config/illogical-impulse/config.example.json" "$shell_config"
+  fi
+fi
+
 link_item "$repo_root/dots/.config/wireplumber/wireplumber.conf.d/51-auto-audio-routes.conf" "$config_home/wireplumber/wireplumber.conf.d/51-auto-audio-routes.conf"
 link_item "$repo_root/dots/.config/starship.toml" "$config_home/starship.toml"
 link_item "$repo_root/home/.zshrc" "$HOME/.zshrc"
