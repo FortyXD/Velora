@@ -10,6 +10,7 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
+import qs.modules.ii.bar.edit
 
 Scope {
     id: bar
@@ -26,7 +27,13 @@ Scope {
         }
         LazyLoader {
             id: barLoader
-            active: GlobalStates.barOpen && !GlobalStates.screenLocked
+            property bool recreating: false
+            active: GlobalStates.barOpen && !GlobalStates.screenLocked && !recreating
+            readonly property bool glass: Config.options.bar.style.glass
+            onGlassChanged: {
+                recreating = true;
+                Qt.callLater(() => recreating = false);
+            }
             required property ShellScreen modelData
             component: PanelWindow { // Bar window
                 id: barRoot
@@ -54,16 +61,21 @@ Scope {
                     }
                 }
                 property bool superShow: false
-                property bool mustShow: hoverRegion.containsMouse || superShow
+                readonly property bool editingHere: GlobalStates.barEditing && GlobalStates.barEditScreen === barRoot.screen?.name
+                property bool mustShow: hoverRegion.containsMouse || superShow || editingHere
                 exclusionMode: ExclusionMode.Ignore
                 exclusiveZone: (Config?.options.bar.autoHide.enable && (!mustShow || !Config?.options.bar.autoHide.pushWindows)) ? 0 :
-                    Appearance.sizes.baseVerticalBarWidth + (Config.options.bar.cornerStyle === 1 ? Appearance.sizes.hyprlandGapsOut : 0)
-                WlrLayershell.namespace: "quickshell:verticalBar"
+                    Appearance.sizes.baseVerticalBarWidth + (Appearance.sizes.barFloating ? Appearance.sizes.barFloatMargin : 0)
+                WlrLayershell.namespace: Config.options.bar.style.glass ? "quickshell:barGlass" : "quickshell:verticalBar"
                 // WlrLayershell.layer: WlrLayer.Overlay // TODO enable this when bar can hide when fullscreen
                 implicitWidth: Appearance.sizes.verticalBarWidth + Appearance.rounding.screenRounding
-                mask: Region {
+                    + (editingHere ? editDrawerLoader.width + 16 : 0)
+                // While editing, the drawer beside the bar takes input too
+                property Region barMask: Region {
                     item: hoverMaskRegion
                 }
+                mask: editingHere ? null : barMask
+                WlrLayershell.keyboardFocus: editingHere ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
                 color: "transparent"
 
                 // Positioning
@@ -98,6 +110,8 @@ Scope {
 
                     VerticalBarContent {
                         id: barContent
+                        editing: barRoot.editingHere
+                        controller: editController
                         
                         implicitWidth: Appearance.sizes.verticalBarWidth
                         anchors {
@@ -145,7 +159,7 @@ Scope {
                             right: undefined
                         }
                         width: Appearance.rounding.screenRounding
-                        active: showBarBackground && Config.options.bar.cornerStyle === 0 // Hug
+                        active: showBarBackground && Config.options.bar.cornerStyle === 0 && !Config.options.bar.style.islands // Hug
 
                         states: State {
                             name: "right"
@@ -172,7 +186,7 @@ Scope {
                                 }
 
                                 implicitSize: Appearance.rounding.screenRounding
-                                color: showBarBackground ? Appearance.colors.colLayer0 : "transparent"
+                                color: showBarBackground ? Appearance.colors.colBarBackground : "transparent"
 
                                 corner: RoundCorner.CornerEnum.TopLeft
                                 states: State {
@@ -191,7 +205,7 @@ Scope {
                                     right: Config.options.bar.bottom ? parent.right : undefined
                                 }
                                 implicitSize: Appearance.rounding.screenRounding
-                                color: showBarBackground ? Appearance.colors.colLayer0 : "transparent"
+                                color: showBarBackground ? Appearance.colors.colBarBackground : "transparent"
 
                                 corner: RoundCorner.CornerEnum.BottomLeft
                                 states: State {
@@ -204,51 +218,32 @@ Scope {
                             }
                         }
                     }
+
+                    Loader {
+                        id: editDrawerLoader
+                        active: barRoot.editingHere
+                        width: 520
+                        anchors {
+                            top: parent.top
+                            topMargin: 8
+                            left: Config.options.bar.bottom ? undefined : barContent.right
+                            right: Config.options.bar.bottom ? barContent.left : undefined
+                            leftMargin: Appearance.rounding.screenRounding + 4
+                            rightMargin: Appearance.rounding.screenRounding + 4
+                        }
+                        sourceComponent: BarEditDrawer {
+                            view: barContent
+                            controller: editController
+                        }
+                    }
+
+                    BarEditController {
+                        id: editController
+                        view: barContent
+                    }
                 }
             }
         }
     }
 
-    IpcHandler {
-        target: "bar"
-
-        function toggle(): void {
-            GlobalStates.barOpen = !GlobalStates.barOpen
-        }
-
-        function close(): void {
-            GlobalStates.barOpen = false
-        }
-
-        function open(): void {
-            GlobalStates.barOpen = true
-        }
-    }
-
-    GlobalShortcut {
-        name: "barToggle"
-        description: "Toggles bar on press"
-
-        onPressed: {
-            GlobalStates.barOpen = !GlobalStates.barOpen;
-        }
-    }
-
-    GlobalShortcut {
-        name: "barOpen"
-        description: "Opens bar on press"
-
-        onPressed: {
-            GlobalStates.barOpen = true;
-        }
-    }
-
-    GlobalShortcut {
-        name: "barClose"
-        description: "Closes bar on press"
-
-        onPressed: {
-            GlobalStates.barOpen = false;
-        }
-    }
 }

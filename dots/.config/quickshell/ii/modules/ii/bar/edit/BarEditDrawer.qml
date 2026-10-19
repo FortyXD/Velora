@@ -67,6 +67,7 @@ Rectangle {
                 color: Appearance.colors.colPrimary
             }
             ColumnLayout {
+                Layout.fillWidth: true
                 spacing: 0
                 StyledText {
                     text: Translation.tr("Editing the bar")
@@ -74,29 +75,12 @@ Rectangle {
                     color: Appearance.colors.colOnLayer0
                 }
                 StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
                     text: Translation.tr("Drag widgets to move them, right click for more. Esc to finish.")
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     color: Appearance.colors.colSubtext
                 }
-            }
-            Item {
-                Layout.fillWidth: true
-            }
-            DialogButton {
-                buttonText: Translation.tr("Undo")
-                enabled: BarLayout.canUndo
-                onClicked: BarLayout.undo()
-            }
-            DialogButton {
-                buttonText: Translation.tr("Reset to default")
-                onClicked: {
-                    BarLayout.reset(root.orientation);
-                    GlobalStates.barEditSelection = "";
-                }
-            }
-            DialogButton {
-                buttonText: Translation.tr("All settings")
-                onClicked: root.view.openSettings("barLayout")
             }
             RippleButton {
                 implicitHeight: 34
@@ -116,15 +100,36 @@ Rectangle {
             }
         }
 
+        Flow {
+            Layout.fillWidth: true
+            spacing: 4
+            DialogButton {
+                buttonText: Translation.tr("Undo")
+                enabled: BarLayout.canUndo
+                onClicked: BarLayout.undo()
+            }
+            DialogButton {
+                buttonText: Translation.tr("Reset to default")
+                onClicked: {
+                    BarLayout.reset(root.orientation);
+                    GlobalStates.barEditSelection = "";
+                }
+            }
+            DialogButton {
+                buttonText: Translation.tr("All settings")
+                onClicked: root.view.openSettings("barLayout")
+            }
+        }
+
         StyledFlickable { // Widgets to add
             Layout.fillWidth: true
-            implicitHeight: paletteRow.implicitHeight
-            contentWidth: paletteRow.implicitWidth
-            flickableDirection: Flickable.HorizontalFlick
+            implicitHeight: Math.min(paletteFlow.implicitHeight, 120)
+            contentHeight: paletteFlow.implicitHeight
             clip: true
 
-            Row {
-                id: paletteRow
+            Flow {
+                id: paletteFlow
+                width: parent.width
                 spacing: 6
                 Repeater {
                     model: root.paletteTypes
@@ -187,6 +192,11 @@ Rectangle {
                         color: Appearance.colors.colSubtext
                     }
                 }
+            }
+
+            Flow {
+                Layout.fillWidth: true
+                spacing: 6
                 ConfigSelectionArray {
                     currentValue: root.selected?.item.hideAt ?? 0
                     onSelected: newValue => BarLayout.setItem(root.orientation, GlobalStates.barEditSelection, { "hideAt": newValue === 0 ? null : newValue })

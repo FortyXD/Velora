@@ -137,8 +137,7 @@ Item {
 
         rowSpacing: 0
         columnSpacing: 0
-        columns: root.vertical ? 1 : root.workspacesShown
-        rows: root.vertical ? root.workspacesShown : 1
+        columns: root.vertical ? 1 : root.workspacesShown // Rows follow; setting both warns while switching
 
         Repeater {
             model: root.workspacesShown
@@ -216,8 +215,7 @@ Item {
     Grid {
         z: 3
 
-        columns: root.vertical ? 1 : root.workspacesShown
-        rows: root.vertical ? root.workspacesShown : 1
+        columns: root.vertical ? 1 : root.workspacesShown // Rows follow; setting both warns while switching
         columnSpacing: 0
         rowSpacing: 0
 

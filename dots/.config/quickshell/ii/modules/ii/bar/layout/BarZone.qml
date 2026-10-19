@@ -29,7 +29,7 @@ FocusedScrollMouseArea {
     property real spacing: 4
     // Where items gather when none of them takes the free space: start, end or center
     property string align: "start"
-    property string outerSide: "" // "left" or "right": where the scroll hint goes
+    property string outerSide: "" // Screen edge of an outer zone: "left", "right", "top" or "bottom"
 
     signal menuRequested(real x, real y) // Right click on the free space
 
@@ -46,22 +46,30 @@ FocusedScrollMouseArea {
     readonly property var shownSegments: segmentItems.filter(segment => segment.shownCount > 0)
     readonly property bool hasContent: shownSegments.length > 0
     readonly property bool anyFill: shownSegments.some(segment => segment.fills)
-    readonly property real rigidWidth: shownSegments.length === 0 ? 0
-        : shownSegments.reduce((sum, segment) => sum + segment.rigidWidth, 0) + root.spacing * (shownSegments.length - 1)
+    readonly property real rigidLength: shownSegments.length === 0 ? 0
+        : shownSegments.reduce((sum, segment) => sum + segment.rigidLength, 0) + root.spacing * (shownSegments.length - 1)
 
-    readonly property real startPadding: outerSide === "right" ? innerPadding : outerPadding
+    readonly property bool endsAtScreenEdge: outerSide === "right" || outerSide === "bottom"
+    readonly property real startPadding: endsAtScreenEdge ? innerPadding : outerPadding
     // Widgets taking part in the layout, in visual order
     function orderedHosts() {
         let result = [];
         for (const segment of root.shownSegments) result.push(...segment.hosts.filter(host => host.present));
         return result;
     }
-    readonly property real endPadding: outerSide === "right" ? outerPadding : innerPadding
+    readonly property real endPadding: endsAtScreenEdge ? outerPadding : innerPadding
 
-    implicitWidth: fixedLength >= 0 ? fixedLength : Math.max(editing && !hasContent ? 56 : 0, rowLayout.implicitWidth + startPadding + endPadding)
-    implicitHeight: Appearance.sizes.baseBarHeight
+    // Length along the bar, then thickness
+    readonly property real contentLength: fixedLength >= 0 ? fixedLength
+        : Math.max(editing && !hasContent ? 56 : 0, (vertical ? rowLayout.implicitHeight : rowLayout.implicitWidth) + startPadding + endPadding)
+    implicitWidth: vertical ? Appearance.sizes.baseVerticalBarWidth : contentLength
+    implicitHeight: vertical ? contentLength : Appearance.sizes.baseBarHeight
     Behavior on implicitWidth {
-        enabled: root.fixedLength >= 0
+        enabled: root.fixedLength >= 0 && !root.vertical
+        animation: Appearance.animation.elementResize.numberAnimation.createObject(this)
+    }
+    Behavior on implicitHeight {
+        enabled: root.fixedLength >= 0 && root.vertical
         animation: Appearance.animation.elementResize.numberAnimation.createObject(this)
     }
 
@@ -124,7 +132,7 @@ FocusedScrollMouseArea {
     }
 
     Loader {
-        active: root.outerSide.length > 0 && ["brightness", "volume", "workspaces"].includes(root.actions.scroll)
+        active: (root.outerSide === "left" || root.outerSide === "right") && ["brightness", "volume", "workspaces"].includes(root.actions.scroll)
         anchors.left: root.outerSide === "left" ? parent.left : undefined
         anchors.right: root.outerSide === "right" ? parent.right : undefined
         anchors.verticalCenter: parent.verticalCenter
@@ -161,18 +169,25 @@ FocusedScrollMouseArea {
         }
     }
 
-    RowLayout {
+    GridLayout {
         id: rowLayout
         anchors {
             fill: parent
-            leftMargin: root.startPadding
-            rightMargin: root.endPadding
+            leftMargin: root.vertical ? 0 : root.startPadding
+            rightMargin: root.vertical ? 0 : root.endPadding
+            topMargin: root.vertical ? root.startPadding : 0
+            bottomMargin: root.vertical ? root.endPadding : 0
         }
-        spacing: root.spacing
+        flow: root.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
+        rows: root.vertical ? -1 : 1
+        columns: root.vertical ? 1 : -1
+        columnSpacing: root.spacing
+        rowSpacing: root.spacing
 
         Item { // Free space before the items
             visible: !root.anyFill && (root.align === "end" || root.align === "center")
-            Layout.fillWidth: true
+            Layout.fillWidth: !root.vertical
+            Layout.fillHeight: root.vertical
         }
 
         Repeater {
@@ -189,13 +204,15 @@ FocusedScrollMouseArea {
                 tier: root.tier
                 zoneHovered: root.hovered
                 editing: root.editing
-                Layout.fillWidth: fills
+                Layout.fillWidth: root.vertical || fills
+                Layout.fillHeight: root.vertical && fills
             }
         }
 
         Item { // Free space after the items
             visible: !root.anyFill && (root.align === "start" || root.align === "center")
-            Layout.fillWidth: true
+            Layout.fillWidth: !root.vertical
+            Layout.fillHeight: root.vertical
         }
     }
 }

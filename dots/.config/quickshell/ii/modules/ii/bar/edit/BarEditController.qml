@@ -37,7 +37,8 @@ Item {
         ghost.y = local.y - root.dragState.offsetY;
         const p = root.view.mapFromItem(null, sceneX, sceneY);
         const slack = 24; // Dropping a bit off the bar still counts
-        const overBar = p.y >= -slack && p.y <= root.view.height + slack;
+        const overBar = root.view.vertical ? (p.x >= -slack && p.x <= root.view.width + slack)
+            : (p.y >= -slack && p.y <= root.view.height + slack);
         root.target = overBar ? root.view.dropTargetAt(p.x, p.y, root.dragState.mode === "move" ? root.dragState.uid : "") : null;
     }
 
@@ -116,12 +117,14 @@ Item {
     }
 
     Rectangle { // Where the widget will land
+        readonly property bool vertical: root.view?.vertical ?? false
+        readonly property real pos: root.target?.pos ?? 0
+        readonly property point origin: root.view ? root.view.mapToItem(root, vertical ? 0 : pos, vertical ? pos : 0) : Qt.point(0, 0)
         visible: root.target !== null && root.view !== null
-        readonly property point origin: root.view ? root.view.mapToItem(root, root.target?.x ?? 0, 0) : Qt.point(0, 0)
-        x: origin.x - width / 2
-        y: origin.y + 6
-        width: 3
-        height: (root.view?.height ?? 12) - 12
+        x: vertical ? origin.x + 6 : origin.x - width / 2
+        y: vertical ? origin.y - height / 2 : origin.y + 6
+        width: vertical ? (root.view?.width ?? 12) - 12 : 3
+        height: vertical ? 3 : (root.view?.height ?? 12) - 12
         radius: 2
         color: Appearance.colors.colPrimary
     }

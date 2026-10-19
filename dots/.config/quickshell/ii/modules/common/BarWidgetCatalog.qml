@@ -8,7 +8,7 @@ import qs.services
  *
  * elastic:     takes the free space of its zone, and is left out when the center is balanced
  * fillHeight:  stretches across the bar's thickness
- * pillPadding: padding of a pill that holds only this widget
+ * pillPadding: padding of a pill that holds only this widget (verticalPillPadding on a vertical bar)
  * vertical:    has a variant for the vertical bar
  * unique:      only one makes sense per bar
  * defaults:    item fields for a newly added one (pill, hideAt, …)
@@ -83,7 +83,7 @@ Singleton {
             "workspaces": {
                 "name": Translation.tr("Workspaces"),
                 "description": Translation.tr("Workspace switcher with app icons and previews"),
-                "icon": "workspaces", "category": "system", "fillHeight": true, "pillPadding": 4, "vertical": true,
+                "icon": "workspaces", "category": "system", "fillHeight": true, "pillPadding": 4, "verticalPillPadding": 6, "vertical": true,
                 "defaults": { "pill": true },
                 "options": [
                     { "key": "shown", "kind": "spin", "label": Translation.tr("Workspaces shown"), "from": 1, "to": 30, "scope": "path:bar.workspaces.shown" },

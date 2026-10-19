@@ -35,7 +35,7 @@ Item {
     readonly property bool present: shown || editing
     readonly property bool placeholder: editing && (!shown || (vertical ? loader.implicitHeight : loader.implicitWidth) < 4)
     // Width that doesn't follow the free space, for balancing the center
-    readonly property real rigidWidth: present && !elastic ? implicitWidth : 0
+    readonly property real rigidLength: present && !elastic ? (vertical ? implicitHeight : implicitWidth) : 0
 
     visible: present
     opacity: dragHidden ? 0.35 : 1
@@ -44,13 +44,14 @@ Item {
 
     Layout.fillWidth: !vertical && fills
     Layout.fillHeight: vertical ? fills : (meta?.fillHeight ?? false)
+    Layout.alignment: vertical ? Qt.AlignHCenter : 0
 
     Loader {
         id: loader
         anchors.fill: parent
         visible: root.shown
         active: root.meta !== null && root.tierVisible && root.factory.gate(root.type)
-        sourceComponent: root.factory.component(root.type)
+        sourceComponent: root.factory.component(root.type, root.vertical)
         onLoaded: item.host = root
     }
 

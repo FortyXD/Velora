@@ -11,8 +11,9 @@ import Quickshell
 
 /**
  * The bar's content built from a layout object: background, then the start and end zones at the
- * screen edges and the three center zones in a centered row. With `balanceCenter`, the zones on
- * both sides of the center get the same width, so the center stays in the middle of the screen.
+ * screen edges and the three center zones in a centered row (a column for a vertical bar). With
+ * `balanceCenter`, the zones on both sides of the center get the same length, so the center stays
+ * in the middle of the screen.
  */
 Item {
     id: root
@@ -24,13 +25,14 @@ Item {
     property var controller: null // BarEditController of this bar window, for edit mode
 
     property var screen: root.QsWindow.window?.screen
-    readonly property int tier: (Appearance.sizes.barHellaShortenScreenWidthThreshold >= screen?.width) ? 2
+    readonly property int tier: vertical ? 0
+        : (Appearance.sizes.barHellaShortenScreenWidthThreshold >= screen?.width) ? 2
         : (Appearance.sizes.barShortenScreenWidthThreshold >= screen?.width) ? 1 : 0
     readonly property int centerSideModuleWidth: (tier == 2) ? Appearance.sizes.barCenterSideModuleWidthHellaShortened
         : (tier == 1) ? Appearance.sizes.barCenterSideModuleWidthShortened : Appearance.sizes.barCenterSideModuleWidth
     readonly property bool balanceCenter: layoutData?.balanceCenter ?? false
     // Both sides of the center grow together when either needs more room
-    readonly property real centerSideWidth: Math.max(centerSideModuleWidth, centerStartZone.rigidWidth + 12, centerEndZone.rigidWidth + 12)
+    readonly property real centerSideWidth: Math.max(vertical ? 0 : centerSideModuleWidth, centerStartZone.rigidLength + 12, centerEndZone.rigidLength + 12)
 
     readonly property var zones: layoutData?.zones ?? ({})
     readonly property var actions: layoutData?.actions ?? ({})
@@ -47,15 +49,23 @@ Item {
         return null;
     }
 
-    // Where a widget dropped at x (view coordinates) goes: nearest zone, then between its widgets.
-    // The index doesn't count the widget being moved; `x` is where to draw the marker.
+    // Position of an item's start, middle or end along the bar, in view coordinates
+    function along(item, fraction) {
+        const p = item.mapToItem(root, item.width * fraction, item.height * fraction);
+        return root.vertical ? p.y : p.x;
+    }
+
+    // Where a widget dropped at a point (view coordinates) goes: nearest zone, then between its
+    // widgets. The index doesn't count the widget being moved; `pos` is where to draw the marker.
     function dropTargetAt(x, y, excludeUid) {
+        const pos = root.vertical ? y : x;
         let best = null;
         let bestDistance = Infinity;
         for (const zone of root.zoneItems) {
             if (!zone.visible) continue;
-            const left = zone.mapToItem(root, 0, 0).x;
-            const distance = x < left ? left - x : (x > left + zone.width ? x - left - zone.width : 0);
+            const start = root.along(zone, 0);
+            const end = root.along(zone, 1);
+            const distance = pos < start ? start - pos : (pos > end ? pos - end : 0);
             if (distance < bestDistance) {
                 best = zone;
                 bestDistance = distance;
@@ -65,16 +75,16 @@ Item {
         const hosts = best.orderedHosts().filter(host => host.uid !== excludeUid);
         let index = hosts.length;
         for (let i = 0; i < hosts.length; i++) {
-            if (x < hosts[i].mapToItem(root, hosts[i].width / 2, 0).x) {
+            if (pos < root.along(hosts[i], 0.5)) {
                 index = i;
                 break;
             }
         }
-        let markerX;
-        if (hosts.length === 0) markerX = best.mapToItem(root, best.width / 2, 0).x;
-        else if (index < hosts.length) markerX = hosts[index].mapToItem(root, 0, 0).x - 3;
-        else markerX = hosts[hosts.length - 1].mapToItem(root, hosts[hosts.length - 1].width, 0).x + 3;
-        return { "zone": best.zoneName, "index": index, "x": markerX };
+        let marker;
+        if (hosts.length === 0) marker = root.along(best, 0.5);
+        else if (index < hosts.length) marker = root.along(hosts[index], 0) - 3;
+        else marker = root.along(hosts[hosts.length - 1], 1) + 3;
+        return { "zone": best.zoneName, "index": index, "pos": marker };
     }
 
     function startEditing() {
@@ -126,7 +136,8 @@ Item {
 
     ContextMenuPopup {
         id: barMenu
-        openEdge: Config.options.bar.bottom ? Edges.Top : Edges.Bottom
+        openEdge: root.vertical ? (Config.options.bar.bottom ? Edges.Left : Edges.Right)
+            : (Config.options.bar.bottom ? Edges.Top : Edges.Bottom)
     }
 
     MouseArea { // Shift + right click anywhere opens the bar menu, even over widgets
@@ -139,10 +150,8 @@ Item {
                 mouse.accepted = false;
                 return;
             }
-            const zone = root.zoneItems.find(zone => {
-                const p = zone.mapFromItem(root, mouse.x, mouse.y);
-                return zone.visible && p.x >= 0 && p.x <= zone.width;
-            }) ?? startZone;
+            const pos = root.vertical ? mouse.y : mouse.x;
+            const zone = root.zoneItems.find(zone => zone.visible && pos >= root.along(zone, 0) && pos <= root.along(zone, 1)) ?? startZone;
             const p = zone.mapFromItem(root, mouse.x, mouse.y);
             root.openMenu(zone, p.x, p.y);
         }
@@ -173,14 +182,16 @@ Item {
     readonly property bool textShadow: Config.options.bar.style.textShadow
 
     component CenterSeparator: Rectangle {
-        anchors.verticalCenter: parent.verticalCenter
-        implicitWidth: 1
-        implicitHeight: Appearance.sizes.baseBarHeight / 3
+        anchors.verticalCenter: root.vertical ? undefined : parent?.verticalCenter
+        anchors.horizontalCenter: root.vertical ? parent?.horizontalCenter : undefined
+        implicitWidth: root.vertical ? Appearance.sizes.baseVerticalBarWidth / 3 : 1
+        implicitHeight: root.vertical ? 1 : Appearance.sizes.baseBarHeight / 3
         color: Appearance.colors.colOutlineVariant
     }
 
     readonly property bool drawsBackground: Config.options.bar.showBackground && !Config.options.bar.style.islands
-    readonly property real edgePadding: Config.options.bar.style.edgePadding >= 0 ? Config.options.bar.style.edgePadding : Appearance.rounding.screenRounding
+    readonly property real edgePadding: Config.options.bar.style.edgePadding >= 0 ? Config.options.bar.style.edgePadding
+        : vertical ? (Appearance.sizes.baseVerticalBarWidth - 30) / 2 + Appearance.sizes.hyprlandGapsOut : Appearance.rounding.screenRounding
 
     // Background shadow
     Loader {
@@ -215,25 +226,32 @@ Item {
         actions: root.actions.start ?? ({})
         factory: factory
         tier: root.tier
+        vertical: root.vertical
         anchors {
             top: parent.top
-            bottom: parent.bottom
             left: parent.left
-            right: middleRow.left
+            bottom: root.vertical ? middleRow.top : parent.bottom
+            right: root.vertical ? parent.right : middleRow.left
         }
-        outerSide: "left"
+        outerSide: root.vertical ? "top" : "left"
         outerPadding: root.edgePadding
         innerPadding: Appearance.rounding.screenRounding
         spacing: 10
     }
 
-    Row {
+    Grid {
         id: middleRow
         anchors {
-            top: parent.top
-            bottom: parent.bottom
-            horizontalCenter: parent.horizontalCenter
+            top: root.vertical ? undefined : parent.top
+            bottom: root.vertical ? undefined : parent.bottom
+            left: root.vertical ? parent.left : undefined
+            right: root.vertical ? parent.right : undefined
+            horizontalCenter: root.vertical ? undefined : parent.horizontalCenter
+            verticalCenter: root.vertical ? parent.verticalCenter : undefined
         }
+        flow: root.vertical ? Grid.TopToBottom : Grid.LeftToRight
+        rows: root.vertical ? 5 : 1
+        columns: root.vertical ? 1 : 5
         spacing: 4
 
         BarZone {
@@ -247,7 +265,9 @@ Item {
             actions: root.actions.centerStart ?? ({})
             factory: factory
             tier: root.tier
-            height: parent.height
+            vertical: root.vertical
+            width: root.vertical ? middleRow.width : implicitWidth
+            height: root.vertical ? implicitHeight : middleRow.height
             fixedLength: root.balanceCenter ? root.centerSideWidth : -1
             visible: hasContent || root.balanceCenter || root.editing
             align: "end"
@@ -268,7 +288,9 @@ Item {
             actions: root.actions.center ?? ({})
             factory: factory
             tier: root.tier
-            height: parent.height
+            vertical: root.vertical
+            width: root.vertical ? middleRow.width : implicitWidth
+            height: root.vertical ? implicitHeight : middleRow.height
             visible: hasContent || root.editing
         }
 
@@ -287,7 +309,9 @@ Item {
             actions: root.actions.centerEnd ?? ({})
             factory: factory
             tier: root.tier
-            height: parent.height
+            vertical: root.vertical
+            width: root.vertical ? middleRow.width : implicitWidth
+            height: root.vertical ? implicitHeight : middleRow.height
             fixedLength: root.balanceCenter ? root.centerSideWidth : -1
             visible: hasContent || root.balanceCenter || root.editing
         }
@@ -304,16 +328,17 @@ Item {
         actions: root.actions.end ?? ({})
         factory: factory
         tier: root.tier
+        vertical: root.vertical
         anchors {
-            top: parent.top
+            top: root.vertical ? middleRow.bottom : parent.top
+            left: root.vertical ? parent.left : middleRow.right
             bottom: parent.bottom
-            left: middleRow.right
             right: parent.right
         }
-        outerSide: "right"
-        outerPadding: root.edgePadding
+        outerSide: root.vertical ? "bottom" : "right"
+        outerPadding: root.vertical ? Appearance.rounding.screenRounding : root.edgePadding
         innerPadding: 4
-        spacing: 5
+        spacing: root.vertical ? 4 : 5
         align: "end"
     }
 }

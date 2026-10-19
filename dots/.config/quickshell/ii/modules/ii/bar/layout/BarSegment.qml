@@ -18,7 +18,8 @@ Item {
 
     readonly property bool pill: segment?.pill ?? false
     readonly property var items: segment?.items ?? []
-    property real padding: !pill ? 0 : items.length === 1 ? (BarWidgetCatalog.get(items[0].type)?.pillPadding ?? 5) : 5
+    readonly property var soleMeta: items.length === 1 ? BarWidgetCatalog.get(items[0].type) : null
+    property real padding: !pill ? 0 : vertical ? (soleMeta?.verticalPillPadding ?? 8) : (soleMeta?.pillPadding ?? 5)
 
     readonly property list<var> hosts: {
         let result = [];
@@ -30,8 +31,8 @@ Item {
     }
     readonly property int shownCount: hosts.filter(host => host.present).length
     readonly property bool fills: hosts.some(host => host.present && host.fills)
-    readonly property real rigidWidth: shownCount === 0 ? 0
-        : hosts.reduce((sum, host) => sum + host.rigidWidth, 0) + gridLayout.columnSpacing * (shownCount - 1) + padding * 2
+    readonly property real rigidLength: shownCount === 0 ? 0
+        : hosts.reduce((sum, host) => sum + host.rigidLength, 0) + (vertical ? gridLayout.rowSpacing : gridLayout.columnSpacing) * (shownCount - 1) + padding * 2
 
     visible: shownCount > 0
     implicitWidth: vertical ? Appearance.sizes.baseVerticalBarWidth : (gridLayout.implicitWidth + padding * 2)
@@ -68,6 +69,22 @@ Item {
         border.color: root.islands ? Appearance.colors.colLayer0Border : Appearance.colors.colOutlineVariant
     }
 
+    // A vertical pill with several widgets separates them with thin lines
+    readonly property bool verticalSeparators: vertical && pill && !islands && shownCount > 1
+
+    Repeater {
+        model: root.verticalSeparators ? root.hosts.filter(host => host.present).slice(1) : []
+        delegate: Rectangle {
+            required property var modelData
+            z: 1
+            x: (root.width - width) / 2
+            y: gridLayout.y + modelData.y - gridLayout.rowSpacing / 2
+            width: root.width - Appearance.sizes.baseBarHeight / 3 * 2
+            height: 1
+            color: Appearance.colors.colOutlineVariant
+        }
+    }
+
     GridLayout {
         id: gridLayout
         columns: root.vertical ? 1 : -1
@@ -85,7 +102,7 @@ Item {
         height: root.vertical ? root.height - root.padding * 2 : (root.pill ? implicitHeight : root.height)
         width: root.vertical ? (root.pill ? implicitWidth : root.width) : root.width - root.padding * 2
         columnSpacing: 4
-        rowSpacing: 12
+        rowSpacing: root.verticalSeparators ? 25 : 12
 
         Repeater {
             id: repeater

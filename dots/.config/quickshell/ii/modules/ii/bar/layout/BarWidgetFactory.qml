@@ -6,6 +6,7 @@ import qs.modules.common.functions
 import qs.modules.ii.bar
 import qs.modules.ii.bar.weather
 import qs.modules.ii.bar.widgets
+import qs.modules.ii.verticalBar as VBar
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -19,9 +20,52 @@ import Quickshell
 QtObject {
     id: root
 
-    function component(type) {
+    function component(type, vertical = false) {
         if (BarWidgetCatalog.get(type)?.utilButton) return root.utilButton;
+        if (vertical && root.verticalComponents[type]) return root.verticalComponents[type];
         return root.components[type] ?? null;
+    }
+
+    // Variants drawn differently on a vertical bar
+    readonly property var verticalComponents: ({
+        "resources": verticalResources,
+        "battery": verticalBattery,
+        "clock": verticalClock,
+        "media": verticalMedia,
+        "statusIndicators": verticalStatusIndicators,
+    })
+
+    property Component verticalResources: Component {
+        VBar.Resources {
+            property var host: null
+        }
+    }
+
+    property Component verticalBattery: Component {
+        VBar.BatteryIndicator {
+            property var host: null
+            readonly property bool barVisible: Battery.available
+        }
+    }
+
+    property Component verticalClock: Component {
+        VBar.VerticalClockWidget {
+            property var host: null
+        }
+    }
+
+    property Component verticalMedia: Component {
+        VBar.VerticalMedia {
+            property var host: null
+        }
+    }
+
+    property Component verticalStatusIndicators: Component {
+        VerticalStatusIndicators {
+            property var host: null
+            zoneHovered: host?.zoneHovered ?? false
+            options: host?.options ?? ({})
+        }
     }
 
     // Whether a widget should be created at all, before its component is loaded
