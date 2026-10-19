@@ -6,8 +6,9 @@ import Quickshell
 import Quickshell.Io
 
 /**
- * A remote preview image, fetched with curl into the cache first: some image hosts stall Qt's own
- * loader, and curl gives up on a stalled transfer. The URL is passed as an argument, never as code.
+ * A remote image, fetched with curl into the cache first: some image hosts stall Qt's own loader,
+ * and curl gives up on a stalled transfer. The URL is passed as an argument, never as code.
+ * Used for online wallpaper and preset previews.
  */
 Item {
     id: root
@@ -15,6 +16,7 @@ Item {
     required property string url
     readonly property string cachePath: `${OnlineWallpapers.thumbnailDir}/${Qt.md5(url)}`
     property bool failed: false
+    property alias fillMode: image.fillMode
     readonly property bool ready: image.status === Image.Ready
 
     Process {

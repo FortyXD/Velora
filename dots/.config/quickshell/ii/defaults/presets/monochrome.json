@@ -1,0 +1,119 @@
+{
+    "version": 1,
+    "name": "Monochrome",
+    "icon": "contrast",
+    "order": 27,
+    "description": "Black and white hills in fog, plain shapes and almost no motion",
+    "wallpaperPreview": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Forested_hills_in_Lysekil_in_fog_-_B%26W.jpg/960px-Forested_hills_in_Lysekil_in_fog_-_B%26W.jpg",
+    "credits": {
+        "title": "Forested hills in Lysekil in fog - B&W",
+        "author": "W.carter",
+        "license": "CC BY-SA 4.0",
+        "page": "https://commons.wikimedia.org/wiki/File:Forested_hills_in_Lysekil_in_fog_-_B%26W.jpg"
+    },
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": null,
+                "verticalLayout": null,
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": -1,
+                    "islands": false,
+                    "pillStyle": "outlined",
+                    "edgePadding": -1,
+                    "floatMargin": -1,
+                    "radius": -1,
+                    "textShadow": false,
+                    "glass": false
+                },
+                "cornerStyle": 2,
+                "showBackground": true,
+                "borderless": false,
+                "bottom": false,
+                "vertical": false,
+                "floatStyleShadow": true
+            }
+        }
+    },
+    "theme": {
+        "config": {
+            "appearance": {
+                "transparency": {
+                    "enable": false,
+                    "automatic": true,
+                    "backgroundTransparency": 0.11,
+                    "contentTransparency": 0.57
+                },
+                "palette": {
+                    "type": "scheme-monochrome"
+                }
+            }
+        },
+        "hyprland": {
+            "decoration:rounding": 6,
+            "decoration:blur:enabled": false,
+            "decoration:blur:passes": 3,
+            "decoration:blur:size": 10,
+            "decoration:shadow:enabled": false,
+            "decoration:dim_inactive": false,
+            "general:border_size": 1
+        },
+        "mode": "dark"
+    },
+    "dockWidgets": {
+        "config": {
+            "dock": {
+                "enable": true,
+                "hoverToReveal": true,
+                "magnification": false,
+                "monochromeIcons": true
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
+                    },
+                    "weather": {
+                        "enable": false
+                    },
+                    "systemMonitor": {
+                        "enable": false
+                    },
+                    "media": {
+                        "enable": false
+                    },
+                    "calendar": {
+                        "enable": false
+                    },
+                    "countdown": {
+                        "enable": false
+                    },
+                    "note": {
+                        "enable": false
+                    },
+                    "pomodoro": {
+                        "enable": false
+                    }
+                }
+            }
+        }
+    },
+    "wallpaperAnimations": {
+        "animationProfile": "minimal",
+        "config": {
+            "appearance": {
+                "animationSpeed": 1.5
+            }
+        },
+        "hyprland": {
+            "general:gaps_in": 2,
+            "general:gaps_out": 4,
+            "animations:enabled": true,
+            "misc:animate_manual_resizes": false,
+            "misc:animate_mouse_windowdragging": false
+        },
+        "wallpaper": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Forested_hills_in_Lysekil_in_fog_-_B%26W.jpg/3840px-Forested_hills_in_Lysekil_in_fog_-_B%26W.jpg"
+    }
+}
