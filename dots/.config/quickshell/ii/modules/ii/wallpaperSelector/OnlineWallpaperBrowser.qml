@@ -180,7 +180,7 @@ ColumnLayout {
                     color: hover.hovered ? Appearance.colors.colPrimary : Appearance.colors.colLayer1
                     clip: true
 
-                    OnlineThumbnail {
+                    RemoteImage {
                         anchors {
                             fill: parent
                             margins: Appearance.sizes.wallpaperSelectorItemPadding

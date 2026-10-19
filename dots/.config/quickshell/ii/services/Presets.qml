@@ -124,9 +124,27 @@ Singleton {
         return target;
     }
 
+    function isRemote(path) {
+        return /^https?:\/\//.test(path ?? "");
+    }
+
+    // Where a preset's wallpaper from the web is kept once downloaded
+    function remoteWallpaperPath(preset) {
+        const url = preset.wallpaperAnimations.wallpaper.split("?")[0];
+        const ext = (url.match(/\.(jpe?g|png|webp)$/i)?.[1] ?? "jpg").toLowerCase();
+        return `${FileUtils.trimFileProtocol(Directories.pictures)}/Wallpapers/Presets/${preset.id.replace(/[^A-Za-z0-9._-]/g, "_")}.${ext}`;
+    }
+
+    // Image for a preset's card: its own preview, or the wallpaper saved with it
+    function previewOf(preset) {
+        if (root.isRemote(preset?.wallpaperPreview)) return preset.wallpaperPreview;
+        const local = root.wallpaperFile(preset);
+        return local.length > 0 ? `file://${local}` : "";
+    }
+
     function wallpaperFile(preset) {
         const wallpaper = preset?.wallpaperAnimations?.wallpaper ?? "";
-        if (!wallpaper || wallpaper.startsWith("daily:")) return "";
+        if (!wallpaper || wallpaper.startsWith("daily:") || root.isRemote(wallpaper)) return "";
         if (wallpaper.startsWith("/")) return wallpaper;
         return preset.dir ? `${preset.dir}/${wallpaper}` : "";
     }
@@ -177,14 +195,19 @@ Singleton {
         }
 
         // Colors: one run of switchwall once the config is written, with the new wallpaper if any
-        let args = [];
+        const modeArgs = chosen.includes("theme") && ["dark", "light"].includes(preset.theme.mode) ? ["--mode", preset.theme.mode] : [];
+        const remote = chosen.includes("wallpaperAnimations") && root.isRemote(preset.wallpaperAnimations.wallpaper);
         const wallpaper = chosen.includes("wallpaperAnimations") ? root.wallpaperFile(preset) : "";
-        if (wallpaper.length > 0) args.push("--image", wallpaper);
-        else args.push("--noswitch");
-        if (chosen.includes("theme") && ["dark", "light"].includes(preset.theme.mode)) args.push("--mode", preset.theme.mode);
         const daily = chosen.includes("wallpaperAnimations") && (preset.wallpaperAnimations.wallpaper ?? "").startsWith("daily:");
-        if (wallpaper.length > 0 || chosen.includes("theme")) {
-            themeTimer.args = args;
+        if (remote) {
+            // Downloaded once into ~/Pictures/Wallpapers/Presets, then colors are made from it
+            downloadProc.dest = root.remoteWallpaperPath(preset);
+            downloadProc.modeArgs = modeArgs;
+            downloadProc.command = [Quickshell.shellPath("scripts/colors/random/download_wallpaper.sh"), preset.wallpaperAnimations.wallpaper,
+                downloadProc.dest, "--meta", JSON.stringify(preset.credits ?? {}), "--title", Translation.tr(preset.name)];
+            downloadProc.running = true;
+        } else if (wallpaper.length > 0 || chosen.includes("theme")) {
+            themeTimer.args = [...(wallpaper.length > 0 ? ["--image", wallpaper] : ["--noswitch"]), ...modeArgs];
             themeTimer.restart();
         }
         if (daily) {
@@ -195,6 +218,17 @@ Singleton {
         root.applying = false;
         root.hasBackup = true;
         root.applied(preset.id);
+    }
+
+    Process {
+        id: downloadProc
+        property string dest: ""
+        property var modeArgs: []
+        onExited: exitCode => {
+            // Without the picture (offline, blocked) the rest of the theme still applies
+            themeTimer.args = [...(exitCode === 0 ? ["--image", downloadProc.dest] : ["--noswitch"]), ...downloadProc.modeArgs];
+            themeTimer.restart();
+        }
     }
 
     Timer {
@@ -278,8 +312,9 @@ Singleton {
     function importPreset(preset) {
         const slug = (preset.name ?? "preset").toLowerCase().replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-+|-+$/g, "") || `preset-${Date.now()}`;
         let copy = Object.assign({}, preset);
-        if (copy.wallpaperAnimations?.wallpaper && !copy.wallpaperAnimations.wallpaper.startsWith("daily:"))
-            delete copy.wallpaperAnimations.wallpaper; // The image itself isn't part of the text
+        const wallpaper = copy.wallpaperAnimations?.wallpaper ?? "";
+        if (wallpaper && !wallpaper.startsWith("daily:") && !root.isRemote(wallpaper))
+            delete copy.wallpaperAnimations.wallpaper; // A local image isn't part of the text, a link is
         saveProc.exec(["bash", "-c", 'mkdir -p "$1" && printf "%s\\n" "$2" > "$1/preset.json"',
             "_", `${root.userDir}/${slug}`, JSON.stringify(copy, null, 4)]);
     }
