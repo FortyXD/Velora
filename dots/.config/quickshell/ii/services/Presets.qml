@@ -187,9 +187,10 @@ Singleton {
             themeTimer.args = args;
             themeTimer.restart();
         }
-        if (daily && Config.options.background.daily) {
+        if (daily) {
             Config.options.background.daily.source = preset.wallpaperAnimations.wallpaper.slice(6);
             Config.options.background.daily.enable = true;
+            WallpaperOfTheDay.run();
         }
         root.applying = false;
         root.hasBackup = true;

@@ -191,6 +191,18 @@ Singleton {
             }
 
             property JsonObject background: JsonObject {
+                property JsonObject daily: JsonObject { // A new wallpaper every day
+                    property bool enable: false
+                    property string source: "bing" // bing | nasa | wikimedia
+                    property int keepDays: 14 // Older pictures in ~/Pictures/Wallpapers/Daily are deleted
+                }
+                property JsonObject online: JsonObject { // Wallpapers from the web (wallpaper selector → Online)
+                    property string provider: "wallhaven"
+                    property bool fitScreen: true // Only wallpapers that fit the screen's size and shape, where the source can filter
+                    property string subreddits: "wallpaper+wallpapers+EarthPorn"
+                    property string downloadDir: "" // Empty: ~/Pictures/Wallpapers/Online
+                    property list<string> disabledProviders: []
+                }
                 property JsonObject widgets: JsonObject {
                     property JsonObject clock: JsonObject {
                         property bool enable: true

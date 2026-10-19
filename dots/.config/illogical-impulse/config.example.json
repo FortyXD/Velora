@@ -72,6 +72,18 @@
         }
     },
     "background": {
+        "daily": {
+            "enable": false,
+            "keepDays": 14,
+            "source": "bing"
+        },
+        "online": {
+            "disabledProviders": [],
+            "downloadDir": "",
+            "fitScreen": true,
+            "provider": "wallhaven",
+            "subreddits": "wallpaper+wallpapers+EarthPorn"
+        },
         "hideWhenFullscreen": true,
         "parallax": {
             "autoVertical": false,
