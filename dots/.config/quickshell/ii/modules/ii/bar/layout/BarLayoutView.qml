@@ -33,6 +33,25 @@ Item {
     readonly property bool balanceCenter: layoutData?.balanceCenter ?? false
     // Both sides of the center grow together when either needs more room
     readonly property real centerSideWidth: Math.max(vertical ? 0 : centerSideModuleWidth, centerStartZone.rigidLength + 12, centerEndZone.rigidLength + 12)
+    // Balancing only while everything still fits; otherwise the center gives up its symmetry
+    // so the outer zones keep their widgets on screen
+    readonly property real barLength: vertical ? height : width
+    readonly property real startNeeds: startZone.rigidLength + startZone.startPadding + startZone.endPadding
+    readonly property real endNeeds: endZone.rigidLength + endZone.startPadding + endZone.endPadding
+    // A centered block leaves the same room on both sides: each side of the center may be as wide as
+    // the theme wants, minus what the fuller outer zone needs, but never narrower than its own widgets
+    readonly property real sideRoom: Math.floor((barLength - (vertical ? centerZone.implicitHeight : centerZone.implicitWidth) - 8) / 2
+        - Math.max(startNeeds, endNeeds))
+    readonly property real sideMinimum: Math.max(centerStartZone.rigidLength, centerEndZone.rigidLength) + 12
+    readonly property bool balanced: balanceCenter && sideRoom >= sideMinimum
+    readonly property real balancedSide: Math.max(sideMinimum, Math.min(centerSideWidth, sideRoom))
+    // The center stays in the middle when it can, and otherwise moves just enough for the outer zones
+    function middlePosition(length) {
+        const ideal = (barLength - length) / 2;
+        const lowest = startNeeds;
+        const highest = barLength - endNeeds - length;
+        return highest < lowest ? ideal : Math.max(lowest, Math.min(ideal, highest));
+    }
 
     readonly property var zones: layoutData?.zones ?? ({})
     readonly property var actions: layoutData?.actions ?? ({})
@@ -216,6 +235,7 @@ Item {
 
     BarZone {
         id: startZone
+        clip: true // Widgets that don't fit stay inside the zone instead of running off the screen
         layer.enabled: root.textShadow
         layer.effect: ZoneShadow {}
         editing: root.editing
@@ -245,9 +265,9 @@ Item {
             bottom: root.vertical ? undefined : parent.bottom
             left: root.vertical ? parent.left : undefined
             right: root.vertical ? parent.right : undefined
-            horizontalCenter: root.vertical ? undefined : parent.horizontalCenter
-            verticalCenter: root.vertical ? parent.verticalCenter : undefined
         }
+        x: root.vertical ? 0 : root.middlePosition(width)
+        y: root.vertical ? root.middlePosition(height) : 0
         flow: root.vertical ? Grid.TopToBottom : Grid.LeftToRight
         rows: root.vertical ? 5 : 1
         columns: root.vertical ? 1 : 5
@@ -269,8 +289,8 @@ Item {
             vertical: root.vertical
             width: root.vertical ? middleRow.width : implicitWidth
             height: root.vertical ? implicitHeight : middleRow.height
-            fixedLength: root.balanceCenter ? root.centerSideWidth : -1
-            visible: hasContent || root.balanceCenter || root.editing
+            fixedLength: root.balanced ? root.balancedSide : -1
+            visible: hasContent || root.balanced || root.editing
             align: "end"
         }
 
@@ -313,13 +333,14 @@ Item {
             vertical: root.vertical
             width: root.vertical ? middleRow.width : implicitWidth
             height: root.vertical ? implicitHeight : middleRow.height
-            fixedLength: root.balanceCenter ? root.centerSideWidth : -1
-            visible: hasContent || root.balanceCenter || root.editing
+            fixedLength: root.balanced ? root.balancedSide : -1
+            visible: hasContent || root.balanced || root.editing
         }
     }
 
     BarZone {
         id: endZone
+        clip: true // Widgets that don't fit stay inside the zone instead of running off the screen
         layer.enabled: root.textShadow
         layer.effect: ZoneShadow {}
         editing: root.editing

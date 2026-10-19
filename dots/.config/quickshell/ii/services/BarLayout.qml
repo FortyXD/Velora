@@ -102,6 +102,14 @@ Singleton {
         root.write(orientation, layout);
     }
 
+    // Where a widget added without a position goes: the side of the zone nearest the center.
+    // In the end zone that is just after its flexible space, so it joins the group at the edge.
+    function defaultIndex(items, zone) {
+        if (zone !== "end") return items.length;
+        const spacer = items.findIndex(item => item.type === "spacer");
+        return spacer >= 0 ? spacer + 1 : 0;
+    }
+
     function insert(orientation, type, zone, index, extra = {}) {
         let layout = root.clone(root.current(orientation));
         // A new widget starts with its own options at their defaults, so it shows something right away
@@ -113,7 +121,7 @@ Singleton {
         const item = Object.assign({ "uid": root.newUid(type), "type": type }, BarWidgetCatalog.get(type)?.defaults ?? {}, extra);
         if (Object.keys(options).length > 0) item.options = options;
         const target = layout.zones[zone];
-        target.splice(index < 0 ? target.length : Math.min(index, target.length), 0, item);
+        target.splice(index < 0 ? root.defaultIndex(target, zone) : Math.min(index, target.length), 0, item);
         root.write(orientation, layout);
         if (type === "weather") Config.options.bar.weather.enable = true;
         return item.uid;
