@@ -11,6 +11,13 @@ ContentPage {
         title: Translation.tr("Position & style")
         description: Translation.tr("Where the bar sits and how it's drawn")
 
+        ConfigNavRow {
+            buttonIcon: "view_column"
+            title: Translation.tr("Arrange widgets")
+            description: Translation.tr("Place any widget anywhere on the bar, add new ones and set each up")
+            onClicked: ApplicationWindow.window?.openPage("barLayout")
+        }
+
         ConfigRow {
             ContentSubsection {
                 title: Translation.tr("Bar position")

@@ -9,6 +9,7 @@ import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.ii.bar.edit
 
 Scope {
     id: bar
@@ -51,15 +52,20 @@ Scope {
                     }
                 }
                 property bool superShow: false
-                property bool mustShow: hoverRegion.containsMouse || superShow
+                readonly property bool editingHere: GlobalStates.barEditing && GlobalStates.barEditScreen === barRoot.screen?.name
+                property bool mustShow: hoverRegion.containsMouse || superShow || editingHere
                 exclusionMode: ExclusionMode.Ignore
                 exclusiveZone: (Config?.options.bar.autoHide.enable && (!mustShow || !Config?.options.bar.autoHide.pushWindows)) ? 0 :
                     Appearance.sizes.baseBarHeight + (Config.options.bar.cornerStyle === 1 ? Appearance.sizes.hyprlandGapsOut : 0)
                 WlrLayershell.namespace: "quickshell:bar"
                 implicitHeight: Appearance.sizes.barHeight + Appearance.rounding.screenRounding
-                mask: Region {
+                    + (editingHere ? editDrawerLoader.implicitHeight + 16 : 0)
+                // While editing, the drawer under the bar takes input too
+                property Region barMask: Region {
                     item: hoverMaskRegion
                 }
+                mask: editingHere ? null : barMask
+                WlrLayershell.keyboardFocus: editingHere ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
                 color: "transparent"
 
                 // Positioning
@@ -103,6 +109,8 @@ Scope {
 
                     BarContent {
                         id: barContent
+                        editing: barRoot.editingHere
+                        controller: editController
                         
                         implicitHeight: Appearance.sizes.barHeight
                         anchors {
@@ -210,6 +218,28 @@ Scope {
                             }
                         }
                     }
+
+                    Loader {
+                        id: editDrawerLoader
+                        active: barRoot.editingHere
+                        width: Math.min(parent.width - 24, 1000)
+                        anchors {
+                            horizontalCenter: parent.horizontalCenter
+                            top: Config.options.bar.bottom ? undefined : barContent.bottom
+                            bottom: Config.options.bar.bottom ? barContent.top : undefined
+                            topMargin: Appearance.rounding.screenRounding + 4
+                            bottomMargin: Appearance.rounding.screenRounding + 4
+                        }
+                        sourceComponent: BarEditDrawer {
+                            view: barContent
+                            controller: editController
+                        }
+                    }
+
+                    BarEditController {
+                        id: editController
+                        view: barContent
+                    }
                 }
             }
         }
@@ -229,6 +259,17 @@ Scope {
         function open(): void {
             GlobalStates.barOpen = true
         }
+
+        // Edit mode on the bar of the focused screen
+        function edit(): void {
+            GlobalStates.barEditScreen = Hyprland.focusedMonitor?.name ?? "";
+            GlobalStates.barOpen = true;
+            GlobalStates.barEditing = true;
+        }
+
+        function stopEditing(): void {
+            GlobalStates.barEditing = false;
+        }
     }
 
     GlobalShortcut {
@@ -237,6 +278,21 @@ Scope {
 
         onPressed: {
             GlobalStates.barOpen = !GlobalStates.barOpen;
+        }
+    }
+
+    GlobalShortcut {
+        name: "barEditToggle"
+        description: "Toggles editing of the bar layout"
+
+        onPressed: {
+            if (GlobalStates.barEditing) {
+                GlobalStates.barEditing = false;
+                return;
+            }
+            GlobalStates.barEditScreen = Hyprland.focusedMonitor?.name ?? "";
+            GlobalStates.barOpen = true;
+            GlobalStates.barEditing = true;
         }
     }
 

@@ -1,6 +1,8 @@
+import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.ii.bar.edit
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -15,6 +17,9 @@ Item {
 
     property bool vertical: false
     property var layoutData: vertical ? BarLayout.vertical : BarLayout.horizontal
+    readonly property string orientation: vertical ? "vertical" : "horizontal"
+    property bool editing: false
+    property var controller: null // BarEditController of this bar window, for edit mode
 
     property var screen: root.QsWindow.window?.screen
     readonly property int tier: (Appearance.sizes.barHellaShortenScreenWidthThreshold >= screen?.width) ? 2
@@ -27,6 +32,129 @@ Item {
 
     readonly property var zones: layoutData?.zones ?? ({})
     readonly property var actions: layoutData?.actions ?? ({})
+    readonly property var zoneItems: [startZone, centerStartZone, centerZone, centerEndZone, endZone]
+
+    // The widget under a point of this view, or null
+    function hostAt(x, y) {
+        for (const zone of root.zoneItems) {
+            for (const host of zone.orderedHosts()) {
+                const p = host.mapFromItem(root, x, y);
+                if (p.x >= 0 && p.y >= 0 && p.x <= host.width && p.y <= host.height) return host;
+            }
+        }
+        return null;
+    }
+
+    // Where a widget dropped at x (view coordinates) goes: nearest zone, then between its widgets.
+    // The index doesn't count the widget being moved; `x` is where to draw the marker.
+    function dropTargetAt(x, y, excludeUid) {
+        let best = null;
+        let bestDistance = Infinity;
+        for (const zone of root.zoneItems) {
+            if (!zone.visible) continue;
+            const left = zone.mapToItem(root, 0, 0).x;
+            const distance = x < left ? left - x : (x > left + zone.width ? x - left - zone.width : 0);
+            if (distance < bestDistance) {
+                best = zone;
+                bestDistance = distance;
+            }
+        }
+        if (!best) return null;
+        const hosts = best.orderedHosts().filter(host => host.uid !== excludeUid);
+        let index = hosts.length;
+        for (let i = 0; i < hosts.length; i++) {
+            if (x < hosts[i].mapToItem(root, hosts[i].width / 2, 0).x) {
+                index = i;
+                break;
+            }
+        }
+        let markerX;
+        if (hosts.length === 0) markerX = best.mapToItem(root, best.width / 2, 0).x;
+        else if (index < hosts.length) markerX = hosts[index].mapToItem(root, 0, 0).x - 3;
+        else markerX = hosts[hosts.length - 1].mapToItem(root, hosts[hosts.length - 1].width, 0).x + 3;
+        return { "zone": best.zoneName, "index": index, "x": markerX };
+    }
+
+    function startEditing() {
+        GlobalStates.barEditScreen = root.screen?.name ?? "";
+        GlobalStates.barEditing = true;
+    }
+
+    function openSettings(page) {
+        Quickshell.execDetached(["bash", "-c", `QS_SETTINGS_PAGE=${page} qs -p '${Quickshell.shellPath("settings.qml")}'`]);
+    }
+
+    function openMenu(zone, x, y) {
+        const point = zone.mapToItem(null, x, y);
+        barMenu.openAt(root.QsWindow.window, point.x, point.y, [
+            { "text": Translation.tr("Edit the bar"), "icon": "edit", "action": () => root.startEditing() },
+            { "type": "separator" },
+            { "text": Translation.tr("Bar layout settings"), "icon": "view_column", "action": () => root.openSettings("barLayout") },
+            { "text": Translation.tr("Bar settings"), "icon": "settings", "action": () => root.openSettings("bar") },
+        ]);
+    }
+
+    function openEditMenu(host, x, y) {
+        const point = root.mapToItem(null, x, y);
+        let entries = [];
+        if (host) {
+            const item = host.itemData;
+            entries = [
+                { "text": Translation.tr("In a pill"), "checked": !!item.pill, "icon": "pill",
+                  "action": () => BarLayout.setItem(root.orientation, item.uid, { "pill": item.pill ? null : true, "pillBreak": null }) },
+                { "text": Translation.tr("Hide when narrow"), "checked": (item.hideAt ?? 0) > 0, "icon": "compress",
+                  "action": () => BarLayout.setItem(root.orientation, item.uid, { "hideAt": (item.hideAt ?? 0) > 0 ? null : 1 }) },
+                { "text": Translation.tr("Remove"), "icon": "delete",
+                  "action": () => {
+                      BarLayout.remove(root.orientation, item.uid);
+                      GlobalStates.barEditSelection = "";
+                  } },
+                { "type": "separator" },
+            ];
+        } else {
+            entries = [
+                { "text": Translation.tr("Undo"), "icon": "undo", "enabled": BarLayout.canUndo, "action": () => BarLayout.undo() },
+                { "text": Translation.tr("Reset to default"), "icon": "restart_alt", "action": () => BarLayout.reset(root.orientation) },
+                { "type": "separator" },
+            ];
+        }
+        entries.push({ "text": Translation.tr("Done"), "icon": "check", "action": () => GlobalStates.barEditing = false });
+        barMenu.openAt(root.QsWindow.window, point.x, point.y, entries);
+    }
+
+    ContextMenuPopup {
+        id: barMenu
+        openEdge: Config.options.bar.bottom ? Edges.Top : Edges.Bottom
+    }
+
+    MouseArea { // Shift + right click anywhere opens the bar menu, even over widgets
+        anchors.fill: parent
+        z: 50
+        visible: !root.editing
+        acceptedButtons: Qt.RightButton
+        onPressed: mouse => {
+            if (!(mouse.modifiers & Qt.ShiftModifier)) {
+                mouse.accepted = false;
+                return;
+            }
+            const zone = root.zoneItems.find(zone => {
+                const p = zone.mapFromItem(root, mouse.x, mouse.y);
+                return zone.visible && p.x >= 0 && p.x <= zone.width;
+            }) ?? startZone;
+            const p = zone.mapFromItem(root, mouse.x, mouse.y);
+            root.openMenu(zone, p.x, p.y);
+        }
+    }
+
+    Loader {
+        anchors.fill: parent
+        z: 100
+        active: root.editing && root.controller !== null
+        sourceComponent: BarEditOverlay {
+            view: root
+            controller: root.controller
+        }
+    }
 
     BarWidgetFactory {
         id: factory
@@ -63,6 +191,8 @@ Item {
 
     BarZone {
         id: startZone
+        editing: root.editing
+        onMenuRequested: (x, y) => root.openMenu(startZone, x, y)
         zoneName: "start"
         items: root.zones.start ?? []
         actions: root.actions.start ?? ({})
@@ -91,6 +221,8 @@ Item {
 
         BarZone {
             id: centerStartZone
+            editing: root.editing
+            onMenuRequested: (x, y) => root.openMenu(centerStartZone, x, y)
             zoneName: "centerStart"
             items: root.zones.centerStart ?? []
             actions: root.actions.centerStart ?? ({})
@@ -98,7 +230,7 @@ Item {
             tier: root.tier
             height: parent.height
             fixedLength: root.balanceCenter ? root.centerSideWidth : -1
-            visible: hasContent || root.balanceCenter
+            visible: hasContent || root.balanceCenter || root.editing
             align: "end"
         }
 
@@ -108,13 +240,15 @@ Item {
 
         BarZone {
             id: centerZone
+            editing: root.editing
+            onMenuRequested: (x, y) => root.openMenu(centerZone, x, y)
             zoneName: "center"
             items: root.zones.center ?? []
             actions: root.actions.center ?? ({})
             factory: factory
             tier: root.tier
             height: parent.height
-            visible: hasContent
+            visible: hasContent || root.editing
         }
 
         CenterSeparator {
@@ -123,6 +257,8 @@ Item {
 
         BarZone {
             id: centerEndZone
+            editing: root.editing
+            onMenuRequested: (x, y) => root.openMenu(centerEndZone, x, y)
             zoneName: "centerEnd"
             items: root.zones.centerEnd ?? []
             actions: root.actions.centerEnd ?? ({})
@@ -130,12 +266,14 @@ Item {
             tier: root.tier
             height: parent.height
             fixedLength: root.balanceCenter ? root.centerSideWidth : -1
-            visible: hasContent || root.balanceCenter
+            visible: hasContent || root.balanceCenter || root.editing
         }
     }
 
     BarZone {
         id: endZone
+        editing: root.editing
+        onMenuRequested: (x, y) => root.openMenu(endZone, x, y)
         zoneName: "end"
         items: root.zones.end ?? []
         actions: root.actions.end ?? ({})

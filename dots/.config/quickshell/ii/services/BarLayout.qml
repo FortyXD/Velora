@@ -140,6 +140,24 @@ Singleton {
         root.setItem(orientation, uid, { "options": options });
     }
 
+    // Writes a shared setting named by a catalog option scope ("path:bar.workspaces.shown")
+    function setPathValue(path, value) {
+        let patch = {};
+        let node = patch;
+        const keys = path.split(".");
+        for (let i = 0; i < keys.length - 1; i++) {
+            node[keys[i]] = {};
+            node = node[keys[i]];
+        }
+        node[keys[keys.length - 1]] = value;
+        Config.applyPatch(patch);
+    }
+
+    function setOptionValue(orientation, uid, spec, value) {
+        if (spec.scope === "instance") root.setOption(orientation, uid, spec.key, value);
+        else root.setPathValue(spec.scope.slice(5), value);
+    }
+
     function setActions(orientation, zone, actions) {
         let layout = root.clone(root.current(orientation));
         layout.actions[zone] = Object.assign({}, layout.actions[zone] ?? {}, actions);

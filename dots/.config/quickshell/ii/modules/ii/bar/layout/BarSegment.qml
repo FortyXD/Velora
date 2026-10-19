@@ -13,6 +13,7 @@ Item {
     property bool vertical: false
     property int tier: 0
     property bool zoneHovered: false
+    property bool editing: false
 
     readonly property bool pill: segment?.pill ?? false
     readonly property var items: segment?.items ?? []
@@ -26,8 +27,8 @@ Item {
         }
         return result;
     }
-    readonly property int shownCount: hosts.filter(host => host.shown).length
-    readonly property bool fills: hosts.some(host => host.shown && host.fills)
+    readonly property int shownCount: hosts.filter(host => host.present).length
+    readonly property bool fills: hosts.some(host => host.present && host.fills)
     readonly property real rigidWidth: shownCount === 0 ? 0
         : hosts.reduce((sum, host) => sum + host.rigidWidth, 0) + gridLayout.columnSpacing * (shownCount - 1) + padding * 2
 
@@ -79,6 +80,7 @@ Item {
                 tier: root.tier
                 zoneHovered: root.zoneHovered
                 inPill: root.pill
+                editing: root.editing
             }
         }
     }

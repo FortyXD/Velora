@@ -68,6 +68,12 @@ ApplicationWindow {
             component: "modules/settings/BarConfig.qml"
         },
         {
+            key: "barLayout", group: "desktop", color: "#007AFF", icon: "view_column",
+            name: Translation.tr("Bar Layout"),
+            description: Translation.tr("Arrange the bar's widgets, add new ones and set each up"),
+            component: "modules/settings/BarLayoutConfig.qml"
+        },
+        {
             key: "sidebars", group: "desktop", color: "#30B0C7", icon: "side_navigation",
             name: Translation.tr("Sidebars"),
             description: Translation.tr("Quick settings on the right, assistant and translator on the left"),

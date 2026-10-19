@@ -22,6 +22,7 @@ FocusedScrollMouseArea {
     property var actions: ({})
     property bool vertical: false
     property int tier: 0
+    property bool editing: false
     property real fixedLength: -1 // Set when the center is balanced
     property real outerPadding: 0 // Toward the screen edge
     property real innerPadding: 0 // Toward the center
@@ -29,6 +30,8 @@ FocusedScrollMouseArea {
     // Where items gather when none of them takes the free space: start, end or center
     property string align: "start"
     property string outerSide: "" // "left" or "right": where the scroll hint goes
+
+    signal menuRequested(real x, real y) // Right click on the free space
 
     readonly property var segments: BarLayoutUtils.segments(items)
     readonly property var segmentItems: {
@@ -47,9 +50,15 @@ FocusedScrollMouseArea {
         : shownSegments.reduce((sum, segment) => sum + segment.rigidWidth, 0) + root.spacing * (shownSegments.length - 1)
 
     readonly property real startPadding: outerSide === "right" ? innerPadding : outerPadding
+    // Widgets taking part in the layout, in visual order
+    function orderedHosts() {
+        let result = [];
+        for (const segment of root.shownSegments) result.push(...segment.hosts.filter(host => host.present));
+        return result;
+    }
     readonly property real endPadding: outerSide === "right" ? outerPadding : innerPadding
 
-    implicitWidth: fixedLength >= 0 ? fixedLength : (rowLayout.implicitWidth + startPadding + endPadding)
+    implicitWidth: fixedLength >= 0 ? fixedLength : Math.max(editing && !hasContent ? 56 : 0, rowLayout.implicitWidth + startPadding + endPadding)
     implicitHeight: Appearance.sizes.baseBarHeight
     Behavior on implicitWidth {
         enabled: root.fixedLength >= 0
@@ -58,6 +67,7 @@ FocusedScrollMouseArea {
 
     acceptedButtons: (actions.click && actions.click !== "none" ? Qt.LeftButton : Qt.NoButton)
         | (actions.middleClick && actions.middleClick !== "none" ? Qt.MiddleButton : Qt.NoButton)
+        | Qt.RightButton
 
     function runAction(action) {
         switch (action) {
@@ -110,6 +120,7 @@ FocusedScrollMouseArea {
     onPressed: event => {
         if (event.button === Qt.LeftButton) runAction(actions.click);
         else if (event.button === Qt.MiddleButton) runAction(actions.middleClick);
+        else if (event.button === Qt.RightButton) root.menuRequested(event.x, event.y);
     }
 
     Loader {
@@ -126,6 +137,27 @@ FocusedScrollMouseArea {
             tooltipText: root.actions.scroll === "volume" ? Translation.tr("Scroll to change volume")
                 : root.actions.scroll === "workspaces" ? Translation.tr("Scroll to switch workspaces")
                 : Translation.tr("Scroll to change brightness")
+        }
+    }
+
+    Rectangle { // Drop target for an empty zone while editing
+        visible: root.editing && !root.hasContent
+        anchors {
+            fill: parent
+            topMargin: 6
+            bottomMargin: 6
+            leftMargin: 4
+            rightMargin: 4
+        }
+        radius: Appearance.rounding.small
+        color: "transparent"
+        border.width: 1
+        border.color: Appearance.colors.colOutline
+        MaterialSymbol {
+            anchors.centerIn: parent
+            text: "add"
+            iconSize: 16
+            color: Appearance.colors.colSubtext
         }
     }
 
@@ -156,6 +188,7 @@ FocusedScrollMouseArea {
                 vertical: root.vertical
                 tier: root.tier
                 zoneHovered: root.hovered
+                editing: root.editing
                 Layout.fillWidth: fills
             }
         }
