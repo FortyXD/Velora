@@ -14,6 +14,7 @@ Loader {
     property bool vertical: false
     property int tier: 0
     property bool zoneHovered: false
+    property bool inPill: false
 
     readonly property string type: itemData?.type ?? ""
     readonly property var meta: BarWidgetCatalog.get(type)

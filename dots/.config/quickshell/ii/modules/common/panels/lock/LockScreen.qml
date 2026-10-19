@@ -145,6 +145,10 @@ Scope {
         function focus(): void {
             lockContext.shouldReFocus();
         }
+        // A shell reload while locked drops the lock surface, so tools check this before reloading
+        function isLocked(): bool {
+            return GlobalStates.screenLocked;
+        }
     }
 
     GlobalShortcut {

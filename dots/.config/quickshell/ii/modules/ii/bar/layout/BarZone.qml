@@ -26,7 +26,8 @@ FocusedScrollMouseArea {
     property real outerPadding: 0 // Toward the screen edge
     property real innerPadding: 0 // Toward the center
     property real spacing: 4
-    property bool packToEnd: false // Without elastic widgets, items gather at the far end
+    // Where items gather when none of them takes the free space: start, end or center
+    property string align: "start"
     property string outerSide: "" // "left" or "right": where the scroll hint goes
 
     readonly property var segments: BarLayoutUtils.segments(items)
@@ -137,8 +138,8 @@ FocusedScrollMouseArea {
         }
         spacing: root.spacing
 
-        Item { // Pushes everything to the far end when nothing else takes the free space
-            visible: root.packToEnd && !root.anyFill
+        Item { // Free space before the items
+            visible: !root.anyFill && (root.align === "end" || root.align === "center")
             Layout.fillWidth: true
         }
 
@@ -155,8 +156,13 @@ FocusedScrollMouseArea {
                 vertical: root.vertical
                 tier: root.tier
                 zoneHovered: root.hovered
-                Layout.fillWidth: fills || (root.fixedLength >= 0 && root.shownSegments.length === 1)
+                Layout.fillWidth: fills
             }
+        }
+
+        Item { // Free space after the items
+            visible: !root.anyFill && (root.align === "start" || root.align === "center")
+            Layout.fillWidth: true
         }
     }
 }

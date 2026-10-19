@@ -45,4 +45,34 @@ Singleton {
             ]
         }
     })
+
+    readonly property var vertical: ({
+        "version": 1,
+        "balanceCenter": false,
+        "actions": {
+            "start": { "click": "sidebarLeft", "scroll": "brightness" },
+            "end": { "click": "sidebarRight", "scroll": "volume" }
+        },
+        "zones": {
+            "start": [
+                { "uid": "lsb", "type": "leftSidebarButton" }
+            ],
+            "centerStart": [
+                { "uid": "res", "type": "resources", "pill": true },
+                { "uid": "med", "type": "media", "pill": true }
+            ],
+            "center": [
+                { "uid": "ws", "type": "workspaces", "pill": true }
+            ],
+            "centerEnd": [
+                { "uid": "clk", "type": "clock", "pill": true },
+                { "uid": "bat", "type": "battery", "pill": true }
+            ],
+            "end": [
+                { "uid": "sp", "type": "spacer" },
+                { "uid": "tray", "type": "sysTray" },
+                { "uid": "st", "type": "statusIndicators" }
+            ]
+        }
+    })
 }

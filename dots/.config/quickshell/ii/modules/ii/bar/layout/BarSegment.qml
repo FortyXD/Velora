@@ -52,17 +52,19 @@ Item {
     GridLayout {
         id: gridLayout
         columns: root.vertical ? 1 : -1
-        // A pill centers its row like BarGroup; a bare widget is centered by the layout itself,
-        // which rounds the same way the zone layouts always have
+        // A pill centers its row like BarGroup; a bare widget spans the bar's thickness and is
+        // centered by the layout itself, which rounds the same way the zone layouts always have
         anchors {
-            verticalCenter: root.vertical || !root.pill ? undefined : parent.verticalCenter
-            horizontalCenter: root.vertical && root.pill ? parent.horizontalCenter : undefined
-            left: root.vertical && root.pill ? undefined : parent.left
-            right: root.vertical && root.pill ? undefined : parent.right
-            top: root.vertical || !root.pill ? parent.top : undefined
-            bottom: root.vertical || !root.pill ? parent.bottom : undefined
+            verticalCenter: root.vertical ? undefined : parent.verticalCenter
+            horizontalCenter: root.vertical ? parent.horizontalCenter : undefined
+            left: root.vertical ? undefined : parent.left
+            right: root.vertical ? undefined : parent.right
+            top: root.vertical ? parent.top : undefined
+            bottom: root.vertical ? parent.bottom : undefined
             margins: root.padding
         }
+        height: root.vertical ? root.height - root.padding * 2 : (root.pill ? implicitHeight : root.height)
+        width: root.vertical ? (root.pill ? implicitWidth : root.width) : root.width - root.padding * 2
         columnSpacing: 4
         rowSpacing: 12
 
@@ -76,6 +78,7 @@ Item {
                 vertical: root.vertical
                 tier: root.tier
                 zoneHovered: root.zoneHovered
+                inPill: root.pill
             }
         }
     }

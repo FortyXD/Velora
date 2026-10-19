@@ -211,6 +211,7 @@
             "showStopwatch": true,
             "trackToast": true
         },
+        "layout": null,
         "microAnimations": true,
         "resources": {
             "alwaysShowCpu": true,
@@ -240,6 +241,7 @@
         },
         "verbose": true,
         "vertical": false,
+        "verticalLayout": null,
         "weather": {
             "city": "",
             "enable": false,

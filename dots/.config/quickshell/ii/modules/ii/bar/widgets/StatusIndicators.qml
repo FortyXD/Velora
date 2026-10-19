@@ -15,6 +15,10 @@ RippleButton {
     id: root
 
     property bool zoneHovered: false
+    property var options: ({})
+    function shows(key) {
+        return root.options[key] !== false;
+    }
 
     implicitWidth: indicatorsRowLayout.implicitWidth + 10 * 2
     implicitHeight: indicatorsRowLayout.implicitHeight + 5 * 2
@@ -48,38 +52,37 @@ RippleButton {
         spacing: 0
 
         Revealer {
-            reveal: Audio.sink?.audio?.muted ?? false
+            reveal: root.shows("showAudioMuted") && audioMuted.active
             Layout.fillHeight: true
             Layout.rightMargin: reveal ? indicatorsRowLayout.realSpacing : 0
             Behavior on Layout.rightMargin {
                 animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
             }
-            MaterialSymbol {
-                text: "volume_off"
-                iconSize: Appearance.font.pixelSize.larger
+            AudioMutedIndicator {
+                id: audioMuted
                 color: root.colText
             }
         }
         Revealer {
-            reveal: Audio.source?.audio?.muted ?? false
+            reveal: root.shows("showMicMuted") && micMuted.active
             Layout.fillHeight: true
             Layout.rightMargin: reveal ? indicatorsRowLayout.realSpacing : 0
             Behavior on Layout.rightMargin {
                 animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
             }
-            MaterialSymbol {
-                text: "mic_off"
-                iconSize: Appearance.font.pixelSize.larger
+            MicMutedIndicator {
+                id: micMuted
                 color: root.colText
             }
         }
         HyprlandXkbIndicator {
+            visible: active && root.shows("showKeyboardLayout")
             Layout.alignment: Qt.AlignVCenter
             Layout.rightMargin: indicatorsRowLayout.realSpacing
             color: root.colText
         }
         Revealer {
-            reveal: Notifications.silent || Notifications.unread > 0
+            reveal: root.shows("showNotifications") && (Notifications.silent || Notifications.unread > 0)
             Layout.fillHeight: true
             Layout.rightMargin: reveal ? indicatorsRowLayout.realSpacing : 0
             implicitHeight: reveal ? notificationUnreadCount.implicitHeight : 0
@@ -92,29 +95,22 @@ RippleButton {
                 color: root.colText
             }
         }
-        MaterialSymbol {
-            text: Network.materialSymbol
-            iconSize: Appearance.font.pixelSize.larger
+        NetworkIndicator {
+            visible: root.shows("showNetwork")
             color: root.colText
         }
-        MaterialSymbol {
+        BluetoothIndicator {
+            id: bluetooth
             Layout.leftMargin: indicatorsRowLayout.realSpacing
-            visible: BluetoothStatus.available
-            text: BluetoothStatus.connected ? "bluetooth_connected" : BluetoothStatus.enabled ? "bluetooth" : "bluetooth_disabled"
-            iconSize: Appearance.font.pixelSize.larger
+            visible: active && root.shows("showBluetooth")
             color: root.colText
         }
-        Revealer { // Battery of the first connected Bluetooth device that reports one
-            id: bluetoothBattery
-            readonly property var device: BluetoothStatus.connectedDevices.find(device => device.batteryAvailable) ?? null
-            readonly property real level: device?.battery ?? 0
-            reveal: Config.options.bar.indicators.bluetoothBattery && device !== null
+        Revealer {
+            reveal: bluetoothBattery.active && root.shows("showBluetooth")
             Layout.alignment: Qt.AlignVCenter
-            StyledText {
-                leftPadding: 2
-                font.pixelSize: Appearance.font.pixelSize.small
-                color: bluetoothBattery.level < 0.2 ? Appearance.colors.colError : root.colText
-                text: `${Math.round(bluetoothBattery.level * 100)}%`
+            BluetoothBatteryIndicator {
+                id: bluetoothBattery
+                normalColor: root.colText
             }
         }
     }

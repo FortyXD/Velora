@@ -1,3 +1,4 @@
+import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import QtQuick
@@ -13,7 +14,7 @@ Item {
     id: root
 
     property bool vertical: false
-    property var layoutData: BarLayoutDefaults.horizontal
+    property var layoutData: vertical ? BarLayout.vertical : BarLayout.horizontal
 
     property var screen: root.QsWindow.window?.screen
     readonly property int tier: (Appearance.sizes.barHellaShortenScreenWidthThreshold >= screen?.width) ? 2
@@ -98,6 +99,7 @@ Item {
             height: parent.height
             fixedLength: root.balanceCenter ? root.centerSideWidth : -1
             visible: hasContent || root.balanceCenter
+            align: "end"
         }
 
         CenterSeparator {
@@ -149,6 +151,6 @@ Item {
         outerPadding: Appearance.rounding.screenRounding
         innerPadding: 4
         spacing: 5
-        packToEnd: true
+        align: "end"
     }
 }
