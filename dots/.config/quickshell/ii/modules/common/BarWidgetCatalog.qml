@@ -163,6 +163,22 @@ Singleton {
                 "name": Translation.tr("Muted microphone"), "description": Translation.tr("Shown while the microphone is muted; click to unmute"),
                 "icon": "mic_off", "category": "indicators", "vertical": true
             },
+            "networkSpeed": {
+                "name": Translation.tr("Network speed"), "description": Translation.tr("Current download and upload speed"),
+                "icon": "speed", "category": "indicators", "vertical": false,
+                "options": [
+                    { "key": "showDownload", "kind": "switch", "label": Translation.tr("Download"), "default": true, "scope": "instance" },
+                    { "key": "showUpload", "kind": "switch", "label": Translation.tr("Upload"), "default": true, "scope": "instance" },
+                ]
+            },
+            "updates": {
+                "name": Translation.tr("Updates"), "description": Translation.tr("Pending system updates; click to update"),
+                "icon": "update", "category": "indicators", "vertical": true,
+                "options": [
+                    { "key": "alwaysShow", "kind": "switch", "label": Translation.tr("Show when up to date"), "default": false, "scope": "instance" },
+                    { "key": "checkInterval", "kind": "spin", "label": Translation.tr("Check every (minutes)"), "from": 5, "to": 1440, "scope": "path:updates.checkInterval" },
+                ]
+            },
             "island": {
                 "name": Translation.tr("Media island"),
                 "description": Translation.tr("Now playing, taken over by recording, pomodoro and stopwatch"),
@@ -225,6 +241,10 @@ Singleton {
                 "name": Translation.tr("Wallpaper button"), "description": Translation.tr("Opens the wallpaper selector"),
                 "icon": "wallpaper", "category": "buttons", "vertical": true
             },
+            "randomWallpaper": {
+                "name": Translation.tr("Random wallpaper"), "description": Translation.tr("A random wallpaper from your wallpaper folder"),
+                "icon": "shuffle", "category": "buttons", "vertical": true
+            },
             "appButton": {
                 "name": Translation.tr("App or command"), "description": Translation.tr("An icon that runs a command of your choice"),
                 "icon": "terminal", "category": "buttons", "vertical": true,
@@ -232,6 +252,22 @@ Singleton {
                     { "key": "icon", "kind": "text", "label": Translation.tr("Icon (Material Symbols name)"), "default": "terminal", "scope": "instance" },
                     { "key": "command", "kind": "command", "label": Translation.tr("Command"), "default": "", "scope": "instance" },
                     { "key": "tooltip", "kind": "text", "label": Translation.tr("Tooltip"), "default": "", "scope": "instance" },
+                ]
+            },
+            "customCommand": {
+                "name": Translation.tr("Command output"),
+                "description": Translation.tr("Shows what a shell command prints, refreshed on an interval"),
+                "icon": "terminal", "category": "builder", "vertical": false,
+                "options": [
+                    { "key": "command", "kind": "command", "label": Translation.tr("Command"), "default": "date +%H:%M", "scope": "instance" },
+                    { "key": "interval", "kind": "spin", "label": Translation.tr("Refresh every (seconds)"), "default": 5, "from": 1, "to": 3600, "scope": "instance" },
+                    { "key": "icon", "kind": "text", "label": Translation.tr("Icon (Material Symbols name)"), "default": "", "scope": "instance" },
+                    { "key": "maxLength", "kind": "spin", "label": Translation.tr("Longest text"), "default": 40, "from": 4, "to": 200, "scope": "instance" },
+                    { "key": "tooltip", "kind": "text", "label": Translation.tr("Tooltip"), "default": "", "scope": "instance" },
+                    { "key": "clickCommand", "kind": "command", "label": Translation.tr("On click"), "default": "", "scope": "instance" },
+                    { "key": "middleClickCommand", "kind": "command", "label": Translation.tr("On middle click"), "default": "", "scope": "instance" },
+                    { "key": "scrollUpCommand", "kind": "command", "label": Translation.tr("On scroll up"), "default": "", "scope": "instance" },
+                    { "key": "scrollDownCommand", "kind": "command", "label": Translation.tr("On scroll down"), "default": "", "scope": "instance" },
                 ]
             },
             "spacer": {

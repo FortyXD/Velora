@@ -1634,5 +1634,21 @@
   "Space at the screen edges": "Отступ от краёв экрана",
   "Gap around a floating bar": "Зазор вокруг плавающей панели",
   "Corner radius of floating bars and islands": "Скругление плавающей панели и островов",
-  "Default sizes": "Размеры по умолчанию"
+  "Default sizes": "Размеры по умолчанию",
+  "Current download and upload speed": "Текущая скорость загрузки и отдачи",
+  "Upload": "Отдача",
+  "Updates": "Обновления",
+  "Pending system updates; click to update": "Ожидающие обновления системы; нажмите, чтобы обновить",
+  "Show when up to date": "Показывать, когда всё обновлено",
+  "Check every (minutes)": "Проверять каждые (минут)",
+  "A random wallpaper from your wallpaper folder": "Случайные обои из вашей папки с обоями",
+  "Command output": "Вывод команды",
+  "Shows what a shell command prints, refreshed on an interval": "Показывает вывод команды оболочки и обновляет его с заданным интервалом",
+  "Refresh every (seconds)": "Обновлять каждые (секунд)",
+  "Longest text": "Наибольшая длина текста",
+  "On middle click": "По средней кнопке",
+  "On scroll up": "При прокрутке вверх",
+  "On scroll down": "При прокрутке вниз",
+  "%1 updates available. Click to update": "Доступно обновлений: %1. Нажмите, чтобы обновить",
+  "Up to date": "Всё обновлено"
 }

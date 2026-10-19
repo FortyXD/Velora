@@ -111,7 +111,32 @@ QtObject {
         "fixedSpace": fixedSpace,
         "separator": separator,
         "text": text,
+        "customCommand": customCommand,
+        "networkSpeed": networkSpeed,
+        "updates": updates,
+        "randomWallpaper": randomWallpaper,
     })
+
+    property Component customCommand: Component {
+        CustomCommandWidget {}
+    }
+
+    property Component networkSpeed: Component {
+        NetworkSpeedWidget {}
+    }
+
+    property Component updates: Component {
+        UpdatesWidget {}
+    }
+
+    property Component randomWallpaper: Component {
+        CircleUtilButton {
+            property var host: null
+            iconName: "shuffle"
+            tooltipText: Translation.tr("Random wallpaper")
+            onClicked: Wallpapers.randomFromCurrentFolder()
+        }
+    }
 
     // System
 

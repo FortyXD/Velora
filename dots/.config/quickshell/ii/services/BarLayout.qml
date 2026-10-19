@@ -104,7 +104,14 @@ Singleton {
 
     function insert(orientation, type, zone, index, extra = {}) {
         let layout = root.clone(root.current(orientation));
+        // A new widget starts with its own options at their defaults, so it shows something right away
+        let options = {};
+        for (const spec of (BarWidgetCatalog.get(type)?.options ?? [])) {
+            if (spec.scope === "instance" && spec.default !== undefined) options[spec.key] = spec.default;
+        }
+        Object.assign(options, extra.options ?? {});
         const item = Object.assign({ "uid": root.newUid(type), "type": type }, BarWidgetCatalog.get(type)?.defaults ?? {}, extra);
+        if (Object.keys(options).length > 0) item.options = options;
         const target = layout.zones[zone];
         target.splice(index < 0 ? target.length : Math.min(index, target.length), 0, item);
         root.write(orientation, layout);
