@@ -35,7 +35,9 @@ Item {
     readonly property bool present: shown || editing
     readonly property bool placeholder: editing && (!shown || (vertical ? loader.implicitHeight : loader.implicitWidth) < 4)
     // Width that doesn't follow the free space, for balancing the center
-    readonly property real rigidLength: present && !elastic ? (vertical ? implicitHeight : implicitWidth) : 0
+    // Smallest length an elastic widget is given (catalog minLength), so it never shrinks to nothing
+    readonly property real minLength: elastic ? (meta?.minLength ?? 0) : 0
+    readonly property real rigidLength: !present ? 0 : elastic ? minLength : (vertical ? implicitHeight : implicitWidth)
 
     visible: present
     opacity: dragHidden ? 0.35 : 1
@@ -43,6 +45,8 @@ Item {
     implicitHeight: placeholder && vertical ? Math.max(28, shown ? loader.implicitHeight : 0) : loader.implicitHeight
 
     Layout.fillWidth: !vertical && fills
+    Layout.minimumWidth: !vertical && minLength > 0 ? minLength : -1
+    Layout.minimumHeight: vertical && minLength > 0 ? minLength : -1
     Layout.fillHeight: vertical ? fills : (meta?.fillHeight ?? false)
     Layout.alignment: vertical ? Qt.AlignHCenter : 0
 

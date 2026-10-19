@@ -6,7 +6,7 @@ import qs.services
  * What can be placed on the bar. Shared by the shell and the settings app, so it only holds
  * metadata; the components themselves live in modules/ii/bar/layout/BarWidgetFactory.qml.
  *
- * elastic:     takes the free space of its zone, and is left out when the center is balanced
+ * elastic:     takes the free space of its zone; counts only minLength (if any) when the center is balanced
  * fillHeight:  stretches across the bar's thickness
  * pillPadding: padding of a pill that holds only this widget (verticalPillPadding on a vertical bar)
  * vertical:    has a variant for the vertical bar
@@ -182,7 +182,7 @@ Singleton {
             "island": {
                 "name": Translation.tr("Media island"),
                 "description": Translation.tr("Now playing, taken over by recording, pomodoro and stopwatch"),
-                "icon": "graphic_eq", "category": "media", "elastic": true, "fillHeight": true, "vertical": false,
+                "icon": "graphic_eq", "category": "media", "elastic": true, "minLength": 140, "fillHeight": true, "vertical": false,
                 "defaults": { "pill": true, "hideAt": 2 },
                 "options": [
                     { "key": "showRecording", "kind": "switch", "label": Translation.tr("Screen recording"), "scope": "path:bar.island.showRecording" },
@@ -194,7 +194,7 @@ Singleton {
             "media": {
                 "name": Translation.tr("Media"),
                 "description": Translation.tr("Now playing with controls on hover"),
-                "icon": "music_note", "category": "media", "elastic": true, "fillHeight": true, "vertical": true,
+                "icon": "music_note", "category": "media", "elastic": true, "minLength": 120, "fillHeight": true, "vertical": true,
                 "defaults": { "pill": true }
             },
             "clock": {
