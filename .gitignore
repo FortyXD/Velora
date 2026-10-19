@@ -24,3 +24,4 @@ __pycache__/
 
 # Local screenshots and previews produced while testing
 /artifacts/
+/dots/.config/illogical-impulse/presets/

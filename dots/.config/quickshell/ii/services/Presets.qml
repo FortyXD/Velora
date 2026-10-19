@@ -1,0 +1,387 @@
+pragma Singleton
+pragma ComponentBehavior: Bound
+
+import qs
+import qs.modules.common
+import qs.modules.common.functions
+import QtQuick
+import Quickshell
+import Quickshell.Io
+
+/**
+ * System presets: bundles of settings in four categories that can be applied separately.
+ *   bar                  bar layout and style
+ *   theme                colors, light/dark, transparency, fonts, window rounding, blur and shadows
+ *   dockWidgets          the dock and the desktop widgets
+ *   wallpaperAnimations  the wallpaper, gaps and the motion of windows and of the shell
+ * Each category may hold `config` (a partial config.json, limited to the paths below) and
+ * `hyprland` (Hyprland options for HyprlandSettings), plus `mode`/`scheme` (theme),
+ * `wallpaper` and `animationProfile` (wallpaperAnimations).
+ *
+ * Built-in presets are defaults/presets/*.json; your own are saved under
+ * ~/.config/illogical-impulse/presets/<slug>/preset.json (with a copy of the wallpaper).
+ * Applying runs in the shell (IPC "presets"), after backing up what it changes for undo.
+ */
+Singleton {
+    id: root
+
+    readonly property list<string> categoryIds: ["bar", "theme", "dockWidgets", "wallpaperAnimations"]
+    readonly property var categories: [
+        { "id": "bar", "name": Translation.tr("Bar"), "icon": "toast" },
+        { "id": "theme", "name": Translation.tr("Theme and colors"), "icon": "palette" },
+        { "id": "dockWidgets", "name": Translation.tr("Dock and desktop widgets"), "icon": "widgets" },
+        { "id": "wallpaperAnimations", "name": Translation.tr("Wallpaper and motion"), "icon": "animation" },
+    ]
+    // Config paths each category may change; anything else in a preset is ignored
+    readonly property var allowedPaths: ({
+        "bar": ["bar"],
+        "theme": ["appearance.palette", "appearance.transparency", "appearance.fonts", "appearance.extraBackgroundTint", "appearance.fakeScreenRounding"],
+        "dockWidgets": ["dock", "background.widgets"],
+        "wallpaperAnimations": ["appearance.animationSpeed"],
+    })
+    // Hyprland options each category may change, by prefix (RegExps don't survive a `var` property)
+    readonly property var allowedHyprland: ({
+        "theme": ["decoration:", "general:border_size"],
+        "wallpaperAnimations": ["general:gaps_", "animations:enabled", "misc:animate_"],
+    })
+    function hyprlandAllowed(category, key) {
+        return (root.allowedHyprland[category] ?? []).some(prefix => key.startsWith(prefix));
+    }
+
+    readonly property string builtinDir: FileUtils.trimFileProtocol(Quickshell.shellPath("defaults/presets"))
+    readonly property string userDir: `${Directories.shellConfig}/presets`
+    readonly property string backupDir: `${FileUtils.trimFileProtocol(Directories.state)}/user/presets/backup`
+
+    property list<var> presets: []
+    property bool loading: listProc.running
+    property bool hasBackup: false
+    property bool applying: false
+
+    signal applied(string id)
+
+    function load() {
+        listProc.running = false;
+        listProc.running = true;
+        backupCheck.running = true;
+    }
+
+    function find(id) {
+        return root.presets.find(preset => preset.id === id) ?? null;
+    }
+
+    // Which categories a preset has something for
+    function categoriesOf(preset) {
+        return root.categoryIds.filter(id => preset?.[id] && typeof preset[id] === "object");
+    }
+
+    // Commands a preset would run through bar widgets, to show before importing it
+    function commandsIn(preset) {
+        let commands = [];
+        const bar = preset?.bar?.config?.bar ?? {};
+        for (const layout of [bar.layout, bar.verticalLayout]) commands.push(...BarLayout.commandsIn(layout));
+        return commands;
+    }
+
+    function getPath(object, path) {
+        let node = object;
+        for (const key of path.split(".")) {
+            if (node === null || node === undefined || typeof node !== "object") return undefined;
+            node = node[key];
+        }
+        return node;
+    }
+
+    function setPath(object, path, value) {
+        const keys = path.split(".");
+        let node = object;
+        for (let i = 0; i < keys.length - 1; i++) {
+            if (typeof node[keys[i]] !== "object" || node[keys[i]] === null) node[keys[i]] = {};
+            node = node[keys[i]];
+        }
+        node[keys[keys.length - 1]] = value;
+    }
+
+    // Keeps only the allowed paths of a config patch
+    function filterConfig(config, paths) {
+        let result = {};
+        for (const path of paths) {
+            const value = root.getPath(config ?? {}, path);
+            if (value !== undefined) root.setPath(result, path, JSON.parse(JSON.stringify(value)));
+        }
+        if (result.bar) delete result.bar.screenList; // Screens are per machine
+        return result;
+    }
+
+    function mergeInto(target, source) {
+        for (const key of Object.keys(source)) {
+            if (source[key] !== null && typeof source[key] === "object" && !Array.isArray(source[key])
+                && target[key] !== null && typeof target[key] === "object" && !Array.isArray(target[key])) {
+                root.mergeInto(target[key], source[key]);
+            } else {
+                target[key] = source[key];
+            }
+        }
+        return target;
+    }
+
+    function wallpaperFile(preset) {
+        const wallpaper = preset?.wallpaperAnimations?.wallpaper ?? "";
+        if (!wallpaper || wallpaper.startsWith("daily:")) return "";
+        if (wallpaper.startsWith("/")) return wallpaper;
+        return preset.dir ? `${preset.dir}/${wallpaper}` : "";
+    }
+
+    // Applies the chosen categories of a preset (all it has when `categories` is empty)
+    function apply(id, categories = []) {
+        const preset = root.find(id);
+        if (!preset) {
+            console.warn("[Presets] Unknown preset", id);
+            return;
+        }
+        const chosen = (categories.length > 0 ? categories : root.categoriesOf(preset)).filter(category => preset[category]);
+        if (chosen.length === 0) return;
+        root.applying = true;
+        root.pending = { "preset": preset, "categories": chosen };
+        backupProc.running = true; // Continues in finishApply() once the backup is written
+    }
+
+    property var pending: null
+
+    function finishApply() {
+        const preset = root.pending.preset;
+        const chosen = root.pending.categories;
+        root.pending = null;
+
+        // Shell settings. Every key is written explicitly: keys missing from the file would keep their old value.
+        let patch = {};
+        for (const category of chosen) root.mergeInto(patch, root.filterConfig(preset[category].config, root.allowedPaths[category]));
+        Config.applyPatch(patch);
+
+        // Hyprland options and window motion, with a single reload
+        let hyprland = {};
+        for (const category of chosen) {
+            for (const key of Object.keys(preset[category].hyprland ?? {})) {
+                if (root.hyprlandAllowed(category, key)) hyprland[key] = preset[category].hyprland[key];
+            }
+        }
+        if (chosen.includes("wallpaperAnimations") && preset.wallpaperAnimations.animationProfile) {
+            const profile = preset.wallpaperAnimations.animationProfile;
+            if (HyprlandSettings.animationProfiles.includes(profile)) hyprland["shell:animationProfile"] = profile;
+        }
+        if (Object.keys(hyprland).length > 0) {
+            if (hyprland["shell:animationProfile"] === "material") {
+                delete hyprland["shell:animationProfile"];
+                HyprlandSettings.reset(["shell:animationProfile"]);
+            }
+            HyprlandSettings.setMany(hyprland);
+        }
+
+        // Colors: one run of switchwall once the config is written, with the new wallpaper if any
+        let args = [];
+        const wallpaper = chosen.includes("wallpaperAnimations") ? root.wallpaperFile(preset) : "";
+        if (wallpaper.length > 0) args.push("--image", wallpaper);
+        else args.push("--noswitch");
+        if (chosen.includes("theme") && ["dark", "light"].includes(preset.theme.mode)) args.push("--mode", preset.theme.mode);
+        const daily = chosen.includes("wallpaperAnimations") && (preset.wallpaperAnimations.wallpaper ?? "").startsWith("daily:");
+        if (wallpaper.length > 0 || chosen.includes("theme")) {
+            themeTimer.args = args;
+            themeTimer.restart();
+        }
+        if (daily && Config.options.background.daily) {
+            Config.options.background.daily.source = preset.wallpaperAnimations.wallpaper.slice(6);
+            Config.options.background.daily.enable = true;
+        }
+        root.applying = false;
+        root.hasBackup = true;
+        root.applied(preset.id);
+    }
+
+    Timer {
+        id: themeTimer
+        property var args: []
+        interval: 400 // After Config has written the palette type that switchwall reads
+        onTriggered: Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, ...args])
+    }
+
+    // Puts back what the last apply changed
+    function undo() {
+        if (!root.hasBackup) return;
+        restoreProc.running = true;
+    }
+
+    // Saves the current settings of the chosen categories as a new preset
+    function saveCurrent(name, description, categories) {
+        const slug = name.toLowerCase().replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-+|-+$/g, "") || `preset-${Date.now()}`;
+        const dir = `${root.userDir}/${slug}`;
+        const options = ObjectUtils.toPlainObject(Config.options);
+        let preset = {
+            "name": name,
+            "description": description,
+            "icon": "bookmark",
+            "version": 1,
+        };
+        for (const category of categories) {
+            preset[category] = { "config": root.filterConfig(options, root.allowedPaths[category]) };
+            if (root.allowedHyprland[category]) {
+                let hyprland = {};
+                for (const key of Object.keys(HyprlandSettings.values)) {
+                    if (root.hyprlandAllowed(category, key)) hyprland[key] = HyprlandSettings.values[key];
+                }
+                preset[category].hyprland = hyprland;
+            }
+        }
+        if (preset.dockWidgets) {
+            // Pinned apps are personal and don't travel with a look
+            delete preset.dockWidgets.config.dock?.pinnedApps;
+            delete preset.dockWidgets.config.dock?.pinnedAppCommands;
+        }
+        let wallpaperSource = "";
+        if (preset.theme) {
+            preset.theme.mode = Appearance.m3colors.darkmode ? "dark" : "light";
+        }
+        if (preset.wallpaperAnimations) {
+            preset.wallpaperAnimations.animationProfile = HyprlandSettings.animationProfile;
+            wallpaperSource = FileUtils.trimFileProtocol(Config.options.background.wallpaperPath ?? "");
+            if (wallpaperSource.length > 0) preset.wallpaperAnimations.wallpaper = `wallpaper.${wallpaperSource.split(".").pop()}`;
+        }
+        saveProc.exec(["bash", "-c",
+            'mkdir -p "$1" && printf "%s\\n" "$2" > "$1/preset.json" && { [ -z "$3" ] || cp -f -- "$3" "$1/$4"; }',
+            "_", dir, JSON.stringify(preset, null, 4), wallpaperSource, preset.wallpaperAnimations?.wallpaper ?? ""]);
+    }
+
+    function remove(id) {
+        const preset = root.find(id);
+        if (!preset || preset.kind !== "user" || !preset.dir) return;
+        saveProc.exec(["rm", "-rf", "--", preset.dir]);
+    }
+
+    function exportText(id) {
+        let preset = Object.assign({}, root.find(id) ?? {});
+        for (const key of ["id", "kind", "dir", "path"]) delete preset[key];
+        return JSON.stringify(preset, null, 4);
+    }
+
+    // Reads a preset from text; returns { preset, commands } or { error }
+    function parse(text) {
+        let preset;
+        try {
+            preset = JSON.parse(text);
+        } catch (e) {
+            return { "error": Translation.tr("Not valid JSON") };
+        }
+        if (!preset || typeof preset !== "object" || typeof preset.name !== "string" || root.categoriesOf(preset).length === 0)
+            return { "error": Translation.tr("This is not a preset") };
+        return { "preset": preset, "commands": root.commandsIn(preset) };
+    }
+
+    function importPreset(preset) {
+        const slug = (preset.name ?? "preset").toLowerCase().replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-+|-+$/g, "") || `preset-${Date.now()}`;
+        let copy = Object.assign({}, preset);
+        if (copy.wallpaperAnimations?.wallpaper && !copy.wallpaperAnimations.wallpaper.startsWith("daily:"))
+            delete copy.wallpaperAnimations.wallpaper; // The image itself isn't part of the text
+        saveProc.exec(["bash", "-c", 'mkdir -p "$1" && printf "%s\\n" "$2" > "$1/preset.json"',
+            "_", `${root.userDir}/${slug}`, JSON.stringify(copy, null, 4)]);
+    }
+
+    Process {
+        id: listProc
+        command: ["bash", "-c", `
+            shopt -s nullglob
+            for f in "$1"/*.json; do
+                jq -c --arg path "$f" '. + {path: $path, kind: "builtin", id: ($path | split("/") | last | rtrimstr(".json"))}' "$f" 2>/dev/null
+            done
+            for f in "$2"/*/preset.json; do
+                d=\${f%/preset.json}
+                jq -c --arg path "$f" --arg dir "$d" '. + {path: $path, dir: $dir, kind: "user", id: ("user:" + ($dir | split("/") | last))}' "$f" 2>/dev/null
+            done`, "_", root.builtinDir, root.userDir]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let list = [];
+                for (const line of text.split("\n")) {
+                    if (line.trim().length === 0) continue;
+                    try {
+                        list.push(JSON.parse(line));
+                    } catch (e) {
+                        console.warn("[Presets] Couldn't read a preset:", e);
+                    }
+                }
+                // Built-in first, in their own order, then yours by name
+                list.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "builtin" ? -1 : 1)
+                    || (a.order ?? 100) - (b.order ?? 100) || (a.name ?? "").localeCompare(b.name ?? ""));
+                root.presets = list;
+            }
+        }
+    }
+
+    Process {
+        id: saveProc
+        onExited: root.load()
+    }
+
+    // Copies of what applying may change: config, Hyprland overrides, wallpaper and light/dark
+    Process {
+        id: backupProc
+        command: ["bash", "-c", 'mkdir -p "$1" && cp -f -- "$2" "$1/config.json" && { cp -f -- "$3" "$1/shell_settings.json" 2>/dev/null || echo "{}" > "$1/shell_settings.json"; } && printf "%s\\n%s\\n" "$4" "$5" > "$1/wallpaper.txt"',
+            "_", root.backupDir, Directories.shellConfigPath, HyprlandSettings.jsonPath,
+            FileUtils.trimFileProtocol(Config.options.background.wallpaperPath ?? ""), Appearance.m3colors.darkmode ? "dark" : "light"]
+        onExited: (exitCode, exitStatus) => {
+            if (exitCode !== 0) {
+                console.warn("[Presets] Backup failed; not applying");
+                root.applying = false;
+                root.pending = null;
+                return;
+            }
+            root.finishApply();
+        }
+    }
+
+    Process {
+        id: backupCheck
+        command: ["test", "-f", `${root.backupDir}/config.json`]
+        onExited: exitCode => root.hasBackup = exitCode === 0
+    }
+
+    Process {
+        id: restoreProc
+        command: ["bash", "-c", 'cat "$1/config.json"; printf "\\n\\u001e\\n"; cat "$1/shell_settings.json"; printf "\\n\\u001e\\n"; cat "$1/wallpaper.txt"', "_", root.backupDir]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const parts = text.split("\n\u001e\n");
+                if (parts.length < 3) return;
+                try {
+                    const config = JSON.parse(parts[0]);
+                    let patch = {};
+                    for (const category of root.categoryIds) root.mergeInto(patch, root.filterConfig(config, root.allowedPaths[category]));
+                    Config.applyPatch(patch);
+                    HyprlandSettings.replaceOverrides(JSON.parse(parts[1]));
+                } catch (e) {
+                    console.warn("[Presets] Couldn't restore the backup:", e);
+                    return;
+                }
+                const [wallpaper, mode] = parts[2].trim().split("\n");
+                themeTimer.args = [...(wallpaper ? ["--image", wallpaper] : ["--noswitch"]), ...(mode ? ["--mode", mode] : [])];
+                themeTimer.restart();
+            }
+        }
+    }
+
+    IpcHandler {
+        target: "presets"
+
+        function list(): string {
+            return root.presets.map(preset => `${preset.id}\t${preset.name}`).join("\n");
+        }
+        // categories: comma-separated, or empty for all of them
+        function apply(id: string, categories: string): void {
+            root.apply(id, categories.split(",").map(category => category.trim()).filter(category => category.length > 0));
+        }
+        function undo(): void {
+            root.undo();
+        }
+        function reload(): void {
+            root.load();
+        }
+    }
+
+    Component.onCompleted: root.load()
+}

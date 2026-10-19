@@ -227,6 +227,31 @@ ContentPage {
             text: Translation.tr("Window animations")
             description: Translation.tr("Opening, closing and moving windows and workspaces")
         }
+        ContentSubsection {
+            visible: HyprlandSettings.get("animations:enabled", true)
+            title: Translation.tr("Window motion")
+            ConfigSelectionArray {
+                currentValue: HyprlandSettings.animationProfile
+                onSelected: newValue => HyprlandSettings.setAnimationProfile(newValue)
+                options: [
+                    { displayName: Translation.tr("Material"), icon: "animation", value: "material" },
+                    { displayName: Translation.tr("Fast"), icon: "bolt", value: "fast" },
+                    { displayName: Translation.tr("Smooth"), icon: "waves", value: "smooth" },
+                    { displayName: Translation.tr("Minimal"), icon: "blur_on", value: "minimal" }
+                ]
+            }
+        }
+        ConfigSlider {
+            buttonIcon: "speed"
+            text: Translation.tr("Shell animation speed")
+            description: Translation.tr("Panels, popups and widgets. All the way left turns them off.")
+            from: 0
+            to: 2
+            usePercentTooltip: false
+            valueText: value <= 0.01 ? Translation.tr("Off") : `${value.toFixed(1)}×`
+            value: Config.options.appearance.animationSpeed
+            onMoved: Config.options.appearance.animationSpeed = Math.round(value * 10) / 10
+        }
         HyprSwitch {
             enabled: HyprlandSettings.get("animations:enabled", true)
             option: "misc:animate_manual_resizes"

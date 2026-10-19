@@ -1,0 +1,153 @@
+{
+    "version": 1,
+    "name": "Minimal",
+    "icon": "crop_square",
+    "order": 2,
+    "description": "Only workspaces, time and status on a see-through bar; crisp and quick",
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": false,
+                    "actions": {
+                        "start": {
+                            "click": "overview",
+                            "scroll": "workspaces"
+                        },
+                        "center": {
+                            "click": "sidebarRight"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            }
+                        ],
+                        "centerStart": [],
+                        "center": [
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true
+                            }
+                        ],
+                        "centerEnd": [],
+                        "end": [
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "prv",
+                                "type": "privacy"
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            }
+                        ]
+                    }
+                },
+                "verticalLayout": null,
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": -1,
+                    "islands": false,
+                    "pillStyle": "none",
+                    "edgePadding": -1,
+                    "floatMargin": -1,
+                    "radius": -1,
+                    "textShadow": true,
+                    "glass": false
+                },
+                "cornerStyle": 0,
+                "showBackground": false,
+                "borderless": true,
+                "bottom": false,
+                "vertical": false,
+                "floatStyleShadow": true
+            }
+        }
+    },
+    "theme": {
+        "config": {
+            "appearance": {
+                "transparency": {
+                    "enable": false,
+                    "automatic": true,
+                    "backgroundTransparency": 0.11,
+                    "contentTransparency": 0.57
+                }
+            }
+        },
+        "hyprland": {
+            "decoration:rounding": 10,
+            "decoration:blur:enabled": false,
+            "decoration:blur:passes": 3,
+            "decoration:blur:size": 10,
+            "decoration:shadow:enabled": false,
+            "decoration:dim_inactive": false,
+            "general:border_size": 2
+        }
+    },
+    "dockWidgets": {
+        "config": {
+            "dock": {
+                "enable": false
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
+                    },
+                    "weather": {
+                        "enable": false
+                    },
+                    "systemMonitor": {
+                        "enable": false
+                    },
+                    "media": {
+                        "enable": false
+                    },
+                    "calendar": {
+                        "enable": false
+                    },
+                    "countdown": {
+                        "enable": false
+                    },
+                    "note": {
+                        "enable": false
+                    },
+                    "pomodoro": {
+                        "enable": false
+                    }
+                }
+            }
+        }
+    },
+    "wallpaperAnimations": {
+        "animationProfile": "fast",
+        "config": {
+            "appearance": {
+                "animationSpeed": 1.4
+            }
+        },
+        "hyprland": {
+            "general:gaps_in": 3,
+            "general:gaps_out": 6,
+            "animations:enabled": true,
+            "misc:animate_manual_resizes": false,
+            "misc:animate_mouse_windowdragging": false
+        }
+    }
+}

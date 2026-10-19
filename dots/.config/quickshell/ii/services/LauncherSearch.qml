@@ -87,6 +87,21 @@ Singleton {
             }
         },
         {
+            action: "preset",
+            execute: args => {
+                const query = args.trim().toLowerCase();
+                const preset = Presets.presets.find(preset => preset.id === query
+                    || preset.name.toLowerCase() === query || Translation.tr(preset.name).toLowerCase() === query)
+                    ?? Presets.presets.find(preset => query.length > 0 && Translation.tr(preset.name).toLowerCase().includes(query));
+                if (!preset) {
+                    Quickshell.execDetached(["notify-send", Translation.tr("Presets"), Translation.tr("Usage: <tt>%1preset NAME</tt>\nPresets: %2").arg(Config.options.search.prefix.action)
+                        .arg(Presets.presets.map(preset => Translation.tr(preset.name)).join(", ")), "-a", "Shell"]);
+                    return;
+                }
+                Presets.apply(preset.id);
+            }
+        },
+        {
             action: "superpaste",
             execute: args => {
                 if (!/^(\d+)/.test(args.trim())) {

@@ -1,0 +1,157 @@
+{
+    "version": 1,
+    "name": "Classic",
+    "icon": "desktop_windows",
+    "order": 4,
+    "description": "A solid bar at the bottom with search, workspaces, tray and clock",
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": false,
+                    "actions": {
+                        "start": {
+                            "scroll": "workspaces"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "search",
+                                "type": "launcher"
+                            },
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            },
+                            {
+                                "uid": "aw",
+                                "type": "activeWindow",
+                                "hideAt": 1
+                            }
+                        ],
+                        "centerStart": [],
+                        "center": [],
+                        "centerEnd": [],
+                        "end": [
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "prv",
+                                "type": "privacy"
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            },
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true
+                            }
+                        ]
+                    }
+                },
+                "verticalLayout": null,
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": -1,
+                    "islands": false,
+                    "pillStyle": "filled",
+                    "edgePadding": -1,
+                    "floatMargin": -1,
+                    "radius": -1,
+                    "textShadow": false,
+                    "glass": false
+                },
+                "cornerStyle": 2,
+                "showBackground": true,
+                "borderless": false,
+                "bottom": true,
+                "vertical": false,
+                "floatStyleShadow": true
+            }
+        }
+    },
+    "theme": {
+        "config": {
+            "appearance": {
+                "transparency": {
+                    "enable": true,
+                    "automatic": true,
+                    "backgroundTransparency": 0.11,
+                    "contentTransparency": 0.57
+                }
+            }
+        },
+        "hyprland": {
+            "decoration:rounding": 8,
+            "decoration:blur:enabled": true,
+            "decoration:blur:passes": 2,
+            "decoration:blur:size": 10,
+            "decoration:shadow:enabled": true,
+            "decoration:dim_inactive": true,
+            "general:border_size": 1
+        }
+    },
+    "dockWidgets": {
+        "config": {
+            "dock": {
+                "enable": false
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
+                    },
+                    "weather": {
+                        "enable": false
+                    },
+                    "systemMonitor": {
+                        "enable": false
+                    },
+                    "media": {
+                        "enable": false
+                    },
+                    "calendar": {
+                        "enable": false
+                    },
+                    "countdown": {
+                        "enable": false
+                    },
+                    "note": {
+                        "enable": false
+                    },
+                    "pomodoro": {
+                        "enable": false
+                    }
+                }
+            }
+        }
+    },
+    "wallpaperAnimations": {
+        "animationProfile": "material",
+        "config": {
+            "appearance": {
+                "animationSpeed": 1
+            }
+        },
+        "hyprland": {
+            "general:gaps_in": 4,
+            "general:gaps_out": 6,
+            "animations:enabled": true,
+            "misc:animate_manual_resizes": false,
+            "misc:animate_mouse_windowdragging": false
+        }
+    }
+}

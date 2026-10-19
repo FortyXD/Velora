@@ -133,6 +133,7 @@ Singleton {
             }
 
             property JsonObject appearance: JsonObject {
+                property real animationSpeed: 1 // Shell motion: 1 normal, 2 twice as fast, 0 none
                 property bool extraBackgroundTint: true
                 property int fakeScreenRounding: 2 // 0: None | 1: Always | 2: When not fullscreen
                 property JsonObject fonts: JsonObject {

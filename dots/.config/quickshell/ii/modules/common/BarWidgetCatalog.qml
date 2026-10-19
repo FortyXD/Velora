@@ -245,6 +245,10 @@ Singleton {
                 "name": Translation.tr("Random wallpaper"), "description": Translation.tr("A random wallpaper from your wallpaper folder"),
                 "icon": "shuffle", "category": "buttons", "vertical": true
             },
+            "presetSwitcher": {
+                "name": Translation.tr("Preset switcher"), "description": Translation.tr("A menu of system and bar presets"),
+                "icon": "auto_awesome_mosaic", "category": "buttons", "vertical": true
+            },
             "appButton": {
                 "name": Translation.tr("App or command"), "description": Translation.tr("An icon that runs a command of your choice"),
                 "icon": "terminal", "category": "buttons", "vertical": true,

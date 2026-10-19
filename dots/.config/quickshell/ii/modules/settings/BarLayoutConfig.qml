@@ -186,6 +186,41 @@ ContentPage {
     }
 
     ContentSection {
+        icon: "dashboard_customize"
+        title: Translation.tr("Ready-made bars")
+        description: Translation.tr("Start from a preset and adjust it here")
+
+        Flow {
+            Layout.fillWidth: true
+            spacing: 6
+            Repeater {
+                model: Presets.presets.filter(preset => {
+                    const categories = Presets.categoriesOf(preset);
+                    return categories.length === 1 && categories[0] === "bar";
+                })
+                delegate: WidgetChip {
+                    required property var modelData
+                    label: Translation.tr(modelData.name)
+                    icon: modelData.icon ?? "toast"
+                    onClicked: {
+                        Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "presets", "apply", modelData.id, "bar"]);
+                        page.selectedUid = "";
+                    }
+                    StyledToolTip {
+                        text: Translation.tr(parent.modelData.description ?? "")
+                    }
+                }
+            }
+        }
+        ConfigNavRow {
+            buttonIcon: "auto_awesome_mosaic"
+            title: Translation.tr("All presets")
+            description: Translation.tr("Whole looks with theme, dock and motion, and saving your own")
+            onClicked: ApplicationWindow.window?.openPage("presets")
+        }
+    }
+
+    ContentSection {
         id: inspectorSection
         visible: page.selected !== null
         icon: page.selectedMeta?.icon ?? "widgets"

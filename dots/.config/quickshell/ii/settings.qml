@@ -44,6 +44,12 @@ ApplicationWindow {
             component: "modules/settings/AppearanceConfig.qml"
         },
         {
+            key: "presets", group: "basics", color: "#FF9F0A", icon: "auto_awesome_mosaic",
+            name: Translation.tr("Presets"),
+            description: Translation.tr("Ready-made looks for the bar, theme, dock and motion, and your own"),
+            component: "modules/settings/PresetsConfig.qml"
+        },
+        {
             key: "wallpaper", group: "basics", color: "#32ADE6", icon: "wallpaper",
             name: Translation.tr("Wallpaper"),
             description: Translation.tr("Your wallpaper, the colors made from it and how it moves"),

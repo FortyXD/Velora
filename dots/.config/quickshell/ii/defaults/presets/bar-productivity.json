@@ -1,0 +1,128 @@
+{
+    "version": 1,
+    "name": "Productivity",
+    "icon": "monitoring",
+    "order": 17,
+    "description": "Resources, network speed, updates and weather at a glance",
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": true,
+                    "actions": {
+                        "start": {
+                            "click": "sidebarLeft",
+                            "scroll": "brightness"
+                        },
+                        "centerEnd": {
+                            "click": "sidebarRight"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "lsb",
+                                "type": "leftSidebarButton"
+                            },
+                            {
+                                "uid": "res",
+                                "type": "resources",
+                                "pill": true
+                            },
+                            {
+                                "uid": "net",
+                                "type": "networkSpeed",
+                                "hideAt": 1
+                            }
+                        ],
+                        "centerStart": [
+                            {
+                                "uid": "isl",
+                                "type": "island",
+                                "pill": true,
+                                "hideAt": 2
+                            }
+                        ],
+                        "center": [
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            }
+                        ],
+                        "centerEnd": [
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "fill": true
+                            },
+                            {
+                                "uid": "ub",
+                                "type": "utilButtons",
+                                "pill": true,
+                                "hideAt": 1
+                            }
+                        ],
+                        "end": [
+                            {
+                                "uid": "wx",
+                                "type": "weather",
+                                "pill": true
+                            },
+                            {
+                                "uid": "upd",
+                                "type": "updates"
+                            },
+                            {
+                                "uid": "sp",
+                                "type": "spacer"
+                            },
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "prv",
+                                "type": "privacy"
+                            },
+                            {
+                                "uid": "bat",
+                                "type": "battery",
+                                "pill": true
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            }
+                        ]
+                    }
+                },
+                "verticalLayout": null,
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": -1,
+                    "islands": false,
+                    "pillStyle": "filled",
+                    "edgePadding": -1,
+                    "floatMargin": -1,
+                    "radius": -1,
+                    "textShadow": false,
+                    "glass": false
+                },
+                "cornerStyle": 0,
+                "showBackground": true,
+                "borderless": false,
+                "bottom": false,
+                "vertical": false,
+                "floatStyleShadow": true
+            }
+        }
+    }
+}

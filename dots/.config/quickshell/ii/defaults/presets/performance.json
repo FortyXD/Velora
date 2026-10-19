@@ -1,0 +1,107 @@
+{
+    "version": 1,
+    "name": "Performance",
+    "icon": "speed",
+    "order": 3,
+    "description": "No animations, blur, shadows or transparency: saves battery and the GPU",
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": null,
+                "verticalLayout": null,
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": -1,
+                    "islands": false,
+                    "pillStyle": "filled",
+                    "edgePadding": -1,
+                    "floatMargin": -1,
+                    "radius": -1,
+                    "textShadow": false,
+                    "glass": false
+                },
+                "cornerStyle": 2,
+                "showBackground": true,
+                "borderless": false,
+                "bottom": false,
+                "vertical": false,
+                "floatStyleShadow": true
+            }
+        }
+    },
+    "theme": {
+        "config": {
+            "appearance": {
+                "transparency": {
+                    "enable": false,
+                    "automatic": true,
+                    "backgroundTransparency": 0.11,
+                    "contentTransparency": 0.57
+                }
+            }
+        },
+        "hyprland": {
+            "decoration:rounding": 8,
+            "decoration:blur:enabled": false,
+            "decoration:blur:passes": 3,
+            "decoration:blur:size": 10,
+            "decoration:shadow:enabled": false,
+            "decoration:dim_inactive": false,
+            "general:border_size": 1
+        }
+    },
+    "dockWidgets": {
+        "config": {
+            "dock": {
+                "enable": true,
+                "hoverToReveal": true,
+                "magnification": false,
+                "monochromeIcons": true
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
+                    },
+                    "weather": {
+                        "enable": false
+                    },
+                    "systemMonitor": {
+                        "enable": false
+                    },
+                    "media": {
+                        "enable": false
+                    },
+                    "calendar": {
+                        "enable": false
+                    },
+                    "countdown": {
+                        "enable": false
+                    },
+                    "note": {
+                        "enable": false
+                    },
+                    "pomodoro": {
+                        "enable": false
+                    }
+                }
+            }
+        }
+    },
+    "wallpaperAnimations": {
+        "animationProfile": "minimal",
+        "config": {
+            "appearance": {
+                "animationSpeed": 0
+            }
+        },
+        "hyprland": {
+            "general:gaps_in": 2,
+            "general:gaps_out": 4,
+            "animations:enabled": false,
+            "misc:animate_manual_resizes": false,
+            "misc:animate_mouse_windowdragging": false
+        }
+    }
+}

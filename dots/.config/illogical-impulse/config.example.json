@@ -19,6 +19,7 @@
         "tool": "functions"
     },
     "appearance": {
+        "animationSpeed": 1,
         "extraBackgroundTint": true,
         "fakeScreenRounding": 2,
         "fonts": {

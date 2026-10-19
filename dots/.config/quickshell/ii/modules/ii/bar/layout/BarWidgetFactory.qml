@@ -115,7 +115,35 @@ QtObject {
         "networkSpeed": networkSpeed,
         "updates": updates,
         "randomWallpaper": randomWallpaper,
+        "presetSwitcher": presetSwitcher,
     })
+
+    property Component presetSwitcher: Component {
+        CircleUtilButton {
+            id: presetButton
+            property var host: null
+            iconName: "auto_awesome_mosaic"
+            tooltipText: Translation.tr("Presets")
+            onClicked: {
+                const entries = Presets.presets.map(preset => ({
+                    "text": Translation.tr(preset.name),
+                    "icon": preset.icon ?? "bookmark",
+                    "action": () => Presets.apply(preset.id)
+                }));
+                if (Presets.hasBackup) entries.push({ "type": "separator" }, {
+                    "text": Translation.tr("Undo the last preset"), "icon": "history", "action": () => Presets.undo()
+                });
+                const vertical = host?.vertical ?? false;
+                const point = presetButton.mapToItem(null, presetButton.width / 2, vertical ? presetButton.height / 2 : presetButton.height);
+                presetMenu.openEdge = vertical ? (Config.options.bar.bottom ? Edges.Left : Edges.Right)
+                    : (Config.options.bar.bottom ? Edges.Top : Edges.Bottom);
+                presetMenu.openAt(presetButton.QsWindow.window, point.x, point.y, entries);
+            }
+            ContextMenuPopup {
+                id: presetMenu
+            }
+        }
+    }
 
     property Component customCommand: Component {
         CustomCommandWidget {}

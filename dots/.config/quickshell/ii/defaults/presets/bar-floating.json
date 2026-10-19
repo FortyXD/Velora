@@ -1,0 +1,32 @@
+{
+    "version": 1,
+    "name": "Floating",
+    "icon": "page_header",
+    "order": 13,
+    "description": "A rounded bar away from the screen edges",
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": null,
+                "verticalLayout": null,
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": -1,
+                    "islands": false,
+                    "pillStyle": "filled",
+                    "edgePadding": -1,
+                    "floatMargin": 8,
+                    "radius": -1,
+                    "textShadow": false,
+                    "glass": false
+                },
+                "cornerStyle": 1,
+                "showBackground": true,
+                "borderless": false,
+                "bottom": false,
+                "vertical": false,
+                "floatStyleShadow": true
+            }
+        }
+    }
+}

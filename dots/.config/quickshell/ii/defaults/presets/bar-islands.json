@@ -1,0 +1,32 @@
+{
+    "version": 1,
+    "name": "Islands",
+    "icon": "view_agenda",
+    "order": 12,
+    "description": "Each group of widgets floats as its own card",
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": null,
+                "verticalLayout": null,
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": -1,
+                    "islands": true,
+                    "pillStyle": "filled",
+                    "edgePadding": -1,
+                    "floatMargin": -1,
+                    "radius": -1,
+                    "textShadow": false,
+                    "glass": false
+                },
+                "cornerStyle": 0,
+                "showBackground": true,
+                "borderless": false,
+                "bottom": false,
+                "vertical": false,
+                "floatStyleShadow": true
+            }
+        }
+    }
+}

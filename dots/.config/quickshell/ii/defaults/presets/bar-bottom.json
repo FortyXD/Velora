@@ -1,0 +1,32 @@
+{
+    "version": 1,
+    "name": "Bottom",
+    "icon": "vertical_align_bottom",
+    "order": 15,
+    "description": "The usual bar at the bottom of the screen",
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": null,
+                "verticalLayout": null,
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": -1,
+                    "islands": false,
+                    "pillStyle": "filled",
+                    "edgePadding": -1,
+                    "floatMargin": -1,
+                    "radius": -1,
+                    "textShadow": false,
+                    "glass": false
+                },
+                "cornerStyle": 0,
+                "showBackground": true,
+                "borderless": false,
+                "bottom": true,
+                "vertical": false,
+                "floatStyleShadow": true
+            }
+        }
+    }
+}
