@@ -124,6 +124,12 @@ Item {
         }
     }
 
+    MouseArea { // Right-click to toggle overview
+        anchors.fill: parent
+        acceptedButtons: Qt.RightButton
+        onPressed: GlobalStates.overviewOpen = !GlobalStates.overviewOpen
+    }
+
     // Workspaces - background
     Grid {
         z: 1

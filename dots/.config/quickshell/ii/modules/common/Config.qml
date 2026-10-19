@@ -43,6 +43,33 @@ Singleton {
         obj[keys[keys.length - 1]] = convertedValue;
     }
 
+    function getNestedValue(nestedKey, fallback) {
+        let obj = root.options;
+        for (const key of nestedKey.split(".")) {
+            if (obj === null || obj === undefined || typeof obj !== "object") return fallback;
+            obj = obj[key];
+        }
+        return obj === undefined ? fallback : obj;
+    }
+
+    // Writes a partial options tree as is (no string conversion, unlike setNestedValue).
+    // Nested JsonObjects are merged key by key; `var` properties and lists are replaced whole.
+    function applyPatch(patch, target = root.options) {
+        for (const key of Object.keys(patch)) {
+            if (!(key in target)) {
+                console.warn(`[Config] Unknown option ignored: ${key}`);
+                continue;
+            }
+            const value = patch[key];
+            const current = target[key];
+            const isJsonObject = current !== null && typeof current === "object" && "objectName" in current;
+            if (isJsonObject && value !== null && typeof value === "object" && !Array.isArray(value))
+                applyPatch(value, current);
+            else
+                target[key] = value;
+        }
+    }
+
     Timer {
         id: fileReloadTimer
         interval: root.readWriteDelay

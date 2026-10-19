@@ -1,3 +1,4 @@
+import qs
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
@@ -21,7 +22,7 @@ LazyLoader {
     property bool popupHovered: false
 
     readonly property bool animate: Config.options.bar.microAnimations
-    readonly property bool targetHovered: !!(hoverTarget && hoverTarget.containsMouse)
+    readonly property bool targetHovered: !!(hoverTarget && hoverTarget.containsMouse) && !GlobalStates.barEditing
     readonly property bool pointerInside: targetHovered || popupHovered
     property bool wanted: false
     onPointerInsideChanged: {
@@ -86,20 +87,25 @@ LazyLoader {
 
         exclusionMode: ExclusionMode.Ignore
         exclusiveZone: 0
+        // Centered on the target, but kept inside the bar's window (which spans the screen edge)
+        readonly property var barWindow: root.QsWindow?.window
+        function clamp(value, size, available) {
+            return Math.max(0, Math.min(value, available - size));
+        }
         margins {
             left: {
-                if (!Config.options.bar.vertical) return root.QsWindow?.mapFromItem(
+                if (!Config.options.bar.vertical) return popupWindow.clamp(root.QsWindow?.mapFromItem(
                     root.hoverTarget,
                     (root.hoverTarget.width - popupBackground.implicitWidth) / 2, 0
-                ).x;
+                ).x, popupWindow.implicitWidth, popupWindow.barWindow?.width ?? Infinity);
                 return Appearance.sizes.verticalBarWidth
             }
             top: {
                 if (!Config.options.bar.vertical) return Appearance.sizes.barHeight;
-                return root.QsWindow?.mapFromItem(
+                return popupWindow.clamp(root.QsWindow?.mapFromItem(
                     root.hoverTarget,
-                    (root.hoverTarget.height - popupBackground.implicitHeight) / 2, 0
-                ).y;
+                    0, (root.hoverTarget.height - popupBackground.implicitHeight) / 2
+                ).y, popupWindow.implicitHeight, popupWindow.barWindow?.height ?? Infinity);
             }
             right: Appearance.sizes.verticalBarWidth
             bottom: Appearance.sizes.barHeight

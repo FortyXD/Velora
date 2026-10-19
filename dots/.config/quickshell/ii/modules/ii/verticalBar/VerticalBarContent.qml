@@ -113,17 +113,6 @@ Item { // Bar content region
             Bar.Workspaces {
                 id: workspacesWidget
                 vertical: true
-                MouseArea {
-                    // Right-click to toggle overview
-                    anchors.fill: parent
-                    acceptedButtons: Qt.RightButton
-
-                    onPressed: event => {
-                        if (event.button === Qt.RightButton) {
-                            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
-                        }
-                    }
-                }
             }
         }
 
@@ -270,6 +259,7 @@ Item { // Bar content region
                         }
                         Bar.NotificationUnreadCount {
                             id: notificationUnreadCount
+                            color: rightSidebarButton.colText
                         }
                     }
                     MaterialSymbol {

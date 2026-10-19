@@ -10,6 +10,8 @@ pragma ComponentBehavior: Bound
 Singleton {
     id: root
     property bool barOpen: true
+    property bool barEditing: false // Bar layout edit mode: widgets ignore input while it is on
+    property string barEditScreen: "" // Name of the screen whose bar is being edited
     property bool crosshairOpen: false
     property bool desktopWidgetEditing: false // A desktop widget needs keyboard input on the background layer
     property bool sidebarLeftOpen: false
