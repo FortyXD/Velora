@@ -15,6 +15,7 @@ MouseArea {
     property int columns: 4
     property real previewCellAspectRatio: 4 / 3
     property bool useDarkMode: Appearance.m3colors.darkmode
+    property bool onlineMode: false // Showing wallpapers from the web instead of a folder
 
     function updateThumbnails() {
         const totalImageMargin = (Appearance.sizes.wallpaperSelectorItemMargins + Appearance.sizes.wallpaperSelectorItemPadding) * 2;
@@ -60,6 +61,9 @@ MouseArea {
         if (event.key === Qt.Key_Escape) {
             GlobalStates.wallpaperSelectorOpen = false;
             event.accepted = true;
+        } else if (root.onlineMode) {
+            // The online browser handles its own keys
+            event.accepted = false;
         } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_V) { // Intercept Ctrl+V to handle "paste to go to" in pickers
             root.handleFilePasting(event);
         } else if (event.modifiers & Qt.AltModifier && event.key === Qt.Key_Up) {
@@ -205,7 +209,22 @@ MouseArea {
                                         name: "Homework",
                                         path: `${Directories.pictures}/homework`
                                     }
-                                ] : []),]
+                                ] : []),
+                            {
+                                icon: "",
+                                name: "---",
+                                path: "INTENTIONALLY_INVALID_DIR"
+                            },
+                            {
+                                icon: "public",
+                                name: Translation.tr("Online"),
+                                path: "ONLINE"
+                            },
+                            {
+                                icon: "cloud_download",
+                                name: Translation.tr("Downloaded"),
+                                path: OnlineWallpapers.downloadDir
+                            },]
                         delegate: RippleButton {
                             id: quickDirButton
                             required property var modelData
@@ -213,9 +232,13 @@ MouseArea {
                                 left: parent.left
                                 right: parent.right
                             }
-                            onClicked: Wallpapers.setDirectory(quickDirButton.modelData.path)
+                            onClicked: {
+                                root.onlineMode = quickDirButton.modelData.path === "ONLINE";
+                                if (root.onlineMode) onlineLoader.item?.focusSearch();
+                                else Wallpapers.setDirectory(quickDirButton.modelData.path);
+                            }
                             enabled: modelData.icon.length > 0
-                            toggled: Wallpapers.directory === Qt.resolvedUrl(modelData.path)
+                            toggled: modelData.path === "ONLINE" ? root.onlineMode : (!root.onlineMode && Wallpapers.directory === Qt.resolvedUrl(modelData.path))
                             colBackgroundToggled: Appearance.colors.colSecondaryContainer
                             colBackgroundToggledHover: Appearance.colors.colSecondaryContainerHover
                             colRippleToggled: Appearance.colors.colSecondaryContainerActive
@@ -241,8 +264,22 @@ MouseArea {
                 }
             }
 
+            Loader {
+                id: onlineLoader
+                visible: root.onlineMode
+                active: root.onlineMode
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.margins: 4
+                sourceComponent: OnlineWallpaperBrowser {
+                    columns: root.columns
+                    Component.onCompleted: focusSearch()
+                }
+            }
+
             ColumnLayout {
                 id: gridColumnLayout
+                visible: !root.onlineMode
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 

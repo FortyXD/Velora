@@ -1,0 +1,27 @@
+{
+    "version": 1,
+    "name": "Wallpaper of the day",
+    "icon": "today",
+    "order": 5,
+    "description": "A new photo from Bing every day, with colors picked to suit it",
+    "theme": {
+        "config": {
+            "appearance": {
+                "palette": {
+                    "type": "auto"
+                }
+            }
+        },
+        "hyprland": {}
+    },
+    "wallpaperAnimations": {
+        "wallpaper": "daily:bing",
+        "animationProfile": "material",
+        "config": {
+            "appearance": {
+                "animationSpeed": 1
+            }
+        },
+        "hyprland": {}
+    }
+}

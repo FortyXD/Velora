@@ -31,6 +31,8 @@ ShellRoot {
         Wallpapers.load()
         Updates.load()
         Presets.load()
+        OnlineWallpapers.load()
+        WallpaperOfTheDay.load()
     }
 
 

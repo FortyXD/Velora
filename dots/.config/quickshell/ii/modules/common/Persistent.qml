@@ -85,6 +85,11 @@ Singleton {
                 property bool inhibit: false
             }
 
+            property JsonObject wallpaperOfTheDay: JsonObject {
+                property string lastDate: ""
+                property string lastSource: ""
+            }
+
             property JsonObject overlay: JsonObject {
                 property list<string> open: ["crosshair", "recorder", "volumeMixer", "resources"]
                 property JsonObject crosshair: JsonObject {
