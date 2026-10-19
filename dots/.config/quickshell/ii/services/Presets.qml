@@ -65,6 +65,8 @@ Singleton {
         backupCheck.running = true;
     }
 
+    readonly property var defaultPreset: root.presets.find(preset => preset.isDefault) ?? null
+
     function find(id) {
         return root.presets.find(preset => preset.id === id) ?? null;
     }
@@ -245,16 +247,16 @@ Singleton {
     }
 
     // Saves the current settings of the chosen categories as a new preset
-    function saveCurrent(name, description, categories) {
+    function saveCurrent(name, description, categories, extra = {}) {
         const slug = name.toLowerCase().replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-+|-+$/g, "") || `preset-${Date.now()}`;
         const dir = `${root.userDir}/${slug}`;
         const options = ObjectUtils.toPlainObject(Config.options);
-        let preset = {
+        let preset = Object.assign({
             "name": name,
             "description": description,
             "icon": "bookmark",
             "version": 1,
-        };
+        }, extra);
         for (const category of categories) {
             preset[category] = { "config": root.filterConfig(options, root.allowedPaths[category]) };
             if (root.allowedHyprland[category]) {
@@ -341,8 +343,9 @@ Singleton {
                         console.warn("[Presets] Couldn't read a preset:", e);
                     }
                 }
-                // Built-in first, in their own order, then yours by name
-                list.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "builtin" ? -1 : 1)
+                // Your default look first, then built-in ones in their own order, then yours by name
+                list.sort((a, b) => (!!b.isDefault - !!a.isDefault)
+                    || (a.kind === b.kind ? 0 : a.kind === "builtin" ? -1 : 1)
                     || (a.order ?? 100) - (b.order ?? 100) || (a.name ?? "").localeCompare(b.name ?? ""));
                 root.presets = list;
             }
@@ -413,6 +416,11 @@ Singleton {
         }
         function undo(): void {
             root.undo();
+        }
+        // Saves everything as it is now as your default look
+        function saveDefault(name: string): void {
+            root.saveCurrent(name.length > 0 ? name : Translation.tr("My look"), Translation.tr("Your own wallpaper, bar, theme, dock and motion"),
+                root.categoryIds, { "icon": "home", "isDefault": true });
         }
         function reload(): void {
             root.load();
