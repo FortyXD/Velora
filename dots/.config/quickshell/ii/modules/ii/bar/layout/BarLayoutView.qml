@@ -2,9 +2,11 @@ import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.common.functions
 import qs.modules.ii.bar.edit
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 import Quickshell
 
 /**
@@ -160,6 +162,16 @@ Item {
         id: factory
     }
 
+    // Soft shadow under the zones' contents, so text stays readable on a see-through bar
+    component ZoneShadow: MultiEffect {
+        shadowEnabled: true
+        shadowBlur: 0.5
+        shadowColor: ColorUtils.transparentize(Appearance.m3colors.m3shadow, 0.35)
+        shadowVerticalOffset: 1
+        shadowHorizontalOffset: 0
+    }
+    readonly property bool textShadow: Config.options.bar.style.textShadow
+
     component CenterSeparator: Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         implicitWidth: 1
@@ -167,9 +179,12 @@ Item {
         color: Appearance.colors.colOutlineVariant
     }
 
+    readonly property bool drawsBackground: Config.options.bar.showBackground && !Config.options.bar.style.islands
+    readonly property real edgePadding: Config.options.bar.style.edgePadding >= 0 ? Config.options.bar.style.edgePadding : Appearance.rounding.screenRounding
+
     // Background shadow
     Loader {
-        active: Config.options.bar.showBackground && Config.options.bar.cornerStyle === 1 && Config.options.bar.floatStyleShadow
+        active: root.drawsBackground && Config.options.bar.cornerStyle === 1 && Config.options.bar.floatStyleShadow
         anchors.fill: barBackground
         sourceComponent: StyledRectangularShadow {
             anchors.fill: undefined // The loader's anchors act on this, and this should not have any anchor
@@ -181,16 +196,18 @@ Item {
         id: barBackground
         anchors {
             fill: parent
-            margins: Config.options.bar.cornerStyle === 1 ? (Appearance.sizes.hyprlandGapsOut) : 0 // idk why but +1 is needed
+            margins: Config.options.bar.cornerStyle === 1 ? Appearance.sizes.barFloatMargin : 0
         }
-        color: Config.options.bar.showBackground ? Appearance.colors.colLayer0 : "transparent"
-        radius: Config.options.bar.cornerStyle === 1 ? Appearance.rounding.windowRounding : 0
-        border.width: Config.options.bar.cornerStyle === 1 ? 1 : 0
+        color: root.drawsBackground ? Appearance.colors.colBarBackground : "transparent"
+        radius: Config.options.bar.cornerStyle === 1 ? (Config.options.bar.style.radius >= 0 ? Config.options.bar.style.radius : Appearance.rounding.windowRounding) : 0
+        border.width: Config.options.bar.cornerStyle === 1 && root.drawsBackground ? 1 : 0
         border.color: Appearance.colors.colLayer0Border
     }
 
     BarZone {
         id: startZone
+        layer.enabled: root.textShadow
+        layer.effect: ZoneShadow {}
         editing: root.editing
         onMenuRequested: (x, y) => root.openMenu(startZone, x, y)
         zoneName: "start"
@@ -205,7 +222,7 @@ Item {
             right: middleRow.left
         }
         outerSide: "left"
-        outerPadding: Appearance.rounding.screenRounding
+        outerPadding: root.edgePadding
         innerPadding: Appearance.rounding.screenRounding
         spacing: 10
     }
@@ -221,6 +238,8 @@ Item {
 
         BarZone {
             id: centerStartZone
+            layer.enabled: root.textShadow
+            layer.effect: ZoneShadow {}
             editing: root.editing
             onMenuRequested: (x, y) => root.openMenu(centerStartZone, x, y)
             zoneName: "centerStart"
@@ -240,6 +259,8 @@ Item {
 
         BarZone {
             id: centerZone
+            layer.enabled: root.textShadow
+            layer.effect: ZoneShadow {}
             editing: root.editing
             onMenuRequested: (x, y) => root.openMenu(centerZone, x, y)
             zoneName: "center"
@@ -257,6 +278,8 @@ Item {
 
         BarZone {
             id: centerEndZone
+            layer.enabled: root.textShadow
+            layer.effect: ZoneShadow {}
             editing: root.editing
             onMenuRequested: (x, y) => root.openMenu(centerEndZone, x, y)
             zoneName: "centerEnd"
@@ -272,6 +295,8 @@ Item {
 
     BarZone {
         id: endZone
+        layer.enabled: root.textShadow
+        layer.effect: ZoneShadow {}
         editing: root.editing
         onMenuRequested: (x, y) => root.openMenu(endZone, x, y)
         zoneName: "end"
@@ -286,7 +311,7 @@ Item {
             right: parent.right
         }
         outerSide: "right"
-        outerPadding: Appearance.rounding.screenRounding
+        outerPadding: root.edgePadding
         innerPadding: 4
         spacing: 5
         align: "end"

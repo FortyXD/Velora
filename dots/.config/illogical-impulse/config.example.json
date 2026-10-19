@@ -222,6 +222,17 @@
         },
         "screenList": [],
         "showBackground": true,
+        "style": {
+            "backgroundOpacity": -1,
+            "edgePadding": -1,
+            "floatMargin": -1,
+            "glass": false,
+            "islands": false,
+            "pillStyle": "filled",
+            "radius": -1,
+            "textShadow": false,
+            "thickness": -1
+        },
         "tooltips": {
             "clickToShow": false
         },

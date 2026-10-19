@@ -1,4 +1,5 @@
 import qs.modules.common
+import qs.modules.common.widgets
 import QtQuick
 import QtQuick.Layouts
 
@@ -36,9 +37,22 @@ Item {
     implicitWidth: vertical ? Appearance.sizes.baseVerticalBarWidth : (gridLayout.implicitWidth + padding * 2)
     implicitHeight: vertical ? (gridLayout.implicitHeight + padding * 2) : Appearance.sizes.baseBarHeight
 
+    readonly property bool islands: Config.options.bar.style.islands
+    // Effective look of pills; the older `borderless` switch means no pills
+    readonly property string pillStyle: Config.options.bar.borderless ? "none" : Config.options.bar.style.pillStyle
+
+    Loader { // Islands float over the wallpaper, so they get a shadow
+        active: root.pill && root.islands && Config.options.bar.floatStyleShadow
+        anchors.fill: background
+        sourceComponent: StyledRectangularShadow {
+            anchors.fill: undefined
+            target: background
+        }
+    }
+
     Rectangle {
         id: background
-        visible: root.pill
+        visible: root.pill && (root.islands || root.pillStyle !== "none")
         anchors {
             fill: parent
             topMargin: root.vertical ? 0 : 4
@@ -46,8 +60,12 @@ Item {
             leftMargin: root.vertical ? 4 : 0
             rightMargin: root.vertical ? 4 : 0
         }
-        color: Config.options?.bar.borderless ? "transparent" : Appearance.colors.colLayer1
-        radius: Appearance.rounding.small
+        color: root.islands ? Appearance.colors.colBarBackground
+            : root.pillStyle === "filled" ? Appearance.colors.colLayer1 : "transparent"
+        radius: root.islands ? (Config.options.bar.style.radius >= 0 ? Config.options.bar.style.radius : Appearance.rounding.normal)
+            : Appearance.rounding.small
+        border.width: root.islands || root.pillStyle === "outlined" ? 1 : 0
+        border.color: root.islands ? Appearance.colors.colLayer0Border : Appearance.colors.colOutlineVariant
     }
 
     GridLayout {

@@ -36,32 +36,136 @@ ContentPage {
                 }
             }
             ContentSubsection {
-                title: Translation.tr("Corner style")
+                title: Translation.tr("Background")
                 ConfigSelectionArray {
-                    currentValue: Config.options.bar.cornerStyle
+                    readonly property var bar: Config.options.bar
+                    currentValue: bar.style.islands ? "islands" : !bar.showBackground ? "none" : bar.cornerStyle
                     onSelected: newValue => {
-                        Config.options.bar.cornerStyle = newValue;
+                        Config.options.bar.style.islands = newValue === "islands";
+                        Config.options.bar.showBackground = newValue !== "none";
+                        if (typeof newValue === "number") Config.options.bar.cornerStyle = newValue;
                     }
                     options: [
                         { displayName: Translation.tr("Hug"), icon: "line_curve", value: 0 },
                         { displayName: Translation.tr("Float"), icon: "page_header", value: 1 },
-                        { displayName: Translation.tr("Rect"), icon: "toolbar", value: 2 }
+                        { displayName: Translation.tr("Rect"), icon: "toolbar", value: 2 },
+                        { displayName: Translation.tr("Islands"), icon: "view_agenda", value: "islands" },
+                        { displayName: Translation.tr("None"), icon: "texture", value: "none" }
                     ]
                 }
             }
         }
 
         ContentSubsection {
-            title: Translation.tr("Group style")
+            title: Translation.tr("Widget groups")
             ConfigSelectionArray {
-                currentValue: Config.options.bar.borderless
+                currentValue: Config.options.bar.borderless ? "none" : Config.options.bar.style.pillStyle
                 onSelected: newValue => {
-                    Config.options.bar.borderless = newValue;
+                    Config.options.bar.style.pillStyle = newValue;
+                    Config.options.bar.borderless = newValue === "none";
                 }
                 options: [
-                    { displayName: Translation.tr("Pills"), icon: "location_chip", value: false },
-                    { displayName: Translation.tr("Line-separated"), icon: "split_scene", value: true }
+                    { displayName: Translation.tr("Filled pills"), icon: "location_chip", value: "filled" },
+                    { displayName: Translation.tr("Outlined pills"), icon: "crop_free", value: "outlined" },
+                    { displayName: Translation.tr("No pills"), icon: "split_scene", value: "none" }
                 ]
+            }
+        }
+
+        ConfigSwitch {
+            buttonIcon: "opacity"
+            text: Translation.tr("Own transparency")
+            description: Translation.tr("Set the bar's opacity apart from the rest of the theme")
+            autoToggle: false
+            checked: Config.options.bar.style.backgroundOpacity >= 0
+            onClicked: Config.options.bar.style.backgroundOpacity = checked ? -1 : Math.round(Appearance.colors.barOpacity * 100) / 100
+        }
+        ConfigSlider {
+            visible: Config.options.bar.style.backgroundOpacity >= 0
+            buttonIcon: "gradient"
+            text: Translation.tr("Opacity")
+            value: Math.max(0, Config.options.bar.style.backgroundOpacity)
+            onMoved: Config.options.bar.style.backgroundOpacity = Math.round(value * 100) / 100
+        }
+
+        ConfigRow {
+            uniform: true
+            ConfigSwitch {
+                buttonIcon: "blur_on"
+                text: Translation.tr("Glass")
+                description: Translation.tr("Blur what's behind a see-through bar")
+                autoToggle: false
+                checked: Config.options.bar.style.glass
+                onClicked: Config.options.bar.style.glass = !Config.options.bar.style.glass
+            }
+            ConfigSwitch {
+                buttonIcon: "format_shadow"
+                text: Translation.tr("Text shadow")
+                description: Translation.tr("Keeps text readable over the wallpaper")
+                autoToggle: false
+                checked: Config.options.bar.style.textShadow
+                onClicked: Config.options.bar.style.textShadow = !Config.options.bar.style.textShadow
+            }
+        }
+        ConfigSwitch {
+            buttonIcon: "shadow"
+            text: Translation.tr("Shadow under floating bars and islands")
+            autoToggle: false
+            checked: Config.options.bar.floatStyleShadow
+            onClicked: Config.options.bar.floatStyleShadow = !Config.options.bar.floatStyleShadow
+        }
+
+        ContentSubsection {
+            title: Translation.tr("Sizes")
+            description: Translation.tr("Leave a size at its default to follow the theme")
+
+            ConfigSpinBox {
+                icon: "height"
+                text: Translation.tr("Thickness")
+                from: 24
+                to: 96
+                stepSize: 1
+                value: Config.options.bar.vertical ? Appearance.sizes.baseVerticalBarWidth : Appearance.sizes.baseBarHeight
+                onValueChanged: {
+                    const current = Config.options.bar.vertical ? Appearance.sizes.baseVerticalBarWidth : Appearance.sizes.baseBarHeight;
+                    if (value !== current) Config.options.bar.style.thickness = value;
+                }
+            }
+            ConfigSpinBox {
+                icon: "padding"
+                text: Translation.tr("Space at the screen edges")
+                from: 0
+                to: 80
+                stepSize: 1
+                value: Config.options.bar.style.edgePadding >= 0 ? Config.options.bar.style.edgePadding : Appearance.rounding.screenRounding
+                onValueChanged: if (value !== (Config.options.bar.style.edgePadding >= 0 ? Config.options.bar.style.edgePadding : Appearance.rounding.screenRounding)) Config.options.bar.style.edgePadding = value
+            }
+            ConfigSpinBox {
+                icon: "margin"
+                text: Translation.tr("Gap around a floating bar")
+                from: 0
+                to: 60
+                stepSize: 1
+                value: Appearance.sizes.barFloatMargin
+                onValueChanged: if (value !== Appearance.sizes.barFloatMargin) Config.options.bar.style.floatMargin = value
+            }
+            ConfigSpinBox {
+                icon: "rounded_corner"
+                text: Translation.tr("Corner radius of floating bars and islands")
+                from: 0
+                to: 60
+                stepSize: 1
+                value: Config.options.bar.style.radius >= 0 ? Config.options.bar.style.radius : Appearance.rounding.windowRounding
+                onValueChanged: if (value !== (Config.options.bar.style.radius >= 0 ? Config.options.bar.style.radius : Appearance.rounding.windowRounding)) Config.options.bar.style.radius = value
+            }
+            DialogButton {
+                buttonText: Translation.tr("Default sizes")
+                onClicked: {
+                    Config.options.bar.style.thickness = -1;
+                    Config.options.bar.style.edgePadding = -1;
+                    Config.options.bar.style.floatMargin = -1;
+                    Config.options.bar.style.radius = -1;
+                }
             }
         }
 

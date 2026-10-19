@@ -26,7 +26,13 @@ Scope {
         }
         LazyLoader {
             id: barLoader
-            active: GlobalStates.barOpen && !GlobalStates.screenLocked
+            property bool recreating: false
+            active: GlobalStates.barOpen && !GlobalStates.screenLocked && !recreating
+            readonly property bool glass: Config.options.bar.style.glass
+            onGlassChanged: {
+                recreating = true;
+                Qt.callLater(() => recreating = false);
+            }
             required property ShellScreen modelData
             component: PanelWindow { // Bar window
                 id: barRoot
@@ -56,8 +62,9 @@ Scope {
                 property bool mustShow: hoverRegion.containsMouse || superShow || editingHere
                 exclusionMode: ExclusionMode.Ignore
                 exclusiveZone: (Config?.options.bar.autoHide.enable && (!mustShow || !Config?.options.bar.autoHide.pushWindows)) ? 0 :
-                    Appearance.sizes.baseBarHeight + (Config.options.bar.cornerStyle === 1 ? Appearance.sizes.hyprlandGapsOut : 0)
-                WlrLayershell.namespace: "quickshell:bar"
+                    Appearance.sizes.baseBarHeight + (Appearance.sizes.barFloating ? Appearance.sizes.barFloatMargin : 0)
+                // Glass has its own blur rules; a layer can't change namespace, so the window is recreated
+                WlrLayershell.namespace: Config.options.bar.style.glass ? "quickshell:barGlass" : "quickshell:bar"
                 implicitHeight: Appearance.sizes.barHeight + Appearance.rounding.screenRounding
                     + (editingHere ? editDrawerLoader.implicitHeight + 16 : 0)
                 // While editing, the drawer under the bar takes input too
@@ -159,7 +166,7 @@ Scope {
                             bottom: undefined
                         }
                         height: Appearance.rounding.screenRounding
-                        active: showBarBackground && Config.options.bar.cornerStyle === 0 // Hug
+                        active: showBarBackground && Config.options.bar.cornerStyle === 0 && !Config.options.bar.style.islands // Hug
 
                         states: State {
                             name: "bottom"
@@ -186,7 +193,7 @@ Scope {
                                 }
 
                                 implicitSize: Appearance.rounding.screenRounding
-                                color: showBarBackground ? Appearance.colors.colLayer0 : "transparent"
+                                color: showBarBackground ? Appearance.colors.colBarBackground : "transparent"
 
                                 corner: RoundCorner.CornerEnum.TopLeft
                                 states: State {
@@ -205,7 +212,7 @@ Scope {
                                     bottom: Config.options.bar.bottom ? parent.bottom : undefined
                                 }
                                 implicitSize: Appearance.rounding.screenRounding
-                                color: showBarBackground ? Appearance.colors.colLayer0 : "transparent"
+                                color: showBarBackground ? Appearance.colors.colBarBackground : "transparent"
 
                                 corner: RoundCorner.CornerEnum.TopRight
                                 states: State {

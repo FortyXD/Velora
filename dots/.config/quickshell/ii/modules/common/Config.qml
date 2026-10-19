@@ -319,6 +319,17 @@ Singleton {
                 property bool floatStyleShadow: true // Show shadow behind bar when cornerStyle == 1 (Float)
                 property var layout: null // Widget layout of the horizontal bar (format: BarLayoutDefaults); null = built-in
                 property var verticalLayout: null // Same for the vertical bar
+                property JsonObject style: JsonObject {
+                    property int thickness: -1 // Height of the bar (width when vertical) in pixels; -1 = default
+                    property real backgroundOpacity: -1 // 0-1, for the bar only; -1 = follow the theme's transparency
+                    property bool islands: false // No bar background: each group of widgets floats as its own card
+                    property string pillStyle: "filled" // Groups of widgets: filled | outlined | none
+                    property int edgePadding: -1 // From the screen edge to the first widget; -1 = default
+                    property int floatMargin: -1 // Distance from the screen edges for Float and islands; -1 = window gaps
+                    property int radius: -1 // Corners of the Float bar and of islands; -1 = window rounding
+                    property bool textShadow: false // Shadow under text and icons, for see-through bars
+                    property bool glass: false // Blur what's behind a see-through bar
+                }
                 property bool borderless: false // true for no grouping of items
                 property string topLeftIcon: "spark" // Options: "distro" or any icon name in ~/.config/quickshell/ii/assets/icons
                 property bool showBackground: true

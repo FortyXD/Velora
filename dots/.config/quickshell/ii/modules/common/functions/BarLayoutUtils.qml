@@ -8,12 +8,20 @@ Singleton {
     id: root
 
     // Splits a zone into runs: consecutive `pill` items share one pill until an item has `pillBreak`;
-    // every other item stands alone.
-    function segments(items) {
+    // every other item stands alone. With `islands`, every run of widgets becomes one card, split
+    // only by flexible spaces and `pillBreak`.
+    function segments(items, islands = false) {
         let result = [];
         let current = null;
         for (const item of (items ?? [])) {
-            if (item.pill) {
+            if (islands && item.type !== "spacer") {
+                if (current && !item.pillBreak) {
+                    current.items.push(item);
+                } else {
+                    current = { "pill": true, "items": [item] };
+                    result.push(current);
+                }
+            } else if (item.pill && !islands) {
                 if (current && !item.pillBreak) {
                     current.items.push(item);
                 } else {

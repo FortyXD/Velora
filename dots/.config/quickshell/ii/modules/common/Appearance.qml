@@ -117,6 +117,10 @@ Singleton {
         property color colLayer0Hover: ColorUtils.transparentize(ColorUtils.mix(colLayer0, colOnLayer0, 0.9, root.contentTransparency))
         property color colLayer0Active: ColorUtils.transparentize(ColorUtils.mix(colLayer0, colOnLayer0, 0.8, root.contentTransparency))
         property color colLayer0Border: ColorUtils.mix(root.m3colors.m3outlineVariant, colLayer0, 0.4)
+        // Bar background: its own opacity if set, a see-through default for glass, else the theme's
+        readonly property real barOpacity: Config.options.bar.style.backgroundOpacity >= 0 ? Config.options.bar.style.backgroundOpacity
+            : Config.options.bar.style.glass ? Math.min(0.6, 1 - root.backgroundTransparency) : 1 - root.backgroundTransparency
+        property color colBarBackground: ColorUtils.applyAlpha(colLayer0Base, barOpacity)
         // Layer 1
         property color colLayer1Base: m3colors.m3surfaceContainerLow
         property color colLayer1: ColorUtils.solveOverlayColor(colLayer0Base, colLayer1Base, 1 - root.contentTransparency);
@@ -385,9 +389,11 @@ Singleton {
     }
 
     sizes: QtObject {
-        property real baseBarHeight: 40
-        property real barHeight: Config.options.bar.cornerStyle === 1 ? 
-            (baseBarHeight + root.sizes.hyprlandGapsOut * 2) : baseBarHeight
+        property real baseBarHeight: Config.options.bar.style.thickness > 0 ? Config.options.bar.style.thickness : 40
+        // Float and islands keep the bar off the screen edges
+        readonly property bool barFloating: Config.options.bar.cornerStyle === 1 || Config.options.bar.style.islands
+        readonly property real barFloatMargin: Config.options.bar.style.floatMargin >= 0 ? Config.options.bar.style.floatMargin : root.sizes.hyprlandGapsOut
+        property real barHeight: barFloating ? (baseBarHeight + barFloatMargin * 2) : baseBarHeight
         property real barCenterSideModuleWidth: Config.options?.bar.verbose ? 360 : 140
         property real barCenterSideModuleWidthShortened: 280
         property real barCenterSideModuleWidthHellaShortened: 190
@@ -405,9 +411,8 @@ Singleton {
         property real searchWidth: 360
         property real sidebarWidth: 460
         property real sidebarWidthExtended: 750
-        property real baseVerticalBarWidth: 46
-        property real verticalBarWidth: Config.options.bar.cornerStyle === 1 ? 
-            (baseVerticalBarWidth + root.sizes.hyprlandGapsOut * 2) : baseVerticalBarWidth
+        property real baseVerticalBarWidth: Config.options.bar.style.thickness > 0 ? Config.options.bar.style.thickness : 46
+        property real verticalBarWidth: barFloating ? (baseVerticalBarWidth + barFloatMargin * 2) : baseVerticalBarWidth
         property real wallpaperSelectorWidth: 1200
         property real wallpaperSelectorHeight: 690
         property real wallpaperSelectorItemMargins: 8

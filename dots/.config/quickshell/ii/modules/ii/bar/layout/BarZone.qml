@@ -33,7 +33,7 @@ FocusedScrollMouseArea {
 
     signal menuRequested(real x, real y) // Right click on the free space
 
-    readonly property var segments: BarLayoutUtils.segments(items)
+    readonly property var segments: BarLayoutUtils.segments(items, Config.options.bar.style.islands)
     readonly property var segmentItems: {
         let result = [];
         for (let i = 0; i < repeater.count; i++) {
