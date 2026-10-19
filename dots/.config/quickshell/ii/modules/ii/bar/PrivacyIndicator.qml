@@ -29,7 +29,8 @@ MouseArea {
     hoverEnabled: !Config.options.bar.tooltips.clickToShow
     implicitWidth: revealer.implicitWidth
     implicitHeight: Appearance.sizes.baseBarHeight
-    visible: root.shown || revealer.implicitWidth > 0
+    readonly property bool barVisible: root.shown || revealer.implicitWidth > 0
+    visible: barVisible
 
     Revealer {
         id: revealer
