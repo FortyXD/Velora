@@ -181,9 +181,8 @@ Item {
     }
     readonly property bool textShadow: Config.options.bar.style.textShadow
 
+    // Centered by the Grid's item alignment: anchors aren't allowed inside a Grid and would stop it
     component CenterSeparator: Rectangle {
-        anchors.verticalCenter: root.vertical ? undefined : parent?.verticalCenter
-        anchors.horizontalCenter: root.vertical ? parent?.horizontalCenter : undefined
         implicitWidth: root.vertical ? Appearance.sizes.baseVerticalBarWidth / 3 : 1
         implicitHeight: root.vertical ? 1 : Appearance.sizes.baseBarHeight / 3
         color: Appearance.colors.colOutlineVariant
@@ -253,6 +252,8 @@ Item {
         rows: root.vertical ? 5 : 1
         columns: root.vertical ? 1 : 5
         spacing: 4
+        verticalItemAlignment: Grid.AlignVCenter
+        horizontalItemAlignment: Grid.AlignHCenter
 
         BarZone {
             id: centerStartZone
