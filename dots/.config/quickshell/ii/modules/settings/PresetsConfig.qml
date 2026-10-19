@@ -136,12 +136,30 @@ ContentPage {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 2
-                        StyledText {
+                        RowLayout {
                             Layout.fillWidth: true
-                            elide: Text.ElideRight
-                            text: Translation.tr(card.preset.name)
-                            font.pixelSize: Appearance.font.pixelSize.normal
-                            color: card.expanded ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
+                            spacing: 6
+                            StyledText {
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                                text: Translation.tr(card.preset.name)
+                                font.pixelSize: Appearance.font.pixelSize.normal
+                                color: card.expanded ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
+                            }
+                            Rectangle {
+                                visible: !!card.preset.isDefault
+                                implicitWidth: defaultLabel.implicitWidth + 12
+                                implicitHeight: defaultLabel.implicitHeight + 4
+                                radius: height / 2
+                                color: Appearance.colors.colPrimary
+                                StyledText {
+                                    id: defaultLabel
+                                    anchors.centerIn: parent
+                                    text: Translation.tr("Default")
+                                    font.pixelSize: Appearance.font.pixelSize.smallest
+                                    color: Appearance.colors.colOnPrimary
+                                }
+                            }
                         }
                         StyledText {
                             Layout.fillWidth: true
@@ -259,6 +277,28 @@ ContentPage {
             delegate: PresetCard {
                 required property var modelData
                 preset: modelData
+            }
+        }
+    }
+
+    ContentSection {
+        visible: Presets.defaultPreset !== null
+        icon: "home"
+        title: Translation.tr("Your look")
+        description: Translation.tr("Your wallpaper, bar, theme, dock and motion as you saved them. Come back to them any time.")
+
+        RowLayout {
+            spacing: 6
+            DialogButton {
+                buttonText: Translation.tr("Return to my look")
+                onClicked: page.applyPreset(Presets.defaultPreset.id, Presets.categoriesOf(Presets.defaultPreset))
+            }
+            DialogButton {
+                buttonText: Translation.tr("Save the current setup as my look")
+                onClicked: {
+                    Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "presets", "saveDefault", Presets.defaultPreset.name]);
+                    refreshTimer.restart();
+                }
             }
         }
     }
