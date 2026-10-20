@@ -23,7 +23,10 @@ Scope {
         id: cornerPanelWindow
         property var brightnessMonitor: Brightness.getMonitorForScreen(screen)
         property bool fullscreen
-        visible: (Config.options.appearance.fakeScreenRounding === 1 || (Config.options.appearance.fakeScreenRounding === 2 && !fullscreen))
+        // Stays mapped behind fullscreen windows and only hides the corner: mapping it again on leaving
+        // fullscreen made the corners pop in a moment late
+        readonly property bool cornerShown: Config.options.appearance.fakeScreenRounding === 1 || (Config.options.appearance.fakeScreenRounding === 2 && !fullscreen)
+        visible: Config.options.appearance.fakeScreenRounding !== 0
         property var corner
 
         exclusionMode: ExclusionMode.Ignore
@@ -51,6 +54,7 @@ Scope {
         RoundCorner {
             id: cornerWidget
             anchors.fill: parent
+            opacity: cornerPanelWindow.cornerShown ? 1 : 0
             corner: cornerPanelWindow.corner
             rightVisualMargin: (Config.options.interactions.deadPixelWorkaround.enable && cornerPanelWindow.anchors.right) * 1
             bottomVisualMargin: (Config.options.interactions.deadPixelWorkaround.enable && cornerPanelWindow.anchors.bottom) * 1
