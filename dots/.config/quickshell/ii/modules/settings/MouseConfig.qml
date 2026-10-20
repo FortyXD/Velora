@@ -79,6 +79,17 @@ ContentPage {
             buttonIcon: "unfold_more"
             text: Translation.tr("Scroll speed")
         }
+        ConfigSlider {
+            buttonIcon: "speed"
+            text: Translation.tr("Scroll speed in the shell")
+            description: Translation.tr("Settings, sidebars and lists. Browsers and Electron apps scroll about 10× the speed above, so 10 matches them.")
+            from: 1
+            to: 20
+            usePercentTooltip: false
+            valueText: `${Math.round(value)}×`
+            value: Config.options.interactions.scrolling.touchpadSpeed
+            onMoved: Config.options.interactions.scrolling.touchpadSpeed = Math.round(value)
+        }
     }
 
     ContentSection {
