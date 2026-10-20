@@ -18,6 +18,13 @@ AbstractWidget {
     property bool visibleWhenLocked: false
     property var configEntry: Config.options.background.widgets[configEntryName]
     property string placementStrategy: configEntry.placementStrategy
+    // Widgets placed by the wallpaper take turns, each in the next free spot, so they don't stack up
+    readonly property list<string> autoPlacementOrder: ["clock", "weather", "systemMonitor", "media", "calendar", "countdown", "note", "pomodoro"]
+    readonly property int placementSlot: {
+        const widgets = Config.options.background.widgets;
+        const before = root.autoPlacementOrder.slice(0, Math.max(0, root.autoPlacementOrder.indexOf(root.configEntryName)));
+        return before.filter(name => widgets[name]?.enable && widgets[name]?.placementStrategy === root.placementStrategy).length;
+    }
     property real targetX: Math.max(0, Math.min(configEntry.x, scaledScreenWidth - width))
     property real targetY : Math.max(0, Math.min(configEntry.y, scaledScreenHeight - height))
     x: targetX
@@ -54,6 +61,7 @@ AbstractWidget {
     
     onWallpaperPathChanged: refreshPlacementIfNeeded()
     onPlacementStrategyChanged: refreshPlacementIfNeeded()
+    onPlacementSlotChanged: refreshPlacementIfNeeded()
     Connections {
         target: Config
         function onReadyChanged() { refreshPlacementIfNeeded() }
@@ -82,6 +90,7 @@ AbstractWidget {
             , "--vertical-padding", verticalPadding //
             , wallpaperPath //
             , ...(root.placementStrategy === "mostBusy" ? ["--busiest"] : [])
+            , "--slot", root.placementSlot
             // "--visual-output",
         ]
         stdout: StdioCollector {

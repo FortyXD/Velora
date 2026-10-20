@@ -219,7 +219,9 @@ Item {
         columnSpacing: 0
         rowSpacing: 0
 
-        anchors.fill: parent
+        // Centered like the circles below, which keeps them lined up when the bar gives less than barHeight
+        anchors.fill: root.vertical ? parent : undefined
+        anchors.centerIn: root.vertical ? undefined : parent
 
         Repeater {
             model: root.workspacesShown

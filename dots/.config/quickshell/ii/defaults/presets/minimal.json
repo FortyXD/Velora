@@ -3,7 +3,7 @@
     "name": "Minimal",
     "icon": "crop_square",
     "order": 2,
-    "description": "Only workspaces, time and status on a see-through bar; crisp and quick",
+    "description": "Only workspaces, status and the clock on a thin borderless bar; crisp and quick",
     "bar": {
         "config": {
             "bar": {
@@ -14,9 +14,6 @@
                         "start": {
                             "click": "overview",
                             "scroll": "workspaces"
-                        },
-                        "center": {
-                            "click": "sidebarRight"
                         },
                         "end": {
                             "click": "sidebarRight",
@@ -32,13 +29,7 @@
                             }
                         ],
                         "centerStart": [],
-                        "center": [
-                            {
-                                "uid": "clk",
-                                "type": "clock",
-                                "pill": true
-                            }
-                        ],
+                        "center": [],
                         "centerEnd": [],
                         "end": [
                             {
@@ -47,19 +38,23 @@
                                 "hideAt": 1
                             },
                             {
-                                "uid": "prv",
-                                "type": "privacy"
-                            },
-                            {
                                 "uid": "st",
                                 "type": "statusIndicators"
+                            },
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "options": {
+                                    "showDate": false
+                                }
                             }
                         ]
                     }
                 },
                 "verticalLayout": null,
                 "style": {
-                    "thickness": -1,
+                    "thickness": 34,
                     "backgroundOpacity": -1,
                     "islands": false,
                     "pillStyle": "none",
@@ -70,11 +65,14 @@
                     "glass": false
                 },
                 "cornerStyle": 0,
-                "showBackground": false,
+                "showBackground": true,
                 "borderless": true,
                 "bottom": false,
                 "vertical": false,
-                "floatStyleShadow": true
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
             }
         }
     },
@@ -86,6 +84,9 @@
                     "automatic": true,
                     "backgroundTransparency": 0.11,
                     "contentTransparency": 0.57
+                },
+                "palette": {
+                    "type": "auto"
                 }
             }
         },
@@ -97,7 +98,8 @@
             "decoration:shadow:enabled": false,
             "decoration:dim_inactive": false,
             "general:border_size": 2
-        }
+        },
+        "mode": "dark"
     },
     "dockWidgets": {
         "config": {
