@@ -3,7 +3,7 @@
     "name": "Deep ocean",
     "icon": "water",
     "order": 25,
-    "description": "Sharks in stylized waves, a full dashboard bar hugging the top, deep blue",
+    "description": "Sharks in stylized waves, readings on the left and weather on the right, deep blue",
     "wallpaperPreview": "https://th.wallhaven.cc/lg/m9/m9wjv9.jpg",
     "credits": {
         "title": "Sharks",
@@ -47,14 +47,7 @@
                                 "hideAt": 1
                             }
                         ],
-                        "centerStart": [
-                            {
-                                "uid": "isl",
-                                "type": "island",
-                                "pill": true,
-                                "hideAt": 2
-                            }
-                        ],
+                        "centerStart": [],
                         "center": [
                             {
                                 "uid": "ws",
@@ -67,24 +60,21 @@
                                 "uid": "clk",
                                 "type": "clock",
                                 "pill": true,
-                                "fill": true
-                            },
-                            {
-                                "uid": "ub",
-                                "type": "utilButtons",
-                                "pill": true,
-                                "hideAt": 1
+                                "options": {
+                                    "showDate": true
+                                }
                             }
                         ],
                         "end": [
                             {
-                                "uid": "wx",
-                                "type": "weather",
-                                "pill": true
-                            },
-                            {
                                 "uid": "upd",
                                 "type": "updates"
+                            },
+                            {
+                                "uid": "wx",
+                                "type": "weather",
+                                "pill": true,
+                                "hideAt": 2
                             },
                             {
                                 "uid": "sp",

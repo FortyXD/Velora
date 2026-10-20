@@ -224,6 +224,8 @@ Singleton {
             Config.options.background.daily.source = preset.wallpaperAnimations.wallpaper.slice(6);
             Config.options.background.daily.enable = true;
             WallpaperOfTheDay.run();
+        } else if (wallpaper.length > 0 || remote) {
+            Config.options.background.daily.enable = false; // A look with its own picture keeps it
         }
         root.applying = false;
         root.hasBackup = true;

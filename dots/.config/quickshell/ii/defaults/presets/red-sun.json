@@ -3,7 +3,7 @@
     "name": "Red sun",
     "icon": "wb_sunny",
     "order": 26,
-    "description": "Ink-style red hills in light colors, a solid classic bar at the bottom",
+    "description": "Ink-style red hills in light colors, a solid bar with the clock first and quick toggles",
     "wallpaperPreview": "https://th.wallhaven.cc/lg/96/96rgr1.jpg",
     "credits": {
         "title": "Red sun",
@@ -16,9 +16,12 @@
             "bar": {
                 "layout": {
                     "version": 1,
-                    "balanceCenter": false,
+                    "balanceCenter": true,
                     "actions": {
                         "start": {
+                            "click": "sidebarRight"
+                        },
+                        "center": {
                             "scroll": "workspaces"
                         },
                         "end": {
@@ -29,41 +32,49 @@
                     "zones": {
                         "start": [
                             {
-                                "uid": "search",
-                                "type": "launcher"
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "options": {
+                                    "showDate": true
+                                }
                             },
+                            {
+                                "uid": "bat",
+                                "type": "battery",
+                                "pill": true
+                            }
+                        ],
+                        "centerStart": [],
+                        "center": [
                             {
                                 "uid": "ws",
                                 "type": "workspaces",
                                 "pill": true
-                            },
-                            {
-                                "uid": "aw",
-                                "type": "activeWindow",
-                                "hideAt": 1
                             }
                         ],
-                        "centerStart": [],
-                        "center": [],
                         "centerEnd": [],
                         "end": [
+                            {
+                                "uid": "dark",
+                                "type": "darkMode"
+                            },
+                            {
+                                "uid": "night",
+                                "type": "nightLight"
+                            },
                             {
                                 "uid": "tray",
                                 "type": "sysTray",
                                 "hideAt": 1
                             },
                             {
-                                "uid": "prv",
-                                "type": "privacy"
-                            },
-                            {
                                 "uid": "st",
                                 "type": "statusIndicators"
                             },
                             {
-                                "uid": "clk",
-                                "type": "clock",
-                                "pill": true
+                                "uid": "pwr",
+                                "type": "session"
                             }
                         ]
                     }
@@ -83,7 +94,7 @@
                 "cornerStyle": 2,
                 "showBackground": true,
                 "borderless": false,
-                "bottom": true,
+                "bottom": false,
                 "vertical": false,
                 "floatStyleShadow": true,
                 "weather": {

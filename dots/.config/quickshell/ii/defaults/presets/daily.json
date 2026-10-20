@@ -3,7 +3,7 @@
     "name": "Wallpaper of the day",
     "icon": "today",
     "order": 5,
-    "description": "A new photo from Bing every day, with colors picked to suit it",
+    "description": "A new photo from Bing every day, a see-through bar over it and colors picked to suit it",
     "theme": {
         "config": {
             "appearance": {
@@ -12,7 +12,8 @@
                 }
             }
         },
-        "hyprland": {}
+        "hyprland": {},
+        "mode": "dark"
     },
     "wallpaperAnimations": {
         "wallpaper": "daily:bing",
@@ -23,5 +24,94 @@
             }
         },
         "hyprland": {}
+    },
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": true,
+                    "actions": {
+                        "start": {
+                            "click": "sidebarLeft",
+                            "scroll": "brightness"
+                        },
+                        "centerEnd": {
+                            "click": "sidebarRight"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "lsb",
+                                "type": "leftSidebarButton"
+                            },
+                            {
+                                "uid": "aw",
+                                "type": "activeWindow",
+                                "hideAt": 1
+                            }
+                        ],
+                        "centerStart": [],
+                        "center": [
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            }
+                        ],
+                        "centerEnd": [],
+                        "end": [
+                            {
+                                "uid": "wall",
+                                "type": "wallpaperButton"
+                            },
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            },
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "options": {
+                                    "showDate": true
+                                }
+                            }
+                        ]
+                    }
+                },
+                "verticalLayout": null,
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": -1,
+                    "islands": false,
+                    "pillStyle": "filled",
+                    "edgePadding": -1,
+                    "floatMargin": -1,
+                    "radius": -1,
+                    "textShadow": true,
+                    "glass": false
+                },
+                "cornerStyle": 0,
+                "showBackground": false,
+                "borderless": false,
+                "bottom": false,
+                "vertical": false,
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
+            }
+        }
     }
 }

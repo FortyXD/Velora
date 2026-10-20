@@ -90,6 +90,9 @@
                     "automatic": true,
                     "backgroundTransparency": 0.11,
                     "contentTransparency": 0.57
+                },
+                "palette": {
+                    "type": "auto"
                 }
             }
         },
@@ -101,7 +104,8 @@
             "decoration:shadow:enabled": true,
             "decoration:dim_inactive": true,
             "general:border_size": 1
-        }
+        },
+        "mode": "dark"
     },
     "dockWidgets": {
         "config": {

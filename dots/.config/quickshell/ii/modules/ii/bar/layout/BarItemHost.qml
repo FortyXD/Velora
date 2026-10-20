@@ -48,6 +48,8 @@ Item {
     Layout.minimumWidth: !vertical && minLength > 0 ? minLength : -1
     Layout.minimumHeight: vertical && minLength > 0 ? minLength : -1
     Layout.fillHeight: vertical ? fills : (meta?.fillHeight ?? false)
+    // Widgets ask for barHeight, which on a floating bar also counts its margins; keep them inside the zone so they stay centered
+    Layout.maximumHeight: !vertical && (parent?.height ?? 0) > 0 ? parent.height : Number.POSITIVE_INFINITY
     Layout.alignment: vertical ? Qt.AlignHCenter : 0
 
     Loader {

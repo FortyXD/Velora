@@ -3,14 +3,73 @@
     "name": "Performance",
     "icon": "speed",
     "order": 3,
-    "description": "No animations, blur, shadows or transparency: saves battery and the GPU",
+    "description": "A plain thin bar; no animations, blur, shadows or transparency: saves battery and the GPU",
     "bar": {
         "config": {
             "bar": {
-                "layout": null,
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": false,
+                    "actions": {
+                        "start": {
+                            "scroll": "workspaces"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            },
+                            {
+                                "uid": "aw",
+                                "type": "activeWindow",
+                                "hideAt": 1
+                            }
+                        ],
+                        "centerStart": [],
+                        "center": [],
+                        "centerEnd": [],
+                        "end": [
+                            {
+                                "uid": "res",
+                                "type": "resources",
+                                "pill": true,
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "bat",
+                                "type": "battery",
+                                "pill": true
+                            },
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            },
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "options": {
+                                    "showDate": true
+                                }
+                            }
+                        ]
+                    }
+                },
                 "verticalLayout": null,
                 "style": {
-                    "thickness": -1,
+                    "thickness": 34,
                     "backgroundOpacity": -1,
                     "islands": false,
                     "pillStyle": "filled",
@@ -25,7 +84,10 @@
                 "borderless": false,
                 "bottom": false,
                 "vertical": false,
-                "floatStyleShadow": true
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
             }
         }
     },
@@ -37,6 +99,9 @@
                     "automatic": true,
                     "backgroundTransparency": 0.11,
                     "contentTransparency": 0.57
+                },
+                "palette": {
+                    "type": "auto"
                 }
             }
         },
@@ -48,7 +113,8 @@
             "decoration:shadow:enabled": false,
             "decoration:dim_inactive": false,
             "general:border_size": 1
-        }
+        },
+        "mode": "dark"
     },
     "dockWidgets": {
         "config": {

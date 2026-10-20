@@ -18,7 +18,7 @@ def center_crop(img, target_w, target_h):
     y2 = y1 + target_h
     return img[y1:y2, x1:x2]
 
-def find_least_busy_region(image_path, region_width=300, region_height=200, screen_width=None, screen_height=None, verbose=False, stride=2, screen_mode="fill", horizontal_padding=50, vertical_padding=50, busiest=False):
+def find_least_busy_region(image_path, region_width=300, region_height=200, screen_width=None, screen_height=None, verbose=False, stride=2, screen_mode="fill", horizontal_padding=50, vertical_padding=50, busiest=False, slot=0, gap=120):
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     if img is None:
         raise FileNotFoundError(f"Image not found: {image_path}")
@@ -76,10 +76,6 @@ def find_least_busy_region(image_path, region_width=300, region_height=200, scre
         if x1 > 0 and y1 > 0:
             total += ii[y1-1, x1-1]
         return total
-    min_var = None
-    max_var = None
-    min_coords = (horizontal_padding, vertical_padding)
-    max_coords = (horizontal_padding, vertical_padding)
     area = region_width * region_height
     x_start = horizontal_padding
     y_start = vertical_padding
@@ -89,6 +85,7 @@ def find_least_busy_region(image_path, region_width=300, region_height=200, scre
         x_end = x_start
     if y_end < y_start:
         y_end = y_start
+    candidates = []
     for y in range(y_start, y_end + 1, stride):
         for x in range(x_start, x_end + 1, stride):
             x1, y1 = x, y
@@ -99,16 +96,23 @@ def find_least_busy_region(image_path, region_width=300, region_height=200, scre
             s2 = region_sum(integral_sq, x1, y1, x2, y2)
             mean = s / area
             var = (s2 / area) - (mean ** 2)
-            if (min_var is None) or (var < min_var):
-                min_var = var
-                min_coords = (x, y)
-            if (max_var is None) or (var > max_var):
-                max_var = var
-                max_coords = (x, y)
-    if busiest:
-        return max_coords, max_var
-    else:
-        return min_coords, min_var
+            candidates.append((var, x, y))
+    if not candidates:
+        return (horizontal_padding, vertical_padding), None
+    # Stable order, so every widget sees the same sequence of spots
+    candidates.sort(key=lambda c: (-c[0] if busiest else c[0], c[2], c[1]))
+    # Slot N is the best spot that keeps a gap from slots 0..N-1, so several widgets don't stack up
+    taken = []
+    best = candidates[0]
+    for _ in range(slot + 1):
+        found = next((c for c in candidates if not any(
+            c[1] < tx2 and c[1] + region_width > tx1 and c[2] < ty2 and c[2] + region_height > ty1
+            for tx1, ty1, tx2, ty2 in taken)), None)
+        if found is None:
+            break  # No room left: share the last spot
+        best = found
+        taken.append((best[1] - gap, best[2] - gap, best[1] + region_width + gap, best[2] + region_height + gap))
+    return (best[1], best[2]), best[0]
 
 def find_largest_region(image_path, screen_width=None, screen_height=None, verbose=False, stride=2, screen_mode="fill", threshold=100.0, aspect_ratio=1.0, horizontal_padding=50, vertical_padding=50):
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
@@ -322,6 +326,8 @@ def main():
     parser.add_argument("--horizontal-padding", "-hp", type=int, default=50, help="Minimum horizontal distance from region to image edge")
     parser.add_argument("--vertical-padding", "-vp", type=int, default=50, help="Minimum vertical distance from region to image edge")
     parser.add_argument("--busiest", action="store_true", help="Find the busiest region instead of the least busy")
+    parser.add_argument("--slot", type=int, default=0, help="Take the Nth best region that keeps clear of the regions before it")
+    parser.add_argument("--gap", type=int, default=120, help="Space kept between the regions of different slots")
     args = parser.parse_args()
 
     if args.largest_region:
@@ -373,7 +379,9 @@ def main():
         screen_mode=args.screen_mode,
         horizontal_padding=args.horizontal_padding,
         vertical_padding=args.vertical_padding,
-        busiest=args.busiest
+        busiest=args.busiest,
+        slot=max(0, args.slot),
+        gap=args.gap
     )
     if args.visual_output:
         draw_region(args.image_path, coords, region_width=args.width, region_height=args.height, screen_width=args.screen_width, screen_height=args.screen_height, screen_mode=args.screen_mode)

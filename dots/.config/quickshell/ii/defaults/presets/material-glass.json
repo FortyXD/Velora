@@ -3,11 +3,90 @@
     "name": "Material Glass",
     "icon": "blur_on",
     "order": 1,
-    "description": "Frosted islands over the wallpaper, round corners and springy motion",
+    "description": "Frosted islands with music in the middle, round corners and springy motion",
     "bar": {
         "config": {
             "bar": {
-                "layout": null,
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": true,
+                    "actions": {
+                        "start": {
+                            "click": "sidebarLeft",
+                            "scroll": "brightness"
+                        },
+                        "centerEnd": {
+                            "click": "sidebarRight"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "lsb",
+                                "type": "leftSidebarButton"
+                            },
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            }
+                        ],
+                        "centerStart": [
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "options": {
+                                    "showDate": true
+                                }
+                            }
+                        ],
+                        "center": [
+                            {
+                                "uid": "isl",
+                                "type": "island",
+                                "pill": true,
+                                "hideAt": 2
+                            }
+                        ],
+                        "centerEnd": [
+                            {
+                                "uid": "res",
+                                "type": "resources",
+                                "pill": true,
+                                "hideAt": 2
+                            }
+                        ],
+                        "end": [
+                            {
+                                "uid": "sp",
+                                "type": "spacer"
+                            },
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "prv",
+                                "type": "privacy"
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            },
+                            {
+                                "uid": "bat",
+                                "type": "battery",
+                                "pill": true
+                            }
+                        ]
+                    }
+                },
                 "verticalLayout": null,
                 "style": {
                     "thickness": -1,
@@ -16,7 +95,7 @@
                     "pillStyle": "filled",
                     "edgePadding": -1,
                     "floatMargin": -1,
-                    "radius": -1,
+                    "radius": 20,
                     "textShadow": false,
                     "glass": true
                 },
@@ -25,7 +104,10 @@
                 "borderless": false,
                 "bottom": false,
                 "vertical": false,
-                "floatStyleShadow": true
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
             }
         }
     },
@@ -37,6 +119,9 @@
                     "automatic": false,
                     "backgroundTransparency": 0.3,
                     "contentTransparency": 0.6
+                },
+                "palette": {
+                    "type": "auto"
                 }
             }
         },
@@ -48,7 +133,8 @@
             "decoration:shadow:enabled": true,
             "decoration:dim_inactive": true,
             "general:border_size": 1
-        }
+        },
+        "mode": "dark"
     },
     "dockWidgets": {
         "config": {
