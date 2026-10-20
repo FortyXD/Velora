@@ -75,7 +75,7 @@ ApplicationWindow {
             component: "modules/settings/WidgetsConfig.qml"
         },
         {
-            key: "desktop", group: "desktop", color: "#0A84FF", icon: "dock_to_bottom",
+            key: "desktop", group: "desktop", color: "#0A84FF", icon: "dock_to_bottom", hero: false,
             name: Translation.tr("Desktop & Dock"),
             description: Translation.tr("Window layout and gaps, the dock, overview and hot corners"),
             component: "modules/settings/DesktopConfig.qml"
