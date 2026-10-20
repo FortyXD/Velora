@@ -33,6 +33,12 @@ ApplicationWindow {
             component: "modules/settings/WifiConfig.qml"
         },
         {
+            key: "bluetooth", group: "connections", color: "#0A84FF", icon: "bluetooth", hero: false,
+            name: Translation.tr("Bluetooth"),
+            description: Translation.tr("Headphones, mice and other devices: pair, connect and forget"),
+            component: "modules/settings/BluetoothConfig.qml"
+        },
+        {
             key: "general", group: "basics", color: "#8E8E93", icon: "settings",
             name: Translation.tr("General"),
             description: Translation.tr("Language, date and time"),
