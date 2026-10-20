@@ -340,7 +340,8 @@
             "fasterTouchpadScroll": false,
             "mouseScrollDeltaThreshold": 120,
             "mouseScrollFactor": 120,
-            "touchpadScrollFactor": 450
+            "touchpadScrollFactor": 450,
+            "touchpadSpeed": 10
         }
     },
     "language": {

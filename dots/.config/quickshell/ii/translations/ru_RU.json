@@ -1927,5 +1927,7 @@
   "Pick colors, convert them and make palettes": "Пипетка, перевод цветов и палитры",
   "Toolbox": "Инструменты",
   "Converter, downloads, QR codes, text from images and colors": "Конвертер, загрузки, QR-коды, текст с картинок и цвета",
-  "Opens on": "Открывать на вкладке"
+  "Opens on": "Открывать на вкладке",
+  "Scroll speed in the shell": "Скорость прокрутки в оболочке",
+  "Settings, sidebars and lists. Browsers and Electron apps scroll about 10× the speed above, so 10 matches them.": "Настройки, боковые панели и списки. Браузеры и приложения на Electron прокручивают примерно в 10 раз быстрее скорости выше, поэтому 10 — как у них."
 }
