@@ -27,6 +27,23 @@ Singleton {
     property list<var> undoStack: []
     readonly property bool canUndo: undoStack.length > 0
 
+    // Names of the parts of the bar for editors: full title, a short label and an icon
+    function zoneInfo(orientation) {
+        const vertical = orientation === "vertical";
+        return [
+            { "zone": "start", "title": vertical ? Translation.tr("Top") : Translation.tr("Left edge"),
+              "short": vertical ? Translation.tr("Top") : Translation.tr("Left"), "icon": vertical ? "vertical_align_top" : "align_horizontal_left" },
+            { "zone": "centerStart", "title": vertical ? Translation.tr("Above center") : Translation.tr("Left of center"),
+              "short": vertical ? "↑" : "←", "icon": vertical ? "arrow_upward" : "arrow_back" },
+            { "zone": "center", "title": Translation.tr("Center"),
+              "short": Translation.tr("Center"), "icon": vertical ? "align_vertical_center" : "align_horizontal_center" },
+            { "zone": "centerEnd", "title": vertical ? Translation.tr("Below center") : Translation.tr("Right of center"),
+              "short": vertical ? "↓" : "→", "icon": vertical ? "arrow_downward" : "arrow_forward" },
+            { "zone": "end", "title": vertical ? Translation.tr("Bottom") : Translation.tr("Right edge"),
+              "short": vertical ? Translation.tr("Bottom") : Translation.tr("Right"), "icon": vertical ? "vertical_align_bottom" : "align_horizontal_right" },
+        ];
+    }
+
     function configKey(orientation) {
         return orientation === "vertical" ? "verticalLayout" : "layout";
     }

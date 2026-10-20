@@ -25,18 +25,7 @@ ContentPage {
     property string addZone: "end"
     onOrientationChanged: page.selectedUid = ""
 
-    readonly property var zoneInfo: [
-        { "zone": "start", "title": page.isVertical ? Translation.tr("Top") : Translation.tr("Left edge"),
-          "short": page.isVertical ? Translation.tr("Top") : Translation.tr("Left"), "icon": page.isVertical ? "vertical_align_top" : "align_horizontal_left" },
-        { "zone": "centerStart", "title": page.isVertical ? Translation.tr("Above center") : Translation.tr("Left of center"),
-          "short": page.isVertical ? "↑" : "←", "icon": page.isVertical ? "arrow_upward" : "arrow_back" },
-        { "zone": "center", "title": Translation.tr("Center"),
-          "short": Translation.tr("Center"), "icon": page.isVertical ? "align_vertical_center" : "align_horizontal_center" },
-        { "zone": "centerEnd", "title": page.isVertical ? Translation.tr("Below center") : Translation.tr("Right of center"),
-          "short": page.isVertical ? "↓" : "→", "icon": page.isVertical ? "arrow_downward" : "arrow_forward" },
-        { "zone": "end", "title": page.isVertical ? Translation.tr("Bottom") : Translation.tr("Right edge"),
-          "short": page.isVertical ? Translation.tr("Bottom") : Translation.tr("Right"), "icon": page.isVertical ? "vertical_align_bottom" : "align_horizontal_right" },
-    ]
+    readonly property var zoneInfo: BarLayout.zoneInfo(page.orientation)
 
     function zoneTitle(zone) {
         return page.zoneInfo.find(info => info.zone === zone)?.title ?? zone;

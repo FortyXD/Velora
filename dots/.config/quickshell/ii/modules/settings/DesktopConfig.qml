@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Quickshell
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -233,8 +234,120 @@ ContentPage {
 
     ContentSection {
         icon: "overview_key"
-        title: Translation.tr("Overview")
-        description: Translation.tr("All workspaces with live window previews and app search")
+        title: Translation.tr("Workspace overview")
+        description: Translation.tr("Search and all your workspaces at a glance, on one key")
+        searchText: `${title} ${Translation.tr("Overview")} Super ${Translation.tr("Search")} ${Translation.tr("Workspaces")}`
+
+        // What the overview is: a sketch of it, the keys that open it and a way to try it
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.margins: 12
+            spacing: 16
+
+            Rectangle {
+                id: overviewSketch
+                readonly property int rows: Config.options.overview.rows
+                readonly property int columns: Config.options.overview.columns
+                implicitWidth: 210
+                implicitHeight: 132
+                radius: Appearance.rounding.small
+                color: Appearance.colors.colLayer3
+
+                Rectangle { // Search field
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: 10
+                    width: 110
+                    height: 16
+                    radius: 8
+                    color: Appearance.colors.colLayer1
+                    MaterialSymbol {
+                        x: 5
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "search"
+                        iconSize: 11
+                        color: Appearance.colors.colSubtext
+                    }
+                }
+                Grid { // The workspaces, with a window or two in some
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: 34
+                    columns: overviewSketch.columns
+                    spacing: 3
+                    Repeater {
+                        model: overviewSketch.rows * overviewSketch.columns
+                        delegate: Rectangle {
+                            required property int index
+                            width: Math.min(34, (190 - 3 * (overviewSketch.columns - 1)) / overviewSketch.columns)
+                            height: Math.min(width * 0.62, (88 - 3 * (overviewSketch.rows - 1)) / overviewSketch.rows)
+                            radius: 3
+                            color: index === 0 ? Appearance.colors.colSecondaryContainer : Appearance.colors.colLayer1
+                            border.width: index === 0 ? 1 : 0
+                            border.color: Appearance.colors.colPrimary
+                            Rectangle {
+                                visible: index % 3 !== 2
+                                x: 2
+                                y: 2
+                                width: index % 3 === 0 ? parent.width / 2 - 3 : parent.width - 4
+                                height: parent.height - 4
+                                radius: 2
+                                color: ColorUtils.transparentize(Appearance.colors.colOnLayer1, 0.75)
+                            }
+                        }
+                    }
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    text: Translation.tr("A screen with a search field and every workspace in small, with its windows. Type to find an app or a file, click a workspace to go there, drag a window to move it to another one.")
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    color: Appearance.colors.colOnLayer2
+                }
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    StyledText {
+                        height: 26
+                        verticalAlignment: Text.AlignVCenter
+                        text: Translation.tr("Opens with")
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                    }
+                    KeyboardKey {
+                        key: "Super"
+                    }
+                    StyledText {
+                        height: 26
+                        verticalAlignment: Text.AlignVCenter
+                        text: Translation.tr("tapped, or")
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                    }
+                    KeyboardKey {
+                        key: "Super"
+                    }
+                    StyledText {
+                        height: 26
+                        verticalAlignment: Text.AlignVCenter
+                        text: "+"
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                    }
+                    KeyboardKey {
+                        key: "Tab"
+                    }
+                }
+                DialogButton {
+                    buttonText: Translation.tr("Open it now")
+                    enabled: Config.options.overview.enable
+                    onClicked: Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "search", "open"])
+                }
+            }
+        }
 
         ConfigSwitch {
             buttonIcon: "overview_key"

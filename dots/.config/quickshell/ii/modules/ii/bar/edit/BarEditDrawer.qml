@@ -8,8 +8,10 @@ import QtQuick.Layouts
 import Quickshell
 
 /**
- * Panel under the bar while it is edited: undo, reset and done; the widgets that can be added
- * (click adds next to the selected widget, or drag onto the bar); the selected widget's options.
+ * Panel beside the bar while it is edited (under or over a horizontal bar, next to a vertical one):
+ * undo, reset, settings and done; the selected widget's card, the same one the settings page shows;
+ * and the widgets that can be added, by category (click adds after the selected widget, or drag
+ * one onto the bar). Delete removes the selected widget, Ctrl+Z undoes, Esc finishes.
  */
 Rectangle {
     id: root
@@ -18,16 +20,19 @@ Rectangle {
     required property var controller
 
     readonly property string orientation: view?.orientation ?? "horizontal"
-    readonly property var layout: orientation === "vertical" ? BarLayout.vertical : BarLayout.horizontal
-    readonly property var selected: GlobalStates.barEditSelection.length > 0 ? BarLayout.find(layout, GlobalStates.barEditSelection) : null
-    readonly property var selectedMeta: selected ? BarWidgetCatalog.get(selected.item.type) : null
+    readonly property bool vertical: root.orientation === "vertical"
+    readonly property var layout: root.vertical ? BarLayout.vertical : BarLayout.horizontal
+    readonly property var selected: GlobalStates.barEditSelection.length > 0 ? BarLayout.find(root.layout, GlobalStates.barEditSelection) : null
+    readonly property var zoneInfo: BarLayout.zoneInfo(root.orientation)
+    // How tall the body is under a horizontal bar; beside a vertical one it takes the screen's height
+    readonly property real horizontalBodyHeight: 300
 
-    readonly property var paletteTypes: Object.keys(BarWidgetCatalog.widgets).filter(type => {
+    function usable(type) {
         const meta = BarWidgetCatalog.get(type);
-        if (root.orientation === "vertical" && !meta.vertical) return false;
+        if (root.vertical && !meta.vertical) return false;
         if (meta.unique && BarLayout.zoneNames.some(zone => root.layout.zones[zone].some(item => item.type === type))) return false;
         return true;
-    })
+    }
 
     function addWidget(type) {
         const zone = root.selected?.zone ?? "end";
@@ -35,36 +40,76 @@ Rectangle {
         GlobalStates.barEditSelection = BarLayout.insert(root.orientation, type, zone, index);
     }
 
-    implicitHeight: content.implicitHeight + 24
+    implicitHeight: header.implicitHeight + 12 + root.horizontalBodyHeight + 28
     radius: Appearance.rounding.windowRounding
     color: Appearance.m3colors.m3surfaceContainer
     border.width: 1
     border.color: Appearance.colors.colLayer0Border
     focus: true
-    Keys.onEscapePressed: GlobalStates.barEditing = false
+    Keys.onPressed: event => {
+        if (event.key === Qt.Key_Escape) {
+            GlobalStates.barEditing = false;
+        } else if (event.key === Qt.Key_Delete && root.selected) {
+            BarLayout.remove(root.orientation, GlobalStates.barEditSelection);
+            GlobalStates.barEditSelection = "";
+        } else if (event.key === Qt.Key_Z && (event.modifiers & Qt.ControlModifier)) {
+            BarLayout.undo();
+        } else {
+            return;
+        }
+        event.accepted = true;
+    }
 
-    // Clicks on the drawer's background must not fall through to windows below
+    // Clicks on the panel's background must not fall through to windows below
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
+        onPressed: root.forceActiveFocus()
         onWheel: wheel => wheel.accepted = true
     }
 
+    component ToolButton: RippleButton {
+        id: toolButton
+        property string symbol
+        property string tip
+        implicitWidth: 36
+        implicitHeight: 36
+        buttonRadius: Appearance.rounding.full
+        colBackgroundHover: Appearance.colors.colLayer1Hover
+        contentItem: MaterialSymbol {
+            horizontalAlignment: Text.AlignHCenter
+            text: toolButton.symbol
+            iconSize: 20
+            color: toolButton.enabled ? Appearance.colors.colOnLayer1 : Appearance.colors.colSubtext
+        }
+        StyledToolTip {
+            text: toolButton.tip
+        }
+    }
+
     ColumnLayout {
-        id: content
         anchors {
             fill: parent
-            margins: 12
+            margins: 14
         }
-        spacing: 10
+        spacing: 12
 
         RowLayout {
+            id: header
             Layout.fillWidth: true
-            spacing: 8
-            MaterialSymbol {
-                text: "edit"
-                iconSize: 22
-                color: Appearance.colors.colPrimary
+            spacing: 10
+            Rectangle {
+                implicitWidth: 38
+                implicitHeight: 38
+                radius: 12
+                color: Appearance.colors.colPrimaryContainer
+                MaterialSymbol {
+                    anchors.centerIn: parent
+                    text: "edit"
+                    iconSize: 20
+                    fill: 1
+                    color: Appearance.colors.colOnPrimaryContainer
+                }
             }
             ColumnLayout {
                 Layout.fillWidth: true
@@ -76,16 +121,35 @@ Rectangle {
                 }
                 StyledText {
                     Layout.fillWidth: true
-                    wrapMode: Text.Wrap
-                    text: Translation.tr("Drag widgets to move them, right click for more. Esc to finish.")
+                    elide: Text.ElideRight
+                    text: Translation.tr("Drag widgets to move them · click one to set it up")
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     color: Appearance.colors.colSubtext
                 }
             }
+            ToolButton {
+                symbol: "undo"
+                tip: Translation.tr("Undo")
+                enabled: BarLayout.canUndo
+                onClicked: BarLayout.undo()
+            }
+            ToolButton {
+                symbol: "restart_alt"
+                tip: Translation.tr("Reset to default")
+                onClicked: {
+                    BarLayout.reset(root.orientation);
+                    GlobalStates.barEditSelection = "";
+                }
+            }
+            ToolButton {
+                symbol: "settings"
+                tip: Translation.tr("All settings")
+                onClicked: root.view.openSettings("bar")
+            }
             RippleButton {
-                implicitHeight: 34
-                leftPadding: 16
-                rightPadding: 16
+                implicitHeight: 36
+                leftPadding: 18
+                rightPadding: 18
                 buttonRadius: Appearance.rounding.full
                 colBackground: Appearance.colors.colPrimary
                 colBackgroundHover: Appearance.colors.colPrimaryHover
@@ -100,140 +164,151 @@ Rectangle {
             }
         }
 
-        Flow {
+        GridLayout {
             Layout.fillWidth: true
-            spacing: 4
-            DialogButton {
-                buttonText: Translation.tr("Undo")
-                enabled: BarLayout.canUndo
-                onClicked: BarLayout.undo()
-            }
-            DialogButton {
-                buttonText: Translation.tr("Reset to default")
-                onClicked: {
-                    BarLayout.reset(root.orientation);
-                    GlobalStates.barEditSelection = "";
-                }
-            }
-            DialogButton {
-                buttonText: Translation.tr("All settings")
-                onClicked: root.view.openSettings("bar")
-            }
-        }
+            Layout.fillHeight: true
+            columns: root.vertical ? 1 : 2
+            columnSpacing: 14
+            rowSpacing: 12
 
-        StyledFlickable { // Widgets to add
-            Layout.fillWidth: true
-            implicitHeight: Math.min(paletteFlow.implicitHeight, 120)
-            contentHeight: paletteFlow.implicitHeight
-            clip: true
+            // The selected widget, or how to pick one
+            Item {
+                Layout.row: 0
+                Layout.column: root.vertical ? 0 : 1
+                Layout.fillWidth: root.vertical
+                Layout.preferredWidth: root.vertical ? -1 : 340
+                Layout.fillHeight: !root.vertical
+                implicitHeight: root.selected ? inspector.height : pickHint.implicitHeight
 
-            Flow {
-                id: paletteFlow
-                width: parent.width
-                spacing: 6
-                Repeater {
-                    model: root.paletteTypes
-                    delegate: WidgetChip {
-                        required property string modelData
-                        readonly property var meta: BarWidgetCatalog.get(modelData)
-                        compact: true
-                        label: meta.name
-                        icon: meta.icon
-                        pill: !!meta.defaults?.pill
-                        onClicked: root.addWidget(modelData)
-                        onDragStarted: (sceneX, sceneY, offsetX, offsetY) => root.controller.start({
-                            "mode": "add", "type": modelData, "offsetX": offsetX, "offsetY": offsetY
-                        }, sceneX, sceneY)
-                        onDragMoved: (sceneX, sceneY) => root.controller.update(sceneX, sceneY)
-                        onDragEnded: (sceneX, sceneY) => {
-                            if (sceneX < 0) root.controller.cancel();
-                            else root.controller.finish(sceneX, sceneY);
-                        }
-                        StyledToolTip {
-                            text: parent.meta.description
-                        }
+                WidgetInspector {
+                    id: inspector
+                    visible: root.selected !== null
+                    anchors {
+                        left: parent.left
+                        right: parent.right
+                        top: parent.top
                     }
-                }
-            }
-        }
-
-        ColumnLayout { // The selected widget
-            Layout.fillWidth: true
-            visible: root.selected !== null
-            spacing: 6
-
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: 1
-                color: Appearance.colors.colOutlineVariant
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                MaterialSymbol {
-                    text: root.selectedMeta?.icon ?? "help"
-                    iconSize: 20
-                    color: Appearance.colors.colOnLayer0
-                }
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-                    StyledText {
-                        text: root.selectedMeta?.name ?? (root.selected?.item.type ?? "")
-                        font.pixelSize: Appearance.font.pixelSize.small
-                        color: Appearance.colors.colOnLayer0
-                    }
-                    StyledText {
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                        text: root.selectedMeta?.description ?? ""
-                        font.pixelSize: Appearance.font.pixelSize.smaller
-                        color: Appearance.colors.colSubtext
-                    }
-                }
-            }
-
-            Flow {
-                Layout.fillWidth: true
-                spacing: 6
-                ConfigSelectionArray {
-                    currentValue: root.selected?.item.hideAt ?? 0
-                    onSelected: newValue => BarLayout.setItem(root.orientation, GlobalStates.barEditSelection, { "hideAt": newValue === 0 ? null : newValue })
-                    options: [
-                        { displayName: Translation.tr("Always show"), icon: "visibility", value: 0 },
-                        { displayName: Translation.tr("Hide when narrow"), icon: "compress", value: 1 }
-                    ]
-                }
-                ConfigSelectionArray {
-                    currentValue: !!root.selected?.item.pill
-                    onSelected: newValue => BarLayout.setItem(root.orientation, GlobalStates.barEditSelection, { "pill": newValue ? true : null, "pillBreak": null })
-                    options: [
-                        { displayName: Translation.tr("Bare"), icon: "crop_free", value: false },
-                        { displayName: Translation.tr("In a pill"), icon: "pill", value: true }
-                    ]
-                }
-                DialogButton {
-                    buttonText: Translation.tr("Remove")
-                    colEnabled: Appearance.colors.colError
-                    onClicked: {
-                        BarLayout.remove(root.orientation, GlobalStates.barEditSelection);
-                        GlobalStates.barEditSelection = "";
-                    }
-                }
-            }
-
-            StyledFlickable {
-                Layout.fillWidth: true
-                visible: optionsForm.visible
-                implicitHeight: Math.min(optionsForm.implicitHeight, 260)
-                contentHeight: optionsForm.implicitHeight
-                clip: true
-                BarWidgetOptionsForm {
-                    id: optionsForm
-                    width: parent.width
                     orientation: root.orientation
-                    item: root.selected?.item ?? null
+                    selected: root.selected
+                    zoneInfo: root.zoneInfo
+                    maximumHeight: root.vertical ? 380 : root.horizontalBodyHeight
+                    onCloseRequested: GlobalStates.barEditSelection = ""
+                    onSelectRequested: uid => GlobalStates.barEditSelection = uid
+                }
+
+                Rectangle {
+                    id: pickHint
+                    visible: root.selected === null
+                    anchors {
+                        left: parent.left
+                        right: parent.right
+                        top: parent.top
+                    }
+                    implicitHeight: hintRow.implicitHeight + 28
+                    radius: Appearance.rounding.normal
+                    color: "transparent"
+                    border.width: 1
+                    border.color: Appearance.colors.colOutlineVariant
+                    RowLayout {
+                        id: hintRow
+                        anchors {
+                            left: parent.left
+                            right: parent.right
+                            verticalCenter: parent.verticalCenter
+                            margins: 14
+                        }
+                        spacing: 10
+                        MaterialSymbol {
+                            text: "touch_app"
+                            iconSize: 22
+                            color: Appearance.colors.colSubtext
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            wrapMode: Text.Wrap
+                            text: Translation.tr("Click a widget on the bar to set it up, move it to another part or remove it")
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colSubtext
+                        }
+                    }
+                }
+            }
+
+            // Widgets to add
+            ColumnLayout {
+                Layout.row: root.vertical ? 1 : 0
+                Layout.column: 0
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spacing: 6
+
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    text: root.selected ? Translation.tr("Add widgets after “%1”, or drag one onto the bar").arg(BarWidgetCatalog.get(root.selected.item.type)?.name ?? "")
+                        : Translation.tr("Add widgets: click to put one at the end, or drag it onto the bar")
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                }
+
+                StyledFlickable {
+                    id: paletteFlick
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    contentHeight: paletteColumn.implicitHeight
+                    clip: true
+
+                    ColumnLayout {
+                        id: paletteColumn
+                        width: paletteFlick.width
+                        spacing: 10
+
+                        Repeater {
+                            model: BarWidgetCatalog.categories
+                            delegate: ColumnLayout {
+                                id: category
+                                required property var modelData
+                                readonly property var types: Object.keys(BarWidgetCatalog.widgets).filter(type => BarWidgetCatalog.get(type).category === category.modelData.id && root.usable(type))
+                                visible: category.types.length > 0
+                                Layout.fillWidth: true
+                                spacing: 4
+
+                                StyledText {
+                                    text: category.modelData.name
+                                    font.pixelSize: Appearance.font.pixelSize.smaller
+                                    font.variableAxes: ({ "wght": 600 })
+                                    color: Appearance.colors.colOnLayer0
+                                }
+                                Flow {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Repeater {
+                                        model: category.types
+                                        delegate: WidgetChip {
+                                            required property string modelData
+                                            readonly property var meta: BarWidgetCatalog.get(modelData)
+                                            compact: true
+                                            label: meta.name
+                                            icon: meta.icon
+                                            pill: !!meta.defaults?.pill
+                                            onClicked: root.addWidget(modelData)
+                                            onDragStarted: (sceneX, sceneY, offsetX, offsetY) => root.controller.start({
+                                                "mode": "add", "type": modelData, "offsetX": offsetX, "offsetY": offsetY
+                                            }, sceneX, sceneY)
+                                            onDragMoved: (sceneX, sceneY) => root.controller.update(sceneX, sceneY)
+                                            onDragEnded: (sceneX, sceneY) => {
+                                                if (sceneX < 0) root.controller.cancel();
+                                                else root.controller.finish(sceneX, sceneY);
+                                            }
+                                            StyledToolTip {
+                                                text: parent.meta.description
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
