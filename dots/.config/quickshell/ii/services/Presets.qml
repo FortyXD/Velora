@@ -111,6 +111,7 @@ Singleton {
             if (value !== undefined) root.setPath(result, path, JSON.parse(JSON.stringify(value)));
         }
         if (result.bar) delete result.bar.screenList; // Screens are per machine
+        if (result.appearance?.palette) delete result.appearance.palette.accentColor; // Written by switchwall
         return result;
     }
 
@@ -124,6 +125,12 @@ Singleton {
             }
         }
         return target;
+    }
+
+    // switchwall arguments for a preset's accent color: a fixed one, or colors from the wallpaper
+    function accentArgs(preset) {
+        const accent = preset.theme?.accent ?? preset.theme?.config?.appearance?.palette?.accentColor ?? "";
+        return /^#?[0-9a-f]{6}$/i.test(accent) ? ["--color", accent.startsWith("#") ? accent : `#${accent}`] : ["--color", "clear"];
     }
 
     function isRemote(path) {
@@ -197,7 +204,8 @@ Singleton {
         }
 
         // Colors: one run of switchwall once the config is written, with the new wallpaper if any
-        const modeArgs = chosen.includes("theme") && ["dark", "light"].includes(preset.theme.mode) ? ["--mode", preset.theme.mode] : [];
+        const modeArgs = chosen.includes("theme") ? [...(["dark", "light"].includes(preset.theme.mode) ? ["--mode", preset.theme.mode] : []),
+            ...root.accentArgs(preset)] : [];
         const remote = chosen.includes("wallpaperAnimations") && root.isRemote(preset.wallpaperAnimations.wallpaper);
         const wallpaper = chosen.includes("wallpaperAnimations") ? root.wallpaperFile(preset) : "";
         const daily = chosen.includes("wallpaperAnimations") && (preset.wallpaperAnimations.wallpaper ?? "").startsWith("daily:");
@@ -275,6 +283,7 @@ Singleton {
         let wallpaperSource = "";
         if (preset.theme) {
             preset.theme.mode = Appearance.m3colors.darkmode ? "dark" : "light";
+            preset.theme.accent = Config.options.appearance.palette.accentColor ?? "";
         }
         if (preset.wallpaperAnimations) {
             preset.wallpaperAnimations.animationProfile = HyprlandSettings.animationProfile;
@@ -398,7 +407,9 @@ Singleton {
                     return;
                 }
                 const [wallpaper, mode] = parts[2].trim().split("\n");
-                themeTimer.args = [...(wallpaper ? ["--image", wallpaper] : ["--noswitch"]), ...(mode ? ["--mode", mode] : [])];
+                const accent = config.appearance?.palette?.accentColor ?? "";
+                themeTimer.args = [...(wallpaper ? ["--image", wallpaper] : ["--noswitch"]), ...(mode ? ["--mode", mode] : []),
+                    ...root.accentArgs({ "theme": { "accent": accent } })];
                 themeTimer.restart();
             }
         }

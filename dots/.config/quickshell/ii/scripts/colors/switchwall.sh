@@ -186,6 +186,12 @@ switch() {
     if [[ "$color_flag" == "1" ]]; then
         matugen_args+=(color hex "$color")
         generate_colors_material_args=(--color "$color")
+        # A new picture together with a fixed accent: switch the picture, take colors from the accent
+        if [[ -n "$imgpath" && -z "$noswitch_flag" && -f "$imgpath" ]] && ! is_video "$imgpath" && magick "${imgpath}[0]" null: &>/dev/null; then
+            kill_existing_mpvpaper
+            set_wallpaper_path "$imgpath"
+            remove_restore
+        fi
     else
         if [[ -z "$imgpath" ]]; then
             echo 'Aborted'
@@ -336,6 +342,7 @@ main() {
     color_flag=""
     color=""
     noswitch_flag=""
+    explicit_color=""
 
     get_type_from_config() {
         jq -r '.appearance.palette.type' "$SHELL_CONFIG_FILE" 2>/dev/null || echo "auto"
@@ -368,6 +375,7 @@ main() {
             --color)
                 if [[ "$2" =~ ^#?[A-Fa-f0-9]{6}$ ]]; then
                     set_accent_color "$2"
+                    explicit_color="1" # Kept even when --image is given too
                     shift 2
                 elif [[ "$2" == "clear" ]]; then
                     set_accent_color ""
@@ -427,7 +435,7 @@ main() {
         imgpath="$(kdialog --getopenfilename . --title 'Choose wallpaper')"
     fi
 
-    if [[ -n "$imgpath" && -z "$noswitch_flag" ]]; then
+    if [[ -n "$imgpath" && -z "$noswitch_flag" && -z "$explicit_color" ]]; then
         set_accent_color ""
         color_flag=""
         color=""

@@ -1,0 +1,229 @@
+{
+    "version": 1,
+    "name": "Violet peaks",
+    "icon": "landscape",
+    "order": 27,
+    "description": "Purple mountains under the moon, a borderless glass bar with thin separators",
+    "wallpaperPreview": "https://th.wallhaven.cc/lg/72/72w5pv.jpg",
+    "credits": {
+        "title": "Violet mountains",
+        "author": "rmRadev",
+        "license": "Wallhaven",
+        "page": "https://www.deviantart.com/rmradev"
+    },
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": true,
+                    "actions": {
+                        "start": {
+                            "click": "sidebarLeft",
+                            "scroll": "brightness"
+                        },
+                        "centerEnd": {
+                            "click": "sidebarRight"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "lsb",
+                                "type": "leftSidebarButton"
+                            },
+                            {
+                                "uid": "aw",
+                                "type": "activeWindow",
+                                "hideAt": 1
+                            }
+                        ],
+                        "centerStart": [
+                            {
+                                "uid": "res",
+                                "type": "resources",
+                                "hideAt": 2
+                            }
+                        ],
+                        "center": [
+                            {
+                                "uid": "ws",
+                                "type": "workspaces"
+                            }
+                        ],
+                        "centerEnd": [
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "options": {
+                                    "showDate": true
+                                }
+                            },
+                            {
+                                "uid": "bat",
+                                "type": "battery",
+                                "hideAt": 2
+                            }
+                        ],
+                        "end": [
+                            {
+                                "uid": "sp",
+                                "type": "spacer"
+                            },
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "prv",
+                                "type": "privacy"
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            }
+                        ]
+                    }
+                },
+                "verticalLayout": null,
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": 0.6,
+                    "islands": false,
+                    "pillStyle": "none",
+                    "edgePadding": -1,
+                    "floatMargin": 8,
+                    "radius": 14,
+                    "textShadow": false,
+                    "glass": true
+                },
+                "cornerStyle": 1,
+                "showBackground": true,
+                "borderless": true,
+                "bottom": false,
+                "vertical": false,
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
+            }
+        }
+    },
+    "theme": {
+        "config": {
+            "appearance": {
+                "transparency": {
+                    "enable": true,
+                    "automatic": false,
+                    "backgroundTransparency": 0.22,
+                    "contentTransparency": 0.55
+                },
+                "palette": {
+                    "type": "scheme-fidelity"
+                }
+            }
+        },
+        "hyprland": {
+            "decoration:rounding": 14,
+            "decoration:blur:enabled": true,
+            "decoration:blur:passes": 3,
+            "decoration:blur:size": 10,
+            "decoration:shadow:enabled": true,
+            "decoration:dim_inactive": true,
+            "general:border_size": 1
+        },
+        "mode": "dark",
+        "accent": "#7C4DFF"
+    },
+    "dockWidgets": {
+        "config": {
+            "dock": {
+                "enable": true,
+                "hoverToReveal": true,
+                "magnification": true,
+                "monochromeIcons": true
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy",
+                        "style": "cookie",
+                        "styleLocked": "cookie",
+                        "cookie": {
+                            "aiStyling": false,
+                            "sides": 9,
+                            "dialNumberStyle": "none",
+                            "hourHandStyle": "fill",
+                            "minuteHandStyle": "bold",
+                            "secondHandStyle": "dot",
+                            "dateStyle": "bubble",
+                            "timeIndicators": true,
+                            "hourMarks": false,
+                            "dateInClock": true,
+                            "constantlyRotate": true,
+                            "useSineCookie": true
+                        },
+                        "digital": {
+                            "adaptiveAlignment": true,
+                            "showDate": true,
+                            "animateChange": true,
+                            "vertical": false,
+                            "font": {
+                                "family": "Google Sans Flex",
+                                "weight": 350,
+                                "width": 100,
+                                "size": 90,
+                                "roundness": 0
+                            }
+                        }
+                    },
+                    "cardStyle": "tonal",
+                    "weather": {
+                        "enable": false
+                    },
+                    "systemMonitor": {
+                        "enable": false
+                    },
+                    "media": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
+                    },
+                    "calendar": {
+                        "enable": false
+                    },
+                    "countdown": {
+                        "enable": false
+                    },
+                    "note": {
+                        "enable": false
+                    },
+                    "pomodoro": {
+                        "enable": false
+                    }
+                }
+            }
+        }
+    },
+    "wallpaperAnimations": {
+        "animationProfile": "smooth",
+        "config": {
+            "appearance": {
+                "animationSpeed": 1
+            }
+        },
+        "hyprland": {
+            "general:gaps_in": 5,
+            "general:gaps_out": 10,
+            "animations:enabled": true,
+            "misc:animate_manual_resizes": false,
+            "misc:animate_mouse_windowdragging": false
+        },
+        "wallpaper": "https://w.wallhaven.cc/full/72/wallhaven-72w5pv.png"
+    }
+}

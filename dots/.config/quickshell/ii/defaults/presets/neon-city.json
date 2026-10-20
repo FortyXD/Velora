@@ -1,25 +1,24 @@
 {
     "version": 1,
-    "name": "Misty forest",
-    "icon": "forest",
-    "order": 23,
-    "description": "Trees in November fog with a see-through, outlined bar",
-    "wallpaperPreview": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Baumsilhouetten_am_Uetliberg_mit_Novembernebel_und_Sonnenstrahlen.jpg/960px-Baumsilhouetten_am_Uetliberg_mit_Novembernebel_und_Sonnenstrahlen.jpg",
+    "name": "Neon city",
+    "icon": "location_city",
+    "order": 21,
+    "description": "Rainy streets at night, a thin see-through bar with outlines, cyan light",
+    "wallpaperPreview": "https://th.wallhaven.cc/lg/dg/dgryeg.jpg",
     "credits": {
-        "title": "Baumsilhouetten am Uetliberg mit Novembernebel und Sonnenstrahlen",
-        "author": "Kuhnmi",
-        "license": "CC BY-SA 4.0",
-        "page": "https://commons.wikimedia.org/wiki/File:Baumsilhouetten_am_Uetliberg_mit_Novembernebel_und_Sonnenstrahlen.jpg"
+        "title": "Neon street",
+        "author": "Pc7",
+        "license": "Wallhaven",
+        "page": "https://wallhaven.cc/w/dgryeg"
     },
     "bar": {
         "config": {
             "bar": {
                 "layout": {
                     "version": 1,
-                    "balanceCenter": false,
+                    "balanceCenter": true,
                     "actions": {
                         "start": {
-                            "click": "overview",
                             "scroll": "workspaces"
                         },
                         "center": {
@@ -36,6 +35,11 @@
                                 "uid": "ws",
                                 "type": "workspaces",
                                 "pill": true
+                            },
+                            {
+                                "uid": "aw",
+                                "type": "activeWindow",
+                                "hideAt": 1
                             }
                         ],
                         "centerStart": [],
@@ -43,11 +47,25 @@
                             {
                                 "uid": "clk",
                                 "type": "clock",
-                                "pill": true
+                                "pill": true,
+                                "options": {
+                                    "showDate": true
+                                }
                             }
                         ],
                         "centerEnd": [],
                         "end": [
+                            {
+                                "uid": "net",
+                                "type": "networkSpeed",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "res",
+                                "type": "resources",
+                                "pill": true,
+                                "hideAt": 2
+                            },
                             {
                                 "uid": "tray",
                                 "type": "sysTray",
@@ -66,22 +84,25 @@
                 },
                 "verticalLayout": null,
                 "style": {
-                    "thickness": -1,
-                    "backgroundOpacity": -1,
+                    "thickness": 32,
+                    "backgroundOpacity": 0.45,
                     "islands": false,
                     "pillStyle": "outlined",
                     "edgePadding": -1,
                     "floatMargin": -1,
                     "radius": -1,
                     "textShadow": true,
-                    "glass": false
+                    "glass": true
                 },
-                "cornerStyle": 0,
-                "showBackground": false,
+                "cornerStyle": 2,
+                "showBackground": true,
                 "borderless": false,
                 "bottom": false,
                 "vertical": false,
-                "floatStyleShadow": true
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
             }
         }
     },
@@ -90,30 +111,31 @@
             "appearance": {
                 "transparency": {
                     "enable": true,
-                    "automatic": true,
-                    "backgroundTransparency": 0.11,
-                    "contentTransparency": 0.57
+                    "automatic": false,
+                    "backgroundTransparency": 0.18,
+                    "contentTransparency": 0.5
                 },
                 "palette": {
-                    "type": "scheme-neutral"
+                    "type": "scheme-fidelity"
                 }
             }
         },
         "hyprland": {
-            "decoration:rounding": 14,
+            "decoration:rounding": 6,
             "decoration:blur:enabled": true,
-            "decoration:blur:passes": 3,
-            "decoration:blur:size": 10,
+            "decoration:blur:passes": 2,
+            "decoration:blur:size": 6,
             "decoration:shadow:enabled": true,
             "decoration:dim_inactive": true,
-            "general:border_size": 1
+            "general:border_size": 2
         },
-        "mode": "dark"
+        "mode": "dark",
+        "accent": "#00E5FF"
     },
     "dockWidgets": {
         "config": {
             "dock": {
-                "enable": true,
+                "enable": false,
                 "hoverToReveal": true,
                 "magnification": true,
                 "monochromeIcons": true
@@ -122,13 +144,44 @@
                 "widgets": {
                     "clock": {
                         "enable": true,
-                        "placementStrategy": "leastBusy"
+                        "placementStrategy": "leastBusy",
+                        "style": "digital",
+                        "styleLocked": "digital",
+                        "cookie": {
+                            "aiStyling": false,
+                            "sides": 14,
+                            "dialNumberStyle": "full",
+                            "hourHandStyle": "fill",
+                            "minuteHandStyle": "medium",
+                            "secondHandStyle": "dot",
+                            "dateStyle": "bubble",
+                            "timeIndicators": true,
+                            "hourMarks": false,
+                            "dateInClock": true,
+                            "constantlyRotate": false,
+                            "useSineCookie": false
+                        },
+                        "digital": {
+                            "adaptiveAlignment": true,
+                            "showDate": true,
+                            "animateChange": true,
+                            "vertical": false,
+                            "font": {
+                                "family": "Google Sans Flex",
+                                "weight": 300,
+                                "width": 75,
+                                "size": 80,
+                                "roundness": 0
+                            }
+                        }
                     },
+                    "cardStyle": "transparent",
                     "weather": {
                         "enable": false
                     },
                     "systemMonitor": {
-                        "enable": false
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
                     },
                     "media": {
                         "enable": false
@@ -150,19 +203,19 @@
         }
     },
     "wallpaperAnimations": {
-        "animationProfile": "smooth",
+        "animationProfile": "fast",
         "config": {
             "appearance": {
-                "animationSpeed": 0.9
+                "animationSpeed": 1.3
             }
         },
         "hyprland": {
-            "general:gaps_in": 6,
-            "general:gaps_out": 10,
+            "general:gaps_in": 3,
+            "general:gaps_out": 6,
             "animations:enabled": true,
             "misc:animate_manual_resizes": false,
             "misc:animate_mouse_windowdragging": false
         },
-        "wallpaper": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Baumsilhouetten_am_Uetliberg_mit_Novembernebel_und_Sonnenstrahlen.jpg/3840px-Baumsilhouetten_am_Uetliberg_mit_Novembernebel_und_Sonnenstrahlen.jpg"
+        "wallpaper": "https://w.wallhaven.cc/full/dg/wallhaven-dgryeg.png"
     }
 }

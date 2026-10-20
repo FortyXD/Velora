@@ -1,0 +1,215 @@
+{
+    "version": 1,
+    "name": "Synthwave",
+    "icon": "graphic_eq",
+    "order": 20,
+    "description": "A retro sun over neon hills, glass islands with music in the middle, hot pink",
+    "wallpaperPreview": "https://th.wallhaven.cc/lg/2e/2eoz56.jpg",
+    "credits": {
+        "title": "Synthwave mountains",
+        "author": "higgsas",
+        "license": "Wallhaven",
+        "page": "https://wallhaven.cc/w/2eoz56"
+    },
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": true,
+                    "actions": {
+                        "start": {
+                            "click": "overview",
+                            "scroll": "workspaces"
+                        },
+                        "center": {
+                            "click": "mediaPlayPause"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "search",
+                                "type": "launcher"
+                            },
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            }
+                        ],
+                        "centerStart": [],
+                        "center": [
+                            {
+                                "uid": "med",
+                                "type": "media",
+                                "pill": true
+                            }
+                        ],
+                        "centerEnd": [],
+                        "end": [
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "prv",
+                                "type": "privacy"
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            },
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "options": {
+                                    "showDate": false
+                                }
+                            }
+                        ]
+                    }
+                },
+                "verticalLayout": null,
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": -1,
+                    "islands": true,
+                    "pillStyle": "filled",
+                    "edgePadding": -1,
+                    "floatMargin": 6,
+                    "radius": 18,
+                    "textShadow": false,
+                    "glass": true
+                },
+                "cornerStyle": 0,
+                "showBackground": true,
+                "borderless": false,
+                "bottom": false,
+                "vertical": false,
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
+            }
+        }
+    },
+    "theme": {
+        "config": {
+            "appearance": {
+                "transparency": {
+                    "enable": true,
+                    "automatic": false,
+                    "backgroundTransparency": 0.22,
+                    "contentTransparency": 0.55
+                },
+                "palette": {
+                    "type": "scheme-fidelity"
+                }
+            }
+        },
+        "hyprland": {
+            "decoration:rounding": 18,
+            "decoration:blur:enabled": true,
+            "decoration:blur:passes": 3,
+            "decoration:blur:size": 8,
+            "decoration:shadow:enabled": true,
+            "decoration:dim_inactive": true,
+            "general:border_size": 1
+        },
+        "mode": "dark",
+        "accent": "#FF3D9A"
+    },
+    "dockWidgets": {
+        "config": {
+            "dock": {
+                "enable": true,
+                "hoverToReveal": true,
+                "magnification": true,
+                "monochromeIcons": true
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy",
+                        "style": "digital",
+                        "styleLocked": "digital",
+                        "cookie": {
+                            "aiStyling": false,
+                            "sides": 14,
+                            "dialNumberStyle": "full",
+                            "hourHandStyle": "fill",
+                            "minuteHandStyle": "medium",
+                            "secondHandStyle": "dot",
+                            "dateStyle": "bubble",
+                            "timeIndicators": true,
+                            "hourMarks": false,
+                            "dateInClock": true,
+                            "constantlyRotate": false,
+                            "useSineCookie": false
+                        },
+                        "digital": {
+                            "adaptiveAlignment": true,
+                            "showDate": true,
+                            "animateChange": true,
+                            "vertical": false,
+                            "font": {
+                                "family": "Google Sans Flex",
+                                "weight": 700,
+                                "width": 100,
+                                "size": 110,
+                                "roundness": 100
+                            }
+                        }
+                    },
+                    "cardStyle": "tonal",
+                    "weather": {
+                        "enable": false
+                    },
+                    "systemMonitor": {
+                        "enable": false
+                    },
+                    "media": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
+                    },
+                    "calendar": {
+                        "enable": false
+                    },
+                    "countdown": {
+                        "enable": false
+                    },
+                    "note": {
+                        "enable": false
+                    },
+                    "pomodoro": {
+                        "enable": false
+                    }
+                }
+            }
+        }
+    },
+    "wallpaperAnimations": {
+        "animationProfile": "smooth",
+        "config": {
+            "appearance": {
+                "animationSpeed": 1
+            }
+        },
+        "hyprland": {
+            "general:gaps_in": 6,
+            "general:gaps_out": 12,
+            "animations:enabled": true,
+            "misc:animate_manual_resizes": false,
+            "misc:animate_mouse_windowdragging": false
+        },
+        "wallpaper": "https://w.wallhaven.cc/full/2e/wallhaven-2eoz56.png"
+    }
+}

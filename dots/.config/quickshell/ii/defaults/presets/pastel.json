@@ -1,25 +1,29 @@
 {
     "version": 1,
-    "name": "Seaside sunset",
-    "icon": "beach_access",
-    "order": 25,
-    "description": "Warm sea sunset, a floating bar at the bottom and wide gaps",
-    "wallpaperPreview": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/S%C3%A8te%27s_sunset.jpg/960px-S%C3%A8te%27s_sunset.jpg",
+    "name": "Pastel sky",
+    "icon": "cloud",
+    "order": 22,
+    "description": "A soft pink planet in light colors, a rounded floating bar at the bottom",
+    "wallpaperPreview": "https://th.wallhaven.cc/lg/ox/oxeo25.jpg",
     "credits": {
-        "title": "Sète's sunset",
-        "author": "Christian Ferrer",
-        "license": "CC BY 4.0",
-        "page": "https://commons.wikimedia.org/wiki/File:S%C3%A8te%27s_sunset.jpg"
+        "title": "Alien Moon",
+        "author": "rmRadev",
+        "license": "Wallhaven",
+        "page": "https://www.deviantart.com/rmradev/art/Alien-Moon-743912901"
     },
     "bar": {
         "config": {
             "bar": {
                 "layout": {
                     "version": 1,
-                    "balanceCenter": false,
+                    "balanceCenter": true,
                     "actions": {
                         "start": {
-                            "scroll": "workspaces"
+                            "click": "sidebarLeft",
+                            "scroll": "brightness"
+                        },
+                        "centerEnd": {
+                            "click": "sidebarRight"
                         },
                         "end": {
                             "click": "sidebarRight",
@@ -29,22 +33,36 @@
                     "zones": {
                         "start": [
                             {
-                                "uid": "search",
-                                "type": "launcher"
+                                "uid": "lsb",
+                                "type": "leftSidebarButton"
                             },
                             {
                                 "uid": "ws",
                                 "type": "workspaces",
                                 "pill": true
-                            },
-                            {
-                                "uid": "aw",
-                                "type": "activeWindow",
-                                "hideAt": 1
                             }
                         ],
                         "centerStart": [],
-                        "center": [],
+                        "center": [
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "options": {
+                                    "showDate": true
+                                }
+                            },
+                            {
+                                "uid": "dark",
+                                "type": "darkMode",
+                                "pill": true
+                            },
+                            {
+                                "uid": "night",
+                                "type": "nightLight",
+                                "pill": true
+                            }
+                        ],
                         "centerEnd": [],
                         "end": [
                             {
@@ -53,30 +71,30 @@
                                 "hideAt": 1
                             },
                             {
-                                "uid": "prv",
-                                "type": "privacy"
-                            },
-                            {
                                 "uid": "st",
                                 "type": "statusIndicators"
                             },
                             {
-                                "uid": "clk",
-                                "type": "clock",
+                                "uid": "bat",
+                                "type": "battery",
                                 "pill": true
+                            },
+                            {
+                                "uid": "pwr",
+                                "type": "session"
                             }
                         ]
                     }
                 },
                 "verticalLayout": null,
                 "style": {
-                    "thickness": -1,
+                    "thickness": 44,
                     "backgroundOpacity": -1,
                     "islands": false,
                     "pillStyle": "filled",
                     "edgePadding": -1,
-                    "floatMargin": 10,
-                    "radius": -1,
+                    "floatMargin": 12,
+                    "radius": 24,
                     "textShadow": false,
                     "glass": false
                 },
@@ -85,7 +103,10 @@
                 "borderless": false,
                 "bottom": true,
                 "vertical": false,
-                "floatStyleShadow": true
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
             }
         }
     },
@@ -112,22 +133,55 @@
             "decoration:dim_inactive": true,
             "general:border_size": 1
         },
-        "mode": "light"
+        "mode": "light",
+        "accent": "#B388FF"
     },
     "dockWidgets": {
         "config": {
             "dock": {
-                "enable": false
+                "enable": false,
+                "hoverToReveal": true,
+                "magnification": true,
+                "monochromeIcons": true
             },
             "background": {
                 "widgets": {
                     "clock": {
                         "enable": true,
-                        "placementStrategy": "leastBusy"
+                        "placementStrategy": "leastBusy",
+                        "style": "cookie",
+                        "styleLocked": "cookie",
+                        "cookie": {
+                            "aiStyling": false,
+                            "sides": 8,
+                            "dialNumberStyle": "dots",
+                            "hourHandStyle": "hollow",
+                            "minuteHandStyle": "thin",
+                            "secondHandStyle": "line",
+                            "dateStyle": "rect",
+                            "timeIndicators": true,
+                            "hourMarks": false,
+                            "dateInClock": true,
+                            "constantlyRotate": false,
+                            "useSineCookie": false
+                        },
+                        "digital": {
+                            "adaptiveAlignment": true,
+                            "showDate": true,
+                            "animateChange": true,
+                            "vertical": false,
+                            "font": {
+                                "family": "Google Sans Flex",
+                                "weight": 350,
+                                "width": 100,
+                                "size": 90,
+                                "roundness": 0
+                            }
+                        }
                     },
+                    "cardStyle": "tonal",
                     "weather": {
-                        "enable": true,
-                        "placementStrategy": "leastBusy"
+                        "enable": false
                     },
                     "systemMonitor": {
                         "enable": false
@@ -136,7 +190,8 @@
                         "enable": false
                     },
                     "calendar": {
-                        "enable": false
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
                     },
                     "countdown": {
                         "enable": false
@@ -152,10 +207,10 @@
         }
     },
     "wallpaperAnimations": {
-        "animationProfile": "material",
+        "animationProfile": "smooth",
         "config": {
             "appearance": {
-                "animationSpeed": 1
+                "animationSpeed": 0.9
             }
         },
         "hyprland": {
@@ -165,6 +220,6 @@
             "misc:animate_manual_resizes": false,
             "misc:animate_mouse_windowdragging": false
         },
-        "wallpaper": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/S%C3%A8te%27s_sunset.jpg/3840px-S%C3%A8te%27s_sunset.jpg"
+        "wallpaper": "https://w.wallhaven.cc/full/ox/wallhaven-oxeo25.jpg"
     }
 }

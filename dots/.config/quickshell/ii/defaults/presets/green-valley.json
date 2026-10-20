@@ -1,0 +1,229 @@
+{
+    "version": 1,
+    "name": "Green valley",
+    "icon": "forest",
+    "order": 24,
+    "description": "A green forest at sunset in light colors, pills floating with no bar behind them",
+    "wallpaperPreview": "https://th.wallhaven.cc/lg/3l/3lpymv.jpg",
+    "credits": {
+        "title": "Green valley",
+        "author": "SagXD",
+        "license": "Wallhaven",
+        "page": "https://www.reddit.com/r/MinimalWallpaper/comments/1g9ufuj/after_not_having_drawn_anything_for_over_2_years/"
+    },
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": true,
+                    "actions": {
+                        "start": {
+                            "click": "sidebarLeft",
+                            "scroll": "brightness"
+                        },
+                        "centerEnd": {
+                            "click": "sidebarRight"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "lsb",
+                                "type": "leftSidebarButton"
+                            },
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            }
+                        ],
+                        "centerStart": [
+                            {
+                                "uid": "wx",
+                                "type": "weather",
+                                "pill": true,
+                                "hideAt": 2
+                            }
+                        ],
+                        "center": [
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "options": {
+                                    "showDate": true
+                                }
+                            }
+                        ],
+                        "centerEnd": [
+                            {
+                                "uid": "med",
+                                "type": "media",
+                                "pill": true,
+                                "hideAt": 1
+                            }
+                        ],
+                        "end": [
+                            {
+                                "uid": "sp",
+                                "type": "spacer"
+                            },
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            },
+                            {
+                                "uid": "bat",
+                                "type": "battery",
+                                "pill": true
+                            }
+                        ]
+                    }
+                },
+                "verticalLayout": null,
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": -1,
+                    "islands": false,
+                    "pillStyle": "filled",
+                    "edgePadding": -1,
+                    "floatMargin": -1,
+                    "radius": -1,
+                    "textShadow": true,
+                    "glass": false
+                },
+                "cornerStyle": 0,
+                "showBackground": false,
+                "borderless": false,
+                "bottom": false,
+                "vertical": false,
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": true
+                }
+            }
+        }
+    },
+    "theme": {
+        "config": {
+            "appearance": {
+                "transparency": {
+                    "enable": true,
+                    "automatic": true,
+                    "backgroundTransparency": 0.11,
+                    "contentTransparency": 0.57
+                },
+                "palette": {
+                    "type": "scheme-tonal-spot"
+                }
+            }
+        },
+        "hyprland": {
+            "decoration:rounding": 14,
+            "decoration:blur:enabled": true,
+            "decoration:blur:passes": 3,
+            "decoration:blur:size": 10,
+            "decoration:shadow:enabled": true,
+            "decoration:dim_inactive": true,
+            "general:border_size": 1
+        },
+        "mode": "light",
+        "accent": "#2ECC71"
+    },
+    "dockWidgets": {
+        "config": {
+            "dock": {
+                "enable": true,
+                "hoverToReveal": true,
+                "magnification": false,
+                "monochromeIcons": false
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy",
+                        "style": "digital",
+                        "styleLocked": "digital",
+                        "cookie": {
+                            "aiStyling": false,
+                            "sides": 14,
+                            "dialNumberStyle": "full",
+                            "hourHandStyle": "fill",
+                            "minuteHandStyle": "medium",
+                            "secondHandStyle": "dot",
+                            "dateStyle": "bubble",
+                            "timeIndicators": true,
+                            "hourMarks": false,
+                            "dateInClock": true,
+                            "constantlyRotate": false,
+                            "useSineCookie": false
+                        },
+                        "digital": {
+                            "adaptiveAlignment": true,
+                            "showDate": true,
+                            "animateChange": true,
+                            "vertical": true,
+                            "font": {
+                                "family": "Google Sans Flex",
+                                "weight": 500,
+                                "width": 100,
+                                "size": 100,
+                                "roundness": 0
+                            }
+                        }
+                    },
+                    "cardStyle": "surface",
+                    "weather": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
+                    },
+                    "systemMonitor": {
+                        "enable": false
+                    },
+                    "media": {
+                        "enable": false
+                    },
+                    "calendar": {
+                        "enable": false
+                    },
+                    "countdown": {
+                        "enable": false
+                    },
+                    "note": {
+                        "enable": false
+                    },
+                    "pomodoro": {
+                        "enable": false
+                    }
+                }
+            }
+        }
+    },
+    "wallpaperAnimations": {
+        "animationProfile": "smooth",
+        "config": {
+            "appearance": {
+                "animationSpeed": 1
+            }
+        },
+        "hyprland": {
+            "general:gaps_in": 6,
+            "general:gaps_out": 10,
+            "animations:enabled": true,
+            "misc:animate_manual_resizes": false,
+            "misc:animate_mouse_windowdragging": false
+        },
+        "wallpaper": "https://w.wallhaven.cc/full/3l/wallhaven-3lpymv.png"
+    }
+}

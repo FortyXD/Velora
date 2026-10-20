@@ -1,22 +1,23 @@
 {
     "version": 1,
-    "name": "Dunes",
-    "icon": "sunny",
-    "order": 26,
-    "description": "Dune 45 at sunrise with a bar full of useful readings",
-    "wallpaperPreview": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/006_Dune_45_in_Sossusvlei_at_sunrise_Photo_by_Giles_Laurent.jpg/960px-006_Dune_45_in_Sossusvlei_at_sunrise_Photo_by_Giles_Laurent.jpg",
+    "name": "Autumn tree",
+    "icon": "eco",
+    "order": 23,
+    "description": "A painted autumn sunset, a vertical bar of islands on the left, warm orange",
+    "wallpaperPreview": "https://th.wallhaven.cc/lg/lm/lm5w9r.jpg",
     "credits": {
-        "title": "006 Dune 45 in Sossusvlei at sunrise Photo by Giles Laurent",
-        "author": "Giles Laurent",
-        "license": "CC BY-SA 4.0",
-        "page": "https://commons.wikimedia.org/wiki/File:006_Dune_45_in_Sossusvlei_at_sunrise_Photo_by_Giles_Laurent.jpg"
+        "title": "Before the leaves have fallen",
+        "author": "JoeyJazz",
+        "license": "Wallhaven",
+        "page": "https://www.deviantart.com/joeyjazz/art/Before-the-leaves-have-fallen-854162011"
     },
     "bar": {
         "config": {
             "bar": {
-                "layout": {
+                "layout": null,
+                "verticalLayout": {
                     "version": 1,
-                    "balanceCenter": true,
+                    "balanceCenter": false,
                     "actions": {
                         "start": {
                             "click": "sidebarLeft",
@@ -37,89 +38,49 @@
                                 "type": "leftSidebarButton"
                             },
                             {
-                                "uid": "res",
-                                "type": "resources",
-                                "pill": true
-                            },
-                            {
-                                "uid": "net",
-                                "type": "networkSpeed",
-                                "hideAt": 1
-                            }
-                        ],
-                        "centerStart": [
-                            {
-                                "uid": "isl",
-                                "type": "island",
-                                "pill": true,
-                                "hideAt": 2
-                            }
-                        ],
-                        "center": [
-                            {
                                 "uid": "ws",
                                 "type": "workspaces",
                                 "pill": true
                             }
                         ],
-                        "centerEnd": [
+                        "centerStart": [],
+                        "center": [
                             {
                                 "uid": "clk",
                                 "type": "clock",
-                                "pill": true,
-                                "fill": true
-                            },
-                            {
-                                "uid": "ub",
-                                "type": "utilButtons",
-                                "pill": true,
-                                "hideAt": 1
-                            }
-                        ],
-                        "end": [
-                            {
-                                "uid": "wx",
-                                "type": "weather",
                                 "pill": true
-                            },
-                            {
-                                "uid": "upd",
-                                "type": "updates"
-                            },
-                            {
-                                "uid": "sp",
-                                "type": "spacer"
-                            },
-                            {
-                                "uid": "tray",
-                                "type": "sysTray",
-                                "hideAt": 1
-                            },
-                            {
-                                "uid": "prv",
-                                "type": "privacy"
                             },
                             {
                                 "uid": "bat",
                                 "type": "battery",
                                 "pill": true
+                            }
+                        ],
+                        "centerEnd": [],
+                        "end": [
+                            {
+                                "uid": "tray",
+                                "type": "sysTray"
                             },
                             {
                                 "uid": "st",
                                 "type": "statusIndicators"
+                            },
+                            {
+                                "uid": "pwr",
+                                "type": "session"
                             }
                         ]
                     }
                 },
-                "verticalLayout": null,
                 "style": {
                     "thickness": -1,
                     "backgroundOpacity": -1,
-                    "islands": false,
+                    "islands": true,
                     "pillStyle": "filled",
                     "edgePadding": -1,
                     "floatMargin": -1,
-                    "radius": -1,
+                    "radius": 16,
                     "textShadow": false,
                     "glass": false
                 },
@@ -127,8 +88,11 @@
                 "showBackground": true,
                 "borderless": false,
                 "bottom": false,
-                "vertical": false,
-                "floatStyleShadow": true
+                "vertical": true,
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
             }
         }
     },
@@ -137,9 +101,9 @@
             "appearance": {
                 "transparency": {
                     "enable": true,
-                    "automatic": true,
-                    "backgroundTransparency": 0.11,
-                    "contentTransparency": 0.57
+                    "automatic": false,
+                    "backgroundTransparency": 0.22,
+                    "contentTransparency": 0.55
                 },
                 "palette": {
                     "type": "scheme-content"
@@ -147,7 +111,7 @@
             }
         },
         "hyprland": {
-            "decoration:rounding": 12,
+            "decoration:rounding": 16,
             "decoration:blur:enabled": true,
             "decoration:blur:passes": 3,
             "decoration:blur:size": 10,
@@ -155,7 +119,8 @@
             "decoration:dim_inactive": true,
             "general:border_size": 1
         },
-        "mode": "light"
+        "mode": "dark",
+        "accent": "#FF6D00"
     },
     "dockWidgets": {
         "config": {
@@ -169,14 +134,44 @@
                 "widgets": {
                     "clock": {
                         "enable": true,
-                        "placementStrategy": "leastBusy"
+                        "placementStrategy": "leastBusy",
+                        "style": "cookie",
+                        "styleLocked": "cookie",
+                        "cookie": {
+                            "aiStyling": false,
+                            "sides": 12,
+                            "dialNumberStyle": "numbers",
+                            "hourHandStyle": "classic",
+                            "minuteHandStyle": "classic",
+                            "secondHandStyle": "classic",
+                            "dateStyle": "border",
+                            "timeIndicators": true,
+                            "hourMarks": false,
+                            "dateInClock": true,
+                            "constantlyRotate": false,
+                            "useSineCookie": false
+                        },
+                        "digital": {
+                            "adaptiveAlignment": true,
+                            "showDate": true,
+                            "animateChange": true,
+                            "vertical": false,
+                            "font": {
+                                "family": "Google Sans Flex",
+                                "weight": 350,
+                                "width": 100,
+                                "size": 90,
+                                "roundness": 0
+                            }
+                        }
                     },
+                    "cardStyle": "tonal",
                     "weather": {
-                        "enable": false
-                    },
-                    "systemMonitor": {
                         "enable": true,
                         "placementStrategy": "leastBusy"
+                    },
+                    "systemMonitor": {
+                        "enable": false
                     },
                     "media": {
                         "enable": false
@@ -198,19 +193,19 @@
         }
     },
     "wallpaperAnimations": {
-        "animationProfile": "fast",
+        "animationProfile": "material",
         "config": {
             "appearance": {
-                "animationSpeed": 1.2
+                "animationSpeed": 1
             }
         },
         "hyprland": {
-            "general:gaps_in": 4,
-            "general:gaps_out": 8,
+            "general:gaps_in": 5,
+            "general:gaps_out": 10,
             "animations:enabled": true,
             "misc:animate_manual_resizes": false,
             "misc:animate_mouse_windowdragging": false
         },
-        "wallpaper": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/006_Dune_45_in_Sossusvlei_at_sunrise_Photo_by_Giles_Laurent.jpg/3840px-006_Dune_45_in_Sossusvlei_at_sunrise_Photo_by_Giles_Laurent.jpg"
+        "wallpaper": "https://w.wallhaven.cc/full/lm/wallhaven-lm5w9r.jpg"
     }
 }

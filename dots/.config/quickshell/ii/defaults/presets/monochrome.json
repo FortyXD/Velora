@@ -2,8 +2,8 @@
     "version": 1,
     "name": "Monochrome",
     "icon": "contrast",
-    "order": 27,
-    "description": "Black and white hills in fog, plain shapes and almost no motion",
+    "order": 28,
+    "description": "Black and white hills in fog, everything in the middle, plain shapes and almost no motion",
     "wallpaperPreview": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Forested_hills_in_Lysekil_in_fog_-_B%26W.jpg/960px-Forested_hills_in_Lysekil_in_fog_-_B%26W.jpg",
     "credits": {
         "title": "Forested hills in Lysekil in fog - B&W",
@@ -14,10 +14,69 @@
     "bar": {
         "config": {
             "bar": {
-                "layout": null,
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": true,
+                    "actions": {
+                        "start": {
+                            "click": "overview",
+                            "scroll": "workspaces"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "aw",
+                                "type": "activeWindow",
+                                "hideAt": 1
+                            }
+                        ],
+                        "centerStart": [],
+                        "center": [
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            },
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "pillBreak": true,
+                                "options": {
+                                    "showDate": false
+                                }
+                            }
+                        ],
+                        "centerEnd": [],
+                        "end": [
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "prv",
+                                "type": "privacy"
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            },
+                            {
+                                "uid": "pwr",
+                                "type": "session"
+                            }
+                        ]
+                    }
+                },
                 "verticalLayout": null,
                 "style": {
-                    "thickness": -1,
+                    "thickness": 36,
                     "backgroundOpacity": -1,
                     "islands": false,
                     "pillStyle": "outlined",
@@ -32,7 +91,10 @@
                 "borderless": false,
                 "bottom": false,
                 "vertical": false,
-                "floatStyleShadow": true
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
             }
         }
     },
@@ -59,7 +121,8 @@
             "decoration:dim_inactive": false,
             "general:border_size": 1
         },
-        "mode": "dark"
+        "mode": "dark",
+        "accent": ""
     },
     "dockWidgets": {
         "config": {
@@ -73,8 +136,38 @@
                 "widgets": {
                     "clock": {
                         "enable": true,
-                        "placementStrategy": "leastBusy"
+                        "placementStrategy": "leastBusy",
+                        "style": "digital",
+                        "styleLocked": "digital",
+                        "cookie": {
+                            "aiStyling": false,
+                            "sides": 14,
+                            "dialNumberStyle": "full",
+                            "hourHandStyle": "fill",
+                            "minuteHandStyle": "medium",
+                            "secondHandStyle": "dot",
+                            "dateStyle": "bubble",
+                            "timeIndicators": true,
+                            "hourMarks": false,
+                            "dateInClock": true,
+                            "constantlyRotate": false,
+                            "useSineCookie": false
+                        },
+                        "digital": {
+                            "adaptiveAlignment": true,
+                            "showDate": true,
+                            "animateChange": true,
+                            "vertical": false,
+                            "font": {
+                                "family": "Google Sans Flex",
+                                "weight": 200,
+                                "width": 100,
+                                "size": 120,
+                                "roundness": 0
+                            }
+                        }
                     },
+                    "cardStyle": "transparent",
                     "weather": {
                         "enable": false
                     },

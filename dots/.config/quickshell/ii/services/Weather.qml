@@ -41,8 +41,8 @@ Singleton {
         precip: 0,
         visib: 0,
         press: 0,
-        temp: 0,
-        tempFeelsLike: 0,
+        temp: "--", // Until the first answer arrives
+        tempFeelsLike: "--",
         lastRefresh: 0,
     })
 
@@ -81,7 +81,7 @@ Singleton {
     }
 
     function getData() {
-        let command = "curl -s wttr.in";
+        let command = "curl -s -m 20 https://wttr.in";
 
         if (root.gpsActive && root.location.valid) {
             command += `/${root.location.lat},${root.location.long}`;

@@ -1,15 +1,15 @@
 {
     "version": 1,
-    "name": "Night city",
-    "icon": "location_city",
-    "order": 22,
-    "description": "City lights, a thin menu bar, crisp borders and quick motion",
-    "wallpaperPreview": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Qu%C3%A9bec_city_at_night%2C_view_from_L%C3%A9vis_city.jpg/960px-Qu%C3%A9bec_city_at_night%2C_view_from_L%C3%A9vis_city.jpg",
+    "name": "Red sun",
+    "icon": "wb_sunny",
+    "order": 26,
+    "description": "Ink-style red hills in light colors, a solid classic bar at the bottom",
+    "wallpaperPreview": "https://th.wallhaven.cc/lg/96/96rgr1.jpg",
     "credits": {
-        "title": "Québec city at night, view from Lévis city",
-        "author": "Wilfredor",
-        "license": "CC BY-SA 4.0",
-        "page": "https://commons.wikimedia.org/wiki/File:Qu%C3%A9bec_city_at_night,_view_from_L%C3%A9vis_city.jpg"
+        "title": "Red sun",
+        "author": "Aquelion",
+        "license": "Wallhaven",
+        "page": "https://www.deviantart.com/aquelion"
     },
     "bar": {
         "config": {
@@ -19,8 +19,7 @@
                     "balanceCenter": false,
                     "actions": {
                         "start": {
-                            "click": "sidebarLeft",
-                            "scroll": "brightness"
+                            "scroll": "workspaces"
                         },
                         "end": {
                             "click": "sidebarRight",
@@ -30,8 +29,8 @@
                     "zones": {
                         "start": [
                             {
-                                "uid": "lsb",
-                                "type": "leftSidebarButton"
+                                "uid": "search",
+                                "type": "launcher"
                             },
                             {
                                 "uid": "ws",
@@ -64,16 +63,14 @@
                             {
                                 "uid": "clk",
                                 "type": "clock",
-                                "options": {
-                                    "showDate": true
-                                }
+                                "pill": true
                             }
                         ]
                     }
                 },
                 "verticalLayout": null,
                 "style": {
-                    "thickness": 32,
+                    "thickness": 40,
                     "backgroundOpacity": -1,
                     "islands": false,
                     "pillStyle": "filled",
@@ -86,9 +83,12 @@
                 "cornerStyle": 2,
                 "showBackground": true,
                 "borderless": false,
-                "bottom": false,
+                "bottom": true,
                 "vertical": false,
-                "floatStyleShadow": true
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
             }
         }
     },
@@ -96,44 +96,77 @@
         "config": {
             "appearance": {
                 "transparency": {
-                    "enable": true,
-                    "automatic": false,
-                    "backgroundTransparency": 0.15,
-                    "contentTransparency": 0.5
+                    "enable": false,
+                    "automatic": true,
+                    "backgroundTransparency": 0.11,
+                    "contentTransparency": 0.57
                 },
                 "palette": {
-                    "type": "scheme-fruit-salad"
+                    "type": "scheme-fidelity"
                 }
             }
         },
         "hyprland": {
             "decoration:rounding": 8,
             "decoration:blur:enabled": true,
-            "decoration:blur:passes": 2,
-            "decoration:blur:size": 6,
+            "decoration:blur:passes": 3,
+            "decoration:blur:size": 10,
             "decoration:shadow:enabled": true,
-            "decoration:dim_inactive": true,
+            "decoration:dim_inactive": false,
             "general:border_size": 2
         },
-        "mode": "dark"
+        "mode": "light",
+        "accent": "#E53935"
     },
     "dockWidgets": {
         "config": {
             "dock": {
-                "enable": false
+                "enable": false,
+                "hoverToReveal": true,
+                "magnification": true,
+                "monochromeIcons": true
             },
             "background": {
                 "widgets": {
                     "clock": {
-                        "enable": false,
-                        "placementStrategy": "leastBusy"
+                        "enable": true,
+                        "placementStrategy": "leastBusy",
+                        "style": "cookie",
+                        "styleLocked": "cookie",
+                        "cookie": {
+                            "aiStyling": false,
+                            "sides": 0,
+                            "dialNumberStyle": "numbers",
+                            "hourHandStyle": "classic",
+                            "minuteHandStyle": "bold",
+                            "secondHandStyle": "hide",
+                            "dateStyle": "hide",
+                            "timeIndicators": true,
+                            "hourMarks": false,
+                            "dateInClock": false,
+                            "constantlyRotate": false,
+                            "useSineCookie": false
+                        },
+                        "digital": {
+                            "adaptiveAlignment": true,
+                            "showDate": true,
+                            "animateChange": true,
+                            "vertical": false,
+                            "font": {
+                                "family": "Google Sans Flex",
+                                "weight": 350,
+                                "width": 100,
+                                "size": 90,
+                                "roundness": 0
+                            }
+                        }
                     },
+                    "cardStyle": "surface",
                     "weather": {
                         "enable": false
                     },
                     "systemMonitor": {
-                        "enable": true,
-                        "placementStrategy": "leastBusy"
+                        "enable": false
                     },
                     "media": {
                         "enable": false
@@ -145,7 +178,8 @@
                         "enable": false
                     },
                     "note": {
-                        "enable": false
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
                     },
                     "pomodoro": {
                         "enable": false
@@ -155,19 +189,19 @@
         }
     },
     "wallpaperAnimations": {
-        "animationProfile": "fast",
+        "animationProfile": "material",
         "config": {
             "appearance": {
-                "animationSpeed": 1.3
+                "animationSpeed": 1
             }
         },
         "hyprland": {
-            "general:gaps_in": 3,
-            "general:gaps_out": 6,
+            "general:gaps_in": 4,
+            "general:gaps_out": 8,
             "animations:enabled": true,
             "misc:animate_manual_resizes": false,
             "misc:animate_mouse_windowdragging": false
         },
-        "wallpaper": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Qu%C3%A9bec_city_at_night%2C_view_from_L%C3%A9vis_city.jpg/3840px-Qu%C3%A9bec_city_at_night%2C_view_from_L%C3%A9vis_city.jpg"
+        "wallpaper": "https://w.wallhaven.cc/full/96/wallhaven-96rgr1.jpg"
     }
 }
