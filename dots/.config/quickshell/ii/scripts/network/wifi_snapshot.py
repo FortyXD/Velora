@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Return visible access points together with saved NetworkManager profile UUIDs."""
+"""Return visible access points, their saved NetworkManager profile UUIDs and every saved Wi-Fi profile."""
 
 import json
 import os
@@ -108,8 +108,10 @@ def visible_networks(profiles):
 
 
 def main():
-    networks, error = visible_networks(saved_profiles())
-    print(json.dumps({"networks": networks, "error": error}, ensure_ascii=False))
+    profiles = saved_profiles()
+    networks, error = visible_networks(profiles)
+    saved = [{"ssid": ssid, "uuid": profile["uuid"]} for ssid, profile in sorted(profiles.items(), key=lambda item: item[0].lower())]
+    print(json.dumps({"networks": networks, "saved": saved, "error": error}, ensure_ascii=False))
 
 
 if __name__ == "__main__":
