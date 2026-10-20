@@ -33,10 +33,11 @@ Variants {
 
         required property var modelData
 
-        // Hide when fullscreen
+        // Behind a fullscreen window the widgets stop drawing. The window itself stays mapped with the
+        // wallpaper: unmapping it made the empty screen flash while it mapped again on leaving fullscreen.
         property list<HyprlandWorkspace> workspacesForMonitor: Hyprland.workspaces.values.filter(workspace => workspace.monitor && workspace.monitor.name == monitor.name)
         property var activeWorkspaceWithFullscreen: workspacesForMonitor.filter(workspace => ((workspace.toplevels.values.filter(window => window.wayland?.fullscreen)[0] != undefined) && workspace.active))[0]
-        visible: GlobalStates.screenLocked || (!(activeWorkspaceWithFullscreen != undefined)) || !Config?.options.background.hideWhenFullscreen
+        readonly property bool coveredByFullscreen: !GlobalStates.screenLocked && activeWorkspaceWithFullscreen !== undefined && Config.options.background.hideWhenFullscreen
 
         // Workspaces
         property HyprlandMonitor monitor: Hyprland.monitorFor(modelData)
@@ -234,6 +235,7 @@ Variants {
 
             WidgetCanvas {
                 id: widgetCanvas
+                visible: !bgRoot.coveredByFullscreen
                 width: parent.width
                 height: parent.height
                 readonly property real parallaxFactor: {
