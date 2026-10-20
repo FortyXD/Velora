@@ -44,6 +44,28 @@ Item {
     property int windowDraggingZ: 99999
     property real workspaceSpacing: 5
 
+    // Per workspace of the shown group: where its windows go, spread out when they cover each other
+    readonly property var windowPlacements: {
+        let byWorkspace = {};
+        for (const win of root.windows) {
+            const id = win.workspace?.id ?? 0;
+            if (id <= root.workspaceGroup * root.workspacesShown || id > (root.workspaceGroup + 1) * root.workspacesShown) continue;
+            const mon = HyprlandData.monitors.find(m => m.id === win.monitor) ?? root.monitorData;
+            (byWorkspace[id] = byWorkspace[id] ?? []).push({
+                "key": win.address,
+                "x": Math.max((win.at[0] - (mon?.x ?? 0) - (mon?.reserved?.[0] ?? 0)) * root.scale, 0),
+                "y": Math.max((win.at[1] - (mon?.y ?? 0) - (mon?.reserved?.[1] ?? 0)) * root.scale, 0),
+                "width": win.size[0] * root.scale,
+                "height": win.size[1] * root.scale,
+                "fullscreen": (win.fullscreen ?? 0) > 0
+            });
+        }
+        let result = {};
+        for (const id of Object.keys(byWorkspace))
+            result[id] = WindowSpread.layout(byWorkspace[id], root.workspaceImplicitWidth, root.workspaceImplicitHeight, 8);
+        return result;
+    }
+
     property int draggingFromWorkspace: -1
     property int draggingTargetWorkspace: -1
 
@@ -195,6 +217,8 @@ Item {
                     scale: root.scale
                     widgetMonitor: HyprlandData.monitors.find(m => m.id == root.monitor.id)
                     windowData: windowByAddress[address]
+                    readonly property var placement: root.windowPlacements[windowData?.workspace?.id ?? 0]
+                    spreadRect: placement?.spread ? (placement.rects[windowData?.address] ?? null) : null
 
                     property bool atInitPosition: (initX == x && initY == y)
 
@@ -235,8 +259,9 @@ Item {
                         repeat: false
                         running: false
                         onTriggered: {
-                            window.x = Math.round(xWithinWorkspaceWidget + xOffset)
-                            window.y = Math.round(yWithinWorkspaceWidget + yOffset)
+                            // Back to following the computed place, which also knows about spread-out windows
+                            window.x = Qt.binding(() => Math.round(window.initX))
+                            window.y = Qt.binding(() => Math.round(window.initY))
                         }
                     }
 

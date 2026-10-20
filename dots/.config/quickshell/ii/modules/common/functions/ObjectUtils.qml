@@ -4,6 +4,14 @@ import Quickshell
 Singleton {
     id: root
 
+    // QML lists (e.g. list<string> config options): a length and only numeric keys.
+    // Empty ones count too, or they would be saved as {} instead of [].
+    function isQtArrayLike(obj) {
+        return !!obj && typeof obj === "object" &&
+            typeof obj.length === "number" &&
+            Object.keys(obj).every(key => !isNaN(key) || key === "length");
+    }
+
     function toPlainObject(qtObj) {
         if (qtObj === null || typeof qtObj !== "object") return qtObj;
 
@@ -13,13 +21,7 @@ Singleton {
         }
 
         // Handle array-like Qt objects (e.g., have length and numeric keys)
-        if (
-            typeof qtObj.length === "number" &&
-            qtObj.length > 0 &&
-            Object.keys(qtObj).every(
-                key => !isNaN(key) || key === "length"
-            )
-        ) {
+        if (root.isQtArrayLike(qtObj)) {
             let arr = [];
             for (let i = 0; i < qtObj.length; i++) {
                 arr.push(toPlainObject(qtObj[i]));
@@ -50,13 +52,7 @@ Singleton {
         // console.log("applyToQtObject", JSON.stringify(qtObj, null, 2), "<<", JSON.stringify(jsonObj, null, 2));
         if (!qtObj || typeof jsonObj !== "object" || jsonObj === null) return;
 
-        // Detect array-like Qt objects
-        const isQtArrayLike = obj => {
-            return obj && typeof obj === "object" &&
-                typeof obj.length === "number" &&
-                obj.length > 0 &&
-                Object.keys(obj).every(key => !isNaN(key) || key === "length");
-        };
+        const isQtArrayLike = root.isQtArrayLike;
 
         // If both are arrays or array-like, update in place or replace
         if ((Array.isArray(qtObj) || isQtArrayLike(qtObj)) && Array.isArray(jsonObj)) {

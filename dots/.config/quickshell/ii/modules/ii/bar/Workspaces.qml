@@ -132,6 +132,7 @@ Item {
 
     // Workspaces - background
     Grid {
+        id: backgroundGrid
         z: 1
         anchors.centerIn: parent
 
@@ -147,8 +148,9 @@ Item {
                 implicitWidth: workspaceButtonWidth
                 implicitHeight: workspaceButtonWidth
                 radius: (width / 2)
-                property var previousOccupied: (workspaceOccupied[index-1] && !(!activeWindow?.activated && root.effectiveActiveWorkspaceId === index))
-                property var rightOccupied: (workspaceOccupied[index+1] && !(!activeWindow?.activated && root.effectiveActiveWorkspaceId === index+2))
+                readonly property int workspaceValue: root.workspaceGroup * root.workspacesShown + index + 1
+                property var previousOccupied: (workspaceOccupied[index-1] && !(!activeWindow?.activated && root.effectiveActiveWorkspaceId === workspaceValue - 1))
+                property var rightOccupied: (workspaceOccupied[index+1] && !(!activeWindow?.activated && root.effectiveActiveWorkspaceId === workspaceValue + 1))
                 property var radiusPrev: previousOccupied ? 0 : (width / 2)
                 property var radiusNext: rightOccupied ? 0 : (width / 2)
 
@@ -158,7 +160,7 @@ Item {
                 bottomRightRadius: radiusNext
 
                 color: ColorUtils.transparentize(Appearance.m3colors.m3secondaryContainer, 0.4)
-                opacity: (workspaceOccupied[index] && !(!activeWindow?.activated && root.effectiveActiveWorkspaceId === index+1)) ? 1 : 0
+                opacity: (workspaceOccupied[index] && !(!activeWindow?.activated && root.effectiveActiveWorkspaceId === workspaceValue)) ? 1 : 0
 
                 Behavior on opacity {
                     animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
@@ -184,11 +186,6 @@ Item {
         radius: Appearance.rounding.full
         color: Appearance.colors.colPrimary
 
-        anchors {
-            verticalCenter: vertical ? undefined : parent.verticalCenter
-            horizontalCenter: vertical ? parent.horizontalCenter : undefined
-        }
-
         // Rubber band: the leading edge snaps ahead, the trailing edge catches up
         AnimatedTabIndexPair {
             id: idxPair
@@ -204,9 +201,10 @@ Item {
         // Thins out a little while stretched, like a band under tension
         property real indicatorThickness: (workspaceButtonWidth - root.activeWorkspaceMargin * 2) * (Config.options.bar.microAnimations ? 1 - 0.18 * stretch : 1)
 
-        x: root.vertical ? null : indicatorPosition
+        // Plain bindings, no anchors: an anchor would overwrite the position and break it once the orientation changes
+        x: root.vertical ? (root.width - width) / 2 : backgroundGrid.x + indicatorPosition
         implicitWidth: root.vertical ? indicatorThickness : indicatorLength
-        y: root.vertical ? indicatorPosition : null
+        y: root.vertical ? backgroundGrid.y + indicatorPosition : (root.height - height) / 2
         implicitHeight: root.vertical ? indicatorLength : indicatorThickness
 
     }
