@@ -245,6 +245,20 @@ Singleton {
                 "name": Translation.tr("Random wallpaper"), "description": Translation.tr("A random wallpaper from your wallpaper folder"),
                 "icon": "shuffle", "category": "buttons", "vertical": true
             },
+            "toolbox": {
+                "name": Translation.tr("Toolbox"), "description": Translation.tr("Converter, downloads, QR codes, text from images and colors"),
+                "icon": "construction", "category": "buttons", "vertical": true,
+                "options": [
+                    { "key": "tab", "kind": "choice", "label": Translation.tr("Opens on"), "default": "converter", "scope": "instance",
+                      "choices": [
+                          { "value": "converter", "name": Translation.tr("Converter") },
+                          { "value": "downloader", "name": Translation.tr("Downloads") },
+                          { "value": "qr", "name": Translation.tr("QR codes") },
+                          { "value": "ocr", "name": Translation.tr("Text from images") },
+                          { "value": "colors", "name": Translation.tr("Colors") },
+                      ] },
+                ]
+            },
             "presetSwitcher": {
                 "name": Translation.tr("Preset switcher"), "description": Translation.tr("A menu of system and bar presets"),
                 "icon": "auto_awesome_mosaic", "category": "buttons", "vertical": true

@@ -21,7 +21,7 @@ QuickToggleModel {
         interval: 300
         repeat: false
         onTriggered: {
-            Quickshell.execDetached(["hyprpicker", "-a"]);
+            Quickshell.execDetached([Quickshell.shellPath("scripts/colors/pick-color.sh")]);
         }
     }
 

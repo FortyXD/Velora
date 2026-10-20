@@ -217,7 +217,8 @@ hl.define_submap("global", function()
     bind("Super+Shift", "X", hl.dsp.global("quickshell:regionOcr"), { id = "tools.ocr", description = "Copy text from a region" })
     bind("Super+Shift", "X", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pidof slurp || grim -g "$(slurp $SLURP_ARGS)" "/tmp/ocr_image.png" && tesseract "/tmp/ocr_image.png" stdout -l $(tesseract --list-langs | awk 'NR>1{print $1}' | tr '\n' '+' | sed 's/\+$/\n/') | wl-copy && rm "/tmp/ocr_image.png"]=]), { id = "tools.ocr" })
     bind("Super+Shift", "T", hl.dsp.global("quickshell:screenTranslate"), { id = "tools.translate", description = "Translate text on screen" })
-    bind("Super+Shift", "C", exec([=[hyprpicker -a]=]), { id = "tools.color_picker", description = "Pick a color" })
+    bind("Super+Shift", "C", exec([=[~/.config/quickshell/$qsConfig/scripts/colors/pick-color.sh]=]), { id = "tools.color_picker", description = "Pick a color" })
+    bind("Super+Shift", "I", exec([=[~/.config/quickshell/$qsConfig/scripts/toolbox/open.sh]=]), { id = "tools.toolbox", description = "Open the toolbox" })
     bind("Super+Shift+Alt", "mouse:273", exec([=[~/.config/hypr/hyprland/scripts/ai/primary-buffer-query.sh]=]), {
         description = "Summarize selected text with AI",
     })

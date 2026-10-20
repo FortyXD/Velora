@@ -63,6 +63,7 @@ slurp
 swappy
 tesseract
 tesseract-data-eng
+tesseract-data-rus
 wf-recorder
 clang
 uv
@@ -90,3 +91,15 @@ kio-extras
 kvantum
 git
 base-devel
+
+# Toolbox: converter, downloads, QR codes, text recognition (LibreOffice is optional, for office documents)
+yt-dlp
+qrencode
+zbar
+poppler
+qpdf
+7zip
+pandoc-cli
+ghostscript
+libheif
+kdialog
