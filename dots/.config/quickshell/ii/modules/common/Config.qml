@@ -683,6 +683,11 @@ Singleton {
                 property string theme: "freedesktop"
             }
 
+            property JsonObject toolbox: JsonObject { // The toolbox window (toolbox.qml)
+                property string downloadDir: "" // Where the downloader saves; empty = ~/Videos/Downloads
+                property string proxy: "" // For yt-dlp, e.g. socks5://127.0.0.1:1080
+            }
+
             property JsonObject time: JsonObject {
                 // https://doc.qt.io/qt-6/qtime.html#toString
                 property string format: "hh:mm"

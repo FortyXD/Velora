@@ -557,6 +557,10 @@
         "pomodoro": false,
         "theme": "freedesktop"
     },
+    "toolbox": {
+        "downloadDir": "",
+        "proxy": ""
+    },
     "time": {
         "dateFormat": "ddd, dd/MM",
         "dateWithYearFormat": "dd/MM/yyyy",

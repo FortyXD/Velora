@@ -116,6 +116,7 @@ QtObject {
         "updates": updates,
         "randomWallpaper": randomWallpaper,
         "presetSwitcher": presetSwitcher,
+        "toolbox": toolbox,
     })
 
     property Component presetSwitcher: Component {
@@ -374,6 +375,15 @@ QtObject {
             iconName: "settings"
             tooltipText: Translation.tr("Settings")
             onClicked: Quickshell.execDetached(["qs", "-p", Quickshell.shellPath("settings.qml")])
+        }
+    }
+
+    property Component toolbox: Component {
+        CircleUtilButton {
+            property var host: null
+            iconName: "construction"
+            tooltipText: Translation.tr("Toolbox")
+            onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/toolbox/open.sh"), host?.options?.tab ?? "converter"])
         }
     }
 

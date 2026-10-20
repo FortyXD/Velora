@@ -60,7 +60,7 @@ Loader {
             iconName: "colorize"
             iconFill: 1
             tooltipText: Translation.tr("Color picker")
-            onClicked: Quickshell.execDetached(["hyprpicker", "-a"])
+            onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/colors/pick-color.sh")]) // Remembers the color for the toolbox
         }
     }
 

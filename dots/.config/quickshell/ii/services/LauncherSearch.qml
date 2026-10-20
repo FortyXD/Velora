@@ -102,6 +102,16 @@ Singleton {
             }
         },
         {
+            action: "toolbox",
+            execute: args => {
+                // A tab name opens that tab; a link goes to the downloader
+                const value = args.trim();
+                const tab = ["converter", "downloader", "qr", "ocr", "colors"].includes(value.toLowerCase()) ? value.toLowerCase() : "";
+                const link = /^https?:\/\//i.test(value) ? value : "";
+                Quickshell.execDetached([Quickshell.shellPath("scripts/toolbox/open.sh"), link ? "downloader" : (tab || "converter"), ...(link ? [link] : [])]);
+            }
+        },
+        {
             action: "superpaste",
             execute: args => {
                 if (!/^(\d+)/.test(args.trim())) {

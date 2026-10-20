@@ -127,13 +127,32 @@ if [[ -x /usr/local/racket/bin/drracket ]]; then
   link_item "$repo_root/dots/.local/share/applications/drracket.desktop" "$data_home/applications/drracket.desktop"
 fi
 
-archive_menu="$data_home/kio/servicemenus/folis-create-archive.desktop"
-if $dry_run; then
-  printf 'Would install Dolphin archive menu: %s\n' "$archive_menu"
-else
-  mkdir -p -- "$(dirname -- "$archive_menu")"
-  archive_menu_tmp=$(mktemp "${archive_menu}.XXXXXX")
-  cat > "$archive_menu_tmp" <<EOF
+# Writes a generated file from stdin, moving a different existing file to the backup
+install_generated() {
+  local dest=$1 tmp relative
+  if $dry_run; then
+    printf 'Would install %s\n' "$dest"
+    cat > /dev/null
+    return
+  fi
+  mkdir -p -- "$(dirname -- "$dest")"
+  tmp=$(mktemp "${dest}.XXXXXX")
+  cat > "$tmp"
+  chmod 755 "$tmp"
+  if [[ -e $dest || -L $dest ]]; then
+    if cmp -s -- "$tmp" "$dest"; then
+      rm -- "$tmp"
+      return
+    fi
+    relative=${dest#"$HOME"/}
+    mkdir -p -- "$backup_root/$(dirname -- "$relative")"
+    mv -- "$dest" "$backup_root/$relative"
+  fi
+  mv -- "$tmp" "$dest"
+}
+
+service_menus="$data_home/kio/servicemenus"
+install_generated "$service_menus/folis-create-archive.desktop" <<EOF
 [Desktop Entry]
 Type=Service
 Name=Compress
@@ -158,20 +177,87 @@ Name[ru]=Архив tar.gz
 Icon=archive-insert
 Exec=/usr/bin/python3 "$data_home/folis/dolphin-create-archive.py" tar.gz %F
 EOF
-  chmod 755 "$archive_menu_tmp"
-  if [[ -e $archive_menu || -L $archive_menu ]]; then
-    if cmp -s -- "$archive_menu_tmp" "$archive_menu"; then
-      rm -- "$archive_menu_tmp"
-    else
-      relative=${archive_menu#"$HOME"/}
-      mkdir -p -- "$backup_root/$(dirname -- "$relative")"
-      mv -- "$archive_menu" "$backup_root/$relative"
-      mv -- "$archive_menu_tmp" "$archive_menu"
-    fi
-  else
-    mv -- "$archive_menu_tmp" "$archive_menu"
-  fi
-fi
+
+# Toolbox: "Convert to" runs in the background and notifies; the rest opens the toolbox window
+toolbox="$config_home/quickshell/ii/scripts/toolbox"
+quick_convert_menu() { # file mime-types target:Name:Name[ru]...
+  local file=$1 mimes=$2 actions="" entry key name name_ru body=""
+  shift 2
+  for entry in "$@"; do
+    IFS=: read -r key name name_ru <<<"$entry"
+    actions+="$key;"
+    body+=$'\n'"[Desktop Action $key]"$'\n'"Name=$name"$'\n'"Name[ru]=$name_ru"$'\n'"Icon=document-export"$'\n'"Exec=\"$toolbox/quick.sh\" $key %F"$'\n'
+  done
+  install_generated "$service_menus/$file" <<EOF
+[Desktop Entry]
+Type=Service
+MimeType=$mimes
+X-KDE-Protocols=file
+X-KDE-MinNumberOfUrls=1
+X-KDE-Priority=TopLevel
+X-KDE-Submenu=Convert to
+X-KDE-Submenu[ru]=Преобразовать в
+Actions=$actions
+$body
+EOF
+}
+quick_convert_menu folis-toolbox-image.desktop "image/*;" "png:PNG:PNG" "jpg:JPG:JPG" "webp:WebP:WebP" "pdf:PDF:PDF"
+quick_convert_menu folis-toolbox-video.desktop "video/*;" "mp4:MP4:MP4" "webm:WebM:WebM" "gif:GIF:GIF" "mp3:MP3 (sound only):MP3 (только звук)"
+quick_convert_menu folis-toolbox-audio.desktop "audio/*;" "mp3:MP3:MP3" "opus:Opus:Opus" "flac:FLAC:FLAC"
+
+install_generated "$service_menus/folis-toolbox.desktop" <<EOF
+[Desktop Entry]
+Type=Service
+MimeType=all/allfiles;
+X-KDE-Protocols=file
+X-KDE-MinNumberOfUrls=1
+X-KDE-Priority=TopLevel
+X-KDE-Submenu=Toolbox
+X-KDE-Submenu[ru]=Инструменты
+Actions=convert;
+
+[Desktop Action convert]
+Name=Convert…
+Name[ru]=Конвертировать…
+Icon=transform-move
+Exec="$toolbox/open.sh" converter %F
+EOF
+
+install_generated "$service_menus/folis-toolbox-text.desktop" <<EOF
+[Desktop Entry]
+Type=Service
+MimeType=image/*;application/pdf;
+X-KDE-Protocols=file
+X-KDE-MaxNumberOfUrls=1
+X-KDE-Priority=TopLevel
+X-KDE-Submenu=Toolbox
+X-KDE-Submenu[ru]=Инструменты
+Actions=ocr;
+
+[Desktop Action ocr]
+Name=Recognize text
+Name[ru]=Распознать текст
+Icon=edit-select-text
+Exec="$toolbox/open.sh" ocr %f
+EOF
+
+install_generated "$service_menus/folis-toolbox-qr.desktop" <<EOF
+[Desktop Entry]
+Type=Service
+MimeType=image/*;
+X-KDE-Protocols=file
+X-KDE-MaxNumberOfUrls=1
+X-KDE-Priority=TopLevel
+X-KDE-Submenu=Toolbox
+X-KDE-Submenu[ru]=Инструменты
+Actions=qr;
+
+[Desktop Action qr]
+Name=Scan QR code
+Name[ru]=Сканировать QR-код
+Icon=view-barcode-qr
+Exec="$toolbox/open.sh" qr %f
+EOF
 
 if command -v xdg-mime >/dev/null 2>&1 && [[ -f /usr/share/applications/org.kde.dolphin.desktop ]]; then
   if $dry_run; then
