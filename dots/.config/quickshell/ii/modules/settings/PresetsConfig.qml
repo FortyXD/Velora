@@ -199,7 +199,7 @@ ContentPage {
                         elide: Text.ElideRight
                         horizontalAlignment: Text.AlignRight
                         text: card.preset.credits
-                            ? Translation.tr("Photo: %1 · %2").arg(card.preset.credits.author).arg(card.preset.credits.license)
+                            ? Translation.tr("By %1 · %2").arg(card.preset.credits.author).arg(card.preset.credits.license)
                             : card.preset.kind === "user" ? Translation.tr("Yours") : ""
                         font.pixelSize: Appearance.font.pixelSize.smallest
                         color: Appearance.colors.colSubtext
