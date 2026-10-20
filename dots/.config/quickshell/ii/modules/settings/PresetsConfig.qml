@@ -7,6 +7,7 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
+import qs.modules.settings.presets
 
 ContentPage {
     id: page
@@ -18,6 +19,13 @@ ContentPage {
     readonly property var barPresets: Presets.presets.filter(preset => page.isBarOnly(preset))
     property string expandedId: "" // Preset whose apply options are open
     property var chosenCategories: []
+
+    // Styles and bar presets keep your wallpaper, so their miniatures are drawn over it
+    readonly property string currentWallpaper: {
+        const path = Config.options.background.wallpaperPath ?? "";
+        const picture = /\.(mp4|webm|mkv|avi|mov)$/i.test(path) ? (Config.options.background.thumbnailPath ?? "") : path;
+        return picture.length > 0 ? `file://${FileUtils.trimFileProtocol(picture)}` : "";
+    }
 
     function isBarOnly(preset) {
         const categories = Presets.categoriesOf(preset);
@@ -48,7 +56,8 @@ ContentPage {
         required property var preset
         readonly property bool expanded: page.expandedId === preset.id
         readonly property var categories: Presets.categoriesOf(preset)
-        readonly property string preview: Presets.previewOf(preset)
+        readonly property bool barOnly: page.isBarOnly(preset)
+        readonly property string preview: Presets.previewOf(preset) || page.currentWallpaper
         readonly property bool settingsSearchable: true
         property string searchText: `${Translation.tr(preset.name)} ${Translation.tr(preset.description ?? "")}`
 
@@ -67,17 +76,14 @@ ContentPage {
             }
             spacing: 0
 
-            Item { // Wallpaper of the preset
+            Item { // The preset on screen: its wallpaper with a miniature of its bar, widgets and dock
                 id: previewBox
                 visible: card.preview.length > 0
                 Layout.fillWidth: true
-                implicitHeight: Math.round(width * 9 / 16)
+                implicitHeight: Math.round(width * (card.barOnly ? 0.14 : 9 / 16))
 
-                Loader {
-                    id: previewLoader
+                Item {
                     anchors.fill: parent
-                    active: card.preview.length > 0
-                    sourceComponent: card.preview.startsWith("http") ? remotePreview : localPreview
                     layer.enabled: true
                     layer.effect: OpacityMask {
                         maskSource: Rectangle {
@@ -90,6 +96,17 @@ ContentPage {
                                 height: parent.radius
                             }
                         }
+                    }
+                    Loader {
+                        id: previewLoader
+                        anchors.fill: parent
+                        active: card.preview.length > 0
+                        sourceComponent: card.preview.startsWith("http") ? remotePreview : localPreview
+                    }
+                    PresetMockup {
+                        anchors.fill: parent
+                        preset: card.preset
+                        barOnly: card.barOnly
                     }
                 }
                 Component {
