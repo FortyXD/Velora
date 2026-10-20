@@ -81,16 +81,10 @@ ApplicationWindow {
             component: "modules/settings/DesktopConfig.qml"
         },
         {
-            key: "bar", group: "desktop", color: "#007AFF", icon: "toast", iconRotation: 180,
+            key: "bar", group: "desktop", color: "#007AFF", icon: "toast", iconRotation: 180, hero: false,
             name: Translation.tr("Bar"),
-            description: Translation.tr("Position, style and contents of the bar"),
+            description: Translation.tr("Arrange the bar's widgets right on it, its look and behavior"),
             component: "modules/settings/BarConfig.qml"
-        },
-        {
-            key: "barLayout", group: "desktop", color: "#007AFF", icon: "view_column",
-            name: Translation.tr("Bar Layout"),
-            description: Translation.tr("Arrange the bar's widgets, add new ones and set each up"),
-            component: "modules/settings/BarLayoutConfig.qml"
         },
         {
             key: "sidebars", group: "desktop", color: "#30B0C7", icon: "side_navigation",
@@ -183,8 +177,12 @@ ApplicationWindow {
     readonly property bool canGoBack: root.historyIndex > 0
     readonly property bool canGoForward: root.historyIndex < root.history.length - 1
 
+    // Keys of pages that were merged into others still lead somewhere
+    readonly property var pageAliases: ({ "barLayout": "bar" })
+
     function pageIndex(key) {
-        return root.pages.findIndex(page => page.key === key);
+        const wanted = root.pageAliases[key] ?? key;
+        return root.pages.findIndex(page => page.key === wanted);
     }
 
     function showPage(index) {

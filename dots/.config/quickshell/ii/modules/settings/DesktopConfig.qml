@@ -96,7 +96,7 @@ ContentPage {
             buttonIcon: "workspaces"
             title: Translation.tr("Workspace indicator")
             description: Translation.tr("How many are shown in the bar and how they're numbered")
-            onClicked: ApplicationWindow.window?.openPage("bar", Translation.tr("Workspaces"))
+            onClicked: ApplicationWindow.window?.openPage("bar", Translation.tr("Widget settings"))
         }
         ConfigNavRow {
             buttonIcon: "swipe"

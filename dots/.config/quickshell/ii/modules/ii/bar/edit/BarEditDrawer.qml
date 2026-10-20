@@ -117,7 +117,7 @@ Rectangle {
             }
             DialogButton {
                 buttonText: Translation.tr("All settings")
-                onClicked: root.view.openSettings("barLayout")
+                onClicked: root.view.openSettings("bar")
             }
         }
 
