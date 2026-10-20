@@ -27,11 +27,15 @@ Item { // Window
         const monitorHeight = monitorData.transform & 1 ? monitorData.width : monitorData.height;
         return (widgetHeight * monitorData.scale) / (monitorHeight * widgetMonitor.scale);
     }
+    // Place inside the workspace when its windows cover each other and get spread out (see WindowSpread)
+    property var spreadRect: null
     property real initX: {
+        if (spreadRect) return spreadRect.x + xOffset;
         return Math.max((windowData?.at[0] - (monitorData?.x ?? 0) - monitorData?.reserved[0]) * widthRatio * root.scale, 0) + xOffset;
     }
 
     property real initY: {
+        if (spreadRect) return spreadRect.y + yOffset;
         return Math.max((windowData?.at[1] - (monitorData?.y ?? 0) - monitorData?.reserved[1]) * heightRatio * root.scale, 0) + yOffset;
     }
     property real xOffset: 0
@@ -39,8 +43,8 @@ Item { // Window
     property var widgetMonitor
     property int widgetMonitorId: widgetMonitor.id
 
-    property var targetWindowWidth: windowData?.size[0] * scale * widthRatio
-    property var targetWindowHeight: windowData?.size[1] * scale * heightRatio
+    property var targetWindowWidth: spreadRect ? spreadRect.width : windowData?.size[0] * scale * widthRatio
+    property var targetWindowHeight: spreadRect ? spreadRect.height : windowData?.size[1] * scale * heightRatio
     property bool hovered: false
     property bool pressed: false
 

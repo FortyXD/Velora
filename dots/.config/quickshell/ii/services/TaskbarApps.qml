@@ -53,10 +53,24 @@ Singleton {
         }
     }
 
+    // An empty or broken pattern would match every app and empty the dock, so those are skipped
+    function ignoredRegexes() {
+        let result = [];
+        for (const pattern of Config.options?.dock.ignoredAppRegexes ?? []) {
+            if (typeof pattern !== "string" || pattern.trim().length === 0) continue;
+            try {
+                result.push(new RegExp(pattern, "i"));
+            } catch (error) {
+                console.warn(`[TaskbarApps] Ignoring invalid pattern "${pattern}": ${error}`);
+            }
+        }
+        return result;
+    }
+
     property var apps: {
         root.entriesRevision; // Regroup windows once desktop entries are loaded
         const pinnedApps = Config.options?.dock.pinnedApps ?? [];
-        const ignoredRegexes = (Config.options?.dock.ignoredAppRegexes ?? []).map(pattern => new RegExp(pattern, "i"));
+        const ignoredRegexes = root.ignoredRegexes();
 
         const pinned = new Map();
         const pinnedByEntry = new Map();

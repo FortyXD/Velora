@@ -33,7 +33,39 @@ QtObject {
         "clock": verticalClock,
         "media": verticalMedia,
         "statusIndicators": verticalStatusIndicators,
+        "workspaces": verticalWorkspaces,
+        "sysTray": verticalSysTray,
+        "keyboardLayout": verticalKeyboardLayout,
     })
+
+    // Vertical from the start: the host is only known after loading, and flipping
+    // orientation later leaves anchored parts at their horizontal positions
+    property Component verticalWorkspaces: Component {
+        Workspaces {
+            property var host: null
+            vertical: true
+        }
+    }
+
+    property Component verticalSysTray: Component {
+        SysTray {
+            property var host: null
+            vertical: true
+            invertSide: Config.options.bar.bottom
+        }
+    }
+
+    property Component verticalKeyboardLayout: Component {
+        IndicatorWidget {
+            id: verticalKeyboardWidget
+            active: verticalXkbIndicator.active
+            HyprlandXkbIndicator {
+                id: verticalXkbIndicator
+                vertical: true
+                color: root.textColor(verticalKeyboardWidget.host)
+            }
+        }
+    }
 
     property Component verticalResources: Component {
         VBar.Resources {
