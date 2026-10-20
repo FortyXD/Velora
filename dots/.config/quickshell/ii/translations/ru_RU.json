@@ -2062,5 +2062,14 @@
   "Running now:": "Сейчас запущены:",
   "Hide %1 from the dock": "Скрыть %1 из дока",
   "Opens the left sidebar": "Открывает левую панель",
-  "Opens the right sidebar": "Открывает правую панель"
+  "Opens the right sidebar": "Открывает правую панель",
+  "Workspace overview": "Обзор рабочих столов",
+  "Search and all your workspaces at a glance, on one key": "Поиск и все рабочие столы сразу, по одной клавише",
+  "A screen with a search field and every workspace in small, with its windows. Type to find an app or a file, click a workspace to go there, drag a window to move it to another one.": "Экран с полем поиска и всеми рабочими столами в миниатюре, с их окнами. Начните печатать, чтобы найти приложение или файл; нажмите на стол, чтобы перейти на него; перетащите окно, чтобы перенести его на другой.",
+  "Opens with": "Открывается клавишей",
+  "tapped, or": "(короткое нажатие) или",
+  "Open it now": "Открыть сейчас",
+  "Click a widget on the bar to set it up, move it to another part or remove it": "Нажмите на виджет на баре, чтобы настроить его, перенести в другую часть или убрать",
+  "Add widgets after “%1”, or drag one onto the bar": "Добавляйте виджеты после «%1» или перетаскивайте их на бар",
+  "Add widgets: click to put one at the end, or drag it onto the bar": "Добавить виджеты: нажмите, чтобы поставить в конец, или перетащите на бар"
 }

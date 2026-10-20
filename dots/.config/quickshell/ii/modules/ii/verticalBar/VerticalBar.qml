@@ -222,10 +222,12 @@ Scope {
                     Loader {
                         id: editDrawerLoader
                         active: barRoot.editingHere
-                        width: 520
+                        width: 420
                         anchors {
                             top: parent.top
+                            bottom: parent.bottom
                             topMargin: 8
+                            bottomMargin: 8
                             left: Config.options.bar.bottom ? undefined : barContent.right
                             right: Config.options.bar.bottom ? barContent.left : undefined
                             leftMargin: Appearance.rounding.screenRounding + 4

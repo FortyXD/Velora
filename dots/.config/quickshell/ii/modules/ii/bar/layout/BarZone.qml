@@ -150,14 +150,10 @@ FocusedScrollMouseArea {
 
     Rectangle { // Drop target for an empty zone while editing
         visible: root.editing && !root.hasContent
-        anchors {
-            fill: parent
-            topMargin: 6
-            bottomMargin: 6
-            leftMargin: 4
-            rightMargin: 4
-        }
-        radius: Appearance.rounding.small
+        anchors.centerIn: parent
+        width: 28
+        height: 28
+        radius: 14
         color: "transparent"
         border.width: 1
         border.color: Appearance.colors.colOutline
