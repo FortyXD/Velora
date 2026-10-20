@@ -23,7 +23,9 @@ ColumnLayout {
         delegate: Loader {
             id: optionLoader
             required property var modelData
-            readonly property var value: BarWidgetCatalog.optionValue(root.item, modelData)
+            // List values (json choices) are handled as JSON text, so they compare by content
+            readonly property var value: modelData.json ? JSON.stringify(BarWidgetCatalog.optionValue(root.item, modelData) ?? null)
+                : BarWidgetCatalog.optionValue(root.item, modelData)
             Layout.fillWidth: true
             sourceComponent: {
                 switch (modelData.kind) {
@@ -35,7 +37,8 @@ ColumnLayout {
             }
 
             function set(value) {
-                BarLayout.setOptionValue(root.orientation, root.item.uid, optionLoader.modelData, value);
+                BarLayout.setOptionValue(root.orientation, root.item.uid, optionLoader.modelData,
+                    optionLoader.modelData.json ? JSON.parse(value) : value);
             }
 
             Component {
@@ -69,7 +72,8 @@ ColumnLayout {
                     text: optionLoader.modelData.label
                     currentValue: optionLoader.value
                     options: (optionLoader.modelData.choices ?? []).map(choice => ({
-                        "value": choice.value, "displayName": choice.name, "icon": choice.icon ?? ""
+                        "value": optionLoader.modelData.json ? JSON.stringify(choice.value) : choice.value,
+                        "displayName": choice.name, "icon": choice.icon ?? ""
                     }))
                     onSelected: value => optionLoader.set(value)
                 }

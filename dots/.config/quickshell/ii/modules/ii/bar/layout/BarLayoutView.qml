@@ -120,7 +120,6 @@ Item {
         barMenu.openAt(root.QsWindow.window, point.x, point.y, [
             { "text": Translation.tr("Edit the bar"), "icon": "edit", "action": () => root.startEditing() },
             { "type": "separator" },
-            { "text": Translation.tr("Bar layout settings"), "icon": "view_column", "action": () => root.openSettings("barLayout") },
             { "text": Translation.tr("Bar settings"), "icon": "settings", "action": () => root.openSettings("bar") },
         ]);
     }

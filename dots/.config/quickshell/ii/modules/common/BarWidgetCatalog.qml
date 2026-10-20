@@ -13,7 +13,8 @@ import qs.services
  * unique:      only one makes sense per bar
  * defaults:    item fields for a newly added one (pill, hideAt, …)
  * options:     [{ key, kind: switch|spin|text|choice|command, label, default, from, to, choices,
- *                 scope: "instance" (stored in the item) | "path:<config path>" (shared setting) }]
+ *                 scope: "instance" (stored in the item) | "path:<config path>" (shared setting),
+ *                 json: choice values are compared and stored as JSON (for lists) }]
  */
 Singleton {
     id: root
@@ -90,6 +91,13 @@ Singleton {
                     { "key": "showAppIcons", "kind": "switch", "label": Translation.tr("App icons"), "scope": "path:bar.workspaces.showAppIcons" },
                     { "key": "monochromeIcons", "kind": "switch", "label": Translation.tr("Tint app icons"), "scope": "path:bar.workspaces.monochromeIcons" },
                     { "key": "alwaysShowNumbers", "kind": "switch", "label": Translation.tr("Always show numbers"), "scope": "path:bar.workspaces.alwaysShowNumbers" },
+                    { "key": "numberMap", "kind": "choice", "label": Translation.tr("Number style"), "scope": "path:bar.workspaces.numberMap", "json": true,
+                      "choices": [
+                          { "value": [], "name": Translation.tr("Normal") },
+                          { "value": ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十"], "name": Translation.tr("Han chars") },
+                          { "value": ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"], "name": Translation.tr("Roman") },
+                      ] },
+                    { "key": "showNumberDelay", "kind": "spin", "label": Translation.tr("Numbers appear after holding Super (ms)"), "from": 0, "to": 1000, "scope": "path:bar.workspaces.showNumberDelay" },
                 ]
             },
             "resources": {
@@ -114,6 +122,7 @@ Singleton {
                 "icon": "more_horiz", "category": "system", "fillHeight": true, "vertical": true, "unique": true,
                 "options": [
                     { "key": "monochromeIcons", "kind": "switch", "label": Translation.tr("Tint icons"), "scope": "path:tray.monochromeIcons" },
+                    { "key": "invertPinnedItems", "kind": "switch", "label": Translation.tr("Make icons pinned by default"), "scope": "path:tray.invertPinnedItems" },
                 ]
             },
             "privacy": {
