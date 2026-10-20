@@ -15,20 +15,37 @@ Flickable {
 
     ScrollBar.vertical: StyledScrollBar {}
 
+    // Mouse wheel notches glide; a touchpad follows the fingers directly. Animating each of the many small
+    // touchpad steps (the old Behavior did, for every contentY change) made scrolling lag behind and wobble.
+    property bool wheelGliding: false
+
     MouseArea {
-        visible: Config?.options.interactions.scrolling.fasterTouchpadScroll
         anchors.fill: parent
         acceptedButtons: Qt.NoButton
         onWheel: function(wheelEvent) {
-            const delta = wheelEvent.angleDelta.y / root.mouseScrollDeltaThreshold;
-            // The angleDelta.y of a touchpad is usually small and continuous,
-            // while that of a mouse wheel is typically in multiples of ±120.
-            var scrollFactor = Math.abs(wheelEvent.angleDelta.y) >= root.mouseScrollDeltaThreshold ? root.mouseScrollFactor : root.touchpadScrollFactor;
-
             const maxY = Math.max(0, root.contentHeight - root.height);
+            // Sideways scrolling, or nothing to scroll here: leave it to the flickable or the one around it
+            if (Math.abs(wheelEvent.angleDelta.x) > Math.abs(wheelEvent.angleDelta.y) || maxY <= 0) {
+                wheelEvent.accepted = false;
+                return;
+            }
+            // The angleDelta.y of a mouse wheel comes in multiples of ±120; a touchpad sends small pixel steps
+            const mouseWheel = wheelEvent.pixelDelta.y === 0 && Math.abs(wheelEvent.angleDelta.y) >= root.mouseScrollDeltaThreshold;
+            const notches = wheelEvent.angleDelta.y / root.mouseScrollDeltaThreshold;
             const base = scrollAnim.running ? root.scrollTargetY : root.contentY;
-            var targetY = Math.max(0, Math.min(base - delta * scrollFactor, maxY));
-
+            let step;
+            if (mouseWheel) step = notches * root.mouseScrollFactor;
+            else if (Config?.options.interactions.scrolling.fasterTouchpadScroll) step = notches * root.touchpadScrollFactor;
+            else step = wheelEvent.pixelDelta.y !== 0 ? wheelEvent.pixelDelta.y : wheelEvent.angleDelta.y / 2;
+            const targetY = Math.max(0, Math.min(base - step, maxY));
+            // Already at the end: an outer flickable may scroll instead
+            if (Math.abs(targetY - root.contentY) < 0.5 && !scrollAnim.running) {
+                wheelEvent.accepted = false;
+                return;
+            }
+            root.cancelFlick();
+            if (!mouseWheel) scrollAnim.stop();
+            root.wheelGliding = mouseWheel;
             root.scrollTargetY = targetY;
             root.contentY = targetY;
             wheelEvent.accepted = true;
@@ -36,11 +53,13 @@ Flickable {
     }
 
     Behavior on contentY {
+        enabled: root.wheelGliding
         NumberAnimation {
             id: scrollAnim
             duration: Appearance.animation.scroll.duration
             easing.type: Appearance.animation.scroll.type
             easing.bezierCurve: Appearance.animation.scroll.bezierCurve
+            onRunningChanged: if (!running) root.wheelGliding = false
         }
     }
 
