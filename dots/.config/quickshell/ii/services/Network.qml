@@ -7,7 +7,7 @@ import QtQuick
 import qs.services.network
 import qs.modules.common
 
-/** NetworkManager state and controls for the right sidebar. */
+/** NetworkManager state and controls for the right sidebar and the Wi-Fi settings page. */
 Singleton {
     id: root
 
@@ -32,6 +32,14 @@ Singleton {
         const rank = network => network.active ? 0 : network.savedUuid ? 1 : 2;
         return rank(a) - rank(b) || b.strength - a.strength || a.ssid.localeCompare(b.ssid);
     })
+    // Every saved Wi-Fi profile, in range or not: { ssid, uuid }
+    property list<var> savedNetworks: []
+    readonly property list<var> savedOutOfRange: savedNetworks.filter(saved => !wifiNetworks.some(network => network.ssid === saved.ssid))
+    // Addresses of the connected Wi-Fi and wired devices: { device, ip, gateway, dns }. Only read while
+    // `trackDetails` is on (the settings page), since the sidebar doesn't show them.
+    property bool trackDetails: false
+    property var wifiDetails: ({})
+    property var ethernetDetails: ({})
     property string wifiStatus: "disconnected"
     readonly property string networkName: ethernet ? Translation.tr("Ethernet") : (active?.ssid ?? "")
     readonly property int networkStrength: active?.strength ?? 0
@@ -48,6 +56,18 @@ Singleton {
         ) : root.wifiStatus === "limited" ? "signal_wifi_bad" : "wifi_find"
 
     Component.onCompleted: update()
+
+    function strengthSymbol(strength: int): string {
+        return strength > 83 ? "signal_wifi_4_bar" :
+            strength > 67 ? "network_wifi" :
+            strength > 50 ? "network_wifi_3_bar" :
+            strength > 33 ? "network_wifi_2_bar" :
+            strength > 17 ? "network_wifi_1_bar" : "signal_wifi_0_bar";
+    }
+
+    function frequencyBand(frequency: int): string {
+        return frequency <= 0 ? "" : frequency < 3000 ? "2.4 GHz" : frequency < 5925 ? "5 GHz" : "6 GHz";
+    }
 
     function enableWifi(enabled = true): void {
         enableWifiProc.exec(["nmcli", "radio", "wifi", enabled ? "on" : "off"]);
@@ -78,6 +98,26 @@ Singleton {
         updateConnectionType.startCheck();
         wifiStatusProcess.running = true;
         requestSnapshot();
+        if (trackDetails) detailsProc.running = true;
+    }
+
+    onTrackDetailsChanged: if (trackDetails) detailsProc.running = true
+
+    function forgetWifiNetwork(uuid: string): void {
+        if (!uuid) return;
+        forgetProc.exec(["nmcli", "connection", "delete", "uuid", uuid]);
+    }
+
+    function connectToHiddenNetwork(ssid: string, password: string): void {
+        if (!ssid || !wifiEnabled || connectionPending) return;
+        wifiErrorMessage = "";
+        wifiConnectSsid = ssid;
+        connectErrorBuffer = "";
+        connectionPending = true;
+        passwordProc.exec({
+            environment: { LANG: "C", LC_ALL: "C", PASSWORD: password, SSID: ssid },
+            command: ["sh", "-c", 'if [ -n "$PASSWORD" ]; then nmcli device wifi connect "$SSID" password "$PASSWORD" hidden yes; else nmcli device wifi connect "$SSID" hidden yes; fi']
+        });
     }
 
     function targetNetwork() {
@@ -225,6 +265,42 @@ Singleton {
     }
 
     Process {
+        id: forgetProc
+        onExited: root.update()
+    }
+
+    Process {
+        id: detailsProc
+        environment: ({ LANG: "C", LC_ALL: "C" })
+        command: ["sh", "-c", 'nmcli -t -f DEVICE,TYPE,STATE device | while IFS=: read -r dev type state; do case "$type:$state" in wifi:connected|ethernet:connected) echo "@@"; nmcli -t -f GENERAL.DEVICE,GENERAL.TYPE,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS device show "$dev";; esac; done']
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let wifi = {};
+                let ethernet = {};
+                for (const block of text.split("@@").filter(part => part.trim().length > 0)) {
+                    let details = { "device": "", "ip": "", "gateway": "", "dns": [] };
+                    let type = "";
+                    for (const line of block.split("\n")) {
+                        const colon = line.indexOf(":");
+                        if (colon < 0) continue;
+                        const key = line.slice(0, colon);
+                        const value = line.slice(colon + 1).replace(/\\:/g, ":").trim();
+                        if (key === "GENERAL.DEVICE") details.device = value;
+                        else if (key === "GENERAL.TYPE") type = value;
+                        else if (key.startsWith("IP4.ADDRESS") && !details.ip) details.ip = value;
+                        else if (key === "IP4.GATEWAY") details.gateway = value === "--" ? "" : value;
+                        else if (key.startsWith("IP4.DNS")) details.dns.push(value);
+                    }
+                    if (type === "wifi") wifi = details;
+                    else if (type === "ethernet") ethernet = details;
+                }
+                root.wifiDetails = wifi;
+                root.ethernetDetails = ethernet;
+            }
+        }
+    }
+
+    Process {
         id: rescanProcess
         command: ["nmcli", "device", "wifi", "rescan"]
         onExited: (exitCode, exitStatus) => {
@@ -358,6 +434,7 @@ Singleton {
                     return;
                 }
                 root.snapshotError = "";
+                root.savedNetworks = snapshot.saved ?? [];
                 const networks = snapshot.networks ?? [];
                 const current = root.wifiNetworks;
                 for (const previous of [...current]) {

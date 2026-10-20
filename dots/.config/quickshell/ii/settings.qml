@@ -24,7 +24,14 @@ ApplicationWindow {
 
     // Pages in sidebar order. `group` only separates them visually, so related pages read as one block.
     // Shell and Hyprland options are mixed freely: a page is about a topic, not about who implements it.
+    // `hero: false` leaves out the big title card, for pages that start with their own picture or status.
     property var pages: [
+        {
+            key: "wifi", group: "connections", color: "#0A84FF", icon: "wifi", hero: false,
+            name: Translation.tr("Wi-Fi"),
+            description: Translation.tr("Networks nearby, saved networks and your connection"),
+            component: "modules/settings/WifiConfig.qml"
+        },
         {
             key: "general", group: "basics", color: "#8E8E93", icon: "settings",
             name: Translation.tr("General"),
@@ -534,7 +541,7 @@ ApplicationWindow {
                             onLoaded: {
                                 item.heroIcon = modelData.icon;
                                 item.heroIconRotation = modelData.iconRotation ?? 0;
-                                item.heroTitle = modelData.name;
+                                if (modelData.hero !== false) item.heroTitle = modelData.name;
                                 item.heroDescription = modelData.description;
                                 item.heroColor = Qt.binding(() => CF.ColorUtils.mix(modelData.color, Appearance.colors.colPrimary, 0.82));
                             }
