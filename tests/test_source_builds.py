@@ -180,6 +180,23 @@ class GitHubReleaseTests(IsolatedTest):
         velora.configure_updates(args)
         self.assertEqual(velora.update_options()["channel"], "release")
 
+    def test_automatic_checks_create_the_timer_for_an_uninstalled_checkout(self):
+        units = Path(velora.xdg("XDG_CONFIG_HOME", ".config")) / "systemd/user"
+        args = velora.parser().parse_args(["update-settings", "--automatic-checks", "on"])
+        with patch.object(velora, "run") as run:
+            velora.configure_updates(args)
+        self.assertIn("update --check --notify", (units / "velora-update.service").read_text())
+        self.assertTrue((units / "velora-update.timer").exists())
+        self.assertEqual(run.call_args.args[0], ["systemctl", "--user", "enable", "--now", "velora-update.timer"])
+        self.assertTrue(velora.update_options()["automatic_checks"])
+
+    def test_turning_off_checks_without_a_timer_only_saves_the_choice(self):
+        args = velora.parser().parse_args(["update-settings", "--automatic-checks", "off"])
+        with patch.object(velora, "run") as run:
+            velora.configure_updates(args)
+        run.assert_not_called()
+        self.assertFalse(velora.update_options()["automatic_checks"])
+
     def test_failed_timer_configuration_does_not_save_a_successful_setting(self):
         service = Path(velora.xdg("XDG_CONFIG_HOME", ".config")) / "systemd/user/velora-update.service"
         service.parent.mkdir(parents=True)

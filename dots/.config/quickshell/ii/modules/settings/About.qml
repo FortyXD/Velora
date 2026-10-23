@@ -22,9 +22,12 @@ ContentPage {
         saveUpdateSettings.running = true;
     }
 
+    // Written by the velora command (scripts/velora.py), also when the timer checks in the background
+    readonly property string veloraStateDir: `${Quickshell.env("XDG_STATE_HOME") || `${FileUtils.trimFileProtocol(Directories.home)}/.local/state`}/velora`
+
     FileView {
         id: updateStateFile
-        path: FileUtils.trimFileProtocol(`${Directories.state}/velora/update.json`)
+        path: `${root.veloraStateDir}/update.json`
         watchChanges: true
         onFileChanged: reload()
         onLoaded: {
@@ -226,6 +229,7 @@ ContentPage {
             Layout.margins: 12
             visible: !!root.updateStatus.current_version
             text: `${Translation.tr("Installed")}: ${root.updateStatus.current_version ?? ""} (${(root.updateStatus.current ?? "").slice(0, 12)})\n${Translation.tr("Latest")}: ${root.updateStatus.latest_version ?? ""}`
+                + (root.updateStatus.checked_at ? `\n${Translation.tr("Checked")}: ${Qt.locale().toString(new Date(root.updateStatus.checked_at), "d MMM, " + Config.options.time.format)}` : "")
             wrapMode: Text.Wrap
         }
 
