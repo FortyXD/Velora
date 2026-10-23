@@ -115,17 +115,35 @@ def update_options():
             "automatic_checks": saved.get("automatic_checks", not preferences().get("no_updates", False))}
 
 
+def update_units():
+    """The user service and timer that check for updates. systemd calls the entry point directly,
+    without relying on the login PATH."""
+    service = ("[Unit]\nDescription=Check for Velora updates\n\n[Service]\nType=oneshot\n"
+               f"ExecStart=/usr/bin/bash {systemd_quote(ROOT / 'velora')} update --check --notify\n"
+               "Environment=GIT_TERMINAL_PROMPT=0\nTimeoutStartSec=90\n")
+    timer = ("[Unit]\nDescription=Check for Velora updates every six hours\n\n[Timer]\n"
+             "OnStartupSec=5min\nOnUnitActiveSec=6h\nRandomizedDelaySec=10min\n\n"
+             "[Install]\nWantedBy=timers.target\n")
+    return service, timer
+
+
 def configure_updates(args):
     options = update_options()
     if args.channel is not None:
         options["channel"] = args.channel
     if args.automatic_checks is not None:
         enabled = args.automatic_checks == "on"
-        service = xdg("XDG_CONFIG_HOME", ".config") / "systemd/user/velora-update.service"
-        if not service.exists():
-            raise VeloraError("Run 'velora install' before enabling scheduled update checks.")
-        run(["systemctl", "--user", "daemon-reload"])
-        run(["systemctl", "--user", "enable" if enabled else "disable", "--now", "velora-update.timer"])
+        units = xdg("XDG_CONFIG_HOME", ".config") / "systemd/user"
+        service = units / "velora-update.service"
+        if enabled and not service.exists():
+            # A checkout used without 'velora install' gets its timer here instead
+            service_text, timer_text = update_units()
+            units.mkdir(parents=True, exist_ok=True)
+            service.write_text(service_text)
+            (units / "velora-update.timer").write_text(timer_text)
+        if service.exists():
+            run(["systemctl", "--user", "daemon-reload"])
+            run(["systemctl", "--user", "enable" if enabled else "disable", "--now", "velora-update.timer"])
         options["automatic_checks"] = enabled
     write_json(state_dir() / "update-settings.json", options)
     print(json.dumps(options))
@@ -431,13 +449,7 @@ def register_installation(journal, args, without):
         "[Desktop Entry]\nType=Application\nName=Update Velora\n"
         "Comment=Review and install Velora updates\nIcon=system-software-update\n"
         f"Exec={desktop_quote(ROOT / 'velora')} update --interactive\nTerminal=true\nCategories=Settings;DesktopSettings;\n"))
-    # systemd calls the entry point directly, without relying on the login PATH.
-    service = ("[Unit]\nDescription=Check for Velora updates\n\n[Service]\nType=oneshot\n"
-               f"ExecStart=/usr/bin/bash {systemd_quote(ROOT / 'velora')} update --check --notify\n"
-               "Environment=GIT_TERMINAL_PROMPT=0\nTimeoutStartSec=90\n")
-    timer = ("[Unit]\nDescription=Check for Velora updates every six hours\n\n[Timer]\n"
-             "OnStartupSec=5min\nOnUnitActiveSec=6h\nRandomizedDelaySec=10min\n\n"
-             "[Install]\nWantedBy=timers.target\n")
+    service, timer = update_units()
     journal_file(journal, config / "systemd/user/velora-update.service", content=service)
     journal_file(journal, config / "systemd/user/velora-update.timer", content=timer)
     timer_link = config / "systemd/user/timers.target.wants/velora-update.timer"
