@@ -38,16 +38,18 @@ Item {
         layer.enabled: root.renderScale < 1
         layer.smooth: true
 
-        ShaderEffect {
+        Loader { // Without a name there's nothing to draw (an empty ShaderEffect falls back to Qt's own shader)
             anchors.fill: parent
-            visible: root.name.length > 0
-            fragmentShader: root.name.length > 0 ? Quickshell.shellPath(`assets/shaders/${root.name}.frag.qsb`) : ""
-            property real time: root.time
-            property vector2d resolution: Qt.vector2d(root.width, root.height)
-            property color color1: root.usedColors[0]
-            property color color2: root.usedColors[1]
-            property color color3: root.usedColors[2]
-            property color color4: root.usedColors[3]
+            active: root.name.length > 0
+            sourceComponent: ShaderEffect {
+                fragmentShader: Quickshell.shellPath(`assets/shaders/${root.name}.frag.qsb`)
+                property real time: root.time
+                property vector2d resolution: Qt.vector2d(root.width, root.height)
+                property color color1: root.usedColors[0]
+                property color color2: root.usedColors[1]
+                property color color3: root.usedColors[2]
+                property color color4: root.usedColors[3]
+            }
         }
     }
 }

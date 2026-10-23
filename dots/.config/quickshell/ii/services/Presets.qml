@@ -432,8 +432,9 @@ Singleton {
             onStreamFinished: {
                 const parts = text.split("\n\u001e\n");
                 if (parts.length < 3) return;
+                let config = {};
                 try {
-                    const config = JSON.parse(parts[0]);
+                    config = JSON.parse(parts[0]);
                     let patch = {};
                     for (const category of root.categoryIds) root.mergeInto(patch, root.filterConfig(config, root.allowedPaths[category]));
                     Config.applyPatch(patch);

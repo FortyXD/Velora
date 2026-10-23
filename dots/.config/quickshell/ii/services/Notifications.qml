@@ -163,7 +163,7 @@ Singleton {
     }
     property var filePath: Directories.notificationsPath
     property list<Notif> list: []
-    property var popupList: list.filter((notif) => notif.popup);
+    property var popupList: list.filter((notif) => notif?.popup);
     property bool popupInhibited: (GlobalStates?.sidebarRightOpen ?? false) || silent
     property var latestTimeForApp: ({})
     Component {
@@ -176,7 +176,7 @@ Singleton {
     }
 
     function stringifyList(list) {
-        return JSON.stringify(list.map((notif) => notifToJSON(notif)), null, 2);
+        return JSON.stringify(list.filter(notif => notif).map((notif) => notifToJSON(notif)), null, 2);
     }
     
     onListChanged: {
@@ -203,7 +203,7 @@ Singleton {
 
     function groupsForList(list) {
         const groups = {};
-        list.forEach((notif) => {
+        list.filter(notif => notif).forEach((notif) => { // Destroyed notifications leave null entries for a moment
             if (!groups[notif.appName]) {
                 groups[notif.appName] = {
                     appName: notif.appName,
