@@ -259,7 +259,7 @@ ContentPage {
             LinkButton {
                 materialIcon: "download"
                 mainText: Translation.tr("Install update")
-                enabled: root.updateStatus.available && !root.updateStatus.diverged && !root.updateStatus.dirty
+                enabled: !!root.updateStatus.available && !root.updateStatus.diverged && !root.updateStatus.dirty
                     && !root.updateStatus.error && !checkVeloraUpdates.running && !saveUpdateSettings.running
                 onClicked: Quickshell.execDetached(["kitty", "--hold", "--title", "Velora update",
                     root.veloraCommand, "update", "--interactive"])
