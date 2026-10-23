@@ -16,7 +16,7 @@ class SourceBuildTests(IsolatedTest):
         features, _ = velora.selected_features(args)
         selected = velora.source_selection(args, features)
         self.assertEqual(selected, ["hyprland", "quickshell"])
-        with patch.object(velora.shutil, "which", return_value="pacman"), patch.object(velora, "run", return_value=""):
+        with patch.object(velora, "missing_packages", side_effect=lambda packages: list(packages)):
             repo, _ = velora.package_plan(features, source_packages=selected)
         self.assertNotIn("hyprland", repo)
         self.assertNotIn("quickshell", repo)

@@ -248,11 +248,63 @@ def selected_features(args, *, wizard=False):
     return {name: item for name, item in features.items() if name not in excluded}, sorted(excluded)
 
 
+def missing_packages(packages):
+    """The packages that are not installed, counting ones provided by another package (curl-git provides curl)."""
+    packages = list(packages)
+    if not packages or not shutil.which("pacman"):
+        return packages
+    try:
+        # pacman -T prints the dependencies nothing installed satisfies and exits with 127 when there are some
+        result = subprocess.run(["pacman", "-T", "--", *packages], text=True, capture_output=True, timeout=120,
+                                env=dict(os.environ, LANG="C.UTF-8", LC_ALL="C.UTF-8"))
+        if result.returncode in (0, 127):
+            return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    installed = set(run(["pacman", "-Qq"], capture=True).splitlines())
+    return [pkg for pkg in packages if pkg not in installed]
+
+
 def package_plan(features, skip_aur=False, source_packages=()):
     repo = sorted({pkg for item in features.values() for pkg in item.get("repo", [])})
     aur = [] if skip_aur else sorted({pkg for item in features.values() for pkg in item.get("aur", [])})
-    installed = set(run(["pacman", "-Qq"], capture=True).splitlines()) if shutil.which("pacman") else set()
-    return [pkg for pkg in repo if pkg not in installed and pkg not in source_packages], [pkg for pkg in aur if pkg not in installed and pkg not in source_packages]
+    missing = set(missing_packages(repo + aur))
+    return [pkg for pkg in repo if pkg in missing and pkg not in source_packages], [pkg for pkg in aur if pkg in missing and pkg not in source_packages]
+
+
+GOOGLE_SANS_FLEX = "https://github.com/end-4/google-sans-flex"
+
+
+def font_installed(family):
+    if not shutil.which("fc-list"):
+        return False
+    return family.lower() in run(["fc-list", ":", "family"], capture=True).lower()
+
+
+def install_fonts(dry=False):
+    """The shell's default font isn't packaged for Arch, so it is fetched into the user's fonts once.
+    A failure only warns: the shell falls back to another font."""
+    if font_installed("Google Sans Flex"):
+        return
+    target = xdg("XDG_DATA_HOME", ".local/share") / "fonts/velora-google-sans-flex"
+    if dry:
+        print(f"  Would download the Google Sans Flex font from {GOOGLE_SANS_FLEX} into {target}")
+        return
+    print("Installing the Google Sans Flex font...", flush=True)
+    try:
+        with tempfile.TemporaryDirectory(prefix="velora-font-") as temporary:
+            checkout = Path(temporary) / "font"
+            run(["git", "clone", "--depth", "1", "--", GOOGLE_SANS_FLEX, checkout], timeout=600)
+            fonts = [path for path in checkout.rglob("*") if path.suffix.lower() in (".ttf", ".otf")]
+            if not fonts:
+                raise VeloraError("The font repository has no font files.")
+            target.mkdir(parents=True, exist_ok=True)
+            for font in fonts:
+                shutil.copy2(font, target / font.name)
+        if shutil.which("fc-cache"):
+            run(["fc-cache", "-f", target])
+    except VeloraError as error:
+        print(f"Warning: Google Sans Flex was not installed ({error}). Install it later with 'velora deps'.", file=sys.stderr)
 
 
 def preflight(args, features):
@@ -433,6 +485,7 @@ def install(args):
             builds.build_package(ROOT, xdg("XDG_CACHE_HOME", ".cache") / "velora/packages", {}, run, dry=True, install=True)
         if not args.skip_packages:
             install_dependencies(args, features)
+        install_fonts(dry=True)
         run(["bash", ROOT / "scripts/install.sh", "--dry-run", "--skip-packages", "--no-reload"])
         print("Would register the velora command, update launcher and user timer. No files changed.")
         return
@@ -455,6 +508,7 @@ def install(args):
     # Finish network operations before replacing any configuration files.
     if not package_metadata():
         run(["git", "submodule", "update", "--init", "--recursive"], cwd=ROOT)
+    install_fonts()
     backup = state_dir() / "backups" / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     backup.mkdir(parents=True)
     journal = backup / "journal.jsonl"
@@ -655,7 +709,9 @@ def doctor(args):
     print("  Missing AUR packages: " + (", ".join(aur) or "none"))
     venv = xdg("XDG_STATE_HOME", ".local/state") / "quickshell/.venv/bin/python"
     print("  Python environment: " + (str(venv) if venv.exists() else "missing; run velora deps"))
-    if failed or repo or not venv.exists():
+    font = font_installed("Google Sans Flex")
+    print("  Google Sans Flex font: " + ("installed" if font else "missing; run velora deps"))
+    if failed or repo or not venv.exists() or not font:
         raise VeloraError("Some checks need attention. Run 'velora install --dry-run' to inspect the repair plan.")
 
 
@@ -736,6 +792,7 @@ def main(argv=None):
             source_selection(args, features)
             preflight(args, features)
             install_dependencies(args, features)
+            install_fonts(dry=args.dry_run)
         elif args.command == "doctor":
             doctor(args)
         elif args.command == "update":

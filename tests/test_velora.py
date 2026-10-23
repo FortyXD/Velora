@@ -47,9 +47,28 @@ class DependencyTests(IsolatedTest):
     def test_missing_packages_are_deduplicated_and_skip_aur_is_respected(self):
         features = {"a": {"repo": ["git", "kitty"], "aur": ["mpvpaper"]},
                     "b": {"repo": ["kitty", "python"], "aur": ["mpvpaper"]}}
-        with patch.object(velora.shutil, "which", return_value="/usr/bin/pacman"), patch.object(velora, "run", return_value="git\npython"):
+        installed = {"git", "python"}
+        with patch.object(velora, "missing_packages", side_effect=lambda packages: [pkg for pkg in packages if pkg not in installed]):
             self.assertEqual(velora.package_plan(features), (["kitty"], ["mpvpaper"]))
             self.assertEqual(velora.package_plan(features, True), (["kitty"], []))
+
+    def test_font_step_skips_an_installed_font_and_only_warns_on_failure(self):
+        with patch.object(velora, "font_installed", return_value=True), patch.object(velora, "run") as run:
+            velora.install_fonts()
+        run.assert_not_called()
+        with patch.object(velora, "font_installed", return_value=False), \
+                patch.object(velora, "run", side_effect=velora.VeloraError("offline")), \
+                contextlib.redirect_stderr(io.StringIO()) as errors:
+            velora.install_fonts()
+        self.assertIn("Google Sans Flex was not installed", errors.getvalue())
+
+    def test_packages_provided_by_others_count_as_installed(self):
+        # pacman -T lists only what nothing installed provides, e.g. not curl when curl-git is installed
+        completed = velora.subprocess.CompletedProcess([], 127, stdout="kitty\n", stderr="")
+        with patch.object(velora.shutil, "which", return_value="/usr/bin/pacman"), \
+                patch.object(velora.subprocess, "run", return_value=completed) as pacman:
+            self.assertEqual(velora.missing_packages(["curl", "kitty"]), ["kitty"])
+        self.assertEqual(pacman.call_args.args[0], ["pacman", "-T", "--", "curl", "kitty"])
 
     def test_required_or_unknown_components_are_rejected(self):
         for excluded in ("desktop", "not-a-component"):
@@ -176,6 +195,7 @@ class InstallerTests(IsolatedTest):
             return real_run(command, **kwargs)
 
         with patch.object(velora, "ROOT", self.repo), patch.object(velora, "run", side_effect=run), \
+             patch.object(velora, "install_fonts"), \
              patch.object(velora, "register_installation", side_effect=velora.VeloraError("registration failed")):
             with self.assertRaisesRegex(velora.VeloraError, "registration failed"):
                 velora.install(args)
