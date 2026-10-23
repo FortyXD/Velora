@@ -37,9 +37,10 @@ Variants {
         }
         color: "transparent"
 
-        StyledImage {
+        StyledImage { // A video plays underneath instead (LiveWallpaper)
             anchors.fill: parent
-            source: Config.options.background.wallpaperPath
+            visible: !LiveWallpaper.isVideoPath(Config.options.background.wallpaperPath)
+            source: visible ? Config.options.background.wallpaperPath : ""
             fillMode: Image.PreserveAspectCrop
         }
     }

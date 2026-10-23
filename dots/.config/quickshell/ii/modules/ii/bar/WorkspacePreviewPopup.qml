@@ -167,7 +167,7 @@ StyledPopup {
                             Timer { // Keep the windows on display from looking frozen, at a tiny cost
                                 interval: 1000
                                 repeat: true
-                                running: windowItem.shown && capture.hasContent
+                                running: windowItem.shown && capture.hasContent && !PowerSaving.cutLivePreviews
                                 onTriggered: capture.captureFrame()
                             }
                             Rectangle { // Hover outline

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+velora_root=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd -P)
+if ! command -v python3 >/dev/null 2>&1; then
+    printf 'Velora requires Python 3.11 or newer. On Arch: sudo pacman -S python\n' >&2
+    exit 1
+fi
+exec python3 "$velora_root/scripts/velora.py" "$@"

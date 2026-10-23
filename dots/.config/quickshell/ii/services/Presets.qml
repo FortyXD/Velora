@@ -13,7 +13,8 @@ import Quickshell.Io
  *   bar                  bar layout and style
  *   theme                colors, light/dark, transparency, fonts, window rounding, blur and shadows
  *   dockWidgets          the dock and the desktop widgets
- *   wallpaperAnimations  the wallpaper, gaps and the motion of windows and of the shell
+ *   wallpaperAnimations  the wallpaper (a picture, a video or an animated "shader:<name>"), gaps and motion
+ *   lock                 the lock screen: arrangement, animations, darkening, blur, clock style
  * Each category may hold `config` (a partial config.json, limited to the paths below) and
  * `hyprland` (Hyprland options for HyprlandSettings), plus `mode`/`scheme` (theme),
  * `wallpaper` and `animationProfile` (wallpaperAnimations).
@@ -25,19 +26,21 @@ import Quickshell.Io
 Singleton {
     id: root
 
-    readonly property list<string> categoryIds: ["bar", "theme", "dockWidgets", "wallpaperAnimations"]
+    readonly property list<string> categoryIds: ["bar", "theme", "dockWidgets", "wallpaperAnimations", "lock"]
     readonly property var categories: [
         { "id": "bar", "name": Translation.tr("Bar"), "icon": "toast" },
         { "id": "theme", "name": Translation.tr("Theme and colors"), "icon": "palette" },
         { "id": "dockWidgets", "name": Translation.tr("Dock and desktop widgets"), "icon": "widgets" },
         { "id": "wallpaperAnimations", "name": Translation.tr("Wallpaper and motion"), "icon": "animation" },
+        { "id": "lock", "name": Translation.tr("Lock screen"), "icon": "lock" },
     ]
     // Config paths each category may change; anything else in a preset is ignored
     readonly property var allowedPaths: ({
         "bar": ["bar"],
         "theme": ["appearance.palette", "appearance.transparency", "appearance.fonts", "appearance.extraBackgroundTint", "appearance.fakeScreenRounding"],
         "dockWidgets": ["dock", "background.widgets"],
-        "wallpaperAnimations": ["appearance.animationSpeed"],
+        "wallpaperAnimations": ["appearance.animationSpeed", "background.liveWallpaper.pauseWhen", "background.shaderWallpaper"],
+        "lock": ["lock.layout", "lock.animations", "lock.animatedWallpaper", "lock.dim", "lock.blur", "lock.showLockedText", "background.widgets.clock.styleLocked"],
     })
     // Hyprland options each category may change, by prefix (RegExps don't survive a `var` property)
     readonly property var allowedHyprland: ({
@@ -137,23 +140,43 @@ Singleton {
         return /^https?:\/\//.test(path ?? "");
     }
 
-    // Where a preset's wallpaper from the web is kept once downloaded
+    // Where a preset's wallpaper from the web is kept once downloaded: pictures with pictures, videos with videos
     function remoteWallpaperPath(preset) {
         const url = preset.wallpaperAnimations.wallpaper.split("?")[0];
-        const ext = (url.match(/\.(jpe?g|png|webp)$/i)?.[1] ?? "jpg").toLowerCase();
-        return `${FileUtils.trimFileProtocol(Directories.pictures)}/Wallpapers/Presets/${preset.id.replace(/[^A-Za-z0-9._-]/g, "_")}.${ext}`;
+        const video = FileUtils.isVideoPath(url);
+        const ext = video ? url.split(".").pop().toLowerCase() : (url.match(/\.(jpe?g|png|webp)$/i)?.[1] ?? "jpg").toLowerCase();
+        const dir = video ? `${FileUtils.trimFileProtocol(Directories.videos)}/Wallpapers/Presets` : `${FileUtils.trimFileProtocol(Directories.pictures)}/Wallpapers/Presets`;
+        return `${dir}/${preset.id.replace(/[^A-Za-z0-9._-]/g, "_")}.${ext}`;
     }
 
-    // Image for a preset's card: its own preview, or the wallpaper saved with it
+    // A moving wallpaper: a video, or an animated one drawn by the shell (ShaderWallpaper)
+    function isLive(preset) {
+        const wallpaper = preset?.wallpaperAnimations?.wallpaper ?? "";
+        return wallpaper.startsWith("shader:") || FileUtils.isVideoPath(wallpaper.split("?")[0]);
+    }
+
+    // Image for a preset's card: its own preview (a link, or a file next to the built-in presets),
+    // the frame saved with a video, or the wallpaper saved with it
     function previewOf(preset) {
-        if (root.isRemote(preset?.wallpaperPreview)) return preset.wallpaperPreview;
+        const preview = preset?.wallpaperPreview ?? "";
+        if (root.isRemote(preview)) return preview;
+        if (preview.length > 0 && preset.kind === "builtin") return `file://${root.builtinDir}/${preview}`;
         const local = root.wallpaperFile(preset);
+        if (local.length > 0 && FileUtils.isVideoPath(local)) return preset.dir ? `file://${preset.dir}/preview.jpg` : "";
         return local.length > 0 ? `file://${local}` : "";
+    }
+
+    // A short clip for the card to play while the pointer is on it
+    function previewVideoOf(preset) {
+        const clip = preset?.wallpaperPreviewVideo ?? "";
+        if (root.isRemote(clip)) return clip;
+        const local = root.wallpaperFile(preset);
+        return local.length > 0 && FileUtils.isVideoPath(local) ? `file://${local}` : "";
     }
 
     function wallpaperFile(preset) {
         const wallpaper = preset?.wallpaperAnimations?.wallpaper ?? "";
-        if (!wallpaper || wallpaper.startsWith("daily:") || root.isRemote(wallpaper)) return "";
+        if (!wallpaper || wallpaper.startsWith("daily:") || wallpaper.startsWith("shader:") || root.isRemote(wallpaper)) return "";
         if (wallpaper.startsWith("/")) return wallpaper;
         return preset.dir ? `${preset.dir}/${wallpaper}` : "";
     }
@@ -209,7 +232,11 @@ Singleton {
         const remote = chosen.includes("wallpaperAnimations") && root.isRemote(preset.wallpaperAnimations.wallpaper);
         const wallpaper = chosen.includes("wallpaperAnimations") ? root.wallpaperFile(preset) : "";
         const daily = chosen.includes("wallpaperAnimations") && (preset.wallpaperAnimations.wallpaper ?? "").startsWith("daily:");
-        if (remote) {
+        const shader = chosen.includes("wallpaperAnimations") && (preset.wallpaperAnimations.wallpaper ?? "").startsWith("shader:");
+        if (shader) {
+            // Drawn by the shell; its still frame becomes the wallpaper picture for colors and previews
+            ShaderWallpaper.activate(preset.wallpaperAnimations.wallpaper.slice(7), modeArgs);
+        } else if (remote) {
             // Downloaded once into ~/Pictures/Wallpapers/Presets, then colors are made from it
             downloadProc.dest = root.remoteWallpaperPath(preset);
             downloadProc.modeArgs = modeArgs;
@@ -224,7 +251,7 @@ Singleton {
             Config.options.background.daily.source = preset.wallpaperAnimations.wallpaper.slice(6);
             Config.options.background.daily.enable = true;
             WallpaperOfTheDay.run();
-        } else if (wallpaper.length > 0 || remote) {
+        } else if (wallpaper.length > 0 || remote || shader) {
             Config.options.background.daily.enable = false; // A look with its own picture keeps it
         }
         root.applying = false;
@@ -289,12 +316,19 @@ Singleton {
         }
         if (preset.wallpaperAnimations) {
             preset.wallpaperAnimations.animationProfile = HyprlandSettings.animationProfile;
-            wallpaperSource = FileUtils.trimFileProtocol(Config.options.background.wallpaperPath ?? "");
-            if (wallpaperSource.length > 0) preset.wallpaperAnimations.wallpaper = `wallpaper.${wallpaperSource.split(".").pop()}`;
+            const shaderName = Config.options.background.shaderWallpaper?.name ?? "";
+            if (shaderName.length > 0) {
+                preset.wallpaperAnimations.wallpaper = `shader:${shaderName}`; // Drawn by the shell, nothing to copy
+            } else {
+                wallpaperSource = FileUtils.trimFileProtocol(Config.options.background.wallpaperPath ?? "");
+                if (wallpaperSource.length > 0) preset.wallpaperAnimations.wallpaper = `wallpaper.${wallpaperSource.split(".").pop()}`;
+            }
         }
+        // A video gets a picture of itself for the card
         saveProc.exec(["bash", "-c",
-            'mkdir -p "$1" && printf "%s\\n" "$2" > "$1/preset.json" && { [ -z "$3" ] || cp -f -- "$3" "$1/$4"; }',
-            "_", dir, JSON.stringify(preset, null, 4), wallpaperSource, preset.wallpaperAnimations?.wallpaper ?? ""]);
+            'mkdir -p "$1" && printf "%s\\n" "$2" > "$1/preset.json" && { [ -z "$3" ] || cp -f -- "$3" "$1/$4"; } && { [ "$5" != 1 ] || ffmpeg -y -ss 1 -i "$1/$4" -vframes 1 -vf scale=640:-2 "$1/preview.jpg" >/dev/null 2>&1; true; }',
+            "_", dir, JSON.stringify(preset, null, 4), wallpaperSource, preset.wallpaperAnimations?.wallpaper ?? "",
+            FileUtils.isVideoPath(wallpaperSource) ? "1" : "0"]);
     }
 
     function remove(id) {

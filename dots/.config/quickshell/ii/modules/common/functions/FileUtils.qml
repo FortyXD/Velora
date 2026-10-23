@@ -68,4 +68,12 @@ Singleton {
         parts.pop();
         return parts.join("/");
     }
+
+    readonly property list<string> videoExtensions: ["mp4", "webm", "mkv", "avi", "mov"]
+
+    // Whether a wallpaper path is a video (by extension, in any letter case)
+    function isVideoPath(path) {
+        const extension = (path ?? "").split("?")[0].split(".").pop().toLowerCase();
+        return root.videoExtensions.includes(extension);
+    }
 }

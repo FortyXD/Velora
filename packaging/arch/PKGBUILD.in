@@ -1,0 +1,21 @@
+# Velora packages its actual shell and maintenance tools; dependencies are selected by the installer.
+pkgname=velora
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='A customizable Hyprland and Quickshell desktop for Arch Linux'
+arch=('any')
+url='https://github.com/FortyXD/Velora'
+license=('GPL-3.0-only')
+depends=('bash' 'coreutils' 'git' 'python>=3.11' 'pacman' 'sudo')
+options=('!strip' '!debug')
+source=('velora-source.tar.gz')
+sha256sums=('@SHA256@')
+
+package() {
+    install -d "$pkgdir/usr/share/velora" "$pkgdir/usr/bin"
+    cp -a --no-preserve=ownership "$srcdir/velora/." "$pkgdir/usr/share/velora/"
+    chmod 755 "$pkgdir/usr/share/velora/velora"
+    ln -s /usr/share/velora/velora "$pkgdir/usr/bin/velora"
+    install -Dm644 "$srcdir/velora/LICENSE" "$pkgdir/usr/share/licenses/velora/LICENSE"
+    install -Dm644 "$srcdir/velora/NOTICE" "$pkgdir/usr/share/licenses/velora/NOTICE"
+}

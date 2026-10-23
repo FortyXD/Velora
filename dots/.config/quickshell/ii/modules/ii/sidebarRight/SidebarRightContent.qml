@@ -59,55 +59,105 @@ Item {
         radius: Appearance.rounding.screenRounding - Appearance.sizes.hyprlandGapsOut + 1
 
         ColumnLayout {
+            id: sectionsColumn
             anchors.fill: parent
             anchors.margins: sidebarPadding
             spacing: sidebarPadding
 
             SystemButtonRow {
+                visible: SidebarLayout.sectionShown("header")
                 Layout.fillHeight: false
                 Layout.fillWidth: true
-                // Layout.margins: 10
                 Layout.topMargin: 5
                 Layout.bottomMargin: 0
             }
 
-            Loader {
-                id: slidersLoader
-                Layout.fillWidth: true
-                visible: active
-                active: {
-                    const configQuickSliders = Config.options.sidebar.quickSliders
-                    if (!configQuickSliders.enable) return false
-                    if (!configQuickSliders.showMic && !configQuickSliders.showVolume && !configQuickSliders.showBrightness) return false;
-                    return true;
-                }
-                sourceComponent: QuickSliders {}
-            }
-
-            LoaderedQuickPanelImplementation {
-                styleName: "classic"
-                sourceComponent: ClassicQuickPanel {}
-            }
-
-            LoaderedQuickPanelImplementation {
-                styleName: "android"
-                sourceComponent: AndroidQuickPanel {
-                    editMode: root.editMode
+            // The other sections in the order of Config.options.sidebar.right.sections
+            Repeater {
+                model: SidebarLayout.sections.filter(section => section.type !== "header" && SidebarLayout.sectionShown(section.type)).map(section => section.type)
+                delegate: Loader {
+                    id: sectionLoader
+                    required property string modelData
+                    readonly property bool fills: modelData === root.fillingSection
+                    Layout.fillWidth: modelData !== "toggles" || (item?.panelFillsWidth ?? true)
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.fillHeight: sectionLoader.fills
+                    Layout.preferredHeight: sectionLoader.fills ? -1 : (item?.implicitHeight ?? 0)
+                    active: modelData !== "sliders" || root.slidersWanted
+                    visible: active
+                    sourceComponent: ({
+                        "sliders": slidersSection,
+                        "toggles": togglesSection,
+                        "notifications": notificationsSection,
+                        "widgets": widgetsSection
+                    })[modelData] ?? null
                 }
             }
 
-            CenterWidgetGroup {
-                Layout.alignment: Qt.AlignHCenter
+            // Keeps the sections at the top when none of them takes the free height
+            Item {
+                visible: root.fillingSection.length === 0
                 Layout.fillHeight: true
-                Layout.fillWidth: true
             }
+        }
+    }
 
-            BottomWidgetGroup {
-                Layout.alignment: Qt.AlignHCenter
-                Layout.fillHeight: false
-                Layout.fillWidth: true
-                Layout.preferredHeight: implicitHeight
+    // The notifications take the free height; without them the calendar and tools do
+    readonly property string fillingSection: SidebarLayout.sectionShown("notifications") ? "notifications"
+        : SidebarLayout.sectionShown("widgets") ? "widgets" : ""
+    readonly property bool slidersWanted: {
+        const sliders = Config.options.sidebar.quickSliders;
+        return sliders.showMic || sliders.showVolume || sliders.showBrightness;
+    }
+
+    Component {
+        id: slidersSection
+        QuickSliders {}
+    }
+    Component {
+        id: togglesSection
+        Loader {
+            id: quickPanelLoader
+            readonly property bool panelFillsWidth: item?.Layout.fillWidth ?? false
+            sourceComponent: Config.options.sidebar.quickToggles.style === "classic" ? classicPanel : androidPanel
+            Connections {
+                target: quickPanelLoader.item
+                function onOpenAudioOutputDialog() {
+                    root.showAudioOutputDialog = true;
+                }
+                function onOpenAudioInputDialog() {
+                    root.showAudioInputDialog = true;
+                }
+                function onOpenBluetoothDialog() {
+                    root.showBluetoothDialog = true;
+                }
+                function onOpenNightLightDialog() {
+                    root.showNightLightDialog = true;
+                }
+                function onOpenWifiDialog() {
+                    root.showWifiDialog = true;
+                }
             }
+        }
+    }
+    Component {
+        id: classicPanel
+        ClassicQuickPanel {}
+    }
+    Component {
+        id: androidPanel
+        AndroidQuickPanel {
+            editMode: root.editMode
+        }
+    }
+    Component {
+        id: notificationsSection
+        CenterWidgetGroup {}
+    }
+    Component {
+        id: widgetsSection
+        BottomWidgetGroup {
+            availableHeight: sectionsColumn.height
         }
     }
 
@@ -185,38 +235,14 @@ Item {
         }
     }
 
-    component LoaderedQuickPanelImplementation: Loader {
-        id: quickPanelImplLoader
-        required property string styleName
-        Layout.alignment: item?.Layout.alignment ?? Qt.AlignHCenter
-        Layout.fillWidth: item?.Layout.fillWidth ?? false
-        visible: active
-        active: Config.options.sidebar.quickToggles.style === styleName
-        Connections {
-            target: quickPanelImplLoader.item
-            function onOpenAudioOutputDialog() {
-                root.showAudioOutputDialog = true;
-            }
-            function onOpenAudioInputDialog() {
-                root.showAudioInputDialog = true;
-            }
-            function onOpenBluetoothDialog() {
-                root.showBluetoothDialog = true;
-            }
-            function onOpenNightLightDialog() {
-                root.showNightLightDialog = true;
-            }
-            function onOpenWifiDialog() {
-                root.showWifiDialog = true;
-            }
-        }
-    }
-
     component SystemButtonRow: Item {
+        id: systemButtonRow
         implicitHeight: Math.max(uptimeContainer.implicitHeight, systemButtonsRow.implicitHeight)
 
+        readonly property var buttons: Config.options.sidebar.right.header.buttons
         Rectangle {
             id: uptimeContainer
+            visible: Config.options.sidebar.right.header.showUptime
             anchors {
                 top: parent.top
                 bottom: parent.bottom
@@ -262,7 +288,7 @@ Item {
 
             QuickToggleButton {
                 toggled: root.editMode
-                visible: Config.options.sidebar.quickToggles.style === "android"
+                visible: Config.options.sidebar.quickToggles.style === "android" && systemButtonRow.buttons.includes("edit")
                 buttonIcon: "edit"
                 onClicked: root.editMode = !root.editMode
                 StyledToolTip {
@@ -271,6 +297,7 @@ Item {
             }
             QuickToggleButton {
                 toggled: false
+                visible: systemButtonRow.buttons.includes("reload")
                 buttonIcon: "restart_alt"
                 onClicked: {
                     Hyprland.dispatch(`hl.dsp.exec_cmd("hyprctl reload")`);
@@ -282,6 +309,7 @@ Item {
             }
             QuickToggleButton {
                 toggled: false
+                visible: systemButtonRow.buttons.includes("settings")
                 buttonIcon: "settings"
                 onClicked: {
                     GlobalStates.sidebarRightOpen = false;
@@ -293,6 +321,7 @@ Item {
             }
             QuickToggleButton {
                 toggled: false
+                visible: systemButtonRow.buttons.includes("session")
                 buttonIcon: "power_settings_new"
                 onClicked: {
                     GlobalStates.sessionOpen = true;

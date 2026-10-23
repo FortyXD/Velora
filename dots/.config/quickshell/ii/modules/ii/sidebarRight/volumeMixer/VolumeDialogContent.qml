@@ -49,7 +49,7 @@ ColumnLayout {
             if (root.isSink) {
                 return item.id === Pipewire.defaultAudioSink?.id
             } else {
-                return item.id === Pipewire.defaultAudioSource?.id
+                return item.id === Audio.micInUse?.id
             }
         })
         onActivated: (index) => {
@@ -58,7 +58,7 @@ ColumnLayout {
             if (root.isSink) {
                 Audio.setDefaultSink(item)
             } else {
-                Audio.setDefaultSource(item)
+                Audio.selectMic(item)
             }
         }
     }

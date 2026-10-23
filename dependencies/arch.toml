@@ -1,0 +1,153 @@
+# Velora dependencies: actual repository/AUR packages, no local metapackages.
+version = 1
+
+[features.desktop]
+description = "Hyprland, Quickshell and desktop portals"
+required = true
+repo = [
+    "kitty",
+    "hyprland",
+    "hypridle",
+    "hyprlock",
+    "hyprsunset",
+    "quickshell",
+    "xdg-desktop-portal",
+    "xdg-desktop-portal-hyprland",
+    "xdg-desktop-portal-gtk",
+    "xdg-desktop-portal-kde",
+    "polkit-kde-agent",
+]
+aur = []
+
+[features.applications]
+description = "Terminal, file manager and everyday applications"
+required = false
+repo = [
+    "dolphin",
+    "systemsettings",
+    "kitty",
+    "foot",
+    "fuzzel",
+    "tmux",
+    "zsh",
+    "fish",
+    "starship",
+    "zsh-autosuggestions",
+    "fzf",
+    "eza",
+    "bat",
+    "ripgrep",
+    "zoxide",
+    "matugen",
+    "breeze",
+    "fontconfig",
+    "ttf-jetbrains-mono-nerd",
+]
+aur = []
+
+[features.shell]
+description = "Shell services, media, networking and hardware controls"
+required = true
+repo = [
+    "bc",
+    "cliphist",
+    "cmake",
+    "curl",
+    "wget",
+    "xdg-user-dirs",
+    "rsync",
+    "go-yq",
+    "geoclue",
+    "brightnessctl",
+    "ddcutil",
+    "glib2",
+    "imagemagick",
+    "hyprpicker",
+    "songrec",
+    "translate-shell",
+    "libqalculate",
+    "upower",
+    "power-profiles-daemon",
+    "wtype",
+    "ydotool",
+    "cava",
+    "pavucontrol-qt",
+    "wireplumber",
+    "pipewire-pulse",
+    "libdbusmenu-gtk3",
+    "playerctl",
+    "hyprshot",
+    "slurp",
+    "swappy",
+    "tesseract",
+    "tesseract-data-eng",
+    "tesseract-data-rus",
+    "wf-recorder",
+    "clang",
+    "uv",
+    "gtk4",
+    "libadwaita",
+    "libsoup3",
+    "libportal-gtk4",
+    "gobject-introspection",
+    "bluedevil",
+    "gnome-keyring",
+    "networkmanager",
+    "plasma-nm",
+    "wl-clipboard",
+    "grim",
+    "ffmpeg",
+    "ffmpegthumbnailer",
+    "mpv",
+    "jq",
+    "python",
+    "python-pillow",
+    "qt6-svg",
+    "qt6-imageformats",
+    "qt6-multimedia",
+    "qt6-wayland",
+    "kio-extras",
+    "kvantum",
+    "git",
+    "base-devel",
+]
+aur = []
+
+[features.toolbox]
+description = "Conversion, downloads, QR codes and OCR"
+required = false
+repo = [
+    "yt-dlp",
+    "qrencode",
+    "zbar",
+    "poppler",
+    "qpdf",
+    "7zip",
+    "pandoc-cli",
+    "ghostscript",
+    "libheif",
+    "kdialog",
+]
+aur = []
+
+[features.appearance]
+description = "Additional fonts and application themes"
+required = false
+repo = []
+aur = [
+    "wlogout",
+    "adw-gtk-theme-git",
+    "breeze-plus",
+    "darkly-bin",
+    "otf-space-grotesk",
+    "ttf-material-symbols-variable-git",
+    "ttf-readex-pro",
+    "ttf-rubik-vf",
+    "ttf-twemoji",
+]
+
+[features.live-wallpapers]
+description = "Video wallpaper playback"
+required = false
+repo = []
+aur = ["mpvpaper"]

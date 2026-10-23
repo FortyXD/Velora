@@ -62,8 +62,8 @@ ColumnLayout {
                     text: root.connecting ? Translation.tr("Connecting…")
                         : root.rejected ? Translation.tr("Saved password rejected")
                         : root.network.active ? Translation.tr("Connected")
-                        : root.saved ? Translation.tr("Saved network")
-                        : root.network.isSecure ? Translation.tr("Password required")
+                        : root.network.known ? Translation.tr("Joined before")
+                        : root.network.isSecure ? Translation.tr("Needs a password")
                         : Translation.tr("Open network")
                 }
             }
@@ -76,7 +76,7 @@ ColumnLayout {
             }
 
             MaterialSymbol {
-                visible: root.connecting || (root.network.isSecure && !root.saved)
+                visible: root.connecting || (root.network.isSecure && !root.network.known)
                 text: root.connecting ? "progress_activity" : "lock"
                 iconSize: 18
                 color: Appearance.colors.colSubtext
@@ -91,9 +91,11 @@ ColumnLayout {
 
             ForgetButton {
                 id: forgetButton
-                visible: root.saved && !root.connecting
-                // Shown on hover only, so a list of saved networks doesn't turn into a column of bins
-                opacity: rowButton.hovered || forgetButton.asking ? 1 : 0
+                // Keeps its place on every row so the columns line up; shown on hover only, so a list of
+                // saved networks doesn't turn into a column of bins
+                visible: !root.connecting
+                enabled: root.saved
+                opacity: root.saved && (rowButton.hovered || forgetButton.asking) ? 1 : 0
                 onConfirmed: Network.forgetWifiNetwork(root.network.savedUuid)
             }
         }

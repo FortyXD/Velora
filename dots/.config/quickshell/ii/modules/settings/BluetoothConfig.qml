@@ -17,7 +17,7 @@ ContentPage {
     property bool showUnnamed: false
 
     // Looks for devices only while the page is on screen
-    readonly property bool searching: page.enabled && page.isOn
+    readonly property bool searching: page.pageShown && page.isOn
     onSearchingChanged: BluetoothStatus.setDiscovering(page.searching)
     Component.onCompleted: BluetoothStatus.setDiscovering(page.searching)
     Component.onDestruction: BluetoothStatus.setDiscovering(false)

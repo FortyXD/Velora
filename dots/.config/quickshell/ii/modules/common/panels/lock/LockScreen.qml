@@ -25,6 +25,7 @@ Scope {
                 animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
             }
             sourceComponent: root.lockSurface
+            onLoaded: if (item.hasOwnProperty("screenName")) item.screenName = sessionLockSurface.screen?.name ?? ""
         }
     }
 
@@ -104,21 +105,37 @@ Scope {
             // Unlock the keyring if configured to do so
             if (Config.options.lock.security.unlockKeyring) root.unlockKeyring(); // Async
 
-            // Unlock the screen before exiting, or the compositor will display a
-            // fallback lock you can't interact with.
-            GlobalStates.screenLocked = false;
-
-            // Refocus last focused window on unlock (hack)
-            Quickshell.execDetached(["bash", "-c", `sleep 0.2; hyprctl --batch "dispatch hl.dsp.focus({ last = true })"`])
-
-            // Reset
-            lockContext.reset();
-
-            // Post-unlock actions
-            if (lockContext.alsoInhibitIdle) {
-                lockContext.alsoInhibitIdle = false;
-                Idle.toggleInhibit(true);
+            // The parts of the lock screen fly apart first (lock.animations), then the screen unlocks
+            if (Config.options.lock.animations !== "none" && Config.options.panelFamily === "ii" && !GlobalStates.lockExiting) {
+                GlobalStates.lockExiting = true;
+                exitTimer.restart();
+                return;
             }
+            root.finishUnlock();
+        }
+    }
+
+    Timer {
+        id: exitTimer
+        interval: Config.options.lock.animations === "full" ? 300 : 180
+        onTriggered: root.finishUnlock()
+    }
+
+    function finishUnlock() {
+        // Unlock the screen before exiting, or the compositor will display a
+        // fallback lock you can't interact with.
+        GlobalStates.screenLocked = false;
+
+        // Refocus last focused window on unlock (hack)
+        Quickshell.execDetached(["bash", "-c", `sleep 0.2; hyprctl --batch "dispatch hl.dsp.focus({ last = true })"`])
+
+        // Reset
+        lockContext.reset();
+
+        // Post-unlock actions
+        if (lockContext.alsoInhibitIdle) {
+            lockContext.alsoInhibitIdle = false;
+            Idle.toggleInhibit(true);
         }
     }
 

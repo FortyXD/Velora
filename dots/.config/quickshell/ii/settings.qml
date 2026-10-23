@@ -51,7 +51,7 @@ ApplicationWindow {
             component: "modules/settings/DefaultAppsConfig.qml"
         },
         {
-            key: "appearance", group: "basics", color: "#5856D6", icon: "palette",
+            key: "appearance", group: "basics", color: "#5856D6", icon: "palette", hero: false,
             name: Translation.tr("Appearance"),
             description: Translation.tr("Colors, transparency, window style, motion and fonts"),
             component: "modules/settings/AppearanceConfig.qml"
@@ -69,7 +69,7 @@ ApplicationWindow {
             component: "modules/settings/WallpaperConfig.qml"
         },
         {
-            key: "widgets", group: "basics", color: "#AF52DE", icon: "widgets",
+            key: "widgets", group: "basics", color: "#AF52DE", icon: "widgets", hero: false,
             name: Translation.tr("Widgets"),
             description: Translation.tr("Clock, weather, media and other widgets on your desktop"),
             component: "modules/settings/WidgetsConfig.qml"
@@ -95,7 +95,7 @@ ApplicationWindow {
         {
             key: "notifications", group: "desktop", color: "#FF3B30", icon: "notifications",
             name: Translation.tr("Notifications"),
-            description: Translation.tr("Notification popups and on-screen indicators"),
+            description: Translation.tr("Do not disturb, what each app may show, and popups"),
             component: "modules/settings/NotificationsConfig.qml"
         },
         {
@@ -113,7 +113,7 @@ ApplicationWindow {
         {
             key: "keyboard", group: "devices", color: "#8E8E93", icon: "keyboard",
             name: Translation.tr("Keyboard"),
-            description: Translation.tr("Layouts and key repeat"),
+            description: Translation.tr("Layouts on a live keyboard, what keys do, and key repeat"),
             component: "modules/settings/KeyboardConfig.qml"
         },
         {
@@ -131,13 +131,13 @@ ApplicationWindow {
         {
             key: "sound", group: "devices", color: "#FF2D55", icon: "volume_up",
             name: Translation.tr("Sound"),
-            description: Translation.tr("Volume protection and system sounds"),
+            description: Translation.tr("Speakers, microphones, each app's volume and system sounds"),
             component: "modules/settings/SoundConfig.qml"
         },
         {
             key: "battery", group: "devices", color: "#34C759", icon: "battery_android_full",
-            name: Translation.tr("Battery"),
-            description: Translation.tr("Warnings and automatic suspend"),
+            name: Translation.tr("Battery & energy"),
+            description: Translation.tr("Energy saving, warnings and automatic suspend"),
             component: "modules/settings/BatteryConfig.qml"
         },
         {
@@ -168,6 +168,12 @@ ApplicationWindow {
     property int currentPage: Math.max(0, root.pageIndex(pageStateFile.text().trim())) // Last opened page
     property int pageDirection: 1
     property bool loadAllPages: false // Search needs every page built
+    // Pages are built one after another in the background once the first one is up, so a click shows a
+    // finished page instead of building it on the spot (that took up to 0.7 s for the heavier pages).
+    // All at once froze the window for seconds, long enough for Hyprland to call it not responding.
+    property bool backgroundPreload: false
+    property int preloadedPages: 0
+    readonly property bool preloading: (root.loadAllPages || root.backgroundPreload) && root.preloadedPages < root.pages.length
     readonly property bool searching: sidebar.searchText.trim().length > 0
     readonly property var currentPageData: root.pages[root.currentPage]
 
@@ -231,9 +237,10 @@ ApplicationWindow {
         return pageRepeater.itemAt(index)?.item ?? null;
     }
 
+    // A section, or a titled group inside one, with this title
     function findSection(node, title) {
         if (!node) return null;
-        if (node.settingsSection && node.title === title) return node;
+        if ((node.settingsSection || node.settingsSearchable) && node.title === title) return node;
         const kids = node.children ?? [];
         for (let i = 0; i < kids.length; i++) {
             const found = root.findSection(kids[i], title);
@@ -259,12 +266,35 @@ ApplicationWindow {
             revealCheckTimer.restart();
         }
     }
+    Timer {
+        interval: 30
+        repeat: true
+        running: root.preloading
+        onTriggered: {
+            // One page at a time: the next starts when the previous one has finished building
+            if (root.preloadedPages > 0 && pageRepeater.itemAt(root.preloadedPages - 1)?.status === Loader.Loading) return;
+            while (root.preloadedPages < root.pages.length && pageRepeater.itemAt(root.preloadedPages)?.status === Loader.Ready)
+                root.preloadedPages++;
+            root.preloadedPages = Math.min(root.preloadedPages + 1, root.pages.length);
+            if (!root.preloading && root.loadAllPages) searchView.refresh();
+        }
+    }
+    Timer { // Starts the background building once the window has settled
+        interval: 600
+        running: Config.ready && pageRepeater.itemAt(root.currentPage)?.status === Loader.Ready
+        onTriggered: root.backgroundPreload = true
+    }
     Timer { // Corrects the position if the page was still settling
         id: revealCheckTimer
         property var page: null
         property var item: null
         interval: 500
         onTriggered: page?.revealItem(item, false)
+    }
+    Connections { // Scrolling by hand cancels the correction
+        target: revealCheckTimer.page
+        ignoreUnknownSignals: true
+        function onRevealCancelled() { revealCheckTimer.stop() }
     }
 
     visible: true
@@ -534,11 +564,14 @@ ApplicationWindow {
                             property real slide: 0
 
                             anchors.fill: parent
-                            active: Config.ready && (visited || root.loadAllPages)
+                            active: Config.ready && (visited || index < root.preloadedPages)
                             source: modelData.component
-                            // Kept visible (but transparent) so search can tell which options are hidden
+                            // Built in the background without stalling the window; the page being opened is
+                            // finished at once (switching `asynchronous` off completes a running load)
+                            asynchronous: !isCurrent && !root.loadAllPages
+                            // Kept visible (but transparent) so search can tell which options are hidden.
+                            // Not disabled either: that restyled every control on both pages at each switch.
                             opacity: 0
-                            enabled: isCurrent
                             z: isCurrent ? 1 : 0
                             transform: Translate { y: pageLoader.slide }
 
@@ -548,6 +581,7 @@ ApplicationWindow {
                                 if (modelData.hero !== false) item.heroTitle = modelData.name;
                                 item.heroDescription = modelData.description;
                                 item.heroColor = Qt.binding(() => CF.ColorUtils.mix(modelData.color, Appearance.colors.colPrimary, 0.82));
+                                if (item.pageShown !== undefined) item.pageShown = Qt.binding(() => pageLoader.isCurrent);
                             }
                             onIsCurrentChanged: {
                                 if (isCurrent) {
@@ -563,6 +597,15 @@ ApplicationWindow {
                                 if (!isCurrent) return;
                                 visited = true;
                                 enterAnim.restart();
+                            }
+
+                            MouseArea { // Pages behind the current one take no clicks, hover or wheel
+                                anchors.fill: parent
+                                z: 1000
+                                visible: !pageLoader.isCurrent
+                                hoverEnabled: true
+                                acceptedButtons: Qt.AllButtons
+                                onWheel: wheel => wheel.accepted = true
                             }
 
                             ParallelAnimation {
@@ -583,6 +626,7 @@ ApplicationWindow {
                         anchors.fill: parent
                         pages: root.pages
                         pageItemAt: index => root.pageItemAt(index)
+                        loading: root.preloading
                         enabled: root.searching
                         visible: opacity > 0
                         opacity: root.searching ? 1 : 0

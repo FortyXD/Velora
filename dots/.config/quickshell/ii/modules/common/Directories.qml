@@ -37,6 +37,7 @@ Singleton {
 	property string notesPath: FileUtils.trimFileProtocol(`${Directories.state}/user/notes.txt`)
 	property string conflictCachePath: FileUtils.trimFileProtocol(`${Directories.cache}/conflict-killer`)
     property string notificationsPath: FileUtils.trimFileProtocol(`${Directories.cache}/notifications/notifications.json`)
+    property string notificationAppsPath: FileUtils.trimFileProtocol(`${Directories.state}/user/notification_apps.json`) // Apps that sent notifications
     property string generatedMaterialThemePath: FileUtils.trimFileProtocol(`${Directories.state}/user/generated/colors.json`)
     property string generatedWallpaperCategoryPath: FileUtils.trimFileProtocol(`${Directories.state}/user/generated/wallpaper/category.txt`)
     property string cliphistDecode: FileUtils.trimFileProtocol(`/tmp/quickshell/media/cliphist`)

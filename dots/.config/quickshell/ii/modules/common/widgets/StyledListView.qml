@@ -15,8 +15,7 @@ ListView {
     property bool popin: true
     property bool animateAppearance: true
     property bool animateMovement: false
-    // Accumulated scroll destination so wheel deltas stack while animating
-    property real scrollTargetY: 0
+    readonly property alias wheelArea: wheelArea
 
     property real touchpadScrollFactor: Config?.options.interactions.scrolling.touchpadScrollFactor ?? 100
     property real mouseScrollFactor: Config?.options.interactions.scrolling.mouseScrollFactor ?? 50
@@ -44,13 +43,6 @@ ListView {
             easing.type: Appearance.animation.scroll.type
             easing.bezierCurve: Appearance.animation.scroll.bezierCurve
             onRunningChanged: if (!running) wheelArea.gliding = false
-        }
-    }
-
-    // Keep target synced when not animating (e.g., drag/flick or programmatic changes)
-    onContentYChanged: {
-        if (!scrollAnim.running) {
-            root.scrollTargetY = root.contentY;
         }
     }
 

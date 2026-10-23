@@ -3,6 +3,7 @@ import qs.modules.common
 import qs.modules.common.widgets
 import QtQuick
 import QtQuick.Layouts
+import Qt.labs.qmlmodels
 import Quickshell.Bluetooth
 
 import qs.modules.ii.sidebarRight.quickToggles.classicStyle
@@ -20,20 +21,34 @@ AbstractQuickPanel {
         padding: 5
         color: Appearance.colors.colLayer1
 
-        NetworkToggle {
-            altAction: () => {
-                root.openWifiDialog();
+        // Which and in what order: Config.options.sidebar.quickToggles.classic.toggles
+        Repeater {
+            model: SidebarLayout.classicToggles()
+            delegate: DelegateChooser {
+                role: "modelData"
+                DelegateChoice {
+                    roleValue: "network"
+                    NetworkToggle {
+                        altAction: () => {
+                            root.openWifiDialog();
+                        }
+                    }
+                }
+                DelegateChoice {
+                    roleValue: "bluetooth"
+                    BluetoothToggle {
+                        altAction: () => {
+                            root.openBluetoothDialog();
+                        }
+                    }
+                }
+                DelegateChoice { roleValue: "nightLight"; NightLight {} }
+                DelegateChoice { roleValue: "gameMode"; GameMode {} }
+                DelegateChoice { roleValue: "idleInhibitor"; IdleInhibitor {} }
+                DelegateChoice { roleValue: "powerSaving"; PowerSavingToggle {} }
+                DelegateChoice { roleValue: "easyEffects"; EasyEffectsToggle {} }
+                DelegateChoice { roleValue: "cloudflareWarp"; CloudflareWarp {} }
             }
         }
-        BluetoothToggle {
-            altAction: () => {
-                root.openBluetoothDialog();
-            }
-        }
-        NightLight {}
-        GameMode {}
-        IdleInhibitor {}
-        EasyEffectsToggle {}
-        CloudflareWarp {}
     }
 }

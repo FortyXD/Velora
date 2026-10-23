@@ -11,6 +11,8 @@ QtObject {
     readonly property bool isSecure: security.length > 0
     readonly property string savedUuid: lastIpcObject.savedUuid ?? ""
     readonly property bool savedCredentials: lastIpcObject.savedCredentials ?? false
+    readonly property bool neverUsed: lastIpcObject.neverUsed ?? false // Saved, but never got connected: no working password
+    readonly property bool known: savedUuid.length > 0 && !neverUsed // Joined before, joins again by itself
 
     property bool askingPassword: false
     property string errorText: ""

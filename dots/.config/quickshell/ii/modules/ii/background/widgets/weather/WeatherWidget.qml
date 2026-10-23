@@ -15,6 +15,8 @@ AbstractBackgroundWidget {
     implicitHeight: backgroundShape.implicitHeight
     implicitWidth: backgroundShape.implicitWidth
 
+    onClicked: Weather.refresh()
+
     StyledDropShadow {
         target: backgroundShape
     }
@@ -33,7 +35,7 @@ AbstractBackgroundWidget {
                 weight: Font.Medium
             }
             color: Appearance.colors.colPrimary
-            text: Weather.data?.temp.substring(0,Weather.data?.temp.length - 1) ?? "--°"
+            text: Weather.data.tempShort
             anchors {
                 right: parent.right
                 top: parent.top
@@ -45,7 +47,7 @@ AbstractBackgroundWidget {
         MaterialSymbol {
             iconSize: 80
             color: Appearance.colors.colOnPrimaryContainer
-            text: Icons.getWeatherIcon(Weather.data.wCode) ?? "cloud"
+            text: Weather.hasData ? (Icons.getWeatherIcon(Weather.data.wCode, Weather.data.night) ?? "cloud") : (Weather.status === "error" ? "cloud_off" : "cloud_sync")
             anchors {
                 left: parent.left
                 bottom: parent.bottom

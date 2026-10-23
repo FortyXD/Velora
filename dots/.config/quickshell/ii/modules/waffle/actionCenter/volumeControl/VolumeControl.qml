@@ -95,10 +95,10 @@ Item {
                 required property var modelData
                 icon.name: WIcons.audioDeviceIcon(modelData)
                 text: Audio.friendlyDeviceName(modelData)
-                checked: (root.output ? Audio.sink : Audio.source) === modelData
+                checked: (root.output ? Audio.sink : Audio.micInUse) === modelData
                 onClicked: {
                     if (root.output) Audio.setDefaultSink(modelData);
-                    else Audio.setDefaultSource(modelData);
+                    else Audio.selectMic(modelData);
                 }
             }
         }

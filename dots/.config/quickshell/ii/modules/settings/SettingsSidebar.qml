@@ -232,7 +232,7 @@ Item {
                     }
                     StyledText {
                         Layout.fillWidth: true
-                        text: `Folis · ${SystemInfo.distroName}`
+                        text: `Velora · ${SystemInfo.distroName}`
                         elide: Text.ElideRight
                         font.pixelSize: Appearance.font.pixelSize.smaller
                         color: profileButton.current ? Appearance.colors.colOnPrimary : Appearance.colors.colSubtext

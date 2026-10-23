@@ -46,7 +46,7 @@ RippleButton {
                 Layout.fillWidth: true
                 elide: Text.ElideRight
                 font.pixelSize: Appearance.font.pixelSize.smaller
-                text: (input ? Pipewire.defaultAudioSource?.description : Pipewire.defaultAudioSink?.description) ?? Translation.tr("Unknown")
+                text: (input ? Audio.micInUse?.description : Pipewire.defaultAudioSink?.description) ?? Translation.tr("Unknown")
                 color: Appearance.m3colors.m3outline
                 animateChange: true
             }

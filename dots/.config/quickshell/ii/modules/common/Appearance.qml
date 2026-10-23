@@ -19,13 +19,13 @@ Singleton {
     ColorQuantizer {
         id: wallColorQuant
         property string wallpaperPath: Config.options.background.wallpaperPath
-        property bool wallpaperIsVideo: wallpaperPath.endsWith(".mp4") || wallpaperPath.endsWith(".webm") || wallpaperPath.endsWith(".mkv") || wallpaperPath.endsWith(".avi") || wallpaperPath.endsWith(".mov")
+        property bool wallpaperIsVideo: FileUtils.isVideoPath(wallpaperPath)
         source: Qt.resolvedUrl(wallpaperIsVideo ? Config.options.background.thumbnailPath : Config.options.background.wallpaperPath)
         depth: 0 // 2^0 = 1 color
         rescaleSize: 10
     }
-    // Shell motion speed (Appearance → Motion): 1 normal, 2 twice as fast, 0 no animations
-    readonly property real animationSpeed: Config.options?.appearance.animationSpeed ?? 1
+    // Shell motion speed (Appearance → Motion): 1 normal, 2 twice as fast, 0 no animations (also while energy saving cuts them)
+    readonly property real animationSpeed: PowerSaving.cutAnimations ? 0 : (Config.options?.appearance.animationSpeed ?? 1)
     function scaledDuration(ms) {
         return root.animationSpeed <= 0 ? 0 : Math.round(ms / root.animationSpeed);
     }
@@ -414,7 +414,7 @@ Singleton {
         property real osdWidth: 180
         property real searchWidthCollapsed: 210
         property real searchWidth: 360
-        property real sidebarWidth: 460
+        property real sidebarWidth: Math.max(340, Math.min(640, Config.options?.sidebar?.width ?? 460))
         property real sidebarWidthExtended: 750
         property real baseVerticalBarWidth: Config.options.bar.style.thickness > 0 ? Config.options.bar.style.thickness : 46
         property real verticalBarWidth: barFloating ? (baseVerticalBarWidth + barFloatMargin * 2) : baseVerticalBarWidth

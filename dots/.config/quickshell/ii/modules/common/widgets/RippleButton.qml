@@ -141,7 +141,9 @@ Button {
             animation: Appearance?.animation.elementMoveFast.colorAnimation.createObject(this)
         }
 
-        layer.enabled: true
+        // The mask only clips the ripple to the rounded shape; an offscreen layer on every button all the time
+        // cost hundreds of textures in the bar, sidebars and settings
+        layer.enabled: ripple.opacity > 0
         layer.effect: OpacityMask {
             maskSource: Rectangle {
                 width: buttonBackground.width

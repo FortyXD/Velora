@@ -90,7 +90,7 @@ Scope {
 
     Timer {
         id: passwordClearTimer
-        interval: 10000
+        interval: Math.max(3, Config.options.lock.clearPasswordAfter) * 1000
         onTriggered: {
             root.reset();
         }

@@ -10,8 +10,7 @@ Flickable {
     property real touchpadScrollFactor: Config?.options.interactions.scrolling.touchpadScrollFactor ?? 100
     property real mouseScrollFactor: Config?.options.interactions.scrolling.mouseScrollFactor ?? 50
     property real mouseScrollDeltaThreshold: Config?.options.interactions.scrolling.mouseScrollDeltaThreshold ?? 120
-    // Accumulated scroll destination so wheel deltas stack while animating
-    property real scrollTargetY: 0
+    readonly property alias wheelArea: wheelArea
 
     ScrollBar.vertical: StyledScrollBar {}
 
@@ -28,13 +27,6 @@ Flickable {
             easing.type: Appearance.animation.scroll.type
             easing.bezierCurve: Appearance.animation.scroll.bezierCurve
             onRunningChanged: if (!running) wheelArea.gliding = false
-        }
-    }
-
-    // Keep target synced when not animating (e.g., drag/flick or programmatic changes)
-    onContentYChanged: {
-        if (!scrollAnim.running) {
-            root.scrollTargetY = root.contentY;
         }
     }
 

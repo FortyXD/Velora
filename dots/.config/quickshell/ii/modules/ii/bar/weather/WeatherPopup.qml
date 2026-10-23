@@ -12,9 +12,7 @@ StyledPopup {
     ColumnLayout {
         id: columnLayout
         anchors.centerIn: parent
-        implicitWidth: Math.max(header.implicitWidth, gridLayout.implicitWidth)
-        implicitHeight: gridLayout.implicitHeight
-        spacing: 5
+        spacing: 8
 
         // Header
         ColumnLayout {
@@ -35,7 +33,7 @@ StyledPopup {
                 }
 
                 StyledText {
-                    text: Weather.data.city
+                    text: Weather.place.name || Weather.data.city || Translation.tr("Unknown place")
                     font {
                         weight: Font.Medium
                         pixelSize: Appearance.font.pixelSize.normal
@@ -44,10 +42,67 @@ StyledPopup {
                 }
             }
             StyledText {
-                id: temp
+                Layout.alignment: Qt.AlignHCenter
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colOnSurfaceVariant
-                text: Weather.data.temp + " • " + Translation.tr("Feels like %1").arg(Weather.data.tempFeelsLike)
+                text: Weather.hasData ? `${Weather.data.temp} • ${Weather.data.description} • ${Translation.tr("Feels like %1").arg(Weather.data.tempFeelsLike)}`
+                    : Weather.status === "error" ? Weather.error : Translation.tr("Getting the weather…")
+            }
+        }
+
+        // The next hours
+        WeatherHours {
+            Layout.alignment: Qt.AlignHCenter
+            visible: Weather.hourly.length > 0
+            count: 6
+            cellWidth: 48
+            colText: Appearance.colors.colOnSurfaceVariant
+            colSubtext: Appearance.colors.colSubtext
+        }
+
+        // The next days
+        ColumnLayout {
+            Layout.fillWidth: true
+            visible: Weather.daily.length > 0
+            spacing: 2
+            Repeater {
+                model: Weather.daily
+                delegate: Rectangle {
+                    id: dayRow
+                    required property var modelData
+                    Layout.fillWidth: true
+                    implicitHeight: dayRowLayout.implicitHeight + 8
+                    radius: Appearance.rounding.small
+                    color: Appearance.colors.colSurfaceContainerHigh
+                    RowLayout {
+                        id: dayRowLayout
+                        anchors {
+                            fill: parent
+                            leftMargin: 12
+                            rightMargin: 12
+                        }
+                        spacing: 10
+                        StyledText {
+                            Layout.preferredWidth: 64
+                            text: dayRow.modelData.day
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colOnSurfaceVariant
+                        }
+                        MaterialSymbol {
+                            text: Icons.getWeatherIcon(dayRow.modelData.code) ?? "cloud"
+                            iconSize: Appearance.font.pixelSize.larger
+                            fill: 1
+                            color: Appearance.colors.colOnSurfaceVariant
+                        }
+                        Item { Layout.fillWidth: true }
+                        StyledText {
+                            text: `${dayRow.modelData.high} / ${dayRow.modelData.low}`
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            font.weight: Font.Medium
+                            color: Appearance.colors.colOnSurfaceVariant
+                        }
+                    }
+                }
             }
         }
 
@@ -80,6 +135,7 @@ StyledPopup {
                 value: Weather.data.humidity
             }
             WeatherCard {
+                visible: Weather.data.visib.length > 0
                 title: Translation.tr("Visibility")
                 symbol: "visibility"
                 value: Weather.data.visib
@@ -101,10 +157,12 @@ StyledPopup {
             }
         }
 
-        // Footer: last refresh
+        // Footer: when, from where, how the place was found
         StyledText {
             Layout.alignment: Qt.AlignHCenter
-            text: Translation.tr("Last refresh: %1").arg(Weather.data.lastRefresh)
+            visible: Weather.hasData
+            text: [Translation.tr("Updated %1").arg(Qt.locale().toString(new Date(Weather.updatedAt), Config.options.time.format)), Weather.provider, Weather.sourceText]
+                .filter(s => s.length > 0).join(" • ")
             font {
                 weight: Font.Medium
                 pixelSize: Appearance.font.pixelSize.smaller

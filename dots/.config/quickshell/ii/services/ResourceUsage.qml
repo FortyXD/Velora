@@ -93,7 +93,7 @@ Singleton {
             }
 
             root.updateHistories()
-            interval = Config.options?.resources?.updateInterval ?? 3000
+            interval = (Config.options?.resources?.updateInterval ?? 3000) * PowerSaving.pollingFactor
         }
 	}
 

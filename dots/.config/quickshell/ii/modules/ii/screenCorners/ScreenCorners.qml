@@ -1,6 +1,7 @@
 import qs
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.common.functions
 import qs.services
 import QtQuick
 import QtQuick.Controls
@@ -9,15 +10,12 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
 
+/**
+ * The rounded screen corners, and the hot corners (Config.options.hotCorners, actions in services/HotCorners.qml),
+ * each in windows of their own so hot corners work whatever the rounding is set to.
+ */
 Scope {
     id: screenCorners
-    readonly property Toplevel activeWindow: ToplevelManager.activeToplevel
-    property var actionForCorner: ({
-        [RoundCorner.CornerEnum.TopLeft]: () => GlobalStates.sidebarLeftOpen = !GlobalStates.sidebarLeftOpen,
-        [RoundCorner.CornerEnum.BottomLeft]: () => GlobalStates.sidebarLeftOpen = !GlobalStates.sidebarLeftOpen,
-        [RoundCorner.CornerEnum.TopRight]: () => GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen,
-        [RoundCorner.CornerEnum.BottomRight]: () => GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen
-    })
 
     component CornerPanelWindow: PanelWindow {
         id: cornerPanelWindow
@@ -30,9 +28,7 @@ Scope {
         property var corner
 
         exclusionMode: ExclusionMode.Ignore
-        mask: Region {
-            item: sidebarCornerOpenInteractionLoader.active ? sidebarCornerOpenInteractionLoader : null
-        }
+        mask: Region {} // Only draws
         WlrLayershell.namespace: "quickshell:screenCorners"
         WlrLayershell.layer: WlrLayer.Overlay
         color: "transparent"
@@ -60,79 +56,110 @@ Scope {
             bottomVisualMargin: (Config.options.interactions.deadPixelWorkaround.enable && cornerPanelWindow.anchors.bottom) * 1
 
             implicitSize: Appearance.rounding.screenRounding
-            implicitHeight: Math.max(implicitSize, sidebarCornerOpenInteractionLoader.implicitHeight)
-            implicitWidth: Math.max(implicitSize, sidebarCornerOpenInteractionLoader.implicitWidth)
+        }
+    }
 
-            Loader {
-                id: sidebarCornerOpenInteractionLoader
-                active: {
-                    if (!Config.options.sidebar.cornerOpen.enable) return false;
-                    if (cornerPanelWindow.fullscreen) return false;
-                    return (Config.options.sidebar.cornerOpen.bottom == cornerWidget.isBottom);
-                }
-                anchors {
-                    top: (cornerWidget.isTopLeft || cornerWidget.isTopRight) ? parent.top : undefined
-                    bottom: (cornerWidget.isBottomLeft || cornerWidget.isBottomRight) ? parent.bottom : undefined
-                    left: (cornerWidget.isLeft) ? parent.left : undefined
-                    right: (cornerWidget.isTopRight || cornerWidget.isBottomRight) ? parent.right : undefined
-                }
+    // A hot corner: a small trigger area in the very corner, with a soft glow that shows it's there and grows,
+    // with the action's icon, while the pointer is on it
+    component HotCornerWindow: PanelWindow {
+        id: hotWindow
+        required property string corner // topLeft, topRight, bottomLeft, bottomRight
+        property bool fullscreen
+        readonly property var options: Config.options.hotCorners
+        readonly property string action: hotWindow.options[hotWindow.corner]?.action ?? "none"
+        readonly property var actionInfo: HotCorners.actionInfo(hotWindow.action)
+        readonly property bool isTop: hotWindow.corner.startsWith("top")
+        readonly property bool isLeft: hotWindow.corner.endsWith("Left")
+        readonly property bool hovered: triggerArea.containsMouse
+        readonly property real glowRadius: hotWindow.hovered ? 46 : (hotWindow.options.hint ? 9 : 0)
+        readonly property bool deadPixelWorkaround: Config.options.interactions.deadPixelWorkaround.enable
 
-                sourceComponent: FocusedScrollMouseArea {
-                    id: mouseArea
-                    implicitWidth: Config.options.sidebar.cornerOpen.cornerRegionWidth
-                    implicitHeight: Config.options.sidebar.cornerOpen.cornerRegionHeight
-                    hoverEnabled: true
-                    onPositionChanged: {
-                        if (!Config.options.sidebar.cornerOpen.clicklessCornerEnd) return;
-                        const verticalOffset = Config.options.sidebar.cornerOpen.clicklessCornerVerticalOffset;
-                        const correctX = (cornerWidget.isRight && mouseArea.mouseX >= mouseArea.width - 2) || (cornerWidget.isLeft && mouseArea.mouseX <= 2);
-                        const correctY = (cornerWidget.isTop && mouseArea.mouseY > verticalOffset || cornerWidget.isBottom && mouseArea.mouseY < mouseArea.height - verticalOffset);
-                        if (correctX && correctY)
-                            screenCorners.actionForCorner[cornerPanelWindow.corner]();
-                    }
-                    onEntered: {
-                        if (Config.options.sidebar.cornerOpen.clickless)
-                            screenCorners.actionForCorner[cornerPanelWindow.corner]();
-                    }
-                    onPressed: {
-                        screenCorners.actionForCorner[cornerPanelWindow.corner]();
-                    }
-                    onScrollDown: {
-                        if (!Config.options.sidebar.cornerOpen.valueScroll)
-                            return;
-                        if (cornerWidget.isLeft)
-                            Brightness.decreaseBrightness()
-                        else {
-                            Audio.decrementVolume();
-                        }
-                    }
-                    onScrollUp: {
-                        if (!Config.options.sidebar.cornerOpen.valueScroll)
-                            return;
-                        if (cornerWidget.isLeft)
-                            Brightness.increaseBrightness()
-                        else {
-                            Audio.incrementVolume();
-                        }
-                    }
-                    onMovedAway: {
-                        if (!Config.options.sidebar.cornerOpen.valueScroll)
-                            return;
-                        if (cornerWidget.isLeft)
-                            GlobalStates.osdBrightnessOpen = false;
-                        else
-                            GlobalStates.osdVolumeOpen = false;
-                    }
+        function trigger() {
+            HotCorners.run(hotWindow.action, hotWindow.options[hotWindow.corner]?.command ?? "");
+        }
 
-                    Loader {
-                        active: Config.options.sidebar.cornerOpen.visualize
-                        anchors.fill: parent
-                        sourceComponent: Rectangle {
-                            color: Appearance.colors.colPrimary
-                        }
-                    }
-                }
+        visible: hotWindow.action !== "none" && (!hotWindow.fullscreen || hotWindow.options.inFullscreen)
+        exclusionMode: ExclusionMode.Ignore
+        mask: Region {
+            item: triggerArea
+        }
+        WlrLayershell.namespace: "quickshell:hotCorner"
+        WlrLayershell.layer: WlrLayer.Overlay
+        color: "transparent"
+        anchors {
+            top: hotWindow.isTop
+            bottom: !hotWindow.isTop
+            left: hotWindow.isLeft
+            right: !hotWindow.isLeft
+        }
+        margins {
+            right: (hotWindow.deadPixelWorkaround && !hotWindow.isLeft) * -1
+            bottom: (hotWindow.deadPixelWorkaround && !hotWindow.isTop) * -1
+        }
+        implicitWidth: 60
+        implicitHeight: 60
+
+        Rectangle { // The glow, a quarter of a circle in the corner
+            width: hotWindow.glowRadius * 2
+            height: hotWindow.glowRadius * 2
+            radius: hotWindow.glowRadius
+            x: hotWindow.isLeft ? -hotWindow.glowRadius : parent.width - hotWindow.glowRadius
+            y: hotWindow.isTop ? -hotWindow.glowRadius : parent.height - hotWindow.glowRadius
+            color: ColorUtils.transparentize(Appearance.colors.colPrimary, hotWindow.hovered ? 0.1 : 0.5)
+            Behavior on width {
+                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
             }
+            Behavior on height {
+                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+            }
+            Behavior on color {
+                animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+            }
+        }
+        MaterialSymbol {
+            opacity: hotWindow.hovered ? 1 : 0
+            x: hotWindow.isLeft ? 7 : parent.width - width - 7
+            y: hotWindow.isTop ? 7 : parent.height - height - 7
+            text: hotWindow.actionInfo.icon
+            iconSize: 20
+            fill: 1
+            color: Appearance.colors.colOnPrimary
+            Behavior on opacity {
+                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+            }
+        }
+
+        FocusedScrollMouseArea {
+            id: triggerArea
+            width: hotWindow.options.size
+            height: hotWindow.options.size
+            x: hotWindow.isLeft ? 0 : parent.width - width - (hotWindow.deadPixelWorkaround ? 1 : 0)
+            y: hotWindow.isTop ? 0 : parent.height - height - (hotWindow.deadPixelWorkaround ? 1 : 0)
+            hoverEnabled: true
+            cursorShape: hotWindow.options.trigger === "click" ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onEntered: if (hotWindow.options.trigger === "hover") dwellTimer.restart()
+            onExited: dwellTimer.stop()
+            onPressed: if (hotWindow.options.trigger === "click") hotWindow.trigger()
+            onScrollUp: {
+                if (!hotWindow.options.scroll) return;
+                if (hotWindow.isLeft) Brightness.increaseBrightness();
+                else Audio.incrementVolume();
+            }
+            onScrollDown: {
+                if (!hotWindow.options.scroll) return;
+                if (hotWindow.isLeft) Brightness.decreaseBrightness();
+                else Audio.decrementVolume();
+            }
+            onMovedAway: {
+                if (!hotWindow.options.scroll) return;
+                if (hotWindow.isLeft) GlobalStates.osdBrightnessOpen = false;
+                else GlobalStates.osdVolumeOpen = false;
+            }
+        }
+        Timer { // A short stay in the corner, so passing through it doesn't fire
+            id: dwellTimer
+            interval: 120
+            onTriggered: if (triggerArea.containsMouse) hotWindow.trigger()
         }
     }
 
@@ -168,6 +195,16 @@ Scope {
                 screen: modelData
                 corner: RoundCorner.CornerEnum.BottomRight
                 fullscreen: monitorScope.fullscreen
+            }
+
+            Variants {
+                model: HotCorners.cornerNames
+                delegate: HotCornerWindow {
+                    required property var modelData
+                    screen: monitorScope.modelData
+                    corner: modelData
+                    fullscreen: monitorScope.fullscreen
+                }
             }
         }
     }

@@ -16,6 +16,7 @@ Item {
     property string query: ""
     property int maxResults: 40
     property var results: []
+    property bool loading: false // Pages are still being built; refresh() runs again when they're done
 
     signal resultChosen(int pageIndex, var item)
 
@@ -185,10 +186,17 @@ Item {
         }
     }
 
+    MaterialLoadingIndicator {
+        anchors.centerIn: parent
+        implicitSize: 48
+        loading: root.loading && root.results.length === 0
+        visible: loading
+    }
+
     // Nothing found
     ColumnLayout {
         anchors.centerIn: parent
-        visible: root.results.length === 0 && root.normalize(root.query).length > 0 && !refreshTimer.running
+        visible: root.results.length === 0 && root.normalize(root.query).length > 0 && !refreshTimer.running && !root.loading
         spacing: 10
         MaterialShapeWrappedMaterialSymbol {
             Layout.alignment: Qt.AlignHCenter

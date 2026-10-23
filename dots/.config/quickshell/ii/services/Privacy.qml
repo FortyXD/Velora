@@ -12,9 +12,10 @@ import Quickshell.Services.Pipewire
 Singleton {
     id: root
 
-    // EasyEffects keeps the microphone open to process it; apps recording its output still count
+    // EasyEffects and the noise reduction filter (Audio.qml) read the microphone to process it; apps
+    // recording their output still count
     function isEffectsNode(node) {
-        return /easyeffects/i.test(node?.name ?? "");
+        return /easyeffects|^folis_clean_mic/i.test(node?.name ?? "");
     }
     function isCameraNode(node) {
         return /^(v4l2|libcamera)/.test(node?.name ?? "");

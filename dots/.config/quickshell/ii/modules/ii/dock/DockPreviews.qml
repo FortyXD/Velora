@@ -233,7 +233,7 @@ PopupWindow {
                                     id: screencopyView
                                     anchors.centerIn: parent
                                     captureSource: windowButton.modelData
-                                    live: true
+                                    live: !PowerSaving.cutLivePreviews
                                     paintCursor: true
                                     constraintSize: Qt.size(root.maxPreviewWidth, root.maxPreviewHeight)
                                     layer.enabled: true

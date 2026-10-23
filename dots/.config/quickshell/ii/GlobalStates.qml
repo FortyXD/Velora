@@ -18,7 +18,12 @@ Singleton {
         barEditSelection = "";
         barEditHovered = "";
     }
-    onScreenLockedChanged: if (screenLocked) barEditing = false
+    onScreenLockedChanged: {
+        if (screenLocked) barEditing = false;
+        lockExiting = false;
+    }
+    property bool lockEditorOpen: false // The full-size lock screen editor (modules/ii/lock/LockEditorWindow.qml)
+    property bool lockExiting: false // Unlocked: the lock screen plays its way out (lock.animations) before it goes
     property bool crosshairOpen: false
     property bool desktopWidgetEditing: false // A desktop widget needs keyboard input on the background layer
     property bool sidebarLeftOpen: false

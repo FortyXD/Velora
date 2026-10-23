@@ -145,6 +145,13 @@ DelegateChooser {
         }
     }
     DelegateChoice {
+        roleValue: "powerSaving"
+        ActionCenterToggleButton {
+            toggleModel: PowerSavingToggle {}
+            icon: PowerSaving.active ? "leaf-two-filled" : "leaf-two"
+        }
+    }
+    DelegateChoice {
         roleValue: "screenSnip"
         ActionCenterToggleButton {
             toggleModel: ScreenSnipToggle {}

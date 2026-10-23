@@ -1,0 +1,50 @@
+name: Build release package
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  arch-package:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    permissions:
+      contents: write
+    steps:
+      - name: Install build tools
+        run: pacman -Syu --noconfirm --needed git python sudo github-cli
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Create an unprivileged builder
+        run: |
+          useradd --create-home builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+      - name: Validate maintenance tools
+        run: |
+          runuser -u builder -- python3 -m unittest discover -s tests -v
+          bash -n velora install.sh setup diagnose scripts/install.sh dots/.config/quickshell/ii/scripts/maintenance/velora.sh
+      - name: Build the Velora package
+        run: runuser -u builder -- ./velora package --output "$GITHUB_WORKSPACE/dist"
+      - name: Check package contents and generate checksums
+        run: |
+          pacman -Qip dist/velora-*.pkg.tar.zst
+          pacman -Qlp dist/velora-*.pkg.tar.zst
+          sha256sum dist/velora-*.pkg.tar.zst > dist/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: velora-arch-package
+          path: |
+            dist/*.pkg.tar.zst
+            dist/SHA256SUMS
+      - name: Prepare a draft GitHub release for a version tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" dist/velora-*.pkg.tar.zst dist/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+            --title "Velora $RELEASE_TAG" --notes-file RELEASE_NOTES.md

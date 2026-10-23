@@ -17,17 +17,26 @@ Item {
     property bool translatorEnabled: Config.options.sidebar.translator.enable
     property bool animeEnabled: Config.options.policies.weeb !== 0
     property bool animeCloset: Config.options.policies.weeb === 2
-    property var tabButtonList: [
-        ...(root.aiChatEnabled ? [{"icon": "neurology", "name": Translation.tr("Intelligence")}] : []),
-        ...(root.translatorEnabled ? [{"icon": "translate", "name": Translation.tr("Translator")}] : []),
-        ...((root.animeEnabled && !root.animeCloset) ? [{"icon": "bookmark_heart", "name": Translation.tr("Anime")}] : [])
-    ]
-    // Pages in swipe order. Closet anime has no tab button but stays reachable by swiping.
+    // Tabs in the order of Config.options.sidebar.left.order
+    readonly property var order: {
+        const known = SidebarCatalog.leftTabs.map(tab => tab.id);
+        const given = (Config.options.sidebar.left.order ?? []).filter(id => known.includes(id));
+        return [...given, ...known.filter(id => !given.includes(id))];
+    }
+    function hasTab(id) {
+        if (id === "ai") return root.aiChatEnabled;
+        if (id === "translator") return root.translatorEnabled;
+        return root.animeEnabled && !root.animeCloset;
+    }
+    property var tabButtonList: root.order.filter(id => root.hasTab(id)).map(id => {
+        const tab = SidebarCatalog.leftTabs.find(t => t.id === id);
+        return { "icon": tab.icon, "name": tab.name };
+    })
+    // Pages in swipe order. Closet anime has no tab button but stays reachable by swiping, after the others.
     property var pageList: [
-        ...(root.aiChatEnabled ? ["ai"] : []),
-        ...(root.translatorEnabled ? ["translator"] : []),
+        ...root.order.filter(id => root.hasTab(id)),
         ...((root.tabButtonList.length === 0 || (!root.aiChatEnabled && !root.translatorEnabled && root.animeCloset)) ? ["placeholder"] : []),
-        ...(root.animeEnabled ? ["anime"] : []),
+        ...((root.animeEnabled && root.animeCloset) ? ["anime"] : []),
     ]
     property int tabCount: swipeView.count
 
@@ -47,7 +56,9 @@ Item {
 
     function restoreTab() {
         if (root.tabRestored || !Persistent.ready) return;
-        root.setTab(Math.min(Persistent.states.sidebar.leftTab, swipeView.count - 1));
+        // A fixed start tab (Config.options.sidebar.left.startTab), or where it was left
+        const start = root.pageList.indexOf(Config.options.sidebar.left.startTab);
+        root.setTab(start >= 0 ? start : Math.min(Persistent.states.sidebar.leftTab, swipeView.count - 1));
         root.tabRestored = true;
     }
 

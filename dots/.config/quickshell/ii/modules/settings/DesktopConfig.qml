@@ -16,7 +16,17 @@ import qs.modules.settings.desktop
 ContentPage {
     id: page
     readonly property var dock: Config.options.dock
-    readonly property var corners: Config.options.sidebar.cornerOpen
+    readonly property var hotCorners: Config.options.hotCorners
+
+    function findChild(node, name) {
+        if (!node) return null;
+        if (node.objectName === name) return node;
+        for (const child of node.children ?? []) {
+            const found = page.findChild(child, name);
+            if (found) return found;
+        }
+        return null;
+    }
     readonly property string dockMode: !page.dock.enable ? "off"
         : page.dock.pinnedOnStartup ? "always"
         : page.dock.hoverToReveal ? "hover" : "empty"
@@ -36,7 +46,12 @@ ContentPage {
 
         DesktopPreview {
             Layout.fillWidth: true
-            onCornerClicked: bottom => Config.options.sidebar.cornerOpen.bottom = bottom
+            // Opens that corner's list of actions in the Hot corners section
+            onCornerClicked: corner => {
+                page.revealItem(hotCornersSection, false);
+                const choice = page.findChild(hotCornersSection, `hotCorner-${corner}`);
+                if (choice) Qt.callLater(() => choice.openPopup());
+            }
         }
     }
 
@@ -412,110 +427,152 @@ ContentPage {
     }
 
     ContentSection {
+        id: hotCornersSection
         icon: "south_east"
         title: Translation.tr("Hot corners")
-        description: Translation.tr("Open sidebars by clicking or hovering screen corners regardless of bar position. You can also click a corner of the desktop above.")
+        description: Translation.tr("Push the pointer into a corner of the screen to do something. Each corner can do anything you like.")
 
-        ConfigSwitch {
-            buttonIcon: "south_east"
-            text: Translation.tr("Open sidebars from corners")
-            autoToggle: false
-            checked: page.corners.enable
-            onClicked: Config.options.sidebar.cornerOpen.enable = !page.corners.enable
+        Rectangle { // The screen, with each corner's action in that corner
+            id: cornerScreen
+            Layout.fillWidth: true
+            implicitHeight: 210
+            radius: Appearance.rounding.normal
+            color: Appearance.colors.colLayer2
+            border.width: 1
+            border.color: Appearance.colors.colOutlineVariant
+            clip: true
+
+            StyledText {
+                anchors.centerIn: parent
+                text: Translation.tr("Your screen")
+                font.pixelSize: Appearance.font.pixelSize.small
+                color: Appearance.colors.colSubtext
+            }
+
+            Repeater {
+                model: HotCorners.cornerNames
+                delegate: Item {
+                    id: cornerSpot
+                    required property string modelData
+                    readonly property bool isTop: modelData.startsWith("top")
+                    readonly property bool isLeft: modelData.endsWith("Left")
+                    readonly property string action: page.hotCorners[modelData]?.action ?? "none"
+                    anchors.fill: parent
+
+                    Rectangle { // The corner's glow, as on the real screen
+                        readonly property real glowRadius: cornerSpot.action !== "none" ? 34 : 0
+                        width: glowRadius * 2
+                        height: glowRadius * 2
+                        radius: glowRadius
+                        x: cornerSpot.isLeft ? -glowRadius : parent.width - glowRadius
+                        y: cornerSpot.isTop ? -glowRadius : parent.height - glowRadius
+                        color: ColorUtils.transparentize(Appearance.colors.colPrimary, 0.6)
+                        Behavior on width {
+                            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                        }
+                        Behavior on height {
+                            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                        }
+                    }
+                    ChoiceDropdown {
+                        id: cornerChoice
+                        objectName: `hotCorner-${cornerSpot.modelData}`
+                        anchors {
+                            top: cornerSpot.isTop ? parent.top : undefined
+                            bottom: cornerSpot.isTop ? undefined : parent.bottom
+                            left: cornerSpot.isLeft ? parent.left : undefined
+                            right: cornerSpot.isLeft ? undefined : parent.right
+                            margins: 14
+                        }
+                        options: HotCorners.actions
+                        currentValue: cornerSpot.action
+                        onSelected: value => Config.options.hotCorners[cornerSpot.modelData].action = value
+                    }
+                }
+            }
+        }
+
+        Repeater { // Commands for corners set to run one
+            model: HotCorners.cornerNames.filter(name => page.hotCorners[name]?.action === "command")
+            delegate: ConfigTextRow {
+                required property string modelData
+                icon: "terminal"
+                inline: true
+                label: {
+                    switch (modelData) {
+                    case "topLeft": return Translation.tr("Command for the top left corner");
+                    case "topRight": return Translation.tr("Command for the top right corner");
+                    case "bottomLeft": return Translation.tr("Command for the bottom left corner");
+                    default: return Translation.tr("Command for the bottom right corner");
+                    }
+                }
+                value: page.hotCorners[modelData]?.command ?? ""
+                placeholderText: "kitty"
+                onEditingFinished: Config.options.hotCorners[modelData].command = value
+            }
         }
 
         ContentSubsection {
-            visible: page.corners.enable
-            title: Translation.tr("Corners")
+            title: Translation.tr("How a corner reacts")
+            searchText: `${title} ${Translation.tr("Touch the corner")} ${Translation.tr("Click in the corner")}`
             Flow {
                 Layout.fillWidth: true
                 spacing: 4
                 SchemeTile {
-                    id: topCornersTile
-                    label: Translation.tr("Top corners")
-                    selected: !page.corners.bottom
-                    onClicked: Config.options.sidebar.cornerOpen.bottom = false
-                    CornerGlow { x: -14; y: -14; color: topCornersTile.ink }
-                    CornerGlow { x: 82; y: -14; color: topCornersTile.ink }
+                    id: touchCornerTile
+                    label: Translation.tr("Touch the corner")
+                    selected: page.hotCorners.trigger !== "click"
+                    onClicked: Config.options.hotCorners.trigger = "hover"
+                    CornerGlow { x: 82; y: -14; color: touchCornerTile.ink }
+                    MaterialSymbol { x: 58; y: 10; text: "arrow_selector_tool"; iconSize: 20; fill: 1; color: touchCornerTile.ink }
                 }
                 SchemeTile {
-                    id: bottomCornersTile
-                    label: Translation.tr("Bottom corners")
-                    selected: page.corners.bottom
-                    onClicked: Config.options.sidebar.cornerOpen.bottom = true
-                    CornerGlow { x: -14; y: 46; color: bottomCornersTile.ink }
-                    CornerGlow { x: 82; y: 46; color: bottomCornersTile.ink }
+                    id: clickTile
+                    label: Translation.tr("Click in the corner")
+                    selected: page.hotCorners.trigger === "click"
+                    onClicked: Config.options.hotCorners.trigger = "click"
+                    CornerGlow { x: 82; y: -14; color: clickTile.ink }
+                    MaterialSymbol { x: 58; y: 10; text: "left_click"; iconSize: 20; fill: 1; color: clickTile.ink }
                 }
             }
         }
 
         ConfigSwitch {
-            visible: page.corners.enable
-            buttonIcon: "highlight_mouse_cursor"
-            text: Translation.tr("Hover to trigger")
-            description: Translation.tr("When this is off you'll have to click")
+            buttonIcon: "flare"
+            text: Translation.tr("Show where the corners are")
+            description: Translation.tr("A small glow sits in each corner that does something, and grows when you reach it")
             autoToggle: false
-            checked: page.corners.clickless
-            onClicked: Config.options.sidebar.cornerOpen.clickless = !page.corners.clickless
+            checked: page.hotCorners.hint
+            onClicked: Config.options.hotCorners.hint = !page.hotCorners.hint
         }
         ConfigSwitch {
-            visible: page.corners.enable && !page.corners.clickless
-            buttonIcon: "south_east"
-            text: Translation.tr("Force hover open at absolute corner")
-            description: Translation.tr("You can still hover the very corner to open the sidebar, and the rest of the area scrolls volume and brightness")
+            buttonIcon: "fullscreen"
+            text: Translation.tr("Also over fullscreen apps and games")
             autoToggle: false
-            checked: page.corners.clicklessCornerEnd
-            onClicked: Config.options.sidebar.cornerOpen.clicklessCornerEnd = !page.corners.clicklessCornerEnd
-        }
-        ConfigSlider {
-            visible: page.corners.enable && !page.corners.clickless && page.corners.clicklessCornerEnd
-            buttonIcon: "arrow_cool_down"
-            text: Translation.tr("Vertical offset of the corner end")
-            usePercentTooltip: false
-            from: 0
-            to: 20
-            value: page.corners.clicklessCornerVerticalOffset
-            valueText: `${Math.round(value)} px`
-            onMoved: Config.options.sidebar.cornerOpen.clicklessCornerVerticalOffset = Math.round(value)
+            checked: page.hotCorners.inFullscreen
+            onClicked: Config.options.hotCorners.inFullscreen = !page.hotCorners.inFullscreen
         }
         ConfigSwitch {
-            visible: page.corners.enable
             buttonIcon: "unfold_more_double"
-            text: Translation.tr("Value scroll")
-            description: Translation.tr("Scroll on the corner to change brightness and volume")
+            text: Translation.tr("Scroll in a corner")
+            description: Translation.tr("Left corners change brightness, right corners the volume")
             autoToggle: false
-            checked: page.corners.valueScroll
-            onClicked: Config.options.sidebar.cornerOpen.valueScroll = !page.corners.valueScroll
+            checked: page.hotCorners.scroll
+            onClicked: Config.options.hotCorners.scroll = !page.hotCorners.scroll
         }
-        ConfigSwitch {
-            visible: page.corners.enable
-            buttonIcon: "visibility"
-            text: Translation.tr("Visualize region")
-            autoToggle: false
-            checked: page.corners.visualize
-            onClicked: Config.options.sidebar.cornerOpen.visualize = !page.corners.visualize
-        }
-        ConfigSlider {
-            visible: page.corners.enable
-            buttonIcon: "arrow_range"
-            text: Translation.tr("Region width")
-            usePercentTooltip: false
-            from: 1
-            to: 300
-            value: page.corners.cornerRegionWidth
-            valueText: `${Math.round(value)} px`
-            onMoved: Config.options.sidebar.cornerOpen.cornerRegionWidth = Math.round(value)
-        }
-        ConfigSlider {
-            visible: page.corners.enable
-            buttonIcon: "height"
-            text: Translation.tr("Region height")
-            usePercentTooltip: false
-            from: 1
-            to: 300
-            value: page.corners.cornerRegionHeight
-            valueText: `${Math.round(value)} px`
-            onMoved: Config.options.sidebar.cornerOpen.cornerRegionHeight = Math.round(value)
+        ConfigExpander {
+            title: Translation.tr("More corner options")
+            ConfigSlider {
+                buttonIcon: "crop_square"
+                text: Translation.tr("Size of the corner")
+                description: Translation.tr("Bigger is easier to reach, but can get in the way of window buttons")
+                usePercentTooltip: false
+                from: 2
+                to: 40
+                value: page.hotCorners.size
+                valueText: `${Math.round(value)} px`
+                onMoved: Config.options.hotCorners.size = Math.round(value)
+            }
         }
     }
 

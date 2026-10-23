@@ -81,7 +81,7 @@ Item {
         target: root.useSineCookie ? sineCookieLoader : roundedPolygonCookieLoader
 
         RotationAnimation on rotation {
-            running: Config.options.background.widgets.clock.cookie.constantlyRotate
+            running: Config.options.background.widgets.clock.cookie.constantlyRotate && !PowerSaving.cutAnimations
             duration: 30000
             easing.type: Easing.Linear
             loops: Animation.Infinite

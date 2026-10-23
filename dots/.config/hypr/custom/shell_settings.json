@@ -1,4 +1,25 @@
 {
     "input:scroll_factor": 1,
-    "input:touchpad:scroll_factor": 0.5
+    "input:touchpad:scroll_factor": 0.5,
+    "decoration:blur:enabled": true,
+    "decoration:blur:passes": 3,
+    "decoration:blur:size": 10,
+    "decoration:dim_inactive": true,
+    "decoration:rounding": 16,
+    "decoration:shadow:enabled": true,
+    "general:border_size": 1,
+    "animations:enabled": true,
+    "general:gaps_in": 5,
+    "general:gaps_out": 10,
+    "misc:animate_manual_resizes": false,
+    "misc:animate_mouse_windowdragging": false,
+    "decoration:active_opacity": 1,
+    "decoration:blur:vibrancy": 0.5,
+    "decoration:blur:xray": true,
+    "decoration:dim_strength": 0.05,
+    "decoration:inactive_opacity": 1,
+    "decoration:rounding_power": 2,
+    "decoration:shadow:range": 20,
+    "general:gaps_workspaces": 50,
+    "general:layout": "dwindle"
 }

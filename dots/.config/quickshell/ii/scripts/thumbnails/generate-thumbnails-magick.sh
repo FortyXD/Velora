@@ -47,11 +47,10 @@ generate_thumbnail() {
     local src="$1"
     local abs_path
     abs_path="$(realpath "$src")"
-    # Skip files with multiple frames (GIFs, videos, etc.)
+    local is_video=false
     case "${abs_path,,}" in
-        *.gif|*.mp4|*.webm|*.mkv|*.avi|*.mov)
-            return
-            ;;
+        *.gif) return ;; # Skip animations
+        *.mp4|*.webm|*.mkv|*.avi|*.mov) is_video=true ;;
     esac
     local encoded_path
     encoded_path="$(urlencode "$abs_path")"
@@ -62,6 +61,14 @@ generate_thumbnail() {
     local out="$CACHE_DIR/$hash.png"
     mkdir -p "$CACHE_DIR"
     if [ -f "$out" ]; then
+        return
+    fi
+    if $is_video; then
+        # A frame from a second in (the very first one is often black), scaled to fit the thumbnail size
+        ffmpeg -nostdin -loglevel error -y -ss 1 -i "$abs_path" -frames:v 1 \
+            -vf "scale=${THUMBNAIL_SIZE}:${THUMBNAIL_SIZE}:force_original_aspect_ratio=decrease" "$out" \
+            || ffmpeg -nostdin -loglevel error -y -i "$abs_path" -frames:v 1 \
+            -vf "scale=${THUMBNAIL_SIZE}:${THUMBNAIL_SIZE}:force_original_aspect_ratio=decrease" "$out"
         return
     fi
     magick "$abs_path" -resize "${THUMBNAIL_SIZE}x${THUMBNAIL_SIZE}" "$out"

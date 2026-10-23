@@ -13,6 +13,8 @@ import Quickshell.Services.Notifications
  *  - Persistent storage
  *  - Popup notifications, with timeout
  *  - Notification groups by app
+ *  - Per-app rules (Config.options.notifications.apps): banners, only in the list, or off; and showing through
+ *    do not disturb. Apps that ever sent something are remembered for Settings → Notifications.
  */
 Singleton {
 	id: root
@@ -77,6 +79,88 @@ Singleton {
 
     property bool silent: false
     property int unread: 0
+    // Do not disturb survives restarts; the settings app reads it from there and changes it over IPC
+    onSilentChanged: if (Persistent.ready && Persistent.states.notifications.silent !== root.silent) Persistent.states.notifications.silent = root.silent
+    Connections {
+        target: Persistent
+        function onReadyChanged() {
+            if (Persistent.ready) root.silent = Persistent.states.notifications.silent;
+        }
+    }
+
+    function appKey(appName, desktopEntry) {
+        return (desktopEntry ?? "").length > 0 ? desktopEntry : ((appName ?? "").length > 0 ? appName : "unknown");
+    }
+    function ruleFor(key) {
+        return Config.options?.notifications.apps?.[key] ?? {};
+    }
+
+    // Apps seen so far: { key: { name, icon, desktopEntry, count, lastSeen } }
+    property var seenApps: ({})
+    property bool seenAppsLoaded: false
+    function rememberApp(key, appName, appIcon, desktopEntry, time = Date.now()) {
+        const known = root.seenApps[key];
+        root.seenApps[key] = {
+            "name": appName || known?.name || key,
+            "icon": appIcon || known?.icon || "",
+            "desktopEntry": desktopEntry || known?.desktopEntry || "",
+            "count": (known?.count ?? 0) + 1,
+            "lastSeen": Math.max(time, known?.lastSeen ?? 0),
+        };
+        if (root.seenAppsLoaded) seenAppsWriteTimer.restart();
+    }
+    // Apps in the saved notifications count too, the first time this list is made
+    function seedSeenApps() {
+        if (!root.seenAppsLoaded) return;
+        const known = new Set(Object.keys(root.seenApps));
+        let added = false;
+        for (const notif of root.list) {
+            const key = root.appKey(notif.appName, notif.desktopEntry);
+            if (known.has(key)) continue;
+            root.rememberApp(key, notif.appName, notif.appIcon, notif.desktopEntry, notif.time); // Keeps the newest time
+            added = true;
+        }
+        if (added) seenAppsWriteTimer.restart();
+    }
+    function discardApp(key) {
+        root.list.filter(notif => root.appKey(notif.appName, notif.desktopEntry) === key)
+            .map(notif => notif.notificationId)
+            .forEach(id => root.discardNotification(id));
+    }
+    FileView {
+        id: seenAppsFile
+        path: Directories.notificationAppsPath
+        onLoaded: {
+            try {
+                root.seenApps = JSON.parse(seenAppsFile.text()) ?? {};
+            } catch (e) {
+                root.seenApps = {};
+            }
+            root.seenAppsLoaded = true;
+            root.seedSeenApps();
+        }
+        onLoadFailed: error => {
+            root.seenAppsLoaded = true;
+            root.seedSeenApps();
+            seenAppsWriteTimer.restart();
+        }
+    }
+    Timer {
+        id: seenAppsWriteTimer
+        interval: 1500
+        onTriggered: seenAppsFile.setText(JSON.stringify(root.seenApps, null, 2))
+    }
+
+    IpcHandler {
+        target: "notifications"
+        function toggleSilent(): void { root.silent = !root.silent }
+        function setSilent(on: bool): void { root.silent = on }
+        function clearApp(key: string): void { root.discardApp(key) }
+        function forgetApp(key: string): void {
+            delete root.seenApps[key];
+            seenAppsWriteTimer.restart();
+        }
+    }
     property var filePath: Directories.notificationsPath
     property list<Notif> list: []
     property var popupList: list.filter((notif) => notif.popup);
@@ -163,6 +247,10 @@ Singleton {
         persistenceSupported: true
 
         onNotification: (notification) => {
+            const key = root.appKey(notification.appName, notification.desktopEntry);
+            root.rememberApp(key, notification.appName, notification.appIcon, notification.desktopEntry);
+            const rule = root.ruleFor(key);
+            if (rule.mode === "off") return; // Left untracked, so the server drops it
             notification.tracked = true
             const newNotifObject = notifComponent.createObject(root, {
                 "notificationId": notification.id + root.idOffset,
@@ -171,8 +259,11 @@ Singleton {
             });
 			root.list = [...root.list, newNotifObject];
 
-            // Popup
-            if (!root.popupInhibited) {
+            // Popup: not for apps set to "only in the list"; apps allowed through do not disturb still pop up
+            const sidebarOpen = GlobalStates?.sidebarRightOpen ?? false;
+            const showPopup = rule.mode !== "silent" && (!root.popupInhibited || (rule.bypassDnd === true && root.silent && !sidebarOpen));
+            if (rule.mode === "silent") root.unread++;
+            if (showPopup) {
                 newNotifObject.popup = true;
                 if (notification.expireTimeout != 0) {
                     newNotifObject.timer = notifTimerComponent.createObject(root, {
@@ -295,6 +386,7 @@ Singleton {
 
             console.log("[Notifications] File loaded")
             root.idOffset = maxId
+            root.seedSeenApps()
             root.initDone()
         }
         onLoadFailed: (error) => {
