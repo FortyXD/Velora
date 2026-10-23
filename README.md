@@ -1,41 +1,70 @@
-# Velora
+<h1 align="center">
+  <img src=".github/assets/velora-banner.svg" alt="Velora — A desktop shaped around you. An Arch Linux desktop built with Hyprland and Quickshell." width="1200">
+</h1>
 
-**A desktop shaped around you.**
+<p align="center">
+  A customizable desktop for <strong>Arch Linux</strong>, powered by <strong>Hyprland</strong> and <strong>Quickshell</strong>.
+</p>
 
-Velora is a customizable desktop shell for **Arch Linux**, built with **Hyprland** and **Quickshell**. Arrange your bar, build a desktop layout, switch complete looks, and manage everyday tasks through one settings app.
+<p align="center">
+  <a href="#installation"><strong>Install Velora</strong></a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#updates">Updates</a> ·
+  <a href="#documentation">Documentation</a>
+</p>
 
-Velora is an independently maintained fork of [Illogical Impulse by end-4](https://github.com/end-4/dots-hyprland). It develops that foundation into its own desktop experience, with visual layout editors, expanded system controls, integrated tools, and a dedicated installation and update workflow.
+Arrange your bar, build a desktop layout, save complete looks, and manage everyday controls through one settings app. Velora brings visual editors, desktop tools, and a guided installation and update workflow into a desktop you can make your own.
 
-[Install](#installation) · [Features](#features) · [Updates](#updates) · [Documentation](#documentation) · [License](#license)
+Velora is an independently maintained fork of [Illogical Impulse by end-4](https://github.com/end-4/dots-hyprland), with its own development direction. Upstream credits and licenses are preserved.
+
+## Screenshots
+
+[![Velora Appearance settings with a live preview of the bar, wallpaper, and window styling](.github/assets/screenshots/appearance.png)](.github/assets/screenshots/appearance.png)
+
+<p align="center"><em>Appearance settings — preview your colors, windows, and bar together.</em></p>
+
+<table>
+  <tr>
+    <td width="50%">
+      <a href=".github/assets/screenshots/bar.png"><img src=".github/assets/screenshots/bar.png" alt="Velora bar editor with five placement zones and controls for adding widgets" width="100%"></a>
+      <br><strong>Build your bar</strong><br>Arrange widgets, groups, and actions visually.
+    </td>
+    <td width="50%">
+      <a href=".github/assets/screenshots/widgets.png"><img src=".github/assets/screenshots/widgets.png" alt="Velora desktop widget settings with clock, weather, system monitor, media, calendar, notes, and timers" width="100%"></a>
+      <br><strong>Choose your widgets</strong><br>Put useful information on your desktop.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <a href=".github/assets/screenshots/lock.png"><img src=".github/assets/screenshots/lock.png" alt="Velora lock screen editor with a live layout preview and configurable elements" width="100%"></a>
+      <br><strong>Design your lock screen</strong><br>Position the clock, greeting, and other elements.
+    </td>
+    <td width="50%">
+      <a href=".github/assets/screenshots/desktop.png"><img src=".github/assets/screenshots/desktop.png" alt="Velora Desktop and Dock settings with a live workspace preview and tiling layout controls" width="100%"></a>
+      <br><strong>Shape your workspace</strong><br>Choose your window layout and spacing.
+    </td>
+  </tr>
+</table>
+
+Screenshots show the actual settings app with an English demo profile and a custom accent palette. Embedded desktop and lock screen miniatures are the app's live previews. Click any image to open it at full size. [Screenshot notes](docs/screenshots.md).
 
 ## Features
 
-### Make the desktop yours
+| Make it yours | What you can do |
+| --- | --- |
+| **Bar and desktop** | Drag bar widgets into five placement zones, group them into pills, assign actions, and arrange clocks, weather, media, and productivity widgets. |
+| **Appearance and presets** | Change colors, transparency, spacing, outlines, dock, and animations. Save complete looks, select which parts to apply, and undo a preset change. |
+| **Lock screen and wallpapers** | Edit the lock screen with a live preview. Use local images, online collections, daily wallpapers, videos through mpvpaper, or animated shader backgrounds. |
+| **Everyday controls** | Manage devices and per-app audio, test your microphone, set per-app notification rules, customize quick settings, and configure keyboard shortcuts and hot corners. |
+| **Focus and battery** | Use countdown, stopwatch, and Pomodoro timers. Reduce animations, blur, wallpaper playback, and polling manually or automatically on battery. |
+| **Built-in tools** | Convert media and documents, download videos with yt-dlp, work with QR codes, extract text with OCR, and pick colors. Use Dolphin context menus for file actions. Office conversion uses LibreOffice when installed. |
 
-- **Bar editor.** Drag widgets into five placement zones, group them into pills, set click and scroll actions, and import or export layouts. Choose floating bars, islands, transparency, outlines, and custom spacing.
-- **Desktop widgets.** Arrange clocks, weather, media controls, and productivity widgets directly on the desktop.
-- **Complete looks.** Save and apply presets covering wallpaper, colors, bar, dock, widgets, and window animations. Choose which parts to apply and undo a change.
-- **Lock screen editor.** Position and configure the clock, password field, greeting, weather, media, notifications, and other elements with a live preview.
-- **Wallpaper collection.** Use local images, online providers, daily wallpapers, video playback through mpvpaper, or built-in animated shader backgrounds.
-
-### Keep everyday controls close
-
-- **Sound.** Select input and output devices, balance channels, adjust per-app audio, view microphone levels, and record a microphone test.
-- **Notifications.** Keep Do Not Disturb across restarts and choose banner, history-only, blocked, or priority behavior per application.
-- **Power saving.** Reduce animations, blur, wallpaper playback, previews, visualizers, and polling. Apply automatically on battery or toggle it yourself.
-- **Quick settings and hot corners.** Customize sidebar controls and assign corner actions for search, panels, screenshots, locking, or your own commands.
-- **Keyboard controls.** Preview layouts and pressed keys, manage switching behavior, and edit shortcuts.
-- **Timers.** Use a countdown, stopwatch, or Pomodoro timer from the sidebar or command line.
-
-### Tools built into the workflow
-
-The Toolbox combines media and document conversion, video downloads through yt-dlp, QR generation and scanning, OCR, and color tools. Dolphin context menus expose conversions and other actions directly from your files. Office document conversion uses LibreOffice when installed.
-
-The shell also includes application search, workspace previews, clipboard history, media controls, and the Illogical Impulse foundation's assistant and translation features.
+Application search, workspace previews, clipboard history, and media controls stay close at hand. The Illogical Impulse foundation's assistant and translation features are also available.
 
 ## Installation
 
-Velora currently supports **Arch Linux only** and uses Hyprland's Lua configuration format. Start from a working Arch installation with graphics drivers, a normal user account, network access, and sudo configured.
+**Arch Linux is the only supported distribution.** Start with working graphics drivers, a normal user account, network access, and sudo configured. Velora uses Hyprland's Lua configuration format.
 
 ```bash
 sudo pacman -Syu --needed git python
@@ -45,54 +74,57 @@ cd ~/Velora
 ./velora install
 ```
 
-Velora is developed at [FortyXD/Velora](https://github.com/FortyXD/Velora).
+The installer lets you choose optional components and review its plan. It installs dependencies, prepares a locked Python environment, and backs up configuration files before linking them. Existing shell settings are preserved; a failed linking attempt restores the files it changed.
 
-The installer guides you through optional components, shows its plan before applying changes, installs missing dependencies, prepares a locked Python environment, and backs up configuration files before linking them. Existing shell settings are preserved. If configuration linking fails, it restores the files changed by that attempt.
+**After installation:** open **Settings → Displays** and check monitor resolution and scale. Also review your keyboard layout and wallpaper path. The included configuration contains the maintainer's display defaults.
 
-Official packages come from pacman. AUR packages use an existing **yay** or **paru** installation; if neither is available, the installer builds yay from its AUR recipe. Package managers retain their normal prompts. Velora uses actual dependencies rather than the old `illogical-impulse-*` metapackages.
+### Build from source
 
-Preview the full plan without changing files:
+Build Velora as an Arch package and build its core dependencies from source automatically:
+
+```bash
+./velora install --build-package --build-from-source
+```
+
+Use `--build-package` alone to package Velora, or `--build-from-source` alone to build the core dependencies. To select dependencies explicitly, use `--build-from-source quickshell,hyprland`. Your source-build choices are reused during updates.
+
+<details>
+<summary><strong>More installation options</strong> — preview, components, package archives, and flags</summary>
+
+Preview the plan without changing files, or skip package installation on an already prepared system:
 
 ```bash
 ./velora install --dry-run
-```
-
-For an existing system with dependencies already installed:
-
-```bash
 ./velora install --skip-packages
 ```
 
-Optional components can be selected in the installer or excluded explicitly:
+Choose components interactively or exclude them explicitly:
 
 ```bash
 ./velora components
 ./velora install --without toolbox,live-wallpapers
 ```
 
-Build the core dependencies from source automatically, build Velora itself as an Arch package, or combine both:
-
-```bash
-./velora install --build-from-source
-./velora install --build-package
-./velora install --build-package --build-from-source
-```
-
-To build selected dependencies, use `--build-from-source quickshell,hyprland`. Source recipes are fetched from Arch's packaging repositories or AUR and built with makepkg. Your selection is reused during updates.
-
-To produce a package archive without installing it:
+Build a package archive without installing it:
 
 ```bash
 ./velora package --output ./artifacts/release
 ```
 
-The Velora package contains the shell's actual source and maintenance tools. Package installations keep writable configuration under `~/.local/share/velora/runtime/` and preserve local edits when refreshing templates.
+Official dependencies come from pacman. AUR packages use **yay** or **paru**; if neither is installed, the installer builds yay from its AUR recipe. Source builds fetch recipes from Arch's packaging repositories or AUR and use makepkg. Package managers retain their normal prompts. Dependencies are managed directly, without the old `illogical-impulse-*` metapackages.
 
-`--skip-aur` omits AUR packages, `--no-reload` keeps the current Hyprland session running without a reload, and `--no-updates` disables scheduled update checks. `--yes` accepts the installer plan for unattended use; pacman and AUR helpers still prompt normally.
+| Flag | Behavior |
+| --- | --- |
+| `--skip-aur` | Omit AUR packages. |
+| `--no-reload` | Keep the current Hyprland session running without a reload. |
+| `--no-updates` | Disable scheduled update checks. |
+| `--yes` | Accept the installer plan; pacman and AUR helpers still prompt normally. |
 
-For checkout installations, keep the checkout in place: configuration links point into it. Open **Settings → Displays** and verify your monitors, resolution, scale, keyboard layout, and wallpaper path before relying on the configuration on another machine. The included configuration contains the maintainer's display defaults.
+Checkout installations link configuration into the repository, so keep the checkout in place. Package installations include Velora's actual source and maintenance tools and keep writable configuration under `~/.local/share/velora/runtime/`, preserving local edits when refreshing templates.
 
-See the [installation guide](docs/installation.md) for prerequisites, recovery, and troubleshooting.
+</details>
+
+[Read the installation and recovery guide →](docs/installation.md)
 
 ## First steps
 
@@ -106,13 +138,17 @@ See the [installation guide](docs/installation.md) for prerequisites, recovery, 
 | `Super+N` | Quick settings and notifications |
 | `Super+L` | Lock the screen |
 
-Use **Settings → Presets** to save your current look. Use **Settings → Wallpaper** for local images, online sources, live wallpapers, and animated backgrounds. Unsplash, Pexels, and Pixabay require your own API keys.
+Open **Settings → Presets** to save your current look. Visit **Settings → Wallpaper** for local images, online sources, live wallpapers, and animated backgrounds. Unsplash, Pexels, and Pixabay require your own API keys.
 
 ## Updates
 
-Open **Settings → About → GitHub updates** to check for a new version, choose published GitHub releases or changes on your tracked branch, and enable or disable automatic checks. The page shows installed and available versions. Background checks run approximately every six hours; opening the page also checks when automatic checks are enabled.
+**Check automatically. Install when you choose.**
 
-When a version is available, choose **Install update**, or find **Update Velora** in the application launcher. Package installations automatically build and install a new Velora package from the selected GitHub source. The terminal shows progress and lets you confirm installation.
+1. Open **Settings → About → GitHub updates**.
+2. Choose published GitHub releases or your tracked branch, and toggle automatic checks.
+3. When a version is available, select **Install update** and confirm in the terminal.
+
+The page shows installed and available versions. Background checks run approximately every six hours; opening the page also checks when automatic checks are enabled. **Update Velora** in the application launcher opens the same installation flow. Package installations build and install a new Velora package from the selected GitHub source.
 
 ```bash
 velora update --check
@@ -120,10 +156,13 @@ velora update --interactive
 velora update-settings --channel release
 ```
 
-Updates reconcile dependencies and source builds, refresh the locked Python environment, and rerun the installer using your saved choices. In checkout installations, uncommitted work or diverged history must be resolved before updating. Package installations retain edited runtime templates and save conflicting incoming templates for review.
+Updates reconcile dependencies and source builds, refresh the locked Python environment, and apply your saved installation choices. Checkout installations require clean, non-diverged Git history. Package installations retain edited runtime templates and save conflicting incoming templates for review.
+
+<details>
+<summary><strong>Maintenance and recovery commands</strong></summary>
 
 ```bash
-velora doctor        # Diagnose missing tools, packages and Python environment
+velora doctor        # Diagnose tools, packages, and the Python environment
 velora status        # Inspect installation and update state
 velora restore       # List configuration backups
 velora restore ID    # Restore a chosen backup
@@ -131,40 +170,46 @@ velora restore ID    # Restore a chosen backup
 
 If `velora` is not on your PATH yet, use `./velora` from the checkout or `~/.local/bin/velora`.
 
-[Update behavior and recovery](docs/updates.md)
+</details>
 
-## Project layout
+[Read about updates and recovery →](docs/updates.md)
+
+## Documentation
+
+| Guide | Find what you need |
+| --- | --- |
+| [Installation](docs/installation.md) | Prerequisites, optional components, source builds, troubleshooting, and recovery. |
+| [Updates](docs/updates.md) | GitHub channels, dependency management, automatic checks, and local edits. |
+| [Development](docs/development.md) | Repository structure and working on Velora. |
+| [Release process](docs/release.md) | Validation, packaging, and release preparation. |
+| [Screenshot notes](docs/screenshots.md) | Gallery contents and capturing updated screenshots. |
+| [Third-party licensing](licenses/README.md) | Component licenses and attribution. |
+
+<details>
+<summary><strong>Project layout</strong></summary>
 
 ```text
-velora                 User-facing installation and maintenance command
-scripts/               Installer, linking and update implementation
+velora                 Installation and maintenance command
+scripts/               Installer, linking, builds, and updates
 dependencies/          Arch dependency components and Python lockfile
 packaging/             Arch package recipe template
 dots/.config/          Desktop shell and application configuration
-dots/.local/share/     Desktop integration, assets and helper scripts
+dots/.local/share/     Desktop integration, assets, and helper scripts
 home/                  Shell entry files
 dots-extra/            Optional application configurations and font sets
-docs/                  Installation, updates and development guides
+docs/                  Installation, updates, and development guides
 tests/                 Installer and updater regression tests
 licenses/              Third-party notices and license texts
 ```
 
 Internal paths such as `quickshell/ii`, `illogical-impulse`, and `folis` remain in use for compatibility with existing configurations and integrations.
 
-## Documentation
+</details>
 
-- [Installation and recovery](docs/installation.md)
-- [Updates and dependency management](docs/updates.md)
-- [Development and repository structure](docs/development.md)
-- [Release process](docs/release.md)
-- [Third-party licensing](licenses/README.md)
+Report bugs or request features in [Velora issues](https://github.com/FortyXD/Velora/issues). For installation or update problems, include the command, relevant output, and `velora doctor` results.
 
-Report Velora issues in [this repository](https://github.com/FortyXD/Velora/issues). Include the relevant command, its output, and `velora doctor` results.
+## Credits and license
 
-## Credits
+Velora builds on the work of **end-4 and the Illogical Impulse contributors**, **outfoxxed and Quickshell contributors**, and **Hyprland contributors**. Additional acknowledgements are retained in [NOTICE](NOTICE), with component-specific attribution in [licenses/README.md](licenses/README.md).
 
-Velora builds on the work of **end-4 and the Illogical Impulse contributors**, **outfoxxed and Quickshell contributors**, and **Hyprland contributors**. Additional upstream acknowledgements are retained in [NOTICE](NOTICE), with component-specific attribution in [licenses/README.md](licenses/README.md).
-
-## License
-
-Velora is distributed under the **GNU General Public License, version 3**. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Third-party code and assets retain their respective licenses and attribution.
+Velora is distributed under the **GNU General Public License, version 3**. See [LICENSE](LICENSE). Third-party code and assets retain their respective licenses and attribution.

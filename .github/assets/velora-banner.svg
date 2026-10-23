@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-labelledby="title description">
+  <title id="title">Velora</title>
+  <desc id="description">A desktop shaped around you. An Arch Linux desktop built with Hyprland and Quickshell.</desc>
+  <defs>
+    <clipPath id="frame"><rect width="1200" height="300" rx="24"/></clipPath>
+    <linearGradient id="background" x2="1" y2="1">
+      <stop stop-color="#171522"/>
+      <stop offset="1" stop-color="#10131e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ddd1ff"/>
+      <stop offset="0.55" stop-color="#b3a2f5"/>
+      <stop offset="1" stop-color="#7ed9dd"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop stop-color="#9b80ee" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#9b80ee" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g clip-path="url(#frame)">
+  <rect width="1200" height="300" rx="24" fill="url(#background)"/>
+  <ellipse cx="985" cy="150" rx="290" ry="240" fill="url(#glow)"/>
+  <g fill="none" stroke="#a999d6" stroke-opacity="0.12">
+    <circle cx="985" cy="150" r="190"/>
+    <circle cx="985" cy="150" r="144"/>
+    <circle cx="985" cy="150" r="98"/>
+    <path d="M720 150h480M985 0v300"/>
+  </g>
+  <g font-family="DejaVu Sans, sans-serif">
+    <text x="60" y="54" fill="#b8aacd" font-size="13" letter-spacing="4">ARCH LINUX DESKTOP</text>
+    <text x="56" y="145" fill="#f1ecff" font-size="78" font-weight="700" letter-spacing="-3">Velora</text>
+    <text x="60" y="192" fill="#c4bdd5" font-size="24">A desktop shaped around you.</text>
+    <g fill="#a89ebd" font-size="12" letter-spacing="2">
+      <text x="60" y="254">HYPRLAND</text>
+      <text x="185" y="254" fill="#645b77">/</text>
+      <text x="215" y="254">QUICKSHELL</text>
+      <text x="363" y="254" fill="#645b77">/</text>
+      <text x="393" y="254">GPL-3.0</text>
+    </g>
+  </g>
+  <path d="M906 100L975 216Q981 226 987 216L1062 86" fill="none" stroke="url(#accent)" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M947 85L981 143" fill="none" stroke="#e0d5ff" stroke-opacity="0.42" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="1087" cy="198" r="5" fill="#96d0de"/>
+  <circle cx="872" cy="73" r="3" fill="#c3b1f0"/>
+  </g>
+</svg>
