@@ -1,0 +1,328 @@
+{
+    "version": 1,
+    "name": "Candy",
+    "icon": "cake",
+    "order": 34,
+    "description": "A slow liquid gradient in pink, orange and violet, a light theme and a docked bottom bar",
+    "credits": {
+        "title": "Liquid",
+        "author": "Velora",
+        "license": "Drawn by the shell",
+        "page": ""
+    },
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": true,
+                    "actions": {
+                        "start": {
+                            "click": "sidebarLeft",
+                            "scroll": "brightness"
+                        },
+                        "centerEnd": {
+                            "click": "sidebarRight"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "search",
+                                "type": "launcher"
+                            },
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            }
+                        ],
+                        "centerStart": [],
+                        "center": [
+                            {
+                                "uid": "med",
+                                "type": "media",
+                                "pill": true
+                            },
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true
+                            }
+                        ],
+                        "centerEnd": [],
+                        "end": [
+                            {
+                                "uid": "dark",
+                                "type": "darkMode",
+                                "pill": true
+                            },
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            },
+                            {
+                                "uid": "bat",
+                                "type": "battery",
+                                "pill": true
+                            },
+                            {
+                                "uid": "pwr",
+                                "type": "session"
+                            }
+                        ]
+                    }
+                },
+                "verticalLayout": null,
+                "style": {
+                    "thickness": 44,
+                    "backgroundOpacity": -1,
+                    "islands": false,
+                    "pillStyle": "filled",
+                    "edgePadding": -1,
+                    "floatMargin": -1,
+                    "radius": -1,
+                    "textShadow": false,
+                    "glass": false
+                },
+                "cornerStyle": 1,
+                "showBackground": true,
+                "borderless": false,
+                "bottom": true,
+                "vertical": false,
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
+            }
+        }
+    },
+    "theme": {
+        "config": {
+            "appearance": {
+                "transparency": {
+                    "enable": true,
+                    "automatic": false,
+                    "backgroundTransparency": 0.1,
+                    "contentTransparency": 0.45
+                },
+                "palette": {
+                    "type": "scheme-fidelity"
+                }
+            }
+        },
+        "hyprland": {
+            "decoration:rounding": 20,
+            "decoration:blur:enabled": true,
+            "decoration:blur:passes": 3,
+            "decoration:blur:size": 8,
+            "decoration:shadow:enabled": true,
+            "decoration:dim_inactive": true,
+            "general:border_size": 1
+        },
+        "mode": "light",
+        "accent": "#FF5277"
+    },
+    "dockWidgets": {
+        "config": {
+            "dock": {
+                "enable": false,
+                "hoverToReveal": true,
+                "magnification": true,
+                "monochromeIcons": true
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy",
+                        "style": "cookie",
+                        "styleLocked": "cookie",
+                        "cookie": {
+                            "aiStyling": false,
+                            "sides": 14,
+                            "dialNumberStyle": "full",
+                            "hourHandStyle": "fill",
+                            "minuteHandStyle": "medium",
+                            "secondHandStyle": "dot",
+                            "dateStyle": "bubble",
+                            "timeIndicators": true,
+                            "hourMarks": false,
+                            "dateInClock": true,
+                            "constantlyRotate": false,
+                            "useSineCookie": false
+                        },
+                        "digital": {
+                            "adaptiveAlignment": true,
+                            "showDate": true,
+                            "animateChange": true,
+                            "vertical": false,
+                            "font": {
+                                "family": "Google Sans Flex",
+                                "weight": 700,
+                                "width": 100,
+                                "size": 110,
+                                "roundness": 100
+                            }
+                        }
+                    },
+                    "cardStyle": "tonal",
+                    "weather": {
+                        "enable": false,
+                        "style": "pill"
+                    },
+                    "systemMonitor": {
+                        "enable": false
+                    },
+                    "media": {
+                        "enable": false
+                    },
+                    "calendar": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
+                    },
+                    "countdown": {
+                        "enable": false
+                    },
+                    "note": {
+                        "enable": false
+                    },
+                    "pomodoro": {
+                        "enable": false
+                    }
+                }
+            }
+        }
+    },
+    "wallpaperAnimations": {
+        "animationProfile": "smooth",
+        "config": {
+            "appearance": {
+                "animationSpeed": 0.9
+            },
+            "background": {
+                "liveWallpaper": {
+                    "pauseWhen": "anyWindow"
+                },
+                "shaderWallpaper": {
+                    "name": "liquid",
+                    "speed": 1,
+                    "fps": 30,
+                    "colors": [
+                        "#FF4FA3",
+                        "#FFB547",
+                        "#7A5CFF",
+                        "#FFE6F1"
+                    ]
+                }
+            }
+        },
+        "hyprland": {
+            "general:gaps_in": 6,
+            "general:gaps_out": 12,
+            "animations:enabled": true,
+            "misc:animate_manual_resizes": false,
+            "misc:animate_mouse_windowdragging": false
+        },
+        "wallpaper": "shader:liquid"
+    },
+    "lock": {
+        "config": {
+            "lock": {
+                "layout": {
+                    "version": 1,
+                    "items": {
+                        "clock": {
+                            "show": true,
+                            "x": 0.5,
+                            "y": 0.47,
+                            "size": 1
+                        },
+                        "greeting": {
+                            "show": true,
+                            "x": 0.5,
+                            "y": 0.18,
+                            "size": 1
+                        },
+                        "password": {
+                            "show": true,
+                            "x": 0.5,
+                            "y": 0.955,
+                            "size": 1
+                        },
+                        "user": {
+                            "show": true,
+                            "attach": "password",
+                            "x": 0.3,
+                            "y": 0.955,
+                            "size": 1
+                        },
+                        "power": {
+                            "show": true,
+                            "attach": "password",
+                            "x": 0.7,
+                            "y": 0.955,
+                            "size": 1
+                        },
+                        "message": {
+                            "show": true,
+                            "attach": "password",
+                            "x": 0.5,
+                            "y": 0.88,
+                            "size": 1
+                        },
+                        "media": {
+                            "show": false,
+                            "x": 0.83,
+                            "y": 0.13,
+                            "size": 1
+                        },
+                        "weather": {
+                            "show": false,
+                            "x": 0.12,
+                            "y": 0.1,
+                            "size": 1
+                        },
+                        "notifications": {
+                            "show": false,
+                            "x": 0.5,
+                            "y": 0.85,
+                            "size": 1
+                        },
+                        "timer": {
+                            "show": true,
+                            "x": 0.88,
+                            "y": 0.1,
+                            "size": 1
+                        }
+                    }
+                },
+                "animations": "full",
+                "animatedWallpaper": true,
+                "dim": 0.1,
+                "showLockedText": true,
+                "blur": {
+                    "enable": true,
+                    "radius": 100,
+                    "extraZoom": 1.1
+                }
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "styleLocked": "cookie"
+                    }
+                }
+            }
+        }
+    }
+}
