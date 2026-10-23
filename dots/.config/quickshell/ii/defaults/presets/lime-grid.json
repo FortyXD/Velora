@@ -1,0 +1,323 @@
+{
+    "version": 1,
+    "name": "Lime grid",
+    "icon": "grid_4x4",
+    "order": 35,
+    "description": "An animated neon grid running to a yellow sun, lime accents and a thin outlined bar",
+    "credits": {
+        "title": "Neon grid",
+        "author": "Velora",
+        "license": "Drawn by the shell",
+        "page": ""
+    },
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": true,
+                    "actions": {
+                        "start": {
+                            "click": "sidebarLeft",
+                            "scroll": "brightness"
+                        },
+                        "centerEnd": {
+                            "click": "sidebarRight"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "search",
+                                "type": "launcher"
+                            },
+                            {
+                                "uid": "win",
+                                "type": "activeWindow"
+                            }
+                        ],
+                        "centerStart": [],
+                        "center": [
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            }
+                        ],
+                        "centerEnd": [
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true
+                            }
+                        ],
+                        "end": [
+                            {
+                                "uid": "res",
+                                "type": "resources",
+                                "pill": true
+                            },
+                            {
+                                "uid": "net",
+                                "type": "networkSpeed"
+                            },
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            }
+                        ]
+                    }
+                },
+                "verticalLayout": null,
+                "style": {
+                    "thickness": 32,
+                    "backgroundOpacity": -1,
+                    "islands": false,
+                    "pillStyle": "outlined",
+                    "edgePadding": -1,
+                    "floatMargin": -1,
+                    "radius": -1,
+                    "textShadow": false,
+                    "glass": false
+                },
+                "cornerStyle": 2,
+                "showBackground": true,
+                "borderless": false,
+                "bottom": false,
+                "vertical": false,
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
+            }
+        }
+    },
+    "theme": {
+        "config": {
+            "appearance": {
+                "transparency": {
+                    "enable": true,
+                    "automatic": false,
+                    "backgroundTransparency": 0.2,
+                    "contentTransparency": 0.55
+                },
+                "palette": {
+                    "type": "scheme-fidelity"
+                }
+            }
+        },
+        "hyprland": {
+            "decoration:rounding": 12,
+            "decoration:blur:enabled": true,
+            "decoration:blur:passes": 3,
+            "decoration:blur:size": 8,
+            "decoration:shadow:enabled": true,
+            "decoration:dim_inactive": true,
+            "general:border_size": 1
+        },
+        "mode": "dark",
+        "accent": "#C6FF00"
+    },
+    "dockWidgets": {
+        "config": {
+            "dock": {
+                "enable": true,
+                "hoverToReveal": true,
+                "magnification": true,
+                "monochromeIcons": true
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy",
+                        "style": "digital",
+                        "styleLocked": "digital",
+                        "cookie": {
+                            "aiStyling": false,
+                            "sides": 14,
+                            "dialNumberStyle": "full",
+                            "hourHandStyle": "fill",
+                            "minuteHandStyle": "medium",
+                            "secondHandStyle": "dot",
+                            "dateStyle": "bubble",
+                            "timeIndicators": true,
+                            "hourMarks": false,
+                            "dateInClock": true,
+                            "constantlyRotate": false,
+                            "useSineCookie": false
+                        },
+                        "digital": {
+                            "adaptiveAlignment": true,
+                            "showDate": true,
+                            "animateChange": true,
+                            "vertical": false,
+                            "font": {
+                                "family": "Google Sans Flex",
+                                "weight": 700,
+                                "width": 100,
+                                "size": 110,
+                                "roundness": 100
+                            }
+                        }
+                    },
+                    "cardStyle": "surface",
+                    "weather": {
+                        "enable": false,
+                        "style": "pill"
+                    },
+                    "systemMonitor": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
+                    },
+                    "media": {
+                        "enable": false
+                    },
+                    "calendar": {
+                        "enable": false
+                    },
+                    "countdown": {
+                        "enable": false
+                    },
+                    "note": {
+                        "enable": false
+                    },
+                    "pomodoro": {
+                        "enable": false
+                    }
+                }
+            }
+        }
+    },
+    "wallpaperAnimations": {
+        "animationProfile": "fast",
+        "config": {
+            "appearance": {
+                "animationSpeed": 1.1
+            },
+            "background": {
+                "liveWallpaper": {
+                    "pauseWhen": "anyWindow"
+                },
+                "shaderWallpaper": {
+                    "name": "grid",
+                    "speed": 1,
+                    "fps": 30,
+                    "colors": [
+                        "#B6FF3B",
+                        "#FFEA00",
+                        "#00E5A8",
+                        "#06140B"
+                    ]
+                }
+            }
+        },
+        "hyprland": {
+            "general:gaps_in": 4,
+            "general:gaps_out": 8,
+            "animations:enabled": true,
+            "misc:animate_manual_resizes": false,
+            "misc:animate_mouse_windowdragging": false
+        },
+        "wallpaper": "shader:grid"
+    },
+    "lock": {
+        "config": {
+            "lock": {
+                "layout": {
+                    "version": 1,
+                    "items": {
+                        "clock": {
+                            "show": true,
+                            "x": 0.5,
+                            "y": 0.5,
+                            "size": 1
+                        },
+                        "greeting": {
+                            "show": false,
+                            "x": 0.5,
+                            "y": 0.2,
+                            "size": 1
+                        },
+                        "password": {
+                            "show": true,
+                            "x": 0.5,
+                            "y": 0.955,
+                            "size": 1
+                        },
+                        "user": {
+                            "show": true,
+                            "attach": "password",
+                            "x": 0.3,
+                            "y": 0.955,
+                            "size": 1
+                        },
+                        "power": {
+                            "show": true,
+                            "attach": "password",
+                            "x": 0.7,
+                            "y": 0.955,
+                            "size": 1
+                        },
+                        "message": {
+                            "show": true,
+                            "attach": "password",
+                            "x": 0.5,
+                            "y": 0.88,
+                            "size": 1
+                        },
+                        "media": {
+                            "show": false,
+                            "x": 0.83,
+                            "y": 0.13,
+                            "size": 1
+                        },
+                        "weather": {
+                            "show": false,
+                            "x": 0.12,
+                            "y": 0.1,
+                            "size": 1
+                        },
+                        "notifications": {
+                            "show": true,
+                            "x": 0.5,
+                            "y": 0.85,
+                            "size": 1
+                        },
+                        "timer": {
+                            "show": false,
+                            "x": 0.88,
+                            "y": 0.3,
+                            "size": 1
+                        }
+                    }
+                },
+                "animations": "full",
+                "animatedWallpaper": true,
+                "dim": 0.3,
+                "showLockedText": true,
+                "blur": {
+                    "enable": true,
+                    "radius": 100,
+                    "extraZoom": 1.1
+                }
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "styleLocked": "digital"
+                    }
+                }
+            }
+        }
+    }
+}

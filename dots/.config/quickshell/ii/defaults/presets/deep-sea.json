@@ -1,0 +1,309 @@
+{
+    "version": 1,
+    "name": "Deep sea",
+    "icon": "scuba_diving",
+    "order": 31,
+    "description": "Jellyfish drifting in blue water, a light theme and a floating bar at the bottom",
+    "wallpaperPreview": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Jellyfish_at_Monterey_Bay_Aquarium_6_2024-01-11.webm/960px--Jellyfish_at_Monterey_Bay_Aquarium_6_2024-01-11.webm.jpg",
+    "wallpaperPreviewVideo": "https://upload.wikimedia.org/wikipedia/commons/transcoded/1/12/Jellyfish_at_Monterey_Bay_Aquarium_6_2024-01-11.webm/Jellyfish_at_Monterey_Bay_Aquarium_6_2024-01-11.webm.480p.vp9.webm",
+    "credits": {
+        "title": "Jellyfish at Monterey Bay Aquarium",
+        "author": "Fastily",
+        "license": "CC BY-SA 4.0",
+        "page": "https://commons.wikimedia.org/wiki/File:Jellyfish_at_Monterey_Bay_Aquarium_6_2024-01-11.webm"
+    },
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": true,
+                    "actions": {
+                        "start": {
+                            "click": "sidebarLeft",
+                            "scroll": "brightness"
+                        },
+                        "centerEnd": {
+                            "click": "sidebarRight"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "lsb",
+                                "type": "leftSidebarButton"
+                            },
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            }
+                        ],
+                        "centerStart": [],
+                        "center": [
+                            {
+                                "uid": "med",
+                                "type": "media",
+                                "pill": true
+                            }
+                        ],
+                        "centerEnd": [],
+                        "end": [
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "options": {
+                                    "showDate": false
+                                }
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            },
+                            {
+                                "uid": "bat",
+                                "type": "battery",
+                                "pill": true
+                            }
+                        ]
+                    }
+                },
+                "verticalLayout": null,
+                "style": {
+                    "thickness": 46,
+                    "backgroundOpacity": -1,
+                    "islands": false,
+                    "pillStyle": "none",
+                    "edgePadding": -1,
+                    "floatMargin": 10,
+                    "radius": 24,
+                    "textShadow": false,
+                    "glass": true
+                },
+                "cornerStyle": 1,
+                "showBackground": true,
+                "borderless": false,
+                "bottom": true,
+                "vertical": false,
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
+            }
+        }
+    },
+    "theme": {
+        "config": {
+            "appearance": {
+                "transparency": {
+                    "enable": true,
+                    "automatic": false,
+                    "backgroundTransparency": 0.12,
+                    "contentTransparency": 0.5
+                },
+                "palette": {
+                    "type": "scheme-tonal-spot"
+                }
+            }
+        },
+        "hyprland": {
+            "decoration:rounding": 22,
+            "decoration:blur:enabled": true,
+            "decoration:blur:passes": 3,
+            "decoration:blur:size": 8,
+            "decoration:shadow:enabled": true,
+            "decoration:dim_inactive": true,
+            "general:border_size": 1
+        },
+        "mode": "light",
+        "accent": "#00ACC1"
+    },
+    "dockWidgets": {
+        "config": {
+            "dock": {
+                "enable": false,
+                "hoverToReveal": true,
+                "magnification": true,
+                "monochromeIcons": true
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy",
+                        "style": "cookie",
+                        "styleLocked": "cookie",
+                        "cookie": {
+                            "aiStyling": false,
+                            "sides": 14,
+                            "dialNumberStyle": "full",
+                            "hourHandStyle": "fill",
+                            "minuteHandStyle": "medium",
+                            "secondHandStyle": "dot",
+                            "dateStyle": "bubble",
+                            "timeIndicators": true,
+                            "hourMarks": false,
+                            "dateInClock": true,
+                            "constantlyRotate": false,
+                            "useSineCookie": false
+                        },
+                        "digital": {
+                            "adaptiveAlignment": true,
+                            "showDate": true,
+                            "animateChange": true,
+                            "vertical": false,
+                            "font": {
+                                "family": "Google Sans Flex",
+                                "weight": 700,
+                                "width": 100,
+                                "size": 110,
+                                "roundness": 100
+                            }
+                        }
+                    },
+                    "cardStyle": "tonal",
+                    "weather": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy",
+                        "style": "card"
+                    },
+                    "systemMonitor": {
+                        "enable": false
+                    },
+                    "media": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
+                    },
+                    "calendar": {
+                        "enable": false
+                    },
+                    "countdown": {
+                        "enable": false
+                    },
+                    "note": {
+                        "enable": false
+                    },
+                    "pomodoro": {
+                        "enable": false
+                    }
+                }
+            }
+        }
+    },
+    "wallpaperAnimations": {
+        "animationProfile": "smooth",
+        "config": {
+            "appearance": {
+                "animationSpeed": 0.85
+            },
+            "background": {
+                "liveWallpaper": {
+                    "pauseWhen": "anyWindow"
+                }
+            }
+        },
+        "hyprland": {
+            "general:gaps_in": 6,
+            "general:gaps_out": 14,
+            "animations:enabled": true,
+            "misc:animate_manual_resizes": false,
+            "misc:animate_mouse_windowdragging": false
+        },
+        "wallpaper": "https://upload.wikimedia.org/wikipedia/commons/transcoded/1/12/Jellyfish_at_Monterey_Bay_Aquarium_6_2024-01-11.webm/Jellyfish_at_Monterey_Bay_Aquarium_6_2024-01-11.webm.1080p.vp9.webm"
+    },
+    "lock": {
+        "config": {
+            "lock": {
+                "layout": {
+                    "version": 1,
+                    "items": {
+                        "clock": {
+                            "show": true,
+                            "x": 0.27,
+                            "y": 0.42,
+                            "size": 1.3
+                        },
+                        "greeting": {
+                            "show": true,
+                            "x": 0.27,
+                            "y": 0.13,
+                            "size": 1
+                        },
+                        "password": {
+                            "show": true,
+                            "x": 0.5,
+                            "y": 0.955,
+                            "size": 1
+                        },
+                        "user": {
+                            "show": true,
+                            "attach": "password",
+                            "x": 0.3,
+                            "y": 0.955,
+                            "size": 1
+                        },
+                        "power": {
+                            "show": true,
+                            "attach": "password",
+                            "x": 0.7,
+                            "y": 0.955,
+                            "size": 1
+                        },
+                        "message": {
+                            "show": true,
+                            "attach": "password",
+                            "x": 0.5,
+                            "y": 0.88,
+                            "size": 1
+                        },
+                        "media": {
+                            "show": true,
+                            "x": 0.73,
+                            "y": 0.45,
+                            "size": 1
+                        },
+                        "weather": {
+                            "show": true,
+                            "x": 0.73,
+                            "y": 0.22,
+                            "size": 1
+                        },
+                        "notifications": {
+                            "show": true,
+                            "x": 0.73,
+                            "y": 0.63,
+                            "size": 1
+                        },
+                        "timer": {
+                            "show": false,
+                            "x": 0.73,
+                            "y": 0.74,
+                            "size": 1
+                        }
+                    }
+                },
+                "animations": "full",
+                "animatedWallpaper": true,
+                "dim": 0.2,
+                "showLockedText": true,
+                "blur": {
+                    "enable": true,
+                    "radius": 100,
+                    "extraZoom": 1.1
+                }
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "styleLocked": "cookie"
+                    }
+                }
+            }
+        }
+    }
+}

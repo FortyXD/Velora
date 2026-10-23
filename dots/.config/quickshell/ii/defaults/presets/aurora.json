@@ -1,0 +1,321 @@
+{
+    "version": 1,
+    "name": "Aurora",
+    "icon": "nights_stay",
+    "order": 33,
+    "description": "Animated northern lights drawn by the shell, mint accents, floating glass islands",
+    "credits": {
+        "title": "Aurora",
+        "author": "Velora",
+        "license": "Drawn by the shell",
+        "page": ""
+    },
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": true,
+                    "actions": {
+                        "start": {
+                            "click": "sidebarLeft",
+                            "scroll": "brightness"
+                        },
+                        "centerEnd": {
+                            "click": "sidebarRight"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            },
+                            {
+                                "uid": "win",
+                                "type": "activeWindow"
+                            }
+                        ],
+                        "centerStart": [],
+                        "center": [
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "options": {
+                                    "showDate": true
+                                }
+                            }
+                        ],
+                        "centerEnd": [],
+                        "end": [
+                            {
+                                "uid": "wx",
+                                "type": "weather",
+                                "pill": true
+                            },
+                            {
+                                "uid": "net",
+                                "type": "networkSpeed"
+                            },
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            }
+                        ]
+                    }
+                },
+                "verticalLayout": null,
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": -1,
+                    "islands": true,
+                    "pillStyle": "none",
+                    "edgePadding": -1,
+                    "floatMargin": 10,
+                    "radius": 20,
+                    "textShadow": false,
+                    "glass": true
+                },
+                "cornerStyle": 0,
+                "showBackground": true,
+                "borderless": false,
+                "bottom": false,
+                "vertical": false,
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": true
+                }
+            }
+        }
+    },
+    "theme": {
+        "config": {
+            "appearance": {
+                "transparency": {
+                    "enable": true,
+                    "automatic": false,
+                    "backgroundTransparency": 0.25,
+                    "contentTransparency": 0.6
+                },
+                "palette": {
+                    "type": "scheme-fidelity"
+                }
+            }
+        },
+        "hyprland": {
+            "decoration:rounding": 18,
+            "decoration:blur:enabled": true,
+            "decoration:blur:passes": 3,
+            "decoration:blur:size": 8,
+            "decoration:shadow:enabled": true,
+            "decoration:dim_inactive": true,
+            "general:border_size": 1
+        },
+        "mode": "dark",
+        "accent": "#1DE9B6"
+    },
+    "dockWidgets": {
+        "config": {
+            "dock": {
+                "enable": true,
+                "hoverToReveal": true,
+                "magnification": true,
+                "monochromeIcons": true
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy",
+                        "style": "digital",
+                        "styleLocked": "digital",
+                        "cookie": {
+                            "aiStyling": false,
+                            "sides": 14,
+                            "dialNumberStyle": "full",
+                            "hourHandStyle": "fill",
+                            "minuteHandStyle": "medium",
+                            "secondHandStyle": "dot",
+                            "dateStyle": "bubble",
+                            "timeIndicators": true,
+                            "hourMarks": false,
+                            "dateInClock": true,
+                            "constantlyRotate": false,
+                            "useSineCookie": false
+                        },
+                        "digital": {
+                            "adaptiveAlignment": true,
+                            "showDate": true,
+                            "animateChange": true,
+                            "vertical": false,
+                            "font": {
+                                "family": "Google Sans Flex",
+                                "weight": 700,
+                                "width": 100,
+                                "size": 110,
+                                "roundness": 100
+                            }
+                        }
+                    },
+                    "cardStyle": "tonal",
+                    "weather": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy",
+                        "style": "pill"
+                    },
+                    "systemMonitor": {
+                        "enable": false
+                    },
+                    "media": {
+                        "enable": false
+                    },
+                    "calendar": {
+                        "enable": false
+                    },
+                    "countdown": {
+                        "enable": false
+                    },
+                    "note": {
+                        "enable": false
+                    },
+                    "pomodoro": {
+                        "enable": false
+                    }
+                }
+            }
+        }
+    },
+    "wallpaperAnimations": {
+        "animationProfile": "smooth",
+        "config": {
+            "appearance": {
+                "animationSpeed": 1.0
+            },
+            "background": {
+                "liveWallpaper": {
+                    "pauseWhen": "anyWindow"
+                },
+                "shaderWallpaper": {
+                    "name": "aurora",
+                    "speed": 1,
+                    "fps": 30,
+                    "colors": [
+                        "#3DFFB8",
+                        "#5B8CFF",
+                        "#C266FF",
+                        "#071226"
+                    ]
+                }
+            }
+        },
+        "hyprland": {
+            "general:gaps_in": 5,
+            "general:gaps_out": 12,
+            "animations:enabled": true,
+            "misc:animate_manual_resizes": false,
+            "misc:animate_mouse_windowdragging": false
+        },
+        "wallpaper": "shader:aurora"
+    },
+    "lock": {
+        "config": {
+            "lock": {
+                "layout": {
+                    "version": 1,
+                    "items": {
+                        "clock": {
+                            "show": true,
+                            "x": 0.5,
+                            "y": 0.42,
+                            "size": 1.15
+                        },
+                        "greeting": {
+                            "show": false,
+                            "x": 0.5,
+                            "y": 0.2,
+                            "size": 1
+                        },
+                        "password": {
+                            "show": true,
+                            "x": 0.5,
+                            "y": 0.72,
+                            "size": 1
+                        },
+                        "user": {
+                            "show": false,
+                            "attach": "password",
+                            "x": 0.3,
+                            "y": 0.955,
+                            "size": 1
+                        },
+                        "power": {
+                            "show": false,
+                            "attach": "password",
+                            "x": 0.7,
+                            "y": 0.955,
+                            "size": 1
+                        },
+                        "message": {
+                            "show": true,
+                            "attach": "password",
+                            "x": 0.5,
+                            "y": 0.88,
+                            "size": 1
+                        },
+                        "media": {
+                            "show": false,
+                            "x": 0.83,
+                            "y": 0.13,
+                            "size": 1
+                        },
+                        "weather": {
+                            "show": false,
+                            "x": 0.12,
+                            "y": 0.1,
+                            "size": 1
+                        },
+                        "notifications": {
+                            "show": false,
+                            "x": 0.5,
+                            "y": 0.85,
+                            "size": 1
+                        },
+                        "timer": {
+                            "show": false,
+                            "x": 0.88,
+                            "y": 0.3,
+                            "size": 1
+                        }
+                    }
+                },
+                "animations": "full",
+                "animatedWallpaper": true,
+                "dim": 0.15,
+                "showLockedText": true,
+                "blur": {
+                    "enable": true,
+                    "radius": 60,
+                    "extraZoom": 1.1
+                }
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "styleLocked": "digital"
+                    }
+                }
+            }
+        }
+    }
+}
