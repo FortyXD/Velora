@@ -1,6 +1,11 @@
 /diagnose.result
 /cache
 
+# Local workspace metadata and cloud configuration.
+/.agents/
+/.aws/
+/.codex/
+
 # Ignore Python cache files
 __pycache__/
 *.py[cod]
