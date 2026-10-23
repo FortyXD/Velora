@@ -38,10 +38,7 @@ repo = [
     "bat",
     "ripgrep",
     "zoxide",
-    "matugen",
     "breeze",
-    "fontconfig",
-    "ttf-jetbrains-mono-nerd",
 ]
 aur = []
 
@@ -105,13 +102,32 @@ repo = [
     "qt6-svg",
     "qt6-imageformats",
     "qt6-multimedia",
+    "qt6-multimedia-ffmpeg",
     "qt6-wayland",
+    "qt6-5compat",
+    "qt6-positioning",
+    "kirigami",
+    "syntax-highlighting",
+    "libnotify",
+    "libsecret",
+    "psmisc",
+    "xdg-utils",
+    "pacman-contrib",
+    "matugen",
+    "kdialog",
+    "fontconfig",
+    "ttf-jetbrains-mono-nerd",
     "kio-extras",
     "kvantum",
     "git",
     "base-devel",
 ]
-aur = []
+# The icon font and the clock and reading fonts the shell uses by default
+aur = [
+    "ttf-material-symbols-variable-git",
+    "otf-space-grotesk",
+    "ttf-readex-pro",
+]
 
 [features.toolbox]
 description = "Conversion, downloads, QR codes and OCR"
@@ -139,9 +155,6 @@ aur = [
     "adw-gtk-theme-git",
     "breeze-plus",
     "darkly-bin",
-    "otf-space-grotesk",
-    "ttf-material-symbols-variable-git",
-    "ttf-readex-pro",
     "ttf-rubik-vf",
     "ttf-twemoji",
 ]

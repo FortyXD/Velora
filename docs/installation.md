@@ -32,12 +32,13 @@ Choices are saved in `$XDG_STATE_HOME/velora/installation.json` and reused by up
 
 1. Validate tools, repository files, and the component selection.
 2. Display configuration paths and the planned package, backup, and update behavior.
-3. Install missing official packages with `pacman -Syu --needed`. Using `-Syu` avoids refreshing Arch's databases without a full system upgrade.
+3. Install missing official packages with `pacman -Syu --needed`. Using `-Syu` avoids refreshing Arch's databases without a full system upgrade. A package counts as installed when another package provides it, such as `curl-git` for `curl`.
 4. Install missing AUR packages with yay or paru. If needed, build yay from `https://aur.archlinux.org/yay.git` using makepkg. Use `--skip-aur` to omit this step.
 5. Create the shell's Python 3.12 environment with uv and synchronize the committed lockfile.
-6. Initialize Git submodules, back up existing configuration targets, create links, and install Dolphin integrations.
-7. Register `~/.local/bin/velora`, the Update Velora launcher, and the user update timer.
-8. Reload a running Hyprland session unless `--no-reload` is set.
+6. Download the Google Sans Flex interface font into `~/.local/share/fonts/velora-google-sans-flex` when fontconfig does not already provide it. Arch does not package it; a failed download only prints a warning, and `velora deps` retries it.
+7. Initialize Git submodules, back up existing configuration targets, create links, and install Dolphin integrations.
+8. Register `~/.local/bin/velora`, the Update Velora launcher, and the user update timer.
+9. Reload a running Hyprland session unless `--no-reload` is set.
 
 The installer preserves an existing `illogical-impulse/config.json` and seeds a missing one from the tracked example. Linked configuration files take effect from the checkout. Keep that directory after installation.
 
