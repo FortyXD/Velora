@@ -6,8 +6,8 @@ import qs.modules.common.widgets
 import qs.modules.common.functions
 
 /**
- * The quick toggles as they are laid out in the sidebar, to rearrange: drag one to move it, click it to
- * make it wide or narrow (Android style), × takes it out, and the toggles below put one back.
+ * The quick toggles laid out as in the sidebar, to rearrange: drag one and the others make room,
+ * click it to make it wide or narrow (tiles style), × takes it out, and the list below puts one back.
  */
 ColumnLayout {
     id: root
@@ -17,11 +17,58 @@ ColumnLayout {
         : SidebarLayout.androidToggles().map(t => ({ "type": t.type, "size": Math.min(t.size, root.columns) }))
     readonly property var unused: SidebarCatalog.toggles.filter(t => (!root.classic || t.classic) && !root.used.some(u => u.type === t.type))
     readonly property real tileSpacing: 6
+    readonly property real tileHeight: root.classic ? 52 : 52
     readonly property real cell: root.classic ? 52 : Math.floor((grid.width - root.tileSpacing * (root.columns - 1)) / root.columns)
+    readonly property int perRow: root.classic ? Math.max(1, Math.floor((grid.width + root.tileSpacing) / (root.cell + root.tileSpacing))) : root.columns
 
+    // Dragging: the toggle follows the pointer, the others take the order it would make
     property string dragType: ""
-    property point dragOffset: Qt.point(0, 0)
-    property int dropIndex: -1
+    property int dragTarget: -1 // Index among the toggles without the dragged one
+    property point dragPos: Qt.point(0, 0)
+    readonly property var previewList: {
+        if (root.dragType.length === 0 || root.dragTarget < 0) return root.used;
+        let others = root.used.filter(t => t.type !== root.dragType);
+        others.splice(root.dragTarget, 0, root.used.find(t => t.type === root.dragType));
+        return others;
+    }
+    readonly property var places: root.layout(root.previewList)
+
+    // Rows like the sidebar's: a toggle that doesn't fit starts the next row
+    function layout(list) {
+        let result = {};
+        let x = 0;
+        let row = 0;
+        let used = 0;
+        for (const t of list) {
+            if (used + t.size > root.perRow && used > 0) {
+                row++;
+                used = 0;
+            }
+            const width = root.cell * t.size + root.tileSpacing * (t.size - 1);
+            result[t.type] = { "x": used * (root.cell + root.tileSpacing), "y": row * (root.tileHeight + root.tileSpacing), "width": width };
+            used += t.size;
+        }
+        result.height = list.length === 0 ? 0 : (row + 1) * (root.tileHeight + root.tileSpacing) - root.tileSpacing;
+        return result;
+    }
+    // The order that puts the dragged toggle's slot nearest the pointer
+    function targetFor(type, point) {
+        const dragged = root.used.find(t => t.type === type);
+        const others = root.used.filter(t => t.type !== type);
+        let best = 0;
+        let bestDistance = 1e9;
+        for (let i = 0; i <= others.length; i++) {
+            let list = others.slice();
+            list.splice(i, 0, dragged);
+            const place = root.layout(list)[type];
+            const distance = Math.hypot(place.x + place.width / 2 - point.x, place.y + root.tileHeight / 2 - point.y);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = i;
+            }
+        }
+        return best;
+    }
 
     Layout.fillWidth: true
     Layout.leftMargin: 12
@@ -31,39 +78,52 @@ ColumnLayout {
     readonly property bool settingsSearchable: true
     property string searchText: Translation.tr("Quick toggles order size add remove")
 
-    Flow {
+    Item {
         id: grid
         Layout.fillWidth: true
-        Layout.preferredHeight: implicitHeight
-        spacing: root.tileSpacing
+        implicitHeight: Math.max(root.tileHeight, root.places.height ?? 0)
+        Behavior on implicitHeight {
+            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+        }
 
         Repeater {
-            id: tiles
             model: root.used
             delegate: Rectangle {
                 id: tile
                 required property var modelData
-                required property int index
                 readonly property var info: SidebarCatalog.toggle(modelData.type)
                 readonly property bool dragging: root.dragType === modelData.type
-                width: root.classic ? root.cell : root.cell * modelData.size + root.tileSpacing * (modelData.size - 1)
-                height: root.classic ? root.cell : 52
+                readonly property var place: root.places[modelData.type] ?? { "x": 0, "y": 0, "width": root.cell }
+                x: tile.dragging ? root.dragPos.x - tileArea.grabOffset.x : tile.place.x
+                y: tile.dragging ? root.dragPos.y - tileArea.grabOffset.y : tile.place.y
+                width: root.classic ? root.cell : tile.place.width
+                height: root.tileHeight
+                Behavior on x {
+                    enabled: !tile.dragging
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                }
+                Behavior on y {
+                    enabled: !tile.dragging
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                }
+                Behavior on width {
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                }
                 radius: root.classic ? width / 2 : (modelData.size > 1 ? height / 2 : 16)
                 color: tileArea.containsMouse || tile.dragging ? Appearance.colors.colPrimaryContainerHover : Appearance.colors.colPrimaryContainer
-                border.width: root.dropIndex === tile.index && !tile.dragging ? 2 : 0
+                border.width: tile.dragging ? 2 : 0
                 border.color: Appearance.colors.colPrimary
                 z: tile.dragging ? 5 : 1
-                opacity: tile.dragging ? 0.85 : 1
-                transform: Translate {
-                    x: tile.dragging ? root.dragOffset.x : 0
-                    y: tile.dragging ? root.dragOffset.y : 0
+                scale: tile.dragging ? 1.06 : 1
+                Behavior on scale {
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                 }
 
                 RowLayout {
                     anchors {
                         fill: parent
-                        leftMargin: root.classic || tile.modelData.size === 1 ? 0 : 14
-                        rightMargin: root.classic || tile.modelData.size === 1 ? 0 : 26
+                        leftMargin: root.classic || tile.modelData.size === 1 ? 0 : 16
+                        rightMargin: root.classic || tile.modelData.size === 1 ? 0 : 28
                     }
                     spacing: 8
                     MaterialSymbol {
@@ -87,51 +147,46 @@ ColumnLayout {
                     id: tileArea
                     anchors.fill: parent
                     hoverEnabled: true
-                    cursorShape: tile.dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+                    preventStealing: true // The settings page must not scroll away with the drag
+                    cursorShape: tile.dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor
                     property point start
-                    onPressed: mouse => start = mapToItem(grid, mouse.x, mouse.y)
+                    property point grabOffset
+                    onPressed: mouse => {
+                        start = mapToItem(grid, mouse.x, mouse.y);
+                        grabOffset = Qt.point(start.x - tile.x, start.y - tile.y);
+                    }
                     onPositionChanged: mouse => {
                         if (!pressed) return;
                         const p = mapToItem(grid, mouse.x, mouse.y);
-                        if (!tile.dragging && Math.hypot(p.x - start.x, p.y - start.y) < 6) return;
+                        if (!tile.dragging && Math.hypot(p.x - start.x, p.y - start.y) < 5) return;
+                        root.dragPos = p;
+                        root.dragTarget = root.targetFor(tile.modelData.type, p);
                         root.dragType = tile.modelData.type;
-                        root.dragOffset = Qt.point(p.x - start.x, p.y - start.y);
-                        // The tile nearest to the pointer is where it goes
-                        let best = -1;
-                        let bestDistance = 1e9;
-                        for (let i = 0; i < tiles.count; i++) {
-                            const other = tiles.itemAt(i);
-                            if (!other) continue;
-                            const d = Math.hypot(other.x + other.width / 2 - p.x, other.y + other.height / 2 - p.y);
-                            if (d < bestDistance) {
-                                bestDistance = d;
-                                best = i;
-                            }
-                        }
-                        root.dropIndex = best;
                     }
                     onReleased: {
                         // Reset first: any change rebuilds the tiles
                         const dragged = tile.dragging;
                         const type = tile.modelData.type;
-                        const target = root.dropIndex;
-                        const moved = target >= 0 && target !== tile.index;
+                        const target = root.dragTarget;
                         const classic = root.classic;
                         root.dragType = "";
-                        root.dragOffset = Qt.point(0, 0);
-                        root.dropIndex = -1;
-                        if (dragged && moved) {
+                        root.dragTarget = -1;
+                        if (dragged) {
                             if (classic) SidebarLayout.moveClassicToggle(type, target);
                             else SidebarLayout.moveAndroidToggle(type, target);
-                        } else if (!dragged && !classic) {
+                        } else if (!classic) {
                             SidebarLayout.resizeAndroidToggle(type);
                         }
+                    }
+                    onCanceled: {
+                        root.dragType = "";
+                        root.dragTarget = -1;
                     }
                 }
 
                 // Take it out
                 RippleButton {
-                    visible: tileArea.containsMouse || hovered
+                    visible: (tileArea.containsMouse || hovered) && !tile.dragging
                     anchors {
                         right: parent.right
                         top: parent.top

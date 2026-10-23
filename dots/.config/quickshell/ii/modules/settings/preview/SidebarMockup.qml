@@ -7,12 +7,13 @@ import qs.modules.common.functions
 
 /**
  * The right sidebar drawn from its settings: sections in their order with their real contents
- * (which toggles, how many columns, which tabs). Click a section to pick it, drag it to move it,
- * the eye hides it; hidden sections stay as a thin line so they can come back.
+ * (which toggles, how many columns, which tabs). Drag a section up or down and the others make room;
+ * click one to pick it; the eye hides it, and hidden sections stay as a thin line so they can come back.
  */
 Rectangle {
     id: root
     property string selected: ""
+    property bool editable: true // Drag to move and the eye to hide; off, a click only picks a section
     signal sectionClicked(string type)
 
     readonly property real widthFactor: Appearance.sizes.sidebarWidth / 460
@@ -69,18 +70,44 @@ Rectangle {
         return Math.max(40, root.height - root.padding * 2 - root.gap * (root.sections.length - 1) - others);
     }
 
-    // Dragging a section
+    // Dragging a section: the others slide out of its way while it follows the pointer
     property string dragType: ""
-    property real dragOffset: 0
-    property int dropIndex: -1
+    property int dragTarget: -1 // Index among the sections without the dragged one
+    property real dragY: 0
+    readonly property var order: root.sections.map(section => section.type)
+    readonly property var previewOrder: {
+        if (root.dragType.length === 0 || root.dragTarget < 0) return root.order;
+        let others = root.order.filter(type => type !== root.dragType);
+        others.splice(root.dragTarget, 0, root.dragType);
+        return others;
+    }
+    function topOf(type, list) {
+        let y = 0;
+        for (const t of list) {
+            if (t === type) return y;
+            y += root.heightOf(t) + root.gap;
+        }
+        return y;
+    }
+    // Where a section whose middle is at `center` would land: after the header, between the others
+    function targetFor(type, center) {
+        const others = root.order.filter(t => t !== type);
+        let y = 0;
+        let index = 0;
+        for (const t of others) {
+            const h = root.heightOf(t);
+            if (center > y + h / 2) index++;
+            y += h + root.gap;
+        }
+        return Math.max(1, index);
+    }
 
-    Column {
+    Item {
         id: column
         anchors {
             fill: parent
             margins: root.padding
         }
-        spacing: root.gap
 
         Repeater {
             id: repeater
@@ -93,16 +120,22 @@ Rectangle {
                 readonly property bool shown: SidebarLayout.sectionShown(card.type)
                 readonly property bool picked: root.selected === card.type
                 readonly property bool fixedPlace: SidebarCatalog.section(card.type)?.fixed ?? false
+                readonly property bool dragging: root.dragType === card.type
                 width: column.width
                 height: root.heightOf(card.type)
+                y: card.dragging ? root.dragY : root.topOf(card.type, root.previewOrder)
+                Behavior on y {
+                    enabled: !card.dragging
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                }
                 radius: card.shown ? 12 : height / 2
                 color: !card.shown ? "transparent" : card.type === "header" ? "transparent" : Appearance.colors.colLayer1
-                border.width: card.picked ? 2 : (card.shown ? 0 : 1)
-                border.color: card.picked ? Appearance.colors.colPrimary : Appearance.colors.colOutlineVariant
-                z: root.dragType === card.type ? 5 : 1
-                opacity: root.dragType === card.type ? 0.85 : 1
-                transform: Translate {
-                    y: root.dragType === card.type ? root.dragOffset : 0
+                border.width: card.picked || card.dragging ? 2 : (card.shown ? 0 : 1)
+                border.color: card.picked || card.dragging ? Appearance.colors.colPrimary : Appearance.colors.colOutlineVariant
+                z: card.dragging ? 5 : 1
+                scale: card.dragging ? 1.03 : 1
+                Behavior on scale {
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                 }
                 Behavior on height {
                     animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
@@ -130,45 +163,41 @@ Rectangle {
                     id: cardArea
                     anchors.fill: parent
                     hoverEnabled: true
-                    cursorShape: card.fixedPlace ? Qt.PointingHandCursor : (root.dragType === card.type ? Qt.ClosedHandCursor : Qt.OpenHandCursor)
+                    preventStealing: true // The settings page must not scroll away with the drag
+                    cursorShape: card.fixedPlace || !root.editable ? Qt.PointingHandCursor : (card.dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor)
                     property real startY: 0
+                    property real grabOffset: 0
                     onPressed: mouse => {
                         startY = mapToItem(column, mouse.x, mouse.y).y;
-                        root.sectionClicked(card.type);
+                        grabOffset = startY - card.y;
                     }
                     onPositionChanged: mouse => {
-                        if (!pressed || card.fixedPlace) return;
+                        if (!pressed || card.fixedPlace || !root.editable) return;
                         const y = mapToItem(column, mouse.x, mouse.y).y;
-                        if (root.dragType !== card.type && Math.abs(y - startY) < 6) return;
+                        if (!card.dragging && Math.abs(y - startY) < 5) return;
+                        root.dragY = Math.max(0, Math.min(column.height - card.height, y - grabOffset));
+                        root.dragTarget = root.targetFor(card.type, root.dragY + card.height / 2);
                         root.dragType = card.type;
-                        root.dragOffset = y - startY;
-                        // Where it would land: before the first card whose middle is below the pointer
-                        const center = card.y + card.height / 2 + root.dragOffset;
-                        let index = root.sections.length;
-                        for (let i = 1; i < root.sections.length; i++) {
-                            const other = repeater.itemAt(i);
-                            if (other && other !== card && center < other.y + other.height / 2) {
-                                index = i;
-                                break;
-                            }
-                        }
-                        root.dropIndex = Math.max(1, index);
                     }
                     onReleased: {
                         // Reset first: moving rebuilds this card
-                        const moving = root.dragType === card.type;
+                        const moved = card.dragging;
                         const type = card.type;
-                        const target = root.dropIndex > card.index ? root.dropIndex - 1 : root.dropIndex;
+                        const target = root.dragTarget;
                         root.dragType = "";
-                        root.dragOffset = 0;
-                        root.dropIndex = -1;
-                        if (moving) SidebarLayout.moveSection(type, target);
+                        root.dragTarget = -1;
+                        if (moved) SidebarLayout.moveSection(type, target);
+                        else root.sectionClicked(type);
+                    }
+                    onCanceled: {
+                        root.dragType = "";
+                        root.dragTarget = -1;
                     }
                 }
 
                 // Eye: show or hide
                 RippleButton {
-                    visible: !card.fixedPlace && (cardArea.containsMouse || card.picked || !card.shown)
+                    visible: root.editable && !card.fixedPlace && !card.dragging && (cardArea.containsMouse || card.picked || !card.shown)
                     anchors {
                         right: parent.right
                         verticalCenter: card.shown ? undefined : parent.verticalCenter
@@ -193,22 +222,6 @@ Rectangle {
                     }
                 }
             }
-        }
-    }
-
-    // Where a dragged section lands
-    Rectangle {
-        visible: root.dropIndex >= 0
-        x: root.padding
-        width: column.width
-        height: 3
-        radius: 1.5
-        color: Appearance.colors.colPrimary
-        y: {
-            if (root.dropIndex < 0) return 0;
-            const item = repeater.itemAt(Math.min(root.dropIndex, root.sections.length - 1));
-            if (!item) return 0;
-            return root.padding + (root.dropIndex >= root.sections.length ? item.y + item.height + root.gap / 2 : item.y - root.gap / 2) - 1.5;
         }
     }
 
