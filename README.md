@@ -56,7 +56,8 @@ Screenshots show the actual settings app with an English demo profile and a cust
 | **Bar and desktop** | Drag bar widgets into five placement zones, group them into pills, assign actions, and arrange clocks, weather, media, and productivity widgets. |
 | **Appearance and presets** | Change colors, transparency, spacing, outlines, dock, and animations. Save complete looks, select which parts to apply, and undo a preset change. |
 | **Lock screen and wallpapers** | Edit the lock screen with a live preview. Use local images, online collections, daily wallpapers, videos through mpvpaper, or animated shader backgrounds. |
-| **Everyday controls** | Manage devices and per-app audio, test your microphone, set per-app notification rules, customize quick settings, and configure keyboard shortcuts and hot corners. |
+| **Sidebars** | Reorder, hide, and configure every part of the right sidebar by dragging it in a live picture; arrange quick toggles, widget tabs, and the left sidebar's tabs. |
+| **Everyday controls** | Manage devices and per-app audio, test your microphone, set per-app notification rules, customize quick settings, and configure keyboard shortcuts and hot corners. Weather finds your place by GPS, a city, or your IP address and keeps a forecast. |
 | **Focus and battery** | Use countdown, stopwatch, and Pomodoro timers. Reduce animations, blur, wallpaper playback, and polling manually or automatically on battery. |
 | **Built-in tools** | Convert media and documents, download videos with yt-dlp, work with QR codes, extract text with OCR, and pick colors. Use Dolphin context menus for file actions. Office conversion uses LibreOffice when installed. |
 
