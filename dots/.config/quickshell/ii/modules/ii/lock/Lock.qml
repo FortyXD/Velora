@@ -38,6 +38,8 @@ LockScreen {
         context: root.context
     }
 
+    LockEditorWindow {}
+
     // Single batch for lock and unlock so we don't race multiple hyprctl calls
     Connections {
         target: GlobalStates

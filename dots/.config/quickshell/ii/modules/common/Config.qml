@@ -176,6 +176,11 @@ Singleton {
                     property real maxAllowedIncrease: 10
                     property real maxAllowed: 99
                 }
+                // A "Clean microphone" made from the chosen one: noise suppression, no rumble, steady level (Audio.qml)
+                property JsonObject noiseReduction: JsonObject {
+                    property bool enable: false
+                    property string mic: "" // node.name of the microphone it cleans; another one is used while it's unplugged
+                }
             }
 
             property JsonObject apps: JsonObject {
@@ -191,6 +196,16 @@ Singleton {
             }
 
             property JsonObject background: JsonObject {
+                property JsonObject liveWallpaper: JsonObject { // Video wallpapers, played by mpvpaper
+                    property string decoder: "gpu" // "gpu" (hardware decoding) or "cpu"
+                    property string pauseWhen: "anyWindow" // "anyWindow", "fullscreen" (or maximized) or "never"; also for shaderWallpaper
+                }
+                property JsonObject shaderWallpaper: JsonObject { // Animated wallpapers drawn by the shell (services/ShaderWallpaper.qml)
+                    property string name: "" // "aurora", "liquid", "grid", "dunes"; empty: a picture or a video
+                    property real speed: 1
+                    property int fps: 30
+                    property list<string> colors: [] // Three accents and the background; empty: the theme's
+                }
                 property JsonObject daily: JsonObject { // A new wallpaper every day
                     property bool enable: false
                     property string source: "bing" // bing | nasa | wikimedia
@@ -246,6 +261,7 @@ Singleton {
                     }
                     property JsonObject weather: JsonObject {
                         property bool enable: false
+                        property string style: "pill" // "pill": temperature on a shape, "card": with the next hours
                         property string placementStrategy: "free" // "free", "leastBusy", "mostBusy"
                         property real x: 400
                         property real y: 100
@@ -368,6 +384,7 @@ Singleton {
                     property bool showIdleInhibitor: false
                     property bool showNightLight: false
                     property bool showDoNotDisturb: false
+                    property bool showPowerSavingToggle: false
                 }
                 property JsonObject workspaces: JsonObject {
                     property bool monochromeIcons: true
@@ -380,8 +397,8 @@ Singleton {
                 }
                 property JsonObject weather: JsonObject {
                     property bool enable: false
-                    property bool enableGPS: true // gps based location
-                    property string city: "" // When 'enableGPS' is false
+                    property bool enableGPS: true // Automatic place: GPS, then the last GPS place, the city, the IP address
+                    property string city: "" // The place when 'enableGPS' is false
                     property bool useUSCS: false // Instead of metric (SI) units
                     property int fetchInterval: 10 // minutes
                 }
@@ -396,12 +413,55 @@ Singleton {
                     property bool showRecording: true
                     property bool showPomodoro: true
                     property bool showStopwatch: true
+                    property bool showTimer: true
                     property bool trackToast: true // Briefly show cover and title when the track changes
                 }
                 property bool microAnimations: true // Rolling numbers, popup transitions, press feedback, marquee
                 property JsonObject tooltips: JsonObject {
                     property bool clickToShow: false
                 }
+            }
+
+            property JsonObject hotCorners: JsonObject {
+                property int version: 0 // 1 once the old sidebar.cornerOpen settings were taken over
+                property JsonObject topLeft: JsonObject {
+                    property string action: "sidebarLeft" // See HotCorners.actions
+                    property string command: "" // For "command"
+                }
+                property JsonObject topRight: JsonObject {
+                    property string action: "sidebarRight"
+                    property string command: ""
+                }
+                property JsonObject bottomLeft: JsonObject {
+                    property string action: "none"
+                    property string command: ""
+                }
+                property JsonObject bottomRight: JsonObject {
+                    property string action: "none"
+                    property string command: ""
+                }
+                property string trigger: "hover" // "hover" (touch the very corner) or "click"
+                property bool hint: true // A small glow shows where the active corners are
+                property bool inFullscreen: false // Also work over fullscreen apps and games
+                property bool scroll: true // Scrolling on a left corner changes brightness, on a right one volume
+                property int size: 6 // Size of the trigger area in the corner, px
+            }
+
+            property JsonObject powerSaving: JsonObject {
+                property string mode: "off" // "off", "battery" (on by itself while unplugged) or "on"
+                property string override: "" // "on"/"off" from the quick toggle; cleared when the charger is plugged or unplugged
+                // What energy saving turns off
+                property bool animations: true // Shell and window animations
+                property bool blur: true // Blur and shadows
+                property bool liveWallpaper: true // Pauses a video wallpaper on its current frame
+                property bool visualizer: true // The music visualizer
+                property bool livePreviews: true // Live window pictures in the dock and workspace previews
+                property bool polling: true // Checks system stats three times less often, no seconds on clocks
+                property bool cpuProfile: true // Power saver CPU profile (power-profiles-daemon)
+                property bool brightness: true // Screen brightness down to brightnessLimit
+                property int brightnessLimit: 50 // Percent
+                property bool keyboardLight: true // Keyboard backlight off
+                property bool bluetooth: true // Bluetooth off when nothing is connected
             }
 
             property JsonObject battery: JsonObject {
@@ -512,6 +572,19 @@ Singleton {
                     property bool requirePasswordToPower: false
                 }
                 property bool materialShapeChars: true
+                property real dim: 0.3 // How much the wallpaper darkens, 0..0.8
+                property string passwordPosition: "bottom" // "bottom" or "center"
+                property string message: "" // Shown above the password field, e.g. who to call if found
+                property int clearPasswordAfter: 10 // Seconds without typing before a half-typed password is cleared
+                property bool showUser: true
+                property bool showKeyboardLayout: true
+                property bool showBattery: true
+                property bool showPowerButtons: true // Sleep, power off, restart
+                property bool showMedia: false // Before lock.layout: the media widget from the desktop
+                property bool showWeather: false // Before lock.layout: the weather widget from the desktop
+                property var layout: null // Where each part is (format: services/LockLayout.qml); null = built-in
+                property string animations: "full" // "full": parts fly in one by one and out on unlock, "calm": fades, "none"
+                property bool animatedWallpaper: true // A video or animated wallpaper keeps moving behind the lock
             }
 
             property JsonObject media: JsonObject {
@@ -525,6 +598,9 @@ Singleton {
 
             property JsonObject notifications: JsonObject {
                 property int timeout: 7000
+                // Per app, keyed by desktop entry (or app name when there is none):
+                // { "mode": "banners" | "silent" (only in the list) | "off", "bypassDnd": bool }
+                property var apps: ({})
             }
 
             property JsonObject osd: JsonObject {
@@ -620,6 +696,26 @@ Singleton {
 
             property JsonObject sidebar: JsonObject {
                 property bool keepRightSidebarLoaded: true
+                property int width: 460 // Of the right sidebar, and of the left one unless it's widened
+                property JsonObject right: JsonObject {
+                    // Top to bottom; the header always comes first. `hidden` sections aren't shown (sliders: quickSliders.enable)
+                    property list<var> sections: [
+                        { "type": "header" }, { "type": "sliders" }, { "type": "toggles" }, { "type": "notifications" }, { "type": "widgets" }
+                    ]
+                    property JsonObject header: JsonObject {
+                        property bool showUptime: true
+                        property list<string> buttons: ["edit", "reload", "settings", "session"]
+                    }
+                    property JsonObject widgets: JsonObject {
+                        property list<string> tabs: ["calendar", "todo", "timer"]
+                        property real height: 0.3 // Of the sidebar, when the notifications take the rest
+                    }
+                }
+                property JsonObject left: JsonObject {
+                    property list<string> order: ["ai", "translator", "anime"]
+                    property string startTab: "last" // "last" (where you left it) or a tab: "ai", "translator", "anime"
+                    property bool extendedByDefault: false
+                }
                 property JsonObject translator: JsonObject {
                     property bool enable: false
                     property int delay: 300 // Delay before sending request. Reduces (potential) rate limits and lag.
@@ -635,7 +731,7 @@ Singleton {
                         property string username: "[unset]"
                     }
                 }
-                property JsonObject cornerOpen: JsonObject {
+                property JsonObject cornerOpen: JsonObject { // Replaced by hotCorners (taken over once, see services/HotCorners.qml)
                     property bool enable: true
                     property bool bottom: false
                     property bool valueScroll: true
@@ -649,6 +745,9 @@ Singleton {
 
                 property JsonObject quickToggles: JsonObject {
                     property string style: "android" // Options: classic, android
+                    property JsonObject classic: JsonObject {
+                        property list<string> toggles: ["network", "bluetooth", "nightLight", "gameMode", "idleInhibitor", "powerSaving", "easyEffects", "cloudflareWarp"]
+                    }
                     property JsonObject android: JsonObject {
                         property int columns: 5
                         property list<var> toggles: [
@@ -750,7 +849,7 @@ Singleton {
                     property bool leftAlignApps: false
                 }
                 property JsonObject actionCenter: JsonObject {
-                    property list<string> toggles: [ "network", "bluetooth", "easyEffects", "powerProfile", "idleInhibitor", "nightLight", "darkMode", "antiFlashbang", "cloudflareWarp", "mic", "musicRecognition", "notifications", "onScreenKeyboard", "gameMode", "screenSnip", "colorPicker" ]
+                    property list<string> toggles: [ "network", "bluetooth", "easyEffects", "powerProfile", "powerSaving", "idleInhibitor", "nightLight", "darkMode", "antiFlashbang", "cloudflareWarp", "mic", "musicRecognition", "notifications", "onScreenKeyboard", "gameMode", "screenSnip", "colorPicker" ]
                 }
                 property JsonObject calendar: JsonObject {
                     property bool force2CharDayOfWeek: true

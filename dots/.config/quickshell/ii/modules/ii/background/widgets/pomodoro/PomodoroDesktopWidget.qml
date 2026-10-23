@@ -121,14 +121,16 @@ DesktopWidgetCard {
             ColumnLayout {
                 anchors.centerIn: parent
                 spacing: 0
-                StyledText {
+                EditableTime { // Click to type a time; the background asks for keyboard focus meanwhile
+                    id: timeEdit
                     Layout.alignment: Qt.AlignHCenter
-                    text: `${root.pad(Math.floor(root.secondsLeft / 60))}:${root.pad(root.secondsLeft % 60)}`
-                    font.family: Appearance.font.family.numbers
-                    font.variableAxes: Appearance.font.variableAxes.numbers
-                    font.pixelSize: 38
-                    font.weight: Font.Medium
+                    seconds: root.secondsLeft
+                    pixelSize: 38
+                    fontFamily: Appearance.font.family.numbers
                     color: root.colOnCard
+                    onTimeEntered: seconds => TimerService.setPomodoroTime(seconds)
+                    onEditingChanged: GlobalStates.desktopWidgetEditing = timeEdit.editing
+                    Component.onDestruction: if (timeEdit.editing) GlobalStates.desktopWidgetEditing = false
                 }
                 StyledText {
                     Layout.alignment: Qt.AlignHCenter

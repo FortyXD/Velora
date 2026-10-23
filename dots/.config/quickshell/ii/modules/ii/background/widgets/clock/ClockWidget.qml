@@ -16,17 +16,27 @@ AbstractBackgroundWidget {
     implicitHeight: contentColumn.implicitHeight
     implicitWidth: contentColumn.implicitWidth
 
-    readonly property string clockStyle: GlobalStates.screenLocked ? Config.options.background.widgets.clock.styleLocked : Config.options.background.widgets.clock.style
-    readonly property bool forceCenter: (GlobalStates.screenLocked && Config.options.lock.centerClock)
-    readonly property bool shouldShow: (!Config.options.background.widgets.clock.showOnlyWhenLocked || GlobalStates.screenLocked)
+    // The lock screen has its own clock (modules/ii/lock/LockClock.qml), which glides in from where this one is
+    readonly property string clockStyle: Config.options.background.widgets.clock.style
+    readonly property bool shouldShow: !Config.options.background.widgets.clock.showOnlyWhenLocked
     property bool wallpaperSafetyTriggered: false
+    property string screenName: ""
     needsColText: clockStyle === "digital"
-    x: forceCenter ? ((root.screenWidth - root.width) / 2) : targetX
-    y: forceCenter ? ((root.screenHeight - root.height) / 2) : targetY
-    visibleWhenLocked: true
+    visibleWhenLocked: false
+
+    function publishPosition() {
+        if (GlobalStates.screenLocked || root.screenName.length === 0) return;
+        const topLeft = root.mapToItem(null, 0, 0);
+        LockLayout.setDesktopClock(root.screenName, { "x": topLeft.x, "y": topLeft.y, "width": root.width, "height": root.height, "visible": root.shouldShow });
+    }
+    onXChanged: root.publishPosition()
+    onYChanged: root.publishPosition()
+    onWidthChanged: root.publishPosition()
+    onHeightChanged: root.publishPosition()
+    onScreenNameChanged: root.publishPosition()
 
     property var textHorizontalAlignment: {
-        if (!Config.options.background.widgets.clock.digital.adaptiveAlignment || root.forceCenter || Config.options.background.widgets.clock.digital.vertical) 
+        if (!Config.options.background.widgets.clock.digital.adaptiveAlignment || Config.options.background.widgets.clock.digital.vertical)
             return Text.AlignHCenter;
         if (root.x < root.scaledScreenWidth / 3)
             return Text.AlignLeft;

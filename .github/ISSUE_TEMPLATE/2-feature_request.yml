@@ -1,22 +1,20 @@
 name: Feature request
-description: Suggest an idea for this project
-labels: ["FEATURE"]
+description: Suggest an improvement to Velora.
+labels: [enhancement]
 body:
   - type: markdown
     attributes:
-      value: "NOTE:\n- Please search in [existing issues](https://github.com/end-4/dots-hyprland/issues?q=is%3Aissue) before continue.\n- Please write in **English**."
-
+      value: Please search existing Velora issues first. Include your use case and any relevant examples.
   - type: textarea
     attributes:
-      label: "What would you like to be added?"
-      description: "Can be a suggestion for an existing feature. You can suggest a widget, minor user interaction changes.. whatever."
-
+      label: What would you like to add or change?
+    validations:
+      required: true
   - type: textarea
     attributes:
-      label: "How will it help?"
-      description: "It's helpful to include examples (like in your use case)."
-
+      label: How would it help your workflow?
+    validations:
+      required: true
   - type: textarea
     attributes:
-      label: "Extra info"
-      description: "If you want a new widget, a pic of the inspiration (if available) would be awesome."
+      label: Examples or additional context

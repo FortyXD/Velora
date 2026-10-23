@@ -1,0 +1,19 @@
+name: Validate Velora
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  maintenance-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell entry points
+        run: bash -n velora install.sh setup diagnose scripts/install.sh dots/.config/quickshell/ii/scripts/maintenance/velora.sh
+      - name: Run isolated installer and updater tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Validate dependency components
+        run: ./velora components
+      - name: Preview source-build installation
+        run: ./velora install --dry-run --skip-packages --build-package --build-from-source

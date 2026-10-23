@@ -10,7 +10,8 @@ MouseArea {
     id: root
     required property var fileModelData
     property bool isDirectory: fileModelData.fileIsDir
-    property bool useThumbnail: Images.isValidImageByName(fileModelData.fileName)
+    property bool isVideo: !isDirectory && LiveWallpaper.isVideoPath(fileModelData.fileName)
+    property bool useThumbnail: Images.isValidImageByName(fileModelData.fileName) || isVideo
 
     property alias colBackground: background.color
     property alias colText: wallpaperItemName.color
@@ -90,6 +91,38 @@ MouseArea {
                                 height: wallpaperItemImageContainer.height
                                 radius: Appearance.rounding.small
                             }
+                        }
+                    }
+                }
+
+                Rectangle { // Videos become live wallpapers
+                    visible: root.isVideo
+                    anchors {
+                        left: parent.left
+                        top: parent.top
+                        margins: 6
+                    }
+                    implicitWidth: liveRow.implicitWidth + 12
+                    implicitHeight: liveRow.implicitHeight + 4
+                    radius: Appearance.rounding.full
+                    color: ColorUtils.transparentize(Appearance.colors.colLayer0, 0.15)
+                    Row {
+                        id: liveRow
+                        anchors.centerIn: parent
+                        spacing: 2
+                        MaterialSymbol {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "play_circle"
+                            fill: 1
+                            iconSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colPrimary
+                        }
+                        StyledText {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Translation.tr("Live")
+                            font.pixelSize: Appearance.font.pixelSize.smallest
+                            font.variableAxes: ({ "wght": 600 })
+                            color: Appearance.colors.colOnLayer0
                         }
                     }
                 }

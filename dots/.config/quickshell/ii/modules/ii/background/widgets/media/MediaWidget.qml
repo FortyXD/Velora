@@ -21,7 +21,7 @@ AbstractBackgroundWidget {
 
     implicitWidth: Appearance.sizes.mediaControlsWidth
     implicitHeight: Appearance.sizes.mediaControlsHeight
-    opacity: ((GlobalStates.screenLocked && !root.visibleWhenLocked) || root.hidden) ? 0 : 1
+    opacity: (GlobalStates.screenLocked || root.hidden) ? 0 : 1
 
     Loader {
         anchors.fill: parent

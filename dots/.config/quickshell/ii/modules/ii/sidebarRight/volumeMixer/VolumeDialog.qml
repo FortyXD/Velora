@@ -28,10 +28,10 @@ WindowDialog {
     }
 
     WindowDialogButtonRow {
-        DialogButton {
+        DialogButton { // Settings → Sound: devices, every app's volume and device, microphone test
             buttonText: Translation.tr("Details")
             onClicked: {
-                Quickshell.execDetached(["bash", "-c", `${Config.options.apps.volumeMixer}`]);
+                Quickshell.execDetached(["env", "QS_SETTINGS_PAGE=sound", "qs", "-p", Quickshell.shellPath("settings.qml")]);
                 GlobalStates.sidebarRightOpen = false;
             }
         }

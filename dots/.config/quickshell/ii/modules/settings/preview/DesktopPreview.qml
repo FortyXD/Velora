@@ -11,15 +11,15 @@ import qs.modules.settings.presets
  * Live miniature of the desktop: windows tiled with your layout, gaps, border and rounding,
  * the bar, the dock with your pinned apps (it magnifies under the pointer, like the real one)
  * and the hot corners. Everything follows the settings as they change. Clicking a corner
- * moves the hot corners to that edge.
+ * asks for that corner's action (cornerClicked).
  */
 MiniScreen {
     id: root
 
-    signal cornerClicked(bool bottom)
+    signal cornerClicked(string corner)
 
     readonly property var dockConfig: Config.options.dock
-    readonly property var corners: Config.options.sidebar.cornerOpen
+    readonly property var corners: Config.options.hotCorners
     readonly property string dockMode: !root.dockConfig.enable ? "off"
         : root.dockConfig.pinnedOnStartup ? "always"
         : root.dockConfig.hoverToReveal ? "hover" : "empty"
@@ -134,18 +134,18 @@ MiniScreen {
     // Hot corners
     Repeater {
         model: [
-            { "left": true, "bottom": false }, { "left": false, "bottom": false },
-            { "left": true, "bottom": true }, { "left": false, "bottom": true },
+            { "name": "topLeft", "left": true, "bottom": false }, { "name": "topRight", "left": false, "bottom": false },
+            { "name": "bottomLeft", "left": true, "bottom": true }, { "name": "bottomRight", "left": false, "bottom": true },
         ]
         delegate: Item {
             id: corner
             required property var modelData
-            readonly property bool active: root.corners.enable && root.corners.bottom === modelData.bottom
+            readonly property string action: root.corners[modelData.name]?.action ?? "none"
+            readonly property bool active: corner.action !== "none"
             width: 70
             height: 46
             x: modelData.left ? 0 : root.width - width
             y: modelData.bottom ? root.height - height : 0
-            visible: root.corners.enable
 
             Rectangle { // Glow
                 id: glow
@@ -164,7 +164,7 @@ MiniScreen {
                 visible: corner.active
                 x: corner.modelData.left ? 8 : corner.width - width - 8
                 y: corner.modelData.bottom ? corner.height - height - 6 : 6
-                text: corner.modelData.left ? "left_panel_open" : "right_panel_open"
+                text: HotCorners.actionInfo(corner.action).icon
                 iconSize: 18
                 color: Appearance.colors.colOnPrimaryContainer
             }
@@ -173,12 +173,12 @@ MiniScreen {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.cornerClicked(corner.modelData.bottom)
+                onClicked: root.cornerClicked(corner.modelData.name)
             }
             StyledToolTip {
                 alternativeVisibleCondition: cornerMouse.containsMouse
                 extraVisibleCondition: false
-                text: corner.modelData.left ? Translation.tr("Opens the left sidebar") : Translation.tr("Opens the right sidebar")
+                text: corner.active ? HotCorners.actionInfo(corner.action).displayName : Translation.tr("Click to give this corner an action")
             }
         }
     }

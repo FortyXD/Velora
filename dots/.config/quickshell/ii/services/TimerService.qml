@@ -3,13 +3,14 @@ pragma ComponentBehavior: Bound
 
 import qs.services
 import qs.modules.common
+import qs.modules.common.functions
 
 import Quickshell
 import Quickshell.Io
 import QtQuick
 
 /**
- * Simple Pomodoro time manager.
+ * Pomodoro, stopwatch and a plain countdown timer. States live in Persistent, so they survive restarts.
  */
 Singleton {
     id: root
@@ -38,6 +39,16 @@ Singleton {
     property int stopwatchTime: 0
     property int stopwatchStart: Persistent.states.timer.stopwatch.start
     property var stopwatchLaps: Persistent.states.timer.stopwatch.laps
+
+    readonly property var countdown: Persistent.states.timer.countdown
+    readonly property bool countdownRunning: root.countdown.running
+    readonly property int countdownDuration: root.countdown.duration
+    property int countdownSecondsLeft: root.countdown.left
+    // Set but not started, or reset: nothing to show in the bar
+    readonly property bool countdownFresh: !root.countdownRunning && root.countdownSecondsLeft === root.countdownDuration
+    property bool countdownDone: false // Rang and waits for a reset or a new time
+
+    function load() {} // For starting it with the shell, so the timer IPC is there
 
     // General
     Component.onCompleted: {
@@ -101,6 +112,22 @@ Singleton {
         }
     }
 
+    // A typed time for the current period. While it runs, only this period changes; otherwise the period's
+    // length in the settings does, so the next focus or break is that long too.
+    function setPomodoroTime(seconds) {
+        if (seconds <= 0) return;
+        if (root.pomodoroRunning) {
+            Persistent.states.timer.pomodoro.start = getCurrentTimeInSeconds() - (pomodoroLapDuration - seconds);
+            refreshPomodoro();
+            return;
+        }
+        const options = Config.options.time.pomodoro;
+        if (root.pomodoroLongBreak) options.longBreak = seconds;
+        else if (root.pomodoroBreak) options.breakTime = seconds;
+        else options.focus = seconds;
+        pomodoroSecondsLeft = seconds;
+    }
+
     // Ends the current focus or break period right away and moves to the next one
     function skipPomodoro() {
         Persistent.states.timer.pomodoro.start = getCurrentTimeInSeconds() - pomodoroLapDuration;
@@ -113,6 +140,74 @@ Singleton {
         Persistent.states.timer.pomodoro.start = getCurrentTimeInSeconds();
         Persistent.states.timer.pomodoro.cycle = 0;
         refreshPomodoro();
+    }
+
+    // Countdown
+    function refreshCountdown() {
+        if (!root.countdownRunning) {
+            root.countdownSecondsLeft = root.countdown.left;
+            return;
+        }
+        root.countdownSecondsLeft = Math.max(0, root.countdown.end - getCurrentTimeInSeconds());
+        if (root.countdownSecondsLeft > 0) return;
+        Persistent.states.timer.countdown.running = false;
+        Persistent.states.timer.countdown.left = 0;
+        root.countdownDone = true;
+        Quickshell.execDetached(["notify-send", "-a", "Shell", "-u", "critical", "-i", "alarm-symbolic",
+            Translation.tr("Time's up"), Translation.tr("The %1 timer has finished").arg(DateUtils.formatDuration(root.countdownDuration))]);
+        if (Config.options.sounds.pomodoro) Audio.playSystemSound("alarm-clock-elapsed");
+    }
+
+    Timer {
+        interval: 200
+        running: root.countdownRunning
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: root.refreshCountdown()
+    }
+
+    function setCountdown(seconds, start = false) {
+        if (seconds <= 0) return;
+        root.countdownDone = false;
+        Persistent.states.timer.countdown.duration = seconds;
+        Persistent.states.timer.countdown.left = seconds;
+        Persistent.states.timer.countdown.running = false;
+        root.countdownSecondsLeft = seconds;
+        if (start) root.toggleCountdown();
+    }
+
+    function toggleCountdown() {
+        if (root.countdownRunning) {
+            Persistent.states.timer.countdown.left = Math.max(0, root.countdown.end - getCurrentTimeInSeconds());
+            Persistent.states.timer.countdown.running = false;
+            root.refreshCountdown();
+            return;
+        }
+        if (root.countdownSecondsLeft <= 0) root.resetCountdown(); // Rang already: start over
+        root.countdownDone = false;
+        Persistent.states.timer.countdown.end = getCurrentTimeInSeconds() + root.countdownSecondsLeft;
+        Persistent.states.timer.countdown.running = true;
+    }
+
+    function resetCountdown() {
+        root.countdownDone = false;
+        Persistent.states.timer.countdown.running = false;
+        Persistent.states.timer.countdown.left = root.countdownDuration;
+        root.countdownSecondsLeft = root.countdownDuration;
+    }
+
+    // qs -c ii ipc call timer start 10m | toggle | reset | left
+    IpcHandler {
+        target: "timer"
+        function start(duration: string): string {
+            const seconds = DateUtils.parseDuration(duration);
+            if (seconds <= 0) return "Can't read that time";
+            root.setCountdown(seconds, true);
+            return DateUtils.formatDuration(seconds);
+        }
+        function toggle(): void { root.toggleCountdown() }
+        function reset(): void { root.resetCountdown() }
+        function left(): string { return DateUtils.formatDuration(root.countdownSecondsLeft) }
     }
 
     // Stopwatch

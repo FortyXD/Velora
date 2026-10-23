@@ -19,6 +19,7 @@ Rectangle {
     readonly property var item: root.selected?.item ?? null
     readonly property var meta: root.item ? BarWidgetCatalog.get(root.item.type) : null
     readonly property bool horizontal: root.orientation !== "vertical"
+    readonly property bool islands: Config.options.bar.style.islands
 
     signal closeRequested()
     signal selectRequested(string uid)
@@ -196,7 +197,19 @@ Rectangle {
                 onPicked: value => BarLayout.move(root.orientation, root.item.uid, value, 999)
             }
 
+            Choice { // With islands every run of widgets shares one card, so the question is only whether this one stands apart
+                visible: root.islands
+                title: Translation.tr("Island")
+                value: root.item && BarLayout.isOwnIsland(root.orientation, root.item.uid) ? "own" : "shared"
+                options: [
+                    { "value": "shared", "name": Translation.tr("With neighbours") },
+                    { "value": "own", "name": Translation.tr("Separate") },
+                ]
+                onPicked: value => BarLayout.setOwnIsland(root.orientation, root.item.uid, value === "own")
+            }
+
             Choice {
+                visible: !root.islands
                 title: Translation.tr("Background")
                 value: !root.item?.pill ? "none" : root.item?.pillBreak ? "new" : "pill"
                 options: [

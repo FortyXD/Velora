@@ -55,7 +55,7 @@ Scope {
 
     Process {
         id: cavaProc
-        running: mediaControlsLoader.active
+        running: mediaControlsLoader.active && !PowerSaving.cutVisualizer
         onRunningChanged: {
             if (!cavaProc.running) {
                 root.visualizerPoints = [];

@@ -10,7 +10,7 @@ QuickToggleModel {
     name: Translation.tr("Audio input")
     statusText: !Audio.source?.audio ? Translation.tr("No input device") : toggled ? Translation.tr("Enabled") : Translation.tr("Muted")
     toggled: !!Audio.source?.audio && !Audio.source.audio.muted
-    available: Audio.inputDevices.length > 0
+    available: Audio.inputAvailable
     icon: !Audio.source?.audio || Audio.source.audio.muted ? "mic_off" : "mic"
     mainAction: () => {
         Audio.toggleMicMute()

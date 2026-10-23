@@ -39,14 +39,16 @@ def fields(line):
 
 
 def saved_profiles():
-    result = nmcli("-t", "-f", "UUID,TYPE", "connection", "show")
+    result = nmcli("-t", "-f", "UUID,TYPE,TIMESTAMP", "connection", "show")
     if result.returncode:
         return {}
     uuids = []
+    last_used = {}
     for line in result.stdout.splitlines():
         values = fields(line)
         if len(values) >= 2 and values[1] in ("wifi", "802-11-wireless"):
             uuids.append(values[0])
+            last_used[values[0]] = int(values[2]) if len(values) > 2 and values[2].isdigit() else 0
 
     def profile(uuid):
         # A profile name is not necessarily its SSID. Avoid --show-secrets here:
@@ -60,7 +62,8 @@ def saved_profiles():
         ssid = detail.stdout.strip()
         if not ssid:
             return None
-        return ssid, {"uuid": uuid, "hasCredentials": True}
+        # Never connected (a profile left by an attempt that didn't get through): it has no working password
+        return ssid, {"uuid": uuid, "hasCredentials": True, "neverUsed": last_used.get(uuid, 0) == 0}
 
     profiles = {}
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -68,7 +71,8 @@ def saved_profiles():
             if entry is None:
                 continue
             ssid, candidate = entry
-            if ssid not in profiles or (candidate["hasCredentials"] and not profiles[ssid]["hasCredentials"]):
+            # Prefer a profile that was used, then one with credentials
+            if ssid not in profiles or (profiles[ssid]["neverUsed"] and not candidate["neverUsed"]):
                 profiles[ssid] = candidate
     return profiles
 
@@ -100,6 +104,7 @@ def visible_networks(profiles):
             "security": values[5],
             "savedUuid": profiles.get(ssid, {}).get("uuid", ""),
             "savedCredentials": not values[5] or profiles.get(ssid, {}).get("hasCredentials", False),
+            "neverUsed": profiles.get(ssid, {}).get("neverUsed", False),
         }
         previous = networks.get(ssid)
         if previous is None or (network["active"], strength) > (previous["active"], previous["strength"]):

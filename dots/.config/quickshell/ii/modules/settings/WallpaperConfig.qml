@@ -3,17 +3,19 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
 import Quickshell
+import Quickshell.Io
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
+import qs.modules.settings.preview
 
 ContentPage {
     id: root
 
     readonly property string wallpaperPath: {
         const path = Config.options.background.wallpaperPath;
-        const isVideo = [".mp4", ".webm", ".mkv", ".avi", ".mov"].some(ext => path.endsWith(ext));
+        const isVideo = FileUtils.isVideoPath(path);
         return isVideo ? Config.options.background.thumbnailPath : path;
     }
 
@@ -21,6 +23,13 @@ ContentPage {
     // The script reports progress and errors through notifications.
     function runRandomWallpaperScript(scriptName) {
         Quickshell.execDetached([FileUtils.trimFileProtocol(`${Directories.scriptPath}/colors/random/${scriptName}`)]);
+    }
+
+    readonly property bool liveWallpaper: LiveWallpaper.isVideoPath(Config.options.background.wallpaperPath)
+
+    function chooseVideo() {
+        Quickshell.execDetached(["bash", "-c",
+            `f=$(kdialog --getopenfilename "$HOME/Videos" "Videos (*.mp4 *.webm *.mkv *.mov *.avi)" --title "${Translation.tr("Choose a live wallpaper")}") && [ -n "$f" ] && "${Directories.wallpaperSwitchScriptPath}" --image "$f"`]);
     }
 
     function setDarkMode(dark) {
@@ -179,7 +188,255 @@ ContentPage {
         ConfigNavRow {
             buttonIcon: "palette"
             title: Translation.tr("Color palette and theming")
-            onClicked: ApplicationWindow.window?.openPage("appearance", Translation.tr("Theme"))
+            onClicked: ApplicationWindow.window?.openPage("appearance", Translation.tr("Colors"))
+        }
+    }
+
+    ContentSection {
+        icon: "animation"
+        title: Translation.tr("Animated wallpaper")
+        description: Translation.tr("Drawn by the shell itself: no download, sharp on any screen, in your theme's colors or its own. Like a video, it stops moving whenever you can't see it.")
+        searchText: `${title} ${ShaderWallpaper.shaders.map(shader => shader.name).join(" ")}`
+
+        Flow {
+            Layout.fillWidth: true
+            spacing: 8
+            Repeater {
+                model: ShaderWallpaper.shaders
+                delegate: RippleButton {
+                    id: shaderTile
+                    required property var modelData
+                    readonly property bool current: ShaderWallpaper.name === modelData.id
+                    implicitWidth: 176
+                    implicitHeight: 140
+                    buttonRadius: Appearance.rounding.normal
+                    colBackground: shaderTile.current ? Appearance.colors.colSecondaryContainer : "transparent"
+                    colBackgroundHover: shaderTile.current ? Appearance.colors.colSecondaryContainerHover : Appearance.colors.colLayer2Hover
+                    onClicked: {
+                        // Its own colors unless the theme's were chosen for the current one
+                        if (Config.options.background.shaderWallpaper.colors.length > 0 || !ShaderWallpaper.active)
+                            Config.options.background.shaderWallpaper.colors = shaderTile.modelData.colors;
+                        Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "shaderWallpaper", "set", shaderTile.modelData.id]);
+                    }
+                    contentItem: ColumnLayout {
+                        spacing: 6
+                        Rectangle {
+                            Layout.alignment: Qt.AlignHCenter
+                            implicitWidth: 160
+                            implicitHeight: 100
+                            radius: 10
+                            color: "black"
+                            border.width: shaderTile.current ? 2 : 0
+                            border.color: Appearance.colors.colPrimary
+                            layer.enabled: true
+                            layer.effect: OpacityMask {
+                                maskSource: Rectangle {
+                                    width: 160
+                                    height: 100
+                                    radius: 10
+                                }
+                            }
+                            ShaderWallpaperView {
+                                anchors.fill: parent
+                                name: shaderTile.modelData.id
+                                colors: shaderTile.current && Config.options.background.shaderWallpaper.colors.length === 0 ? [] : shaderTile.modelData.colors
+                                running: shaderTile.hovered || shaderTile.current // Only what you look at moves
+                                fps: 24
+                            }
+                            MaterialSymbol {
+                                visible: shaderTile.current
+                                anchors {
+                                    right: parent.right
+                                    top: parent.top
+                                    margins: 6
+                                }
+                                text: "check_circle"
+                                iconSize: 20
+                                fill: 1
+                                color: "white"
+                            }
+                        }
+                        StyledText {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: shaderTile.modelData.name
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: shaderTile.current ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer2
+                        }
+                    }
+                    StyledToolTip {
+                        text: shaderTile.modelData.description
+                    }
+                }
+            }
+        }
+
+        ContentSubsection {
+            visible: ShaderWallpaper.active
+            title: Translation.tr("Colors")
+            ConfigSelectionArray {
+                currentValue: Config.options.background.shaderWallpaper.colors.length > 0 ? "own" : "theme"
+                onSelected: newValue => {
+                    Config.options.background.shaderWallpaper.colors = newValue === "own" ? (ShaderWallpaper.shader(ShaderWallpaper.name)?.colors ?? []) : [];
+                }
+                options: [
+                    { displayName: Translation.tr("Its own"), icon: "palette", value: "own" },
+                    { displayName: Translation.tr("From the theme"), icon: "format_color_fill", value: "theme" }
+                ]
+            }
+        }
+        ConfigSlider {
+            visible: ShaderWallpaper.active
+            buttonIcon: "speed"
+            text: Translation.tr("Speed")
+            usePercentTooltip: false
+            from: 0.25
+            to: 3
+            value: Config.options.background.shaderWallpaper.speed
+            valueText: `${Math.round(value * 100)}%`
+            onMoved: Config.options.background.shaderWallpaper.speed = Math.round(value * 20) / 20
+        }
+        ContentSubsection {
+            visible: ShaderWallpaper.active
+            title: Translation.tr("Smoothness")
+            description: Translation.tr("More frames per second look smoother and use more power")
+            ConfigSelectionArray {
+                currentValue: Config.options.background.shaderWallpaper.fps
+                onSelected: newValue => Config.options.background.shaderWallpaper.fps = newValue
+                options: [
+                    { displayName: Translation.tr("Calm (15)"), icon: "energy_savings_leaf", value: 15 },
+                    { displayName: Translation.tr("Smooth (30)"), icon: "animation", value: 30 },
+                    { displayName: Translation.tr("Fluid (60)"), icon: "bolt", value: 60 }
+                ]
+            }
+        }
+        ConfigNavRow {
+            visible: ShaderWallpaper.active
+            buttonIcon: "pause_circle"
+            title: Translation.tr("Stop the animation")
+            description: Translation.tr("Keeps a still picture of it as the wallpaper")
+            trailingIcon: ""
+            onClicked: Config.options.background.shaderWallpaper.name = ""
+        }
+    }
+
+    ContentSection {
+        icon: "motion_photos_on"
+        title: Translation.tr("Live wallpaper")
+        description: Translation.tr("Any video can be the wallpaper. It plays behind your windows and stops on its current frame whenever you can't see it, so it costs almost nothing while you work.")
+
+        Process { // Live wallpapers are played by mpvpaper
+            id: mpvpaperCheck
+            property bool found: true
+            running: true
+            command: ["sh", "-c", "command -v mpvpaper"]
+            onExited: exitCode => mpvpaperCheck.found = exitCode === 0
+        }
+        NoticeBox {
+            visible: !mpvpaperCheck.found
+            Layout.fillWidth: true
+            materialIcon: "download"
+            text: Translation.tr("Live wallpapers need mpvpaper. Install it with: yay -S mpvpaper")
+        }
+
+        ConfigNavRow {
+            buttonIcon: root.liveWallpaper ? "play_circle" : "video_library"
+            title: root.liveWallpaper ? Translation.tr("Playing %1").arg(FileUtils.fileNameForPath(Config.options.background.wallpaperPath))
+                : Translation.tr("Choose a video")
+            description: root.liveWallpaper ? Translation.tr("Click to pick another video")
+                : Translation.tr("MP4, WebM, MKV or MOV. Short loops of 10–30 seconds look best.")
+            onClicked: root.chooseVideo()
+        }
+
+        ContentSubsection {
+            title: Translation.tr("Decoding")
+            searchText: `${title} GPU CPU ${Translation.tr("Graphics chip")} ${Translation.tr("Processor")}`
+            Flow {
+                Layout.fillWidth: true
+                spacing: 4
+                SchemeTile {
+                    id: gpuTile
+                    label: Translation.tr("Graphics chip")
+                    frameWidth: 112
+                    frameHeight: 70
+                    selected: Config.options.background.liveWallpaper.decoder !== "cpu"
+                    onClicked: Config.options.background.liveWallpaper.decoder = "gpu"
+                    MaterialSymbol { anchors.centerIn: parent; text: "memory"; iconSize: 32; color: gpuTile.ink }
+                }
+                SchemeTile {
+                    id: cpuTile
+                    label: Translation.tr("Processor")
+                    frameWidth: 112
+                    frameHeight: 70
+                    selected: Config.options.background.liveWallpaper.decoder === "cpu"
+                    onClicked: Config.options.background.liveWallpaper.decoder = "cpu"
+                    MaterialSymbol { anchors.centerIn: parent; text: "developer_board"; iconSize: 32; color: cpuTile.ink }
+                }
+            }
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                text: Translation.tr("The graphics chip plays video smoothly and barely touches the battery. The processor works on any computer but uses more power: switch to it if the video stays black.")
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+            }
+        }
+
+        ContentSubsection {
+            title: Translation.tr("Pause the video")
+            searchText: `${title} ${Translation.tr("Behind any window")} ${Translation.tr("Behind fullscreen windows")} ${Translation.tr("Never")}`
+            Flow {
+                Layout.fillWidth: true
+                spacing: 4
+                SchemeTile {
+                    id: anyWindowTile
+                    label: Translation.tr("Behind any window")
+                    frameWidth: 112
+                    frameHeight: 70
+                    selected: Config.options.background.liveWallpaper.pauseWhen === "anyWindow"
+                    onClicked: Config.options.background.liveWallpaper.pauseWhen = "anyWindow"
+                    Rectangle {
+                        x: 14; y: 12; width: 54; height: 38; radius: 4
+                        color: "transparent"; border.width: 2; border.color: anyWindowTile.ink
+                    }
+                    MaterialSymbol { x: 76; y: 30; text: "pause_circle"; iconSize: 22; fill: 1; color: anyWindowTile.ink }
+                }
+                SchemeTile {
+                    id: fullscreenTile
+                    label: Translation.tr("Behind fullscreen windows")
+                    frameWidth: 112
+                    frameHeight: 70
+                    selected: Config.options.background.liveWallpaper.pauseWhen === "fullscreen"
+                    onClicked: Config.options.background.liveWallpaper.pauseWhen = "fullscreen"
+                    Rectangle {
+                        anchors.fill: parent; anchors.margins: 6; radius: 4
+                        color: fullscreenTile.faint; border.width: 2; border.color: fullscreenTile.ink
+                    }
+                    MaterialSymbol { anchors.centerIn: parent; text: "pause_circle"; iconSize: 22; fill: 1; color: fullscreenTile.ink }
+                }
+                SchemeTile {
+                    id: neverTile
+                    label: Translation.tr("Never")
+                    frameWidth: 112
+                    frameHeight: 70
+                    selected: Config.options.background.liveWallpaper.pauseWhen === "never"
+                    onClicked: Config.options.background.liveWallpaper.pauseWhen = "never"
+                    MaterialSymbol { anchors.centerIn: parent; text: "play_circle"; iconSize: 26; fill: 1; color: neverTile.ink }
+                }
+            }
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                text: Translation.tr("Also for animated wallpapers. On the lock screen it goes on playing behind the blur unless that's turned off on the Lock Screen page; energy saving pauses it.")
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+            }
+        }
+
+        ConfigNavRow {
+            buttonIcon: "energy_savings_leaf"
+            title: Translation.tr("Energy saving")
+            description: PowerSaving.pauseLiveWallpaper ? Translation.tr("On now: the video is paused") : Translation.tr("Pauses the video while it's on")
+            onClicked: ApplicationWindow.window?.openPage("battery")
         }
     }
 

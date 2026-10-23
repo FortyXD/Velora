@@ -22,8 +22,9 @@ Singleton {
     property url defaultFolder: Qt.resolvedUrl(`${Directories.pictures}/Wallpapers`)
     property alias folderModel: folderModel // Expose for direct binding when needed
     property string searchQuery: ""
-    readonly property list<string> extensions: [ // TODO: add videos
-        "jpg", "jpeg", "png", "webp", "avif", "bmp", "svg"
+    readonly property list<string> extensions: [
+        "jpg", "jpeg", "png", "webp", "avif", "bmp", "svg",
+        "mp4", "webm", "mkv", "mov", "avi" // Live wallpapers (LiveWallpaper.qml)
     ]
     property list<string> wallpapers: [] // List of absolute file paths (without file://)
     readonly property bool thumbnailGenerationRunning: thumbgenProc.running
@@ -144,7 +145,8 @@ Singleton {
         thumbgenProc.running = false
         thumbgenProc.command = [
             "bash", "-c",
-            `${thumbgenScriptPath} --size ${size} --machine_progress -d ${FileUtils.trimFileProtocol(root.directory)} || ${generateThumbnailsMagickScriptPath} --size ${size} -d ${FileUtils.trimFileProtocol(root.directory)}`,
+            // The second pass fills in what the first couldn't: everything if it isn't installed, and videos
+            `${thumbgenScriptPath} --size ${size} --machine_progress -d ${FileUtils.trimFileProtocol(root.directory)}; ${generateThumbnailsMagickScriptPath} --size ${size} -d ${FileUtils.trimFileProtocol(root.directory)}`,
         ]
         // console.log("[Wallpapers] Updating thumbnails with command ", thumbgenProc.command.join(" "))
         root.thumbnailGenerationProgress = 0

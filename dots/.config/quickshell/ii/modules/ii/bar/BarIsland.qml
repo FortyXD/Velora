@@ -9,7 +9,7 @@ import Qt5Compat.GraphicalEffects
 
 /**
  * The media slot of the bar, taken over by ongoing activities while they last:
- * screen recording, then pomodoro, then the stopwatch, then a short card when the track changes.
+ * screen recording, then the timer, pomodoro, the stopwatch, then a short card when the track changes.
  * Only the visible page is loaded.
  */
 Item {
@@ -20,9 +20,11 @@ Item {
     // Paused timers keep their page, so they can be resumed from here
     readonly property bool pomodoroActive: TimerService.pomodoroRunning || !TimerService.pomodoroLapFresh
     readonly property bool stopwatchActive: TimerService.stopwatchRunning || TimerService.stopwatchTime > 0
+    readonly property bool timerActive: TimerService.countdownRunning || !TimerService.countdownFresh
     property bool trackToastShown: false
 
     readonly property string mode: (options.showRecording && ScreenRecorder.recording) ? "recording"
+        : ((options.showTimer ?? true) && timerActive) ? "timer"
         : (options.showPomodoro && pomodoroActive) ? "pomodoro"
         : (options.showStopwatch && stopwatchActive) ? "stopwatch"
         : trackToastShown ? "track"
@@ -154,6 +156,59 @@ Item {
                     fill: 1
                     iconSize: Appearance.font.pixelSize.larger
                     color: Appearance.colors.colError
+                }
+            }
+        }
+    }
+
+    IslandPage {
+        pageMode: "timer"
+        sourceComponent: Item {
+            PageMouseArea {
+                action: () => TimerService.countdownDone ? TimerService.resetCountdown() : TimerService.toggleCountdown()
+            }
+
+            RowLayout {
+                anchors.centerIn: parent
+                spacing: 8
+
+                ClippedFilledCircularProgress {
+                    id: timerProgress
+                    Layout.alignment: Qt.AlignVCenter
+                    implicitSize: 20
+                    lineWidth: Appearance.rounding.unsharpen
+                    value: TimerService.countdownSecondsLeft / Math.max(1, TimerService.countdownDuration)
+                    colPrimary: TimerService.countdownDone ? Appearance.colors.colError : Appearance.colors.colOnSecondaryContainer
+                    enableAnimation: root.animate
+                    animationDuration: 400
+
+                    Item {
+                        anchors.centerIn: parent
+                        width: timerProgress.implicitSize
+                        height: timerProgress.implicitSize
+                        MaterialSymbol {
+                            anchors.centerIn: parent
+                            fill: 1
+                            text: TimerService.countdownDone ? "alarm" : "hourglass_top"
+                            iconSize: Appearance.font.pixelSize.normal
+                            color: Appearance.m3colors.m3onSecondaryContainer
+                        }
+                    }
+                }
+                PageLabel {
+                    text: TimerService.countdownDone ? Translation.tr("Time's up") : Translation.tr("Timer")
+                }
+                PageTime {
+                    reverse: true
+                    text: root.formatDuration(TimerService.countdownSecondsLeft)
+                }
+                MaterialSymbol {
+                    Layout.alignment: Qt.AlignVCenter
+                    visible: !TimerService.countdownRunning && !TimerService.countdownDone
+                    text: "pause"
+                    fill: 1
+                    iconSize: Appearance.font.pixelSize.larger
+                    color: Appearance.colors.colSubtext
                 }
             }
         }

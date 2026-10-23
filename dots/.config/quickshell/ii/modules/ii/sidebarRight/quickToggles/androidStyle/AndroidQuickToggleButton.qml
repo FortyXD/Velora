@@ -199,35 +199,17 @@ GroupButton {
         hoverEnabled: true
         acceptedButtons: Qt.AllButtons
 
+        // Through SidebarLayout, which writes the whole list (changes inside it wouldn't be saved)
         function toggleEnabled() {
-            const index = root.buttonIndex;
-            const toggleList = Config.options.sidebar.quickToggles.android.toggles;
-            const buttonType = root.buttonData.type;
-            if (!toggleList.find(toggle => toggle.type === buttonType)) {
-                toggleList.push({ type: buttonType, size: 1 });
-            } else {
-                toggleList.splice(index, 1);
-            }
+            SidebarLayout.toggleAndroidToggle(root.buttonData.type);
         }
 
         function toggleSize() {
-            const index = root.buttonIndex;
-            const toggleList = Config.options.sidebar.quickToggles.android.toggles;
-            const buttonType = root.buttonData.type;
-            if (!toggleList.find(toggle => toggle.type === buttonType)) return;
-            toggleList[index].size = 3 - toggleList[index].size; // Alternate between 1 and 2
+            if (SidebarLayout.hasAndroidToggle(root.buttonData.type)) SidebarLayout.resizeAndroidToggle(root.buttonData.type);
         }
 
         function movePositionBy(offset) {
-            const index = root.buttonIndex;
-            const toggleList = Config.options.sidebar.quickToggles.android.toggles;
-            const buttonType = root.buttonData.type;
-            const targetIndex = index + offset;
-            if (!toggleList.find(toggle => toggle.type === buttonType)) return;
-            if (targetIndex < 0 || targetIndex >= toggleList.length) return;
-            const temp = toggleList[index];
-            toggleList[index] = toggleList[targetIndex];
-            toggleList[targetIndex] = temp;
+            if (SidebarLayout.hasAndroidToggle(root.buttonData.type)) SidebarLayout.moveAndroidToggleBy(root.buttonData.type, offset);
         }
 
         onReleased: (event) => {
@@ -241,9 +223,6 @@ GroupButton {
             toggleSize();
         }
         onWheel: (event) => {
-            const index = root.buttonIndex;
-            const toggleList = Config.options.sidebar.quickToggles.android.toggles;
-            const buttonType = root.buttonData.type;
             if (event.angleDelta.y < 0) { // Move to right
                 movePositionBy(1);
             } else if (event.angleDelta.y > 0) { // Move to left

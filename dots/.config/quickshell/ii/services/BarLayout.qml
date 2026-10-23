@@ -2,6 +2,7 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 
 import qs.modules.common
+import qs.modules.common.functions
 import QtQuick
 import Quickshell
 
@@ -160,6 +161,30 @@ Singleton {
         for (const key of Object.keys(patch)) {
             if (patch[key] === null || patch[key] === undefined) delete found.item[key];
             else found.item[key] = patch[key];
+        }
+        root.write(orientation, layout);
+    }
+
+    // Island mode: whether a widget sits in a card of its own instead of sharing one with its neighbours
+    function isOwnIsland(orientation, uid) {
+        const found = root.find(root.current(orientation), uid);
+        if (!found) return false;
+        const segment = BarLayoutUtils.segments(root.current(orientation).zones[found.zone], true)
+            .find(segment => segment.items.some(item => item.uid === uid));
+        return (segment?.items.length ?? 0) === 1;
+    }
+
+    // Island mode: a card of its own starts at the widget and ends right after it (see BarLayoutUtils.segments)
+    function setOwnIsland(orientation, uid, own) {
+        let layout = root.clone(root.current(orientation));
+        const found = root.find(layout, uid);
+        if (!found) return;
+        const next = layout.zones[found.zone][found.index + 1];
+        if (own) found.item.pillBreak = true;
+        else delete found.item.pillBreak;
+        if (next && next.type !== "spacer") {
+            if (own) next.pillBreak = true;
+            else delete next.pillBreak;
         }
         root.write(orientation, layout);
     }

@@ -121,6 +121,10 @@ RippleButton {
         return list;
     }
 
+    function openPopup() {
+        popup.open();
+    }
+
     function pick(item) {
         if (item.kind === "more") {
             root.showMore = true;

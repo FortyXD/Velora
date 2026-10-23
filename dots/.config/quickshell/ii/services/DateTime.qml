@@ -13,7 +13,7 @@ Singleton {
     property var clock: SystemClock {
         id: clock
         precision: {
-            if (Config.options.time.secondPrecision || GlobalStates.screenLocked)
+            if ((Config.options.time.secondPrecision || GlobalStates.screenLocked) && !PowerSaving.slowPolling)
                 return SystemClock.Seconds;
             return SystemClock.Minutes;
         }
@@ -48,7 +48,7 @@ Singleton {
             if (minutes > 0 || !formatted)
                 formatted += `${formatted ? ", " : ""}${minutes}m`;
             uptime = formatted;
-            interval = Config.options?.resources?.updateInterval ?? 3000;
+            interval = (Config.options?.resources?.updateInterval ?? 3000) * PowerSaving.pollingFactor;
         }
     }
 

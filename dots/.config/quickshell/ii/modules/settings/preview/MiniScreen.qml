@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Qt5Compat.GraphicalEffects
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 
 /**
@@ -14,12 +15,13 @@ Item {
     readonly property real aspect: root.screen && root.screen.height > 0 ? root.screen.width / root.screen.height : 16 / 10
     readonly property string wallpaper: {
         const path = Config.options.background.wallpaperPath;
-        const isVideo = /\.(mp4|webm|mkv|avi|mov)$/i.test(path);
+        const isVideo = FileUtils.isVideoPath(path);
         return isVideo ? Config.options.background.thumbnailPath : path;
     }
     property real radius: Appearance.rounding.normal
     property real scrim: 0.1 // Darkens the wallpaper a little so what's drawn on it stands out
     default property alias contentData: content.data
+    readonly property alias wallpaperItem: wallpaperImage // For effects that show the wallpaper through something
 
     implicitHeight: Math.round(width / root.aspect)
 
@@ -38,6 +40,7 @@ Item {
         }
 
         StyledImage {
+            id: wallpaperImage
             anchors.fill: parent
             source: root.wallpaper
             fillMode: Image.PreserveAspectCrop

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
+import QtMultimedia
 import Quickshell
 import qs.services
 import qs.modules.common
@@ -14,8 +15,10 @@ ContentPage {
 
     readonly property var systemPresets: Presets.presets.filter(preset => !page.isBarOnly(preset))
     // Whole looks with their own wallpaper come first, plain styles after
-    readonly property var lookPresets: systemPresets.filter(preset => Presets.previewOf(preset).length > 0)
-    readonly property var stylePresets: systemPresets.filter(preset => Presets.previewOf(preset).length === 0)
+    readonly property var allLooks: systemPresets.filter(preset => Presets.previewOf(preset).length > 0 || Presets.isLive(preset))
+    property bool liveOnly: false // Only looks with a moving wallpaper
+    readonly property var lookPresets: page.allLooks.filter(preset => !page.liveOnly || Presets.isLive(preset))
+    readonly property var stylePresets: systemPresets.filter(preset => Presets.previewOf(preset).length === 0 && !Presets.isLive(preset))
     readonly property var barPresets: Presets.presets.filter(preset => page.isBarOnly(preset))
     property string expandedId: "" // Preset whose apply options are open
     property var chosenCategories: []
@@ -23,7 +26,7 @@ ContentPage {
     // Styles and bar presets keep your wallpaper, so their miniatures are drawn over it
     readonly property string currentWallpaper: {
         const path = Config.options.background.wallpaperPath ?? "";
-        const picture = /\.(mp4|webm|mkv|avi|mov)$/i.test(path) ? (Config.options.background.thumbnailPath ?? "") : path;
+        const picture = FileUtils.isVideoPath(path) ? (Config.options.background.thumbnailPath ?? "") : path;
         return picture.length > 0 ? `file://${FileUtils.trimFileProtocol(picture)}` : "";
     }
 
@@ -58,6 +61,10 @@ ContentPage {
         readonly property var categories: Presets.categoriesOf(preset)
         readonly property bool barOnly: page.isBarOnly(preset)
         readonly property string preview: Presets.previewOf(preset) || page.currentWallpaper
+        readonly property bool live: Presets.isLive(preset)
+        readonly property string shaderName: (preset.wallpaperAnimations?.wallpaper ?? "").startsWith("shader:") ? preset.wallpaperAnimations.wallpaper.slice(7) : ""
+        readonly property string previewVideo: Presets.previewVideoOf(preset)
+        readonly property bool hovered: cardHover.hovered
         readonly property bool settingsSearchable: true
         property string searchText: `${Translation.tr(preset.name)} ${Translation.tr(preset.description ?? "")}`
 
@@ -66,6 +73,10 @@ ContentPage {
         implicitHeight: cardColumn.implicitHeight
         radius: Appearance.rounding.large
         color: card.expanded ? Appearance.colors.colPrimaryContainer : Appearance.colors.colLayer2
+
+        HoverHandler {
+            id: cardHover
+        }
 
         ColumnLayout {
             id: cardColumn
@@ -103,10 +114,65 @@ ContentPage {
                         active: card.preview.length > 0
                         sourceComponent: card.preview.startsWith("http") ? remotePreview : localPreview
                     }
-                    PresetMockup {
+                    // Moving wallpapers: the shader itself (still until hovered), or the clip while hovered
+                    Loader {
                         anchors.fill: parent
-                        preset: card.preset
-                        barOnly: card.barOnly
+                        active: card.shaderName.length > 0
+                        sourceComponent: ShaderWallpaperView {
+                            name: card.shaderName
+                            colors: card.preset.wallpaperAnimations?.config?.background?.shaderWallpaper?.colors ?? []
+                            running: card.hovered
+                            fps: 24
+                        }
+                    }
+                    Loader {
+                        anchors.fill: parent
+                        active: card.hovered && card.previewVideo.length > 0
+                        sourceComponent: Video {
+                            source: card.previewVideo
+                            autoPlay: true
+                            loops: MediaPlayer.Infinite
+                            muted: true
+                            fillMode: VideoOutput.PreserveAspectCrop
+                        }
+                    }
+                    Loader { // A dozen mockups at once took a third of a second, so they draw in over the next frames
+                        anchors.fill: parent
+                        asynchronous: true
+                        sourceComponent: PresetMockup {
+                            preset: card.preset
+                            barOnly: card.barOnly
+                        }
+                    }
+                }
+                // "Live" in the corner, with a hint to hover
+                Rectangle {
+                    visible: card.live
+                    anchors {
+                        left: parent.left
+                        top: parent.top
+                        margins: 10
+                    }
+                    implicitWidth: liveRow.implicitWidth + 14
+                    implicitHeight: liveRow.implicitHeight + 6
+                    radius: height / 2
+                    color: ColorUtils.transparentize("black", 0.45)
+                    RowLayout {
+                        id: liveRow
+                        anchors.centerIn: parent
+                        spacing: 4
+                        MaterialSymbol {
+                            text: card.hovered ? "play_circle" : "motion_photos_on"
+                            iconSize: 14
+                            fill: 1
+                            color: "white"
+                        }
+                        StyledText {
+                            text: Translation.tr("LIVE")
+                            font.pixelSize: Appearance.font.pixelSize.smallest
+                            font.weight: Font.DemiBold
+                            color: "white"
+                        }
                     }
                 }
                 Component {
@@ -346,6 +412,43 @@ ContentPage {
                 onClicked: {
                     Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "presets", "undo"]);
                     refreshTimer.restart();
+                }
+            }
+        }
+
+        Flow {
+            visible: page.allLooks.some(preset => Presets.isLive(preset))
+            Layout.fillWidth: true
+            spacing: 6
+            Repeater {
+                model: [
+                    { "live": false, "icon": "apps", "label": Translation.tr("All looks") },
+                    { "live": true, "icon": "motion_photos_on", "label": Translation.tr("With a moving wallpaper") }
+                ]
+                delegate: RippleButton {
+                    id: filterChip
+                    required property var modelData
+                    readonly property bool chosen: page.liveOnly === modelData.live
+                    implicitHeight: 34
+                    leftPadding: 10
+                    rightPadding: 12
+                    buttonRadius: Appearance.rounding.full
+                    colBackground: filterChip.chosen ? Appearance.colors.colSecondaryContainer : Appearance.colors.colLayer3
+                    colBackgroundHover: filterChip.chosen ? Appearance.colors.colSecondaryContainerHover : Appearance.colors.colLayer3Hover
+                    onClicked: page.liveOnly = modelData.live
+                    contentItem: RowLayout {
+                        spacing: 6
+                        MaterialSymbol {
+                            text: filterChip.modelData.icon
+                            iconSize: 16
+                            color: filterChip.chosen ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer3
+                        }
+                        StyledText {
+                            text: filterChip.modelData.label
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: filterChip.chosen ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer3
+                        }
+                    }
                 }
             }
         }

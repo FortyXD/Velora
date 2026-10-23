@@ -26,7 +26,7 @@ Singleton {
     property bool snapshotRefreshPending: false
 
     readonly property bool wifiConnecting: connectionPending || wifiStatus === "connecting"
-    readonly property list<WifiAccessPoint> wifiNetworks: []
+    property list<WifiAccessPoint> wifiNetworks: []
     readonly property WifiAccessPoint active: wifiNetworks.find(network => network.active) ?? null
     readonly property list<var> friendlyWifiNetworks: [...wifiNetworks].sort((a, b) => {
         const rank = network => network.active ? 0 : network.savedUuid ? 1 : 2;
@@ -126,7 +126,9 @@ Singleton {
 
     function beginConnection(network) {
         if (!network || !wifiEnabled || connectionPending || network.active) return;
-        if (network.isSecure && !network.savedUuid) {
+        // A password is asked for right away, like other systems do, for a new network and for a saved one
+        // that never got connected (its profile has no working password)
+        if (network.isSecure && !network.known) {
             network.askingPassword = true;
             passwordPromptSsid = network.ssid;
             wifiErrorMessage = "";
@@ -161,7 +163,13 @@ Singleton {
         wifiConnectSsid = network.ssid;
         connectErrorBuffer = "";
         connectionPending = true;
-        if (network.savedUuid) {
+        if (network.savedUuid && network.neverUsed) {
+            // A profile that never connected may lack its security settings: start over with a fresh one
+            passwordProc.exec({
+                environment: { PASSWORD: password, UUID: network.savedUuid, SSID: network.ssid, BSSID: network.bssid },
+                command: ["sh", "-c", 'nmcli connection delete uuid "$UUID" >/dev/null; nmcli device wifi connect "$SSID" password "$PASSWORD" bssid "$BSSID"']
+            });
+        } else if (network.savedUuid) {
             passwordProc.exec({
                 environment: { PASSWORD: password, UUID: network.savedUuid },
                 command: ["sh", "-c", 'nmcli connection modify uuid "$UUID" wifi-sec.psk "$PASSWORD" && nmcli connection up uuid "$UUID"']
@@ -435,18 +443,20 @@ Singleton {
                 }
                 root.snapshotError = "";
                 root.savedNetworks = snapshot.saved ?? [];
+                // Built aside and assigned once: splice/push on a list property notify every
+                // intermediate step, and those steps hold the same network twice
                 const networks = snapshot.networks ?? [];
-                const current = root.wifiNetworks;
-                for (const previous of [...current]) {
-                    if (networks.some(network => network.ssid === previous.ssid)) continue;
-                    current.splice(current.indexOf(previous), 1);
-                    previous.destroy();
-                }
+                const previous = root.wifiNetworks;
+                const next = [];
                 for (const network of networks) {
-                    const existing = current.find(item => item.ssid === network.ssid);
+                    const existing = next.find(item => item.ssid === network.ssid)
+                        ?? previous.find(item => item.ssid === network.ssid);
                     if (existing) existing.lastIpcObject = network;
-                    else current.push(apComp.createObject(root, { lastIpcObject: network }));
+                    if (!next.includes(existing)) next.push(existing ?? apComp.createObject(root, { lastIpcObject: network }));
                 }
+                const gone = previous.filter(item => !next.includes(item));
+                root.wifiNetworks = next;
+                for (const item of gone) item.destroy();
             }
         }
         onExited: {

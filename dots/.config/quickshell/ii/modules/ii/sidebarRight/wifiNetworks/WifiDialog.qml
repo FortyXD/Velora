@@ -64,7 +64,11 @@ WindowDialog {
         Layout.leftMargin: -Appearance.rounding.large
         Layout.rightMargin: -Appearance.rounding.large
     }
-    ListView {
+    // A Repeater, not a ListView: when a scan re-sorts the networks while some rows are out of view,
+    // the ListView creates and drops delegates during the row move and Qt 6.11 crashes the shell
+    // (QQmlDelegateModel::_q_itemsMoved)
+    StyledFlickable {
+        id: networkList
         Layout.fillHeight: true
         Layout.fillWidth: true
         Layout.topMargin: -15
@@ -72,16 +76,76 @@ WindowDialog {
         Layout.leftMargin: -Appearance.rounding.large
         Layout.rightMargin: -Appearance.rounding.large
         clip: true
-        spacing: 0
-        model: ScriptModel {
-            values: Network.friendlyWifiNetworks
+        contentWidth: width
+        contentHeight: networkColumn.implicitHeight
+
+        Column {
+            id: networkColumn
+            width: networkList.width
+            Repeater {
+                model: ScriptModel {
+                    values: Network.friendlyWifiNetworks
+                }
+                // The password is asked for right under the network that needs it
+                delegate: ColumnLayout {
+                    id: networkEntry
+                    required property WifiAccessPoint modelData
+                    width: networkColumn.width
+                    spacing: 0
+                    WifiNetworkItem {
+                        Layout.fillWidth: true
+                        wifiNetwork: networkEntry.modelData
+                    }
+                    ColumnLayout {
+                        visible: networkEntry.modelData?.askingPassword ?? false
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Appearance.rounding.large + 30
+                        Layout.rightMargin: Appearance.rounding.large
+                        Layout.bottomMargin: 10
+                        spacing: 6
+                        onVisibleChanged: {
+                            passwordField.text = "";
+                            if (visible) passwordField.forceActiveFocus();
+                        }
+                        MaterialTextField {
+                            id: passwordField
+                            Layout.fillWidth: true
+                            enabled: !Network.connectionPending
+                            placeholderText: Translation.tr("Password for %1").arg(networkEntry.modelData?.ssid ?? "")
+                            echoMode: TextInput.Password
+                            inputMethodHints: Qt.ImhSensitiveData
+                            onAccepted: if (text.length > 0) Network.changePassword(networkEntry.modelData, text)
+                            Keys.onEscapePressed: Network.cancelPasswordPrompt()
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            visible: text.length > 0
+                            wrapMode: Text.Wrap
+                            text: networkEntry.modelData?.errorText ?? ""
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: Appearance.colors.colError
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Item { Layout.fillWidth: true }
+                            DialogButton {
+                                buttonText: Translation.tr("Cancel")
+                                enabled: !Network.connectionPending
+                                onClicked: Network.cancelPasswordPrompt()
+                            }
+                            DialogButton {
+                                buttonText: Translation.tr("Connect")
+                                enabled: passwordField.text.length > 0 && !Network.connectionPending
+                                onClicked: Network.changePassword(networkEntry.modelData, passwordField.text)
+                            }
+                        }
+                    }
+                }
+            }
         }
-        delegate: WifiNetworkItem {
-            required property WifiAccessPoint modelData
-            wifiNetwork: modelData
-            width: ListView.view.width
-        }
+
         StyledText {
+            parent: networkList // Stays put while the list scrolls
             anchors.centerIn: parent
             visible: Network.friendlyWifiNetworks.length === 0
             text: Network.wifiEnabled ? Translation.tr("No Wi-Fi networks") : Translation.tr("Wi-Fi is off")
@@ -93,7 +157,7 @@ WindowDialog {
         visible: text.length > 0
         wrapMode: Text.Wrap
         color: Appearance.colors.colError
-        text: Network.snapshotError || Network.wifiErrorMessage
+        text: Network.snapshotError || (root.passwordNetwork ? "" : Network.wifiErrorMessage) // Password errors show at the network
         textFormat: Text.PlainText
     }
     DialogButton {
@@ -101,47 +165,6 @@ WindowDialog {
         visible: root.credentialErrorNetwork !== null
         buttonText: Translation.tr("Update saved password")
         onClicked: Network.requestPasswordUpdate()
-    }
-    ColumnLayout {
-        Layout.fillWidth: true
-        visible: root.passwordNetwork !== null
-        spacing: 8
-        StyledText {
-            Layout.fillWidth: true
-            elide: Text.ElideRight
-            text: Translation.tr("Password for %1").arg(root.passwordNetwork?.ssid ?? "")
-            color: Appearance.colors.colOnSurfaceVariant
-        }
-        MaterialTextField {
-            id: passwordField
-            Layout.fillWidth: true
-            enabled: !Network.connectionPending
-            placeholderText: Translation.tr("Password")
-            echoMode: TextInput.Password
-            inputMethodHints: Qt.ImhSensitiveData
-            onAccepted: {
-                if (root.passwordNetwork) Network.changePassword(root.passwordNetwork, text);
-            }
-        }
-        RowLayout {
-            Layout.fillWidth: true
-            Item { Layout.fillWidth: true }
-            DialogButton {
-                buttonText: Translation.tr("Cancel")
-                enabled: !Network.connectionPending
-                onClicked: Network.cancelPasswordPrompt()
-            }
-            DialogButton {
-                buttonText: Translation.tr("Connect")
-                enabled: passwordField.text.length > 0 && !Network.connectionPending
-                onClicked: {
-                    if (root.passwordNetwork) Network.changePassword(root.passwordNetwork, passwordField.text);
-                }
-            }
-        }
-        onVisibleChanged: {
-            if (!visible) passwordField.text = "";
-        }
     }
     WindowDialogSeparator {}
     WindowDialogButtonRow {

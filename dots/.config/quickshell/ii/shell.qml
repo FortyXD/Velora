@@ -33,6 +33,12 @@ ShellRoot {
         Presets.load()
         OnlineWallpapers.load()
         WallpaperOfTheDay.load()
+        PowerSaving.load()
+        LiveWallpaper.load()
+        Audio.load()
+        HotCorners.load()
+        TimerService.load()
+        Weather.load()
     }
 
 

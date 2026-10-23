@@ -2,10 +2,43 @@
 -- put manual changes in custom/general.lua instead.
 
 hl.config({
+    animations = {
+        enabled = true,
+    },
+    decoration = {
+        active_opacity = 1,
+        blur = {
+            enabled = true,
+            passes = 3,
+            size = 10,
+            vibrancy = 0.500,
+            xray = true,
+        },
+        dim_inactive = true,
+        dim_strength = 0.050,
+        inactive_opacity = 1,
+        rounding = 16,
+        rounding_power = 2,
+        shadow = {
+            enabled = true,
+            range = 20,
+        },
+    },
+    general = {
+        border_size = 1,
+        gaps_in = 5,
+        gaps_out = 10,
+        gaps_workspaces = 50,
+        layout = "dwindle",
+    },
     input = {
         scroll_factor = 1,
         touchpad = {
             scroll_factor = 0.500,
         },
+    },
+    misc = {
+        animate_manual_resizes = false,
+        animate_mouse_windowdragging = false,
     },
 })

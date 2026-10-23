@@ -152,6 +152,21 @@ Singleton {
                 }
             }
 
+            property JsonObject notifications: JsonObject {
+                property bool silent: false // Do not disturb
+            }
+
+            // What energy saving turned down, so it can be put back after a restart of the shell too
+            property JsonObject powerSaving: JsonObject {
+                property bool keyboardLightCut: false
+                property int keyboardLightBefore: 0
+                property bool brightnessCut: false
+                property real brightnessBefore: -1 // -1: it wasn't lowered
+                property real brightnessSet: -1 // What it was lowered to
+                property bool bluetoothCut: false
+                property bool bluetoothBefore: false // It was on
+            }
+
             property JsonObject timer: JsonObject {
                 property JsonObject pomodoro: JsonObject {
                     property bool running: false
@@ -163,6 +178,12 @@ Singleton {
                     property bool running: false
                     property int start: 0
                     property list<var> laps: []
+                }
+                property JsonObject countdown: JsonObject {
+                    property int duration: 300 // Seconds the timer was set to
+                    property bool running: false
+                    property int end: 0 // While running: when it rings, in seconds since the epoch
+                    property int left: 300 // While paused: seconds left
                 }
             }
         }

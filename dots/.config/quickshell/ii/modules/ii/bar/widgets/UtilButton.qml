@@ -30,6 +30,7 @@ Loader {
         case "doNotDisturb": return doNotDisturb;
         case "darkMode": return darkMode;
         case "performanceProfile": return performanceProfile;
+        case "powerSaving": return powerSaving;
         case "gpuMode": return gpuMode;
         default: return null;
         }
@@ -145,12 +146,20 @@ Loader {
         }
     }
 
+    property Component powerSaving: Component {
+        CircleUtilButton {
+            toggled: PowerSaving.active
+            iconName: "energy_savings_leaf"
+            tooltipText: Translation.tr("Energy saving: %1 | Right-click for settings").arg(PowerSaving.statusText)
+            onClicked: PowerSaving.toggle()
+            altAction: () => PowerSaving.openSettings()
+        }
+    }
+
     property Component gpuMode: Component {
         CircleUtilButton {
             id: gpuButton
             property bool containsMouse: hovered
-            colBackground: "transparent"
-            colBackgroundHover: "transparent"
             iconName: Supergfxctl.icon
             iconColor: Supergfxctl.lastError.length > 0 ? Appearance.colors.colError : Appearance.colors.colOnLayer2
             onClicked: Supergfxctl.toggle()

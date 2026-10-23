@@ -27,7 +27,7 @@ AbstractQuickPanel {
     readonly property real baseCellHeight: 56
 
     // Toggles
-    readonly property list<string> availableToggleTypes: ["network", "bluetooth", "idleInhibitor", "easyEffects", "nightLight", "darkMode", "cloudflareWarp", "gameMode", "screenSnip", "colorPicker", "onScreenKeyboard", "mic", "audio", "notifications", "powerProfile","musicRecognition", "antiFlashbang"]
+    readonly property list<string> availableToggleTypes: ["network", "bluetooth", "idleInhibitor", "easyEffects", "nightLight", "darkMode", "cloudflareWarp", "gameMode", "screenSnip", "colorPicker", "onScreenKeyboard", "mic", "audio", "notifications", "powerProfile", "powerSaving", "musicRecognition", "antiFlashbang"]
     readonly property int columns: Config.options.sidebar.quickToggles.android.columns
     readonly property list<var> toggles: Config.ready ? Config.options.sidebar.quickToggles.android.toggles : []
     readonly property list<var> toggleRows: toggleRowsForList(toggles)
@@ -43,13 +43,15 @@ AbstractQuickPanel {
         var totalSize = 0; // Total cols taken in current row
         for (var i = 0; i < togglesList.length; i++) {
             if (!togglesList[i]) continue;
-            if (totalSize + togglesList[i].size > columns) {
+            // A wide toggle is narrowed when there's a single column
+            const toggle = togglesList[i].size > columns ? { type: togglesList[i].type, size: columns } : togglesList[i];
+            if (totalSize + toggle.size > columns && row.length > 0) {
                 rows.push(row);
                 row = [];
                 totalSize = 0;
             }
-            row.push(togglesList[i]);
-            totalSize += togglesList[i].size;
+            row.push(toggle);
+            totalSize += toggle.size;
         }
         if (row.length > 0) {
             rows.push(row);

@@ -16,7 +16,7 @@ RippleButton {
     property string tooltipText
     property color iconColor: !toggled ? Appearance.colors.colOnLayer2
         : urgent ? Appearance.colors.colOnErrorContainer : Appearance.colors.colOnSecondaryContainer
-    readonly property bool animate: Config.options.bar.microAnimations
+    readonly property bool animate: Config.options.bar.microAnimations && !PowerSaving.cutAnimations
 
     implicitHeight: 26
     implicitWidth: implicitHeight

@@ -40,6 +40,7 @@ Singleton {
         { "kind": "doNotDisturb", "option": "showDoNotDisturb", "name": Translation.tr("Do not disturb"), "icon": "notifications_paused" },
         { "kind": "darkMode", "option": "showDarkModeToggle", "name": Translation.tr("Dark mode"), "icon": "dark_mode" },
         { "kind": "performanceProfile", "option": "showPerformanceProfileToggle", "name": Translation.tr("Power profile"), "icon": "airwave" },
+        { "kind": "powerSaving", "option": "showPowerSavingToggle", "name": Translation.tr("Energy saving"), "icon": "energy_savings_leaf" },
         { "kind": "gpuMode", "option": "showSupergfxctlToggle", "name": Translation.tr("GPU mode"), "icon": "developer_board" },
     ]
 
@@ -197,6 +198,7 @@ Singleton {
                     { "key": "showRecording", "kind": "switch", "label": Translation.tr("Screen recording"), "scope": "path:bar.island.showRecording" },
                     { "key": "showPomodoro", "kind": "switch", "label": Translation.tr("Pomodoro"), "scope": "path:bar.island.showPomodoro" },
                     { "key": "showStopwatch", "kind": "switch", "label": Translation.tr("Stopwatch"), "scope": "path:bar.island.showStopwatch" },
+                    { "key": "showTimer", "kind": "switch", "label": Translation.tr("Timer"), "scope": "path:bar.island.showTimer" },
                     { "key": "trackToast", "kind": "switch", "label": Translation.tr("Card on track change"), "scope": "path:bar.island.trackToast" },
                 ]
             },

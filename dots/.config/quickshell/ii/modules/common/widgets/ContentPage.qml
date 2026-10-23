@@ -21,13 +21,28 @@ StyledFlickable {
 
     default property alias contentData: contentColumn.data
 
+    property bool pageShown: true // False while another settings page is in front
+    signal revealCancelled() // The user scrolled, so nothing should pull the page to a revealed item any more
+
     clip: true
     contentHeight: contentColumn.implicitHeight + root.topContentPadding + root.bottomContentPadding
     implicitWidth: contentColumn.implicitWidth
 
-    // Scrolls so that `item` (anything inside this page) is in view and briefly outlines it
+    // Scrolls so that `item` (anything inside this page) is in view and briefly outlines it.
+    // Whatever keeps it out of sight first gets a chance to show it: an ancestor with a
+    // `settingsReveal()` function (folded rows, one of several panels) returns true when it changed.
     function revealItem(item, highlight = true) {
         if (!item) return;
+        let unfolded = false;
+        for (let node = item.parent; node && node !== root; node = node.parent) {
+            if (typeof node.settingsReveal === "function" && node.settingsReveal()) unfolded = true;
+        }
+        if (unfolded) { // Reveal once the page is laid out again
+            pendingReveal.item = item;
+            pendingReveal.highlight = highlight;
+            pendingReveal.restart();
+            return;
+        }
         const pos = item.mapToItem(contentColumn, 0, 0);
         const maxY = Math.max(0, root.contentHeight - root.height);
         const targetY = Math.max(0, Math.min(pos.y + contentColumn.y - 64, maxY));
@@ -42,6 +57,17 @@ StyledFlickable {
         revealHighlight.width = item.width + 8;
         revealHighlight.height = item.height + 8;
         revealHighlightAnim.restart();
+    }
+
+    function cancelReveal() {
+        pendingReveal.stop();
+        revealScrollAnim.stop();
+        root.revealCancelled();
+    }
+    onMovementStarted: root.cancelReveal()
+    Connections {
+        target: root.wheelArea
+        function onUserScrolled() { root.cancelReveal() }
     }
 
     ColumnLayout {
@@ -108,6 +134,14 @@ StyledFlickable {
         }
     }
 
+    Timer {
+        id: pendingReveal
+        property var item: null
+        property bool highlight: true
+        interval: 50
+        onTriggered: root.revealItem(item, highlight)
+    }
+
     NumberAnimation { // Not the scroll Behavior, so a wheel animation can't swallow it
         id: revealScrollAnim
         target: root
@@ -115,7 +149,6 @@ StyledFlickable {
         duration: 450
         easing.type: Easing.BezierSpline
         easing.bezierCurve: Appearance.animationCurves.emphasizedDecel
-        onFinished: root.scrollTargetY = root.contentY
     }
 
     Rectangle {

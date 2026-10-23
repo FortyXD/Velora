@@ -32,20 +32,17 @@ Item {
                 anchors.centerIn: parent
                 spacing: 0
 
-                StyledText {
+                EditableTime { // Click to type how long this focus or break period is
+                    id: timeEdit
                     Layout.alignment: Qt.AlignHCenter
-                    text: {
-                        let minutes = Math.floor(TimerService.pomodoroSecondsLeft / 60).toString().padStart(2, '0');
-                        let seconds = Math.floor(TimerService.pomodoroSecondsLeft % 60).toString().padStart(2, '0');
-                        return `${minutes}:${seconds}`;
-                    }
-                    font.pixelSize: 40
-                    color: Appearance.m3colors.m3onSurface
+                    seconds: TimerService.pomodoroSecondsLeft
+                    onTimeEntered: seconds => TimerService.setPomodoroTime(seconds)
                 }
                 StyledText {
                     Layout.alignment: Qt.AlignHCenter
-                    text: TimerService.pomodoroLongBreak ? Translation.tr("Long break") : TimerService.pomodoroBreak ? Translation.tr("Break") : Translation.tr("Focus")
-                    font.pixelSize: Appearance.font.pixelSize.normal
+                    text: timeEdit.editing ? Translation.tr("10 · 25:00 · 1h 30m")
+                        : TimerService.pomodoroLongBreak ? Translation.tr("Long break") : TimerService.pomodoroBreak ? Translation.tr("Break") : Translation.tr("Focus")
+                    font.pixelSize: timeEdit.editing ? Appearance.font.pixelSize.smaller : Appearance.font.pixelSize.normal
                     color: Appearance.colors.colSubtext
                 }
             }

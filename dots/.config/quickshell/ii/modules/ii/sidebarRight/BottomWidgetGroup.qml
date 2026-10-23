@@ -13,30 +13,17 @@ Rectangle {
     radius: Appearance.rounding.normal
     color: Appearance.colors.colLayer1
     clip: true
-    implicitHeight: collapsed ? collapsedBottomWidgetGroupRow.implicitHeight : 350
-    property int selectedTab: Persistent.states.sidebar.bottomGroup.tab
+    property real availableHeight: 1000 // Of the sidebar's content, for the share in Config.options.sidebar.right.widgets.height
+    implicitHeight: collapsed ? collapsedBottomWidgetGroupRow.implicitHeight
+        : Math.round(Math.max(280, root.availableHeight * Math.max(0.2, Math.min(0.7, Config.options.sidebar.right.widgets.height))))
+    // The tabs chosen in the settings, in their order
+    property var tabs: {
+        const chosen = Config.options.sidebar.right.widgets.tabs.map(type => SidebarCatalog.widgetTab(type)).filter(tab => tab !== null);
+        return chosen.length > 0 ? chosen : [SidebarCatalog.widgetTab("calendar")];
+    }
+    property int selectedTab: Math.max(0, Math.min(Persistent.states.sidebar.bottomGroup.tab, root.tabs.length - 1))
     property int previousIndex: -1
     property bool collapsed: Persistent.states.sidebar.bottomGroup.collapsed
-    property var tabs: [
-        {
-            "type": "calendar",
-            "name": Translation.tr("Calendar"),
-            "icon": "calendar_month",
-            "widget": "calendar/CalendarWidget.qml"
-        },
-        {
-            "type": "todo",
-            "name": Translation.tr("To Do"),
-            "icon": "done_outline",
-            "widget": "todo/TodoWidget.qml"
-        },
-        {
-            "type": "timer",
-            "name": Translation.tr("Timer"),
-            "icon": "schedule",
-            "widget": "pomodoro/PomodoroWidget.qml"
-        },
-    ]
 
     Behavior on implicitHeight {
         NumberAnimation {
@@ -200,16 +187,18 @@ Rectangle {
                 anchors.bottomMargin: -anchors.topMargin
 
                 Component.onCompleted: {
+                    root.previousIndex = root.selectedTab;
                     tabStack.source = root.tabs[root.selectedTab].widget;
                 }
 
                 Connections {
                     target: root
                     function onSelectedTabChanged() {
-                        if (root.currentTab > root.previousIndex)
+                        if (root.selectedTab > root.previousIndex)
                             tabSwitchBehavior.animation.down = true;
-                        else if (root.currentTab < root.previousIndex)
+                        else if (root.selectedTab < root.previousIndex)
                             tabSwitchBehavior.animation.down = false;
+                        root.previousIndex = root.selectedTab;
                         tabStack.source = root.tabs[root.selectedTab].widget;
                     }
                 }

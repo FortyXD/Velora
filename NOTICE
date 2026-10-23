@@ -1,0 +1,36 @@
+Velora
+Copyright (C) 2026 FortyXD and Velora contributors, for their original contributions.
+
+Velora is an independently maintained desktop shell derived from Illogical
+Impulse (end-4/dots-hyprland), by end-4 and its contributors:
+https://github.com/end-4/dots-hyprland
+
+Velora's original contributions are licensed under the GNU General Public
+License, version 3. The complete license text is in LICENSE. Existing copyright
+and license notices continue to apply to inherited and third-party material.
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, version 3.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+Velora changes include the configurable bar and desktop layouts, appearance
+presets, wallpaper services, expanded settings and toolbox, power management,
+audio routing, and the Arch installer and update workflow. Project identity,
+documentation and installation tooling were revised on 2026-10-23.
+
+Upstream acknowledgements retained from Illogical Impulse:
+- clsty: installation tooling and accessibility of the dotfiles.
+- midn8hustlr: color generation improvements.
+- outfoxxed: Quickshell and support for upstream development.
+- Quickshell references: Soramane / caelestia-dots/shell,
+  FridayFaerie/quickshell, and nydragon/nysh.
+- Earlier AGS references: Aylur/dotfiles and kotontrion/dotfiles.
+- Earlier EWW references: fufexan/dotfiles.
+- Design inspirations: osu!lazer, Windows 11, AvdanOS and Material Design 3.
+
+Third-party components retain their respective licenses. See licenses/README.md
+and the notices accompanying the relevant source files and assets.

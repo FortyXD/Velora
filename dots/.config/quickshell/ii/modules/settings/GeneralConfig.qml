@@ -30,7 +30,7 @@ ContentPage {
         ConfigNavRow {
             buttonIcon: "info"
             title: Translation.tr("About")
-            valueText: `${SystemInfo.distroName} · Folis`
+            valueText: `${SystemInfo.distroName} · Velora`
             onClicked: ApplicationWindow.window?.openPage("about")
         }
     }

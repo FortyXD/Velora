@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import qs.services
@@ -10,7 +11,14 @@ ContentPage {
     id: page
     readonly property var current: Network.active
     readonly property var nearby: Network.friendlyWifiNetworks.filter(network => !network.active)
+    // Search, then two groups: networks you joined before, and the rest (new, or saved but never joined)
+    property string query: ""
+    readonly property var matching: page.query.trim().length === 0 ? page.nearby
+        : page.nearby.filter(network => network.ssid.toLowerCase().includes(page.query.trim().toLowerCase()))
+    readonly property var knownNearby: page.matching.filter(network => network.known)
+    readonly property var otherNearby: page.matching.filter(network => !network.known)
     property bool showAllSaved: false
+    property bool showAllNearby: false // The strongest few first: two dozen rows took over half a second to build
     property bool changingPassword: false
     property bool joiningHidden: false
 
@@ -24,7 +32,7 @@ ContentPage {
     Timer {
         interval: 30000
         repeat: true
-        running: page.enabled && Network.wifiEnabled
+        running: page.pageShown && Network.wifiEnabled
         triggeredOnStart: true
         onTriggered: Network.rescanWifi()
     }
@@ -119,6 +127,23 @@ ContentPage {
     }
 
     ContentSection {
+        icon: "cable"
+        title: Translation.tr("Ethernet")
+        visible: Network.ethernet
+
+        InfoRow {
+            buttonIcon: "lan"
+            title: Translation.tr("IP address")
+            valueText: (Network.ethernetDetails.ip ?? "").split("/")[0]
+        }
+        InfoRow {
+            buttonIcon: "router"
+            title: Translation.tr("Router")
+            valueText: Network.ethernetDetails.gateway ?? ""
+        }
+    }
+
+    ContentSection {
         icon: "wifi_find"
         title: Translation.tr("Networks nearby")
         description: Translation.tr("Click a network to join it. Networks you joined before are remembered and joined again by themselves.")
@@ -173,12 +198,66 @@ ContentPage {
             }
         }
 
-        Repeater {
-            model: Network.wifiEnabled ? page.nearby : []
-            delegate: WifiNetworkRow {
-                required property var modelData
-                network: modelData
+        TextField {
+            id: networkSearch
+            visible: Network.wifiEnabled && page.nearby.length > 6
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            placeholderText: Translation.tr("Find a network")
+            placeholderTextColor: Appearance.colors.colSubtext
+            color: Appearance.colors.colOnLayer2
+            leftPadding: 14
+            topPadding: 9
+            bottomPadding: 9
+            font.pixelSize: Appearance.font.pixelSize.small
+            onTextChanged: page.query = text
+            background: Rectangle {
+                implicitHeight: 38
+                radius: Appearance.rounding.full
+                color: Appearance.colors.colLayer3
+                border.width: networkSearch.activeFocus ? 2 : 0
+                border.color: Appearance.colors.colPrimary
             }
+        }
+
+        ContentSubsection {
+            visible: Network.wifiEnabled && page.knownNearby.length > 0
+            title: Translation.tr("Your networks")
+            Repeater {
+                model: page.knownNearby
+                delegate: WifiNetworkRow {
+                    required property var modelData
+                    network: modelData
+                }
+            }
+        }
+        ContentSubsection {
+            visible: Network.wifiEnabled && page.otherNearby.length > 0
+            title: Translation.tr("Other networks")
+            Repeater {
+                model: page.showAllNearby || page.query.length > 0 ? page.otherNearby : page.otherNearby.slice(0, 8)
+                delegate: WifiNetworkRow {
+                    required property var modelData
+                    network: modelData
+                }
+            }
+            ConfigNavRow {
+                visible: page.otherNearby.length > 8 && page.query.length === 0
+                buttonIcon: page.showAllNearby ? "expand_less" : "expand_more"
+                title: page.showAllNearby ? Translation.tr("Show fewer") : Translation.tr("Show all %1").arg(page.otherNearby.length)
+                trailingIcon: ""
+                onClicked: page.showAllNearby = !page.showAllNearby
+            }
+        }
+        StyledText {
+            visible: Network.wifiEnabled && page.query.length > 0 && page.matching.length === 0
+            Layout.fillWidth: true
+            Layout.margins: 10
+            horizontalAlignment: Text.AlignHCenter
+            text: Translation.tr("No network called “%1” nearby").arg(page.query.trim())
+            font.pixelSize: Appearance.font.pixelSize.small
+            color: Appearance.colors.colSubtext
         }
     }
 
@@ -221,23 +300,6 @@ ContentPage {
             title: page.showAllSaved ? Translation.tr("Show fewer") : Translation.tr("Show all %1").arg(Network.savedOutOfRange.length)
             trailingIcon: ""
             onClicked: page.showAllSaved = !page.showAllSaved
-        }
-    }
-
-    ContentSection {
-        icon: "cable"
-        title: Translation.tr("Ethernet")
-        visible: Network.ethernet
-
-        InfoRow {
-            buttonIcon: "lan"
-            title: Translation.tr("IP address")
-            valueText: (Network.ethernetDetails.ip ?? "").split("/")[0]
-        }
-        InfoRow {
-            buttonIcon: "router"
-            title: Translation.tr("Router")
-            valueText: Network.ethernetDetails.gateway ?? ""
         }
     }
 

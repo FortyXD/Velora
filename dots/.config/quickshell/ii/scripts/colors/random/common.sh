@@ -67,22 +67,30 @@ api_get() {
     printf '%s' "$body"
 }
 
-# fetch_image <url> <destination>: downloads to a temp file, checks it decodes, then moves it into place
+# fetch_image <url> <destination>: downloads to a temp file, checks it decodes, then moves it into place.
+# A destination ending in a video extension is checked as a video (live wallpapers) and may take longer.
 fetch_image() {
-    local url=$1 dest=$2 host tmp rc
+    local url=$1 dest=$2 host tmp rc video=0 max_time=300
     host=$(awk -F/ '{print $3}' <<< "$url")
+    case "${dest,,}" in *.mp4|*.webm|*.mkv|*.mov|*.avi) video=1; max_time=900 ;; esac
     tmp=$(mktemp "${dest}.part.XXXXXX") || fail "Cannot write to $(dirname "$dest")."
     # --speed-limit aborts a stalled transfer after 10 s instead of hanging forever
     curl --fail --silent --location \
-        --connect-timeout 8 --speed-limit 1024 --speed-time 10 --max-time 300 \
+        --connect-timeout 8 --speed-limit 1024 --speed-time 10 --max-time "$max_time" \
         --retry 2 --retry-all-errors -o "$tmp" -- "$url"
     rc=$?
     if [[ $rc -ne 0 ]]; then
         rm -f -- "$tmp"
         fail "$(curl_error_text "$rc" "$host")"
     fi
+    if [[ $video -eq 1 ]]; then
+        # A playable video stream: catches error pages and cut-off downloads
+        if ! ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$tmp" 2>/dev/null | grep -q .; then
+            rm -f -- "$tmp"
+            fail "The file from $host is not a playable video."
+        fi
     # Full decode: catches truncated PNGs and error pages that aren't images
-    if ! magick "${tmp}[0]" null: &>/dev/null; then
+    elif ! magick "${tmp}[0]" null: &>/dev/null; then
         rm -f -- "$tmp"
         fail "The file from $host is not a valid image."
     fi
