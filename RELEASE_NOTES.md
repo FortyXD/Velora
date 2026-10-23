@@ -4,6 +4,13 @@ A desktop shaped around you, built for Arch Linux with Hyprland and Quickshell.
 
 Velora is an independently maintained fork of Illogical Impulse. This first release brings visual layout editors, complete appearance presets, expanded system controls, wallpaper services, an integrated Toolbox, and dedicated installation and update tooling.
 
+## Highlights
+
+- **Bar, sidebars and lock screen you arrange yourself.** Drag bar widgets into zones, reorder and hide the parts of the sidebars, and place everything on the lock screen in a live miniature or at full size.
+- **Looks in one click.** Complete looks with their own wallpaper, colors, bar, widgets and lock screen, including six with moving wallpapers: videos or animations drawn by the shell that pause whenever you can't see them.
+- **Everyday controls.** Wi-Fi, Bluetooth, sound with per-app volume and a microphone test, notification rules, keyboard and shortcuts, hot corners, timers, weather with a forecast, and energy saving on battery.
+- **Toolbox.** Convert media and documents, download videos, read and make QR codes, extract text with OCR and pick colors.
+
 ## Install
 
 ```bash
@@ -26,7 +33,5 @@ If you downloaded the Arch package, install it with `sudo pacman -U ./velora-*.p
 ## Updates and recovery
 
 Use Settings → About → GitHub updates to select branch updates or stable published releases and install a new version. Configuration backups can be listed and restored using `velora restore`.
-
-A full desktop installation and visual checks should be completed on an Arch test account before this release is published. See the release checklist and validation report in `docs/release.md` and `artifacts/release/`.
 
 Velora uses GPLv3. Upstream author credits and third-party notices are included in the repository and package.
