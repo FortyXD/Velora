@@ -30,3 +30,6 @@ __pycache__/
 # Local screenshots and previews produced while testing
 /artifacts/
 /dots/.config/illogical-impulse/presets/
+
+# Frames of video wallpapers, made by switchwall.sh
+/dots/.config/hypr/custom/scripts/mpvpaper_thumbnails/
