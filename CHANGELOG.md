@@ -10,7 +10,7 @@ First Velora release, developed from Illogical Impulse.
 - Integrated conversion, downloads, QR, OCR, and color tools.
 - Arch-only guided installation with component selection, dependency checks, configuration backups, and recovery.
 - Automatic dependency source builds and a self-contained Velora Arch package.
-- GitHub branch and stable-release update channels with Settings controls.
+- GitHub branch and stable-release update channels with Settings controls, showing the result and time of the last check; turning on automatic checks sets up the background timer when needed.
 - English installation, maintenance, development, and release documentation.
 - GPLv3 licensing with upstream and third-party attribution.
 - Lock screen editor: drag the clock, greeting, password field, music, weather, notification count and timer in a live miniature or at full size, with animations on locking and unlocking and live wallpapers kept moving behind the blur.
