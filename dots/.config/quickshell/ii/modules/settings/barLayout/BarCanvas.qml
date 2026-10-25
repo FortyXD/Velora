@@ -7,10 +7,11 @@ import qs.modules.common.functions
 import qs.modules.settings.preview
 
 /**
- * The bar drawn at its real edge over a miniature of the screen, where its widgets are arranged:
- * drag them between the parts of the bar, click one to set it up in a card beside it, and move
- * the whole bar to another edge with the arrows. The bar keeps a readable size rather than the
- * screen's scale; its style (background, islands, pills, roundness) follows the settings.
+ * The bar drawn at its real edge over a strip of the screen (the wallpaper at that edge), where its
+ * widgets are arranged: drag them between the parts of the bar, click one to select it (its card is
+ * shown by the page), and move the whole bar to another edge with the picker beside it. Short enough
+ * to stay pinned above the page's tabs. The bar keeps a readable size rather than the screen's scale;
+ * its style (background, islands, pills, roundness) follows the settings.
  */
 Item {
     id: root
@@ -38,6 +39,8 @@ Item {
     readonly property real thickness: 44
     readonly property real margin: root.floating ? 10 : 0
     readonly property real styleRadius: root.bar.style.radius >= 0 ? root.bar.style.radius : Appearance.rounding.windowRounding
+    readonly property real sliver: root.vertical ? 104 : 86 // The bit of desktop beside the bar, for the hint and the edge picker
+    readonly property real barDepth: root.thickness + root.margin * 2
     readonly property var selected: root.selectedUid.length > 0 ? BarLayout.find(root.layout, root.selectedUid) : null
     readonly property bool hovered: barHover.hovered
 
@@ -69,11 +72,13 @@ Item {
         return null;
     }
 
-    implicitHeight: screen.implicitHeight
+    implicitHeight: root.vertical ? 0 : root.barDepth + root.sliver
+    implicitWidth: root.vertical ? root.barDepth + root.sliver : 0
 
     MiniScreen {
         id: screen
         anchors.fill: parent
+        crop: root.edge
 
         TapHandler { // A click on the empty screen closes the card
             onTapped: root.selectRequested("")
@@ -156,102 +161,95 @@ Item {
             }
         }
 
-        // Arrows that move the bar to another edge
-        Repeater {
-            model: [
-                { "edge": "top", "icon": "arrow_upward", "tip": Translation.tr("Move the bar to the top") },
-                { "edge": "bottom", "icon": "arrow_downward", "tip": Translation.tr("Move the bar to the bottom") },
-                { "edge": "left", "icon": "arrow_back", "tip": Translation.tr("Move the bar to the left") },
-                { "edge": "right", "icon": "arrow_forward", "tip": Translation.tr("Move the bar to the right") },
-            ]
-            delegate: RippleButton {
-                id: edgeButton
-                required property var modelData
-                readonly property bool side: modelData.edge === "left" || modelData.edge === "right"
-                visible: modelData.edge !== root.edge
-                opacity: screenHover.hovered || edgeButton.hovered ? 1 : 0.55
-                implicitWidth: 34
-                implicitHeight: 34
-                buttonRadius: Appearance.rounding.full
-                colBackground: ColorUtils.transparentize(Appearance.colors.colLayer0, 0.15)
-                colBackgroundHover: Appearance.colors.colLayer1Hover
-                x: modelData.edge === "left" ? 14 : modelData.edge === "right" ? screen.width - width - 14 : (screen.width - width) / 2
-                y: modelData.edge === "top" ? 14 : modelData.edge === "bottom" ? screen.height - height - 14 : (screen.height - height) / 2
-                onClicked: {
-                    root.selectRequested("");
-                    Config.options.bar.vertical = edgeButton.side;
-                    Config.options.bar.bottom = modelData.edge === "bottom" || modelData.edge === "right";
+        // The desktop beside the bar: the hint and the edge picker
+        Item {
+            id: sliverArea
+            x: root.edge === "left" ? root.barDepth : 0
+            y: root.edge === "top" ? root.barDepth : 0
+            width: root.vertical ? screen.width - root.barDepth : screen.width
+            height: root.vertical ? screen.height : screen.height - root.barDepth
+
+            Rectangle {
+                visible: !root.vertical && root.selected === null && !root.dragging
+                anchors {
+                    verticalCenter: parent.verticalCenter
+                    left: parent.left
+                    leftMargin: 14
+                    right: edgePicker.left
+                    rightMargin: 14
                 }
-                contentItem: MaterialSymbol {
-                    horizontalAlignment: Text.AlignHCenter
-                    text: edgeButton.modelData.icon
-                    iconSize: 20
+                implicitHeight: hint.implicitHeight + 14
+                radius: height / 2
+                color: ColorUtils.transparentize(Appearance.colors.colLayer0, 0.2)
+                StyledText {
+                    id: hint
+                    anchors.centerIn: parent
+                    width: Math.min(implicitWidth, parent.width - 24)
+                    elide: Text.ElideRight
+                    text: Translation.tr("Drag widgets to move them · click one to set it up")
+                    font.pixelSize: Appearance.font.pixelSize.small
                     color: Appearance.colors.colOnLayer0
                 }
-                Behavior on opacity {
-                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+            }
+
+            Rectangle {
+                id: edgePicker
+                anchors {
+                    right: root.vertical ? undefined : parent.right
+                    rightMargin: 14
+                    horizontalCenter: root.vertical ? parent.horizontalCenter : undefined
+                    verticalCenter: root.vertical ? undefined : parent.verticalCenter
+                    bottom: root.vertical ? parent.bottom : undefined
+                    bottomMargin: 14
                 }
-                StyledToolTip {
-                    text: edgeButton.modelData.tip
+                implicitWidth: edgeGrid.implicitWidth + 8
+                implicitHeight: edgeGrid.implicitHeight + 8
+                radius: Appearance.rounding.full
+                color: ColorUtils.transparentize(Appearance.colors.colLayer0, 0.15)
+
+                Grid {
+                    id: edgeGrid
+                    anchors.centerIn: parent
+                    columns: root.vertical ? 2 : 4
+                    spacing: 2
+                    Repeater {
+                        model: [
+                            { "edge": "top", "icon": "vertical_align_top", "tip": Translation.tr("Move the bar to the top") },
+                            { "edge": "bottom", "icon": "vertical_align_bottom", "tip": Translation.tr("Move the bar to the bottom") },
+                            { "edge": "left", "icon": "align_horizontal_left", "tip": Translation.tr("Move the bar to the left") },
+                            { "edge": "right", "icon": "align_horizontal_right", "tip": Translation.tr("Move the bar to the right") },
+                        ]
+                        delegate: RippleButton {
+                            id: edgeButton
+                            required property var modelData
+                            readonly property bool current: modelData.edge === root.edge
+                            implicitWidth: 32
+                            implicitHeight: 32
+                            buttonRadius: Appearance.rounding.full
+                            toggled: edgeButton.current
+                            colBackground: "transparent"
+                            colBackgroundHover: Appearance.colors.colLayer1Hover
+                            onClicked: {
+                                if (edgeButton.current) return;
+                                root.selectRequested("");
+                                Config.options.bar.vertical = modelData.edge === "left" || modelData.edge === "right";
+                                Config.options.bar.bottom = modelData.edge === "bottom" || modelData.edge === "right";
+                            }
+                            contentItem: MaterialSymbol {
+                                horizontalAlignment: Text.AlignHCenter
+                                text: edgeButton.modelData.icon
+                                iconSize: 19
+                                color: edgeButton.current ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer0
+                            }
+                            StyledToolTip {
+                                text: edgeButton.modelData.tip
+                            }
+                        }
+                    }
                 }
             }
         }
-
-        HoverHandler {
-            id: screenHover
-        }
-
-        // Hint in the middle of the screen while nothing is selected
-        Rectangle {
-            visible: root.selected === null && !root.dragging
-            anchors.centerIn: parent
-            implicitWidth: hint.implicitWidth + 28
-            implicitHeight: hint.implicitHeight + 16
-            radius: height / 2
-            color: ColorUtils.transparentize(Appearance.colors.colLayer0, 0.2)
-            StyledText {
-                id: hint
-                anchors.centerIn: parent
-                text: Translation.tr("Drag widgets to move them · click one to set it up")
-                font.pixelSize: Appearance.font.pixelSize.small
-                color: Appearance.colors.colOnLayer0
-            }
-        }
     }
-
-    // Where the selected chip is, for placing its card; found once things have been laid out
-    property point selectedPoint: Qt.point(0, 0)
-    function updateSelectedPoint() {
-        const chip = root.selected ? root.chipFor(root.selectedUid) : null;
-        if (chip) root.selectedPoint = chip.mapToItem(root, chip.width / 2, chip.height / 2);
-    }
-    onSelectedUidChanged: Qt.callLater(root.updateSelectedPoint)
-    onLayoutChanged: Qt.callLater(root.updateSelectedPoint)
-    onWidthChanged: Qt.callLater(root.updateSelectedPoint)
-
-    StyledRectangularShadow {
-        target: inspector
-        visible: inspector.visible
-    }
-
-    WidgetInspector {
-        id: inspector
-        readonly property real gap: 14
-        visible: root.selected !== null && !root.dragging
-        orientation: root.orientation
-        selected: root.selected
-        zoneInfo: root.zoneInfo
-        maximumHeight: root.vertical ? root.height - 20 : root.height - root.thickness - root.margin - inspector.gap - 10
-        x: root.edge === "left" ? barArea.x + root.thickness + inspector.gap
-            : root.edge === "right" ? barArea.x - width - inspector.gap
-            : Math.max(10, Math.min(root.width - width - 10, root.selectedPoint.x - width / 2))
-        y: root.edge === "top" ? barArea.y + root.thickness + inspector.gap
-            : root.edge === "bottom" ? barArea.y - height - inspector.gap
-            : Math.max(10, Math.min(root.height - height - 10, root.selectedPoint.y - height / 2))
-        onCloseRequested: root.selectRequested("")
-        onSelectRequested: uid => root.selectRequested(uid)
-    }
-
 
     // A part of the bar, wired to the layout and to this canvas
     component Zone: CanvasZone {

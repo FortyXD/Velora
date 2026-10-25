@@ -1,15 +1,17 @@
-# Velora 0.1.0
+# Velora 0.1.1
 
-A desktop shaped around you, built for Arch Linux with Hyprland and Quickshell.
+Build either sidebar from the parts you use, arrange them in a live preview, and keep your desktop settings through updates.
 
-Velora is an independently maintained fork of Illogical Impulse. This first release brings visual layout editors, complete appearance presets, expanded system controls, wallpaper services, an integrated Toolbox, and dedicated installation and update tooling.
+Velora is an independently maintained fork of Illogical Impulse, built for Arch Linux with Hyprland and Quickshell.
 
 ## Highlights
 
-- **Bar, sidebars and lock screen you arrange yourself.** Drag bar widgets into zones, reorder and hide the parts of the sidebars, and place everything on the lock screen in a live miniature or at full size.
-- **Looks in one click.** Complete looks with their own wallpaper, colors, bar, widgets and lock screen, including six with moving wallpapers: videos or animations drawn by the shell that pause whenever you can't see them.
-- **Everyday controls.** Wi-Fi, Bluetooth, sound with per-app volume and a microphone test, notification rules, keyboard and shortcuts, hot corners, timers, weather with a forecast, and energy saving on battery.
-- **Toolbox.** Convert media and documents, download videos, read and make QR codes, extract text with OCR and pick colors.
+- **Sidebars made from parts.** Place media, weather, clipboard history, notes, system graphs, quick tools, notifications, sliders and other parts in either sidebar. Move parts between sidebars, group them into tabs, and undo layout changes. Existing sidebar layouts are preserved.
+- **Editors that keep the layout in view.** The Sidebars page shows a preview beside the selected part's settings. The Bar and Lock Screen pages keep their previews visible while their settings scroll.
+- **Nine new moving wallpaper looks.** Illustrated and anime scenes replace the three nature videos. Downloaded videos play in preset previews, and applying another look cancels an older download's pending wallpaper change.
+- **Updates preserve generated settings.** Wallpaper colors and files written by Settings are no longer tracked by Git. New installations use default templates, and updates preserve local copies.
+- **Repair a moved checkout.** Run `./velora relink` after moving or renaming the checkout. `velora doctor` reports missing or stale links, and the update timer follows the new location.
+- **Playback and saving fixes.** Qt video playback uses VA-API to avoid waking a hybrid laptop's NVIDIA GPU. Failed settings saves show a notification, and Hyprland reloads are skipped when its configuration is unavailable.
 
 ## Install
 
@@ -32,6 +34,12 @@ If you downloaded the Arch package, install it with `sudo pacman -U ./velora-*.p
 
 ## Updates and recovery
 
-Use Settings → About → GitHub updates to select branch updates or stable published releases and install a new version. Configuration backups can be listed and restored using `velora restore`.
+Use Settings → About → GitHub updates to select stable releases and install a new version, or run:
+
+```bash
+velora update --interactive --channel release
+```
+
+Configuration backups can be listed and restored using `velora restore`.
 
 Velora uses GPLv3. Upstream author credits and third-party notices are included in the repository and package.

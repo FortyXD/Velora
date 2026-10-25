@@ -2,7 +2,7 @@
     "version": 1,
     "name": "Aurora",
     "icon": "nights_stay",
-    "order": 33,
+    "order": 39,
     "description": "Animated northern lights drawn by the shell, mint accents, floating glass islands",
     "credits": {
         "title": "Aurora",
@@ -204,7 +204,7 @@
             },
             "background": {
                 "liveWallpaper": {
-                    "pauseWhen": "anyWindow"
+                    "pauseWhen": "fullscreen"
                 },
                 "shaderWallpaper": {
                     "name": "aurora",

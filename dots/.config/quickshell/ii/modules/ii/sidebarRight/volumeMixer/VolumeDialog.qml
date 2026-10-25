@@ -32,7 +32,7 @@ WindowDialog {
             buttonText: Translation.tr("Details")
             onClicked: {
                 Quickshell.execDetached(["env", "QS_SETTINGS_PAGE=sound", "qs", "-p", Quickshell.shellPath("settings.qml")]);
-                GlobalStates.sidebarRightOpen = false;
+                GlobalStates.closeSidebars();
             }
         }
 

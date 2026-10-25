@@ -2,7 +2,7 @@
     "version": 1,
     "name": "Lime grid",
     "icon": "grid_4x4",
-    "order": 35,
+    "order": 41,
     "description": "An animated neon grid running to a yellow sun, lime accents and a thin outlined bar",
     "credits": {
         "title": "Neon grid",
@@ -206,7 +206,7 @@
             },
             "background": {
                 "liveWallpaper": {
-                    "pauseWhen": "anyWindow"
+                    "pauseWhen": "fullscreen"
                 },
                 "shaderWallpaper": {
                     "name": "grid",

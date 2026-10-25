@@ -21,6 +21,7 @@ Rectangle {
     property int hideAt: 0
     property bool dimmed: false
     property bool compact: false
+    property bool removing: false // Dragged off the bar: goes away when let go
     readonly property bool hovered: mouseArea.containsMouse && !mouseArea.dragging
 
     signal clicked()
@@ -28,7 +29,7 @@ Rectangle {
     signal dragMoved(real sceneX, real sceneY)
     signal dragEnded(real sceneX, real sceneY)
 
-    readonly property color contentColor: root.unknown ? Appearance.colors.colOnErrorContainer
+    readonly property color contentColor: root.unknown || root.removing ? Appearance.colors.colOnErrorContainer
         : root.selected ? Appearance.colors.colOnPrimaryContainer
         : root.pill ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer2
 
@@ -36,7 +37,7 @@ Rectangle {
     implicitHeight: root.compact ? 30 : 36
     radius: root.pill ? height / 2 : Appearance.rounding.small
     opacity: root.dimmed ? 0.35 : 1
-    color: root.unknown ? Appearance.colors.colErrorContainer
+    color: root.unknown || root.removing ? Appearance.colors.colErrorContainer
         : root.selected ? Appearance.colors.colPrimaryContainer
         : root.pill ? Appearance.colors.colSecondaryContainer
         : mouseArea.containsMouse ? Appearance.colors.colLayer2Hover : Appearance.colors.colLayer2
@@ -53,7 +54,7 @@ Rectangle {
         spacing: 6
 
         MaterialSymbol {
-            text: root.unknown ? "error" : root.icon
+            text: root.removing ? "delete" : root.unknown ? "error" : root.icon
             iconSize: root.compact ? 16 : 18
             fill: root.selected ? 1 : 0
             color: root.contentColor

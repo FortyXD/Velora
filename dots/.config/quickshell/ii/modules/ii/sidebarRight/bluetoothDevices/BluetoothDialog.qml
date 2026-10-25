@@ -61,7 +61,7 @@ WindowDialog {
             buttonText: Translation.tr("Details")
             onClicked: {
                 Quickshell.execDetached(["bash", "-c", `${Config.options.apps.bluetooth}`]);
-                GlobalStates.sidebarRightOpen = false;
+                GlobalStates.closeSidebars();
             }
         }
 

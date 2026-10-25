@@ -1,0 +1,315 @@
+{
+    "version": 1,
+    "name": "Rainy cottage",
+    "icon": "cottage",
+    "order": 37,
+    "description": "A cozy desk by the window, rain over a village at night, amber lamp light",
+    "wallpaperPreview": "previews/rainy-cottage.jpg",
+    "credits": {
+        "title": "Lofi nature anime night",
+        "author": "camilatpb",
+        "license": "Pixabay Content License",
+        "page": "https://pixabay.com/videos/lofi-nature-anime-to-relax-night-319697/"
+    },
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": {
+                    "version": 1,
+                    "balanceCenter": true,
+                    "actions": {
+                        "start": {
+                            "click": "overview",
+                            "scroll": "workspaces"
+                        },
+                        "center": {
+                            "click": "mediaPlayPause"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "search",
+                                "type": "launcher"
+                            },
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            }
+                        ],
+                        "centerStart": [],
+                        "center": [
+                            {
+                                "uid": "med",
+                                "type": "media",
+                                "pill": true
+                            }
+                        ],
+                        "centerEnd": [],
+                        "end": [
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "prv",
+                                "type": "privacy"
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            },
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "options": {
+                                    "showDate": false
+                                }
+                            }
+                        ]
+                    }
+                },
+                "verticalLayout": null,
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": -1,
+                    "islands": true,
+                    "pillStyle": "filled",
+                    "edgePadding": -1,
+                    "floatMargin": 6,
+                    "radius": 18,
+                    "textShadow": false,
+                    "glass": true
+                },
+                "cornerStyle": 0,
+                "showBackground": true,
+                "borderless": false,
+                "bottom": false,
+                "vertical": false,
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
+            }
+        }
+    },
+    "theme": {
+        "config": {
+            "appearance": {
+                "transparency": {
+                    "enable": true,
+                    "automatic": false,
+                    "backgroundTransparency": 0.22,
+                    "contentTransparency": 0.55
+                },
+                "palette": {
+                    "type": "scheme-fidelity"
+                }
+            }
+        },
+        "hyprland": {
+            "decoration:rounding": 18,
+            "decoration:blur:enabled": true,
+            "decoration:blur:passes": 3,
+            "decoration:blur:size": 8,
+            "decoration:shadow:enabled": true,
+            "decoration:dim_inactive": true,
+            "general:border_size": 1
+        },
+        "mode": "dark",
+        "accent": "#FFC46B"
+    },
+    "dockWidgets": {
+        "config": {
+            "dock": {
+                "enable": true,
+                "hoverToReveal": true,
+                "magnification": true,
+                "monochromeIcons": true
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy",
+                        "style": "digital",
+                        "styleLocked": "digital",
+                        "cookie": {
+                            "aiStyling": false,
+                            "sides": 14,
+                            "dialNumberStyle": "full",
+                            "hourHandStyle": "fill",
+                            "minuteHandStyle": "medium",
+                            "secondHandStyle": "dot",
+                            "dateStyle": "bubble",
+                            "timeIndicators": true,
+                            "hourMarks": false,
+                            "dateInClock": true,
+                            "constantlyRotate": false,
+                            "useSineCookie": false
+                        },
+                        "digital": {
+                            "adaptiveAlignment": true,
+                            "showDate": true,
+                            "animateChange": true,
+                            "vertical": false,
+                            "font": {
+                                "family": "Google Sans Flex",
+                                "weight": 700,
+                                "width": 100,
+                                "size": 110,
+                                "roundness": 100
+                            }
+                        }
+                    },
+                    "cardStyle": "tonal",
+                    "weather": {
+                        "enable": false
+                    },
+                    "systemMonitor": {
+                        "enable": false
+                    },
+                    "media": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
+                    },
+                    "calendar": {
+                        "enable": false
+                    },
+                    "countdown": {
+                        "enable": false
+                    },
+                    "note": {
+                        "enable": false
+                    },
+                    "pomodoro": {
+                        "enable": false
+                    }
+                }
+            }
+        }
+    },
+    "wallpaperAnimations": {
+        "animationProfile": "smooth",
+        "config": {
+            "appearance": {
+                "animationSpeed": 1.0
+            },
+            "background": {
+                "liveWallpaper": {
+                    "pauseWhen": "fullscreen"
+                }
+            }
+        },
+        "hyprland": {
+            "general:gaps_in": 5,
+            "general:gaps_out": 12,
+            "animations:enabled": true,
+            "misc:animate_manual_resizes": false,
+            "misc:animate_mouse_windowdragging": false
+        },
+        "wallpaper": "https://cdn.pixabay.com/video/2025/12/03/319697_large.mp4",
+        "loop": {
+            "start": 0,
+            "end": 6.0,
+            "crossfade": 1.2
+        }
+    },
+    "lock": {
+        "config": {
+            "lock": {
+                "layout": {
+                    "version": 1,
+                    "items": {
+                        "clock": {
+                            "show": true,
+                            "x": 0.17,
+                            "y": 0.78,
+                            "size": 1
+                        },
+                        "greeting": {
+                            "show": false,
+                            "x": 0.17,
+                            "y": 0.55,
+                            "size": 1
+                        },
+                        "password": {
+                            "show": true,
+                            "x": 0.76,
+                            "y": 0.9,
+                            "size": 1
+                        },
+                        "user": {
+                            "show": true,
+                            "attach": "",
+                            "x": 0.06,
+                            "y": 0.06,
+                            "size": 1
+                        },
+                        "power": {
+                            "show": true,
+                            "attach": "",
+                            "x": 0.93,
+                            "y": 0.06,
+                            "size": 1
+                        },
+                        "message": {
+                            "show": true,
+                            "attach": "password",
+                            "x": 0.5,
+                            "y": 0.88,
+                            "size": 1
+                        },
+                        "media": {
+                            "show": false,
+                            "x": 0.83,
+                            "y": 0.13,
+                            "size": 1
+                        },
+                        "weather": {
+                            "show": true,
+                            "x": 0.5,
+                            "y": 0.06,
+                            "size": 1
+                        },
+                        "notifications": {
+                            "show": false,
+                            "x": 0.5,
+                            "y": 0.85,
+                            "size": 1
+                        },
+                        "timer": {
+                            "show": false,
+                            "x": 0.5,
+                            "y": 0.16,
+                            "size": 1
+                        }
+                    }
+                },
+                "animations": "full",
+                "animatedWallpaper": true,
+                "dim": 0.35,
+                "showLockedText": true,
+                "blur": {
+                    "enable": true,
+                    "radius": 100,
+                    "extraZoom": 1.1
+                }
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "styleLocked": "digital"
+                    }
+                }
+            }
+        }
+    }
+}

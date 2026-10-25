@@ -131,6 +131,7 @@ Scope {
                     startHidden: true
                     editing: editorWindow.editing
                     onElementMoved: (id, x, y) => LockLayout.move(id, x, y)
+                    onElementRemoved: id => LockLayout.setShown(id, false)
                     onElementReset: id => LockLayout.resetItem(id)
                 }
 

@@ -20,10 +20,14 @@ Item {
     }
     property real radius: Appearance.rounding.normal
     property real scrim: 0.1 // Darkens the wallpaper a little so what's drawn on it stands out
+    // "top", "bottom", "left" or "right": only that edge of the screen, its size set from outside;
+    // the wallpaper keeps the whole screen's proportions, so the strip shows what really is at that edge
+    property string crop: ""
+    readonly property bool cropped: root.crop.length > 0
     default property alias contentData: content.data
     readonly property alias wallpaperItem: wallpaperImage // For effects that show the wallpaper through something
 
-    implicitHeight: Math.round(width / root.aspect)
+    implicitHeight: root.cropped ? 0 : Math.round(width / root.aspect)
 
     Rectangle {
         id: frame
@@ -41,7 +45,11 @@ Item {
 
         StyledImage {
             id: wallpaperImage
-            anchors.fill: parent
+            readonly property bool alongWidth: root.crop === "top" || root.crop === "bottom"
+            width: !root.cropped ? parent.width : wallpaperImage.alongWidth ? parent.width : Math.round(parent.height * root.aspect)
+            height: !root.cropped ? parent.height : wallpaperImage.alongWidth ? Math.round(parent.width / root.aspect) : parent.height
+            x: root.crop === "right" ? parent.width - width : 0
+            y: root.crop === "bottom" ? parent.height - height : 0
             source: root.wallpaper
             fillMode: Image.PreserveAspectCrop
             sourceSize.width: root.width * 2

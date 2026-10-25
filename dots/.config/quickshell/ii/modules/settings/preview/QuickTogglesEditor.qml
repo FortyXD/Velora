@@ -7,7 +7,8 @@ import qs.modules.common.functions
 
 /**
  * The quick toggles laid out as in the sidebar, to rearrange: drag one and the others make room,
- * click it to make it wide or narrow (tiles style), × takes it out, and the list below puts one back.
+ * click it to make it wide or narrow (tiles style), × or dragging it out of the grid takes it out,
+ * and the list below puts one back.
  */
 ColumnLayout {
     id: root
@@ -25,9 +26,11 @@ ColumnLayout {
     property string dragType: ""
     property int dragTarget: -1 // Index among the toggles without the dragged one
     property point dragPos: Qt.point(0, 0)
+    property bool dragRemoving: false // Out of the grid: the others close the gap
     readonly property var previewList: {
         if (root.dragType.length === 0 || root.dragTarget < 0) return root.used;
         let others = root.used.filter(t => t.type !== root.dragType);
+        if (root.dragRemoving) return others;
         others.splice(root.dragTarget, 0, root.used.find(t => t.type === root.dragType));
         return others;
     }
@@ -93,6 +96,7 @@ ColumnLayout {
                 required property var modelData
                 readonly property var info: SidebarCatalog.toggle(modelData.type)
                 readonly property bool dragging: root.dragType === modelData.type
+                readonly property bool removing: tile.dragging && root.dragRemoving
                 readonly property var place: root.places[modelData.type] ?? { "x": 0, "y": 0, "width": root.cell }
                 x: tile.dragging ? root.dragPos.x - tileArea.grabOffset.x : tile.place.x
                 y: tile.dragging ? root.dragPos.y - tileArea.grabOffset.y : tile.place.y
@@ -110,9 +114,10 @@ ColumnLayout {
                     animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                 }
                 radius: root.classic ? width / 2 : (modelData.size > 1 ? height / 2 : 16)
-                color: tileArea.containsMouse || tile.dragging ? Appearance.colors.colPrimaryContainerHover : Appearance.colors.colPrimaryContainer
+                color: tile.removing ? Appearance.colors.colErrorContainer
+                    : tileArea.containsMouse || tile.dragging ? Appearance.colors.colPrimaryContainerHover : Appearance.colors.colPrimaryContainer
                 border.width: tile.dragging ? 2 : 0
-                border.color: Appearance.colors.colPrimary
+                border.color: tile.removing ? Appearance.colors.colError : Appearance.colors.colPrimary
                 z: tile.dragging ? 5 : 1
                 scale: tile.dragging ? 1.06 : 1
                 Behavior on scale {
@@ -128,10 +133,10 @@ ColumnLayout {
                     spacing: 8
                     MaterialSymbol {
                         Layout.alignment: root.classic || tile.modelData.size === 1 ? Qt.AlignCenter : Qt.AlignVCenter
-                        text: tile.info?.icon ?? "help"
+                        text: tile.removing ? "delete" : (tile.info?.icon ?? "help")
                         iconSize: 22
                         fill: 1
-                        color: Appearance.colors.colOnPrimaryContainer
+                        color: tile.removing ? Appearance.colors.colOnErrorContainer : Appearance.colors.colOnPrimaryContainer
                     }
                     StyledText {
                         visible: !root.classic && tile.modelData.size > 1
@@ -159,6 +164,8 @@ ColumnLayout {
                         if (!pressed) return;
                         const p = mapToItem(grid, mouse.x, mouse.y);
                         if (!tile.dragging && Math.hypot(p.x - start.x, p.y - start.y) < 5) return;
+                        const slack = 24;
+                        root.dragRemoving = p.x < -slack || p.y < -slack || p.x > grid.width + slack || p.y > grid.height + slack;
                         root.dragPos = p;
                         root.dragTarget = root.targetFor(tile.modelData.type, p);
                         root.dragType = tile.modelData.type;
@@ -166,12 +173,17 @@ ColumnLayout {
                     onReleased: {
                         // Reset first: any change rebuilds the tiles
                         const dragged = tile.dragging;
+                        const removing = tile.removing;
                         const type = tile.modelData.type;
                         const target = root.dragTarget;
                         const classic = root.classic;
                         root.dragType = "";
                         root.dragTarget = -1;
-                        if (dragged) {
+                        root.dragRemoving = false;
+                        if (removing) {
+                            if (classic) SidebarLayout.toggleClassicToggle(type);
+                            else SidebarLayout.removeAndroidToggle(type);
+                        } else if (dragged) {
                             if (classic) SidebarLayout.moveClassicToggle(type, target);
                             else SidebarLayout.moveAndroidToggle(type, target);
                         } else if (!classic) {
@@ -181,6 +193,7 @@ ColumnLayout {
                     onCanceled: {
                         root.dragType = "";
                         root.dragTarget = -1;
+                        root.dragRemoving = false;
                     }
                 }
 
@@ -212,7 +225,7 @@ ColumnLayout {
 
                 StyledToolTip {
                     extraVisibleCondition: tileArea.containsMouse && !tile.dragging
-                    text: `${tile.info?.name ?? ""}\n` + (root.classic ? Translation.tr("Drag to move") : Translation.tr("Click: wide or narrow • drag to move"))
+                    text: `${tile.info?.name ?? ""}\n` + (root.classic ? Translation.tr("Drag to move, out of the grid to remove") : Translation.tr("Click: wide or narrow • drag to move, out of the grid to remove"))
                 }
             }
         }

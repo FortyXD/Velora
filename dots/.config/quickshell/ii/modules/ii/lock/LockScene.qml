@@ -31,6 +31,7 @@ Item {
 
     signal elementSelected(string id)
     signal elementMoved(string id, real x, real y)
+    signal elementRemoved(string id) // Dragged off the screen: to hide it
     signal elementReset(string id)
 
     readonly property var hosts: ({

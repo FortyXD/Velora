@@ -27,6 +27,7 @@ Singleton {
     readonly property bool useUSCS: root.options.useUSCS
     // Something shows the weather; nothing is fetched otherwise
     readonly property bool wanted: root.options.enable || Config.options.background.widgets.weather.enable || LockLayout.items.weather.show
+        || SidebarLayout.uses("weather")
 
     property string status: "loading" // "loading", "ready", "error"
     property string error: ""

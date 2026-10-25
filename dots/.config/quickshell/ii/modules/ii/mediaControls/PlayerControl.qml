@@ -25,6 +25,7 @@ Item { // Player instance
     property real maxVisualizerValue: 1000 // Max value in the data points
     property int visualizerSmoothing: 2 // Number of points to average for smoothing
     property real radius
+    property bool live: true // False while out of sight (a closed sidebar): the position stops updating
 
     property string displayedArtFilePath: root.downloaded ? Qt.resolvedUrl(artFilePath) : ""
 
@@ -51,7 +52,7 @@ Item { // Player instance
     }
 
     Timer { // Force update for revision
-        running: root.player?.playbackState == MprisPlaybackState.Playing
+        running: root.live && root.player?.playbackState == MprisPlaybackState.Playing
         interval: Config.options.resources.updateInterval
         repeat: true
         onTriggered: {
@@ -137,7 +138,7 @@ Item { // Player instance
         WaveVisualizer {
             id: visualizerCanvas
             anchors.fill: parent
-            live: root.player?.isPlaying
+            live: root.live && root.player?.isPlaying
             points: root.visualizerPoints
             maxVisualizerValue: root.maxVisualizerValue
             smoothing: root.visualizerSmoothing

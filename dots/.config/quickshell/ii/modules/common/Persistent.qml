@@ -68,8 +68,9 @@ Singleton {
             }
 
             property JsonObject sidebar: JsonObject {
-                property int leftTab: 0
-                property JsonObject bottomGroup: JsonObject {
+                property var tabs: ({}) // Of each tabs part by uid: { tab: <uid of the shown page>, collapsed }
+                property int leftTab: 0 // Older versions; seeds tabs["tabs-left"]
+                property JsonObject bottomGroup: JsonObject { // Older versions; seeds tabs["tabs-right"]
                     property bool collapsed: false
                     property int tab: 0
                 }

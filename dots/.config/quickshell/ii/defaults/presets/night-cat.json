@@ -1,0 +1,313 @@
+{
+    "version": 1,
+    "name": "Night cat",
+    "icon": "pets",
+    "order": 33,
+    "description": "A cat watching the city from the window on a starry night, violet accents, a bar on the right edge",
+    "wallpaperPreview": "previews/night-cat.jpg",
+    "credits": {
+        "title": "When all the humans are asleep: a lonely cat by the window",
+        "author": "Earth_to_Infinity",
+        "license": "Pixabay Content License",
+        "page": "https://pixabay.com/videos/lofi-cat-night-window-rain-cute-246243/"
+    },
+    "bar": {
+        "config": {
+            "bar": {
+                "layout": null,
+                "verticalLayout": {
+                    "version": 1,
+                    "balanceCenter": false,
+                    "actions": {
+                        "start": {
+                            "click": "sidebarLeft",
+                            "scroll": "brightness"
+                        },
+                        "centerEnd": {
+                            "click": "sidebarRight"
+                        },
+                        "end": {
+                            "click": "sidebarRight",
+                            "scroll": "volume"
+                        }
+                    },
+                    "zones": {
+                        "start": [
+                            {
+                                "uid": "lsb",
+                                "type": "leftSidebarButton"
+                            },
+                            {
+                                "uid": "ws",
+                                "type": "workspaces",
+                                "pill": true
+                            }
+                        ],
+                        "centerStart": [],
+                        "center": [
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true
+                            },
+                            {
+                                "uid": "bat",
+                                "type": "battery",
+                                "pill": true
+                            }
+                        ],
+                        "centerEnd": [],
+                        "end": [
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "st",
+                                "type": "statusIndicators"
+                            },
+                            {
+                                "uid": "pwr",
+                                "type": "session"
+                            }
+                        ]
+                    }
+                },
+                "style": {
+                    "thickness": -1,
+                    "backgroundOpacity": -1,
+                    "islands": false,
+                    "pillStyle": "filled",
+                    "edgePadding": -1,
+                    "floatMargin": -1,
+                    "radius": 18,
+                    "textShadow": false,
+                    "glass": true
+                },
+                "cornerStyle": 1,
+                "showBackground": true,
+                "borderless": false,
+                "bottom": true,
+                "vertical": true,
+                "floatStyleShadow": true,
+                "weather": {
+                    "enable": false
+                }
+            }
+        }
+    },
+    "theme": {
+        "config": {
+            "appearance": {
+                "transparency": {
+                    "enable": true,
+                    "automatic": false,
+                    "backgroundTransparency": 0.22,
+                    "contentTransparency": 0.55
+                },
+                "palette": {
+                    "type": "scheme-fidelity"
+                }
+            }
+        },
+        "hyprland": {
+            "decoration:rounding": 18,
+            "decoration:blur:enabled": true,
+            "decoration:blur:passes": 3,
+            "decoration:blur:size": 8,
+            "decoration:shadow:enabled": true,
+            "decoration:dim_inactive": true,
+            "general:border_size": 1
+        },
+        "mode": "dark",
+        "accent": "#A98BFF"
+    },
+    "dockWidgets": {
+        "config": {
+            "dock": {
+                "enable": true,
+                "hoverToReveal": true,
+                "magnification": true,
+                "monochromeIcons": true
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy",
+                        "style": "cookie",
+                        "styleLocked": "cookie",
+                        "cookie": {
+                            "aiStyling": false,
+                            "sides": 14,
+                            "dialNumberStyle": "full",
+                            "hourHandStyle": "fill",
+                            "minuteHandStyle": "medium",
+                            "secondHandStyle": "dot",
+                            "dateStyle": "bubble",
+                            "timeIndicators": true,
+                            "hourMarks": false,
+                            "dateInClock": true,
+                            "constantlyRotate": false,
+                            "useSineCookie": false
+                        },
+                        "digital": {
+                            "adaptiveAlignment": true,
+                            "showDate": true,
+                            "animateChange": true,
+                            "vertical": false,
+                            "font": {
+                                "family": "Google Sans Flex",
+                                "weight": 700,
+                                "width": 100,
+                                "size": 110,
+                                "roundness": 100
+                            }
+                        }
+                    },
+                    "cardStyle": "tonal",
+                    "weather": {
+                        "enable": false,
+                        "style": "pill"
+                    },
+                    "systemMonitor": {
+                        "enable": false
+                    },
+                    "media": {
+                        "enable": false
+                    },
+                    "calendar": {
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
+                    },
+                    "countdown": {
+                        "enable": false
+                    },
+                    "note": {
+                        "enable": false
+                    },
+                    "pomodoro": {
+                        "enable": false
+                    }
+                }
+            }
+        }
+    },
+    "wallpaperAnimations": {
+        "animationProfile": "smooth",
+        "config": {
+            "appearance": {
+                "animationSpeed": 1.0
+            },
+            "background": {
+                "liveWallpaper": {
+                    "pauseWhen": "fullscreen"
+                }
+            }
+        },
+        "hyprland": {
+            "general:gaps_in": 5,
+            "general:gaps_out": 12,
+            "animations:enabled": true,
+            "misc:animate_manual_resizes": false,
+            "misc:animate_mouse_windowdragging": false
+        },
+        "wallpaper": "https://cdn.pixabay.com/video/2024/12/11/246243_large.mp4",
+        "loop": {
+            "start": 13.7,
+            "end": 52.2,
+            "crossfade": 0.6
+        }
+    },
+    "lock": {
+        "config": {
+            "lock": {
+                "layout": {
+                    "version": 1,
+                    "items": {
+                        "clock": {
+                            "show": true,
+                            "x": 0.2,
+                            "y": 0.36,
+                            "size": 1
+                        },
+                        "greeting": {
+                            "show": true,
+                            "x": 0.2,
+                            "y": 0.12,
+                            "size": 1
+                        },
+                        "password": {
+                            "show": true,
+                            "x": 0.2,
+                            "y": 0.66,
+                            "size": 1
+                        },
+                        "user": {
+                            "show": true,
+                            "attach": "",
+                            "x": 0.14,
+                            "y": 0.75,
+                            "size": 1
+                        },
+                        "power": {
+                            "show": true,
+                            "attach": "",
+                            "x": 0.15,
+                            "y": 0.955,
+                            "size": 1
+                        },
+                        "message": {
+                            "show": true,
+                            "attach": "password",
+                            "x": 0.5,
+                            "y": 0.88,
+                            "size": 1
+                        },
+                        "media": {
+                            "show": false,
+                            "x": 0.8,
+                            "y": 0.86,
+                            "size": 1
+                        },
+                        "weather": {
+                            "show": false,
+                            "x": 0.12,
+                            "y": 0.1,
+                            "size": 1
+                        },
+                        "notifications": {
+                            "show": true,
+                            "x": 0.2,
+                            "y": 0.84,
+                            "size": 1
+                        },
+                        "timer": {
+                            "show": false,
+                            "x": 0.88,
+                            "y": 0.3,
+                            "size": 1
+                        }
+                    }
+                },
+                "animations": "full",
+                "animatedWallpaper": true,
+                "dim": 0.25,
+                "showLockedText": true,
+                "blur": {
+                    "enable": true,
+                    "radius": 100,
+                    "extraZoom": 1.1
+                }
+            },
+            "background": {
+                "widgets": {
+                    "clock": {
+                        "styleLocked": "cookie"
+                    }
+                }
+            }
+        }
+    }
+}

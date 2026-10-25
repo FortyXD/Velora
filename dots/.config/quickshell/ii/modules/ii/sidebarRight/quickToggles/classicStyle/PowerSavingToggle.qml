@@ -8,7 +8,7 @@ QuickToggleButton {
     buttonIcon: "energy_savings_leaf"
     onClicked: PowerSaving.toggle()
     altAction: () => {
-        GlobalStates.sidebarRightOpen = false;
+        GlobalStates.closeSidebars();
         PowerSaving.openSettings();
     }
     StyledToolTip {

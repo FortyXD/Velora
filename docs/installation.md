@@ -40,7 +40,7 @@ Choices are saved in `$XDG_STATE_HOME/velora/installation.json` and reused by up
 8. Register `~/.local/bin/velora`, the Update Velora launcher, and the user update timer.
 9. Reload a running Hyprland session unless `--no-reload` is set.
 
-The installer preserves an existing `illogical-impulse/config.json` and seeds a missing one from the tracked example. Linked configuration files take effect from the checkout. Keep that directory after installation.
+The installer preserves an existing `illogical-impulse/config.json` and seeds a missing one from the tracked example. Linked configuration files take effect from the checkout. Keep that directory after installation. If you move or rename it, run `./velora relink` from the new place.
 
 The package managers are still interactive when `--yes` is passed. The option accepts Velora's component and installation plan; it does not pass `--noconfirm` to package managers.
 
@@ -48,11 +48,12 @@ The package managers are still interactive when `--yes` is passed. The option ac
 
 ```bash
 ./velora install --skip-packages      # Relink and register maintenance tools
+./velora relink                       # After moving or renaming the checkout: point every link at it again
 ./velora install --skip-aur           # Official packages and Python environment
 ./velora install --no-reload          # Apply files without reloading Hyprland
 ./velora install --no-updates         # Disable scheduled update checks
 ./velora deps                         # Reconcile dependencies without relinking
-./velora doctor                       # Inspect missing dependencies and tools
+./velora doctor                       # Inspect missing dependencies, tools and stale links
 ```
 
 Old `illogical-impulse-*` metapackages are no longer built or maintained by Velora. The installer does not automatically remove packages from your system. On an older installation, inspect the metapackages and their removal transaction yourself; avoid recursive dependency removal if the desktop still needs those packages.

@@ -1,16 +1,15 @@
 {
     "version": 1,
-    "name": "Lava",
-    "icon": "volcano",
-    "order": 30,
-    "description": "A live eruption of glowing lava, amber accents, island bar with system load",
-    "wallpaperPreview": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/007_Volcano_eruption_of_Litli-Hr%C3%BAtur_in_Iceland_in_2023_Video_by_Giles_Laurent.webm/960px--007_Volcano_eruption_of_Litli-Hr%C3%BAtur_in_Iceland_in_2023_Video_by_Giles_Laurent.webm.jpg",
-    "wallpaperPreviewVideo": "https://upload.wikimedia.org/wikipedia/commons/transcoded/5/53/007_Volcano_eruption_of_Litli-Hr%C3%BAtur_in_Iceland_in_2023_Video_by_Giles_Laurent.webm/007_Volcano_eruption_of_Litli-Hr%C3%BAtur_in_Iceland_in_2023_Video_by_Giles_Laurent.webm.480p.vp9.webm",
+    "name": "Moonlit river",
+    "icon": "nightlight",
+    "order": 35,
+    "description": "A window over a moonlit river in the rain, hand-drawn, deep blue accents",
+    "wallpaperPreview": "previews/moonlit-river.jpg",
     "credits": {
-        "title": "Volcano eruption of Litli-Hrútur in Iceland (2023)",
-        "author": "Giles Laurent",
-        "license": "CC BY-SA 4.0",
-        "page": "https://commons.wikimedia.org/wiki/File:007_Volcano_eruption_of_Litli-Hr%C3%BAtur_in_Iceland_in_2023_Video_by_Giles_Laurent.webm"
+        "title": "A figure at the window watching rain over a moonlit river",
+        "author": "yourillustration",
+        "license": "Pixabay Content License",
+        "page": "https://pixabay.com/videos/window-moon-clouds-river-manga-229537/"
     },
     "bar": {
         "config": {
@@ -38,33 +37,34 @@
                                 "type": "launcher"
                             },
                             {
-                                "uid": "ws",
-                                "type": "workspaces",
-                                "pill": true
+                                "uid": "win",
+                                "type": "activeWindow"
                             }
                         ],
                         "centerStart": [],
                         "center": [
                             {
-                                "uid": "clk",
-                                "type": "clock",
-                                "pill": true,
-                                "options": {
-                                    "showDate": true
-                                }
-                            },
-                            {
-                                "uid": "wx",
-                                "type": "weather",
+                                "uid": "ws",
+                                "type": "workspaces",
                                 "pill": true
                             }
                         ],
-                        "centerEnd": [],
+                        "centerEnd": [
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true
+                            }
+                        ],
                         "end": [
                             {
                                 "uid": "res",
                                 "type": "resources",
                                 "pill": true
+                            },
+                            {
+                                "uid": "net",
+                                "type": "networkSpeed"
                             },
                             {
                                 "uid": "tray",
@@ -74,39 +74,30 @@
                             {
                                 "uid": "st",
                                 "type": "statusIndicators"
-                            },
-                            {
-                                "uid": "bat",
-                                "type": "battery",
-                                "pill": true
-                            },
-                            {
-                                "uid": "pwr",
-                                "type": "session"
                             }
                         ]
                     }
                 },
                 "verticalLayout": null,
                 "style": {
-                    "thickness": 40,
+                    "thickness": 32,
                     "backgroundOpacity": -1,
-                    "islands": true,
-                    "pillStyle": "filled",
+                    "islands": false,
+                    "pillStyle": "outlined",
                     "edgePadding": -1,
                     "floatMargin": -1,
-                    "radius": 16,
+                    "radius": -1,
                     "textShadow": false,
                     "glass": false
                 },
-                "cornerStyle": 0,
+                "cornerStyle": 2,
                 "showBackground": true,
                 "borderless": false,
                 "bottom": false,
                 "vertical": false,
                 "floatStyleShadow": true,
                 "weather": {
-                    "enable": true
+                    "enable": false
                 }
             }
         }
@@ -117,8 +108,8 @@
                 "transparency": {
                     "enable": true,
                     "automatic": false,
-                    "backgroundTransparency": 0.18,
-                    "contentTransparency": 0.5
+                    "backgroundTransparency": 0.2,
+                    "contentTransparency": 0.55
                 },
                 "palette": {
                     "type": "scheme-fidelity"
@@ -126,7 +117,7 @@
             }
         },
         "hyprland": {
-            "decoration:rounding": 18,
+            "decoration:rounding": 12,
             "decoration:blur:enabled": true,
             "decoration:blur:passes": 3,
             "decoration:blur:size": 8,
@@ -135,7 +126,7 @@
             "general:border_size": 1
         },
         "mode": "dark",
-        "accent": "#FFB300"
+        "accent": "#6FB7FF"
     },
     "dockWidgets": {
         "config": {
@@ -180,7 +171,7 @@
                             }
                         }
                     },
-                    "cardStyle": "tonal",
+                    "cardStyle": "surface",
                     "weather": {
                         "enable": false,
                         "style": "pill"
@@ -209,25 +200,30 @@
         }
     },
     "wallpaperAnimations": {
-        "animationProfile": "fast",
+        "animationProfile": "smooth",
         "config": {
             "appearance": {
-                "animationSpeed": 0.9
+                "animationSpeed": 1.0
             },
             "background": {
                 "liveWallpaper": {
-                    "pauseWhen": "anyWindow"
+                    "pauseWhen": "fullscreen"
                 }
             }
         },
         "hyprland": {
-            "general:gaps_in": 6,
+            "general:gaps_in": 5,
             "general:gaps_out": 12,
             "animations:enabled": true,
             "misc:animate_manual_resizes": false,
             "misc:animate_mouse_windowdragging": false
         },
-        "wallpaper": "https://upload.wikimedia.org/wikipedia/commons/transcoded/5/53/007_Volcano_eruption_of_Litli-Hr%C3%BAtur_in_Iceland_in_2023_Video_by_Giles_Laurent.webm/007_Volcano_eruption_of_Litli-Hr%C3%BAtur_in_Iceland_in_2023_Video_by_Giles_Laurent.webm.1080p.vp9.webm"
+        "wallpaper": "https://cdn.pixabay.com/video/2024/09/03/229537_large.mp4",
+        "loop": {
+            "start": 6.3,
+            "end": 27.8,
+            "crossfade": 0.8
+        }
     },
     "lock": {
         "config": {
@@ -237,34 +233,34 @@
                     "items": {
                         "clock": {
                             "show": true,
-                            "x": 0.17,
-                            "y": 0.78,
+                            "x": 0.5,
+                            "y": 0.5,
                             "size": 1
                         },
                         "greeting": {
                             "show": false,
-                            "x": 0.17,
-                            "y": 0.55,
+                            "x": 0.5,
+                            "y": 0.2,
                             "size": 1
                         },
                         "password": {
                             "show": true,
-                            "x": 0.76,
-                            "y": 0.9,
+                            "x": 0.5,
+                            "y": 0.955,
                             "size": 1
                         },
                         "user": {
                             "show": true,
-                            "attach": "",
-                            "x": 0.06,
-                            "y": 0.06,
+                            "attach": "password",
+                            "x": 0.3,
+                            "y": 0.955,
                             "size": 1
                         },
                         "power": {
                             "show": true,
-                            "attach": "",
-                            "x": 0.93,
-                            "y": 0.06,
+                            "attach": "password",
+                            "x": 0.7,
+                            "y": 0.955,
                             "size": 1
                         },
                         "message": {
@@ -281,28 +277,28 @@
                             "size": 1
                         },
                         "weather": {
-                            "show": true,
-                            "x": 0.5,
-                            "y": 0.06,
+                            "show": false,
+                            "x": 0.12,
+                            "y": 0.1,
                             "size": 1
                         },
                         "notifications": {
-                            "show": false,
+                            "show": true,
                             "x": 0.5,
                             "y": 0.85,
                             "size": 1
                         },
                         "timer": {
                             "show": false,
-                            "x": 0.5,
-                            "y": 0.16,
+                            "x": 0.88,
+                            "y": 0.3,
                             "size": 1
                         }
                     }
                 },
                 "animations": "full",
                 "animatedWallpaper": true,
-                "dim": 0.35,
+                "dim": 0.3,
                 "showLockedText": true,
                 "blur": {
                     "enable": true,

@@ -551,6 +551,55 @@
         "translator": {
             "delay": 300,
             "enable": true
+        },
+        "left": {
+            "parts": [
+                {
+                    "uid": "media-left",
+                    "type": "media",
+                    "options": {
+                        "hideWhenIdle": true
+                    }
+                },
+                {
+                    "uid": "weather-left",
+                    "type": "weather"
+                },
+                {
+                    "uid": "tools-left",
+                    "type": "tools"
+                },
+                {
+                    "uid": "tabs-left",
+                    "type": "tabs",
+                    "options": {
+                        "style": "bar"
+                    },
+                    "tabs": [
+                        {
+                            "uid": "ai-left",
+                            "type": "ai"
+                        },
+                        {
+                            "uid": "translator-left",
+                            "type": "translator"
+                        },
+                        {
+                            "uid": "clipboard-left",
+                            "type": "clipboard"
+                        },
+                        {
+                            "uid": "notes-left",
+                            "type": "notes"
+                        },
+                        {
+                            "uid": "anime-left",
+                            "type": "anime",
+                            "hidden": true
+                        }
+                    ]
+                }
+            ]
         }
     },
     "sounds": {

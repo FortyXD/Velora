@@ -1,16 +1,15 @@
 {
     "version": 1,
-    "name": "Deep sea",
-    "icon": "scuba_diving",
-    "order": 31,
-    "description": "Jellyfish drifting in blue water, a light theme and a floating bar at the bottom",
-    "wallpaperPreview": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Jellyfish_at_Monterey_Bay_Aquarium_6_2024-01-11.webm/960px--Jellyfish_at_Monterey_Bay_Aquarium_6_2024-01-11.webm.jpg",
-    "wallpaperPreviewVideo": "https://upload.wikimedia.org/wikipedia/commons/transcoded/1/12/Jellyfish_at_Monterey_Bay_Aquarium_6_2024-01-11.webm/Jellyfish_at_Monterey_Bay_Aquarium_6_2024-01-11.webm.480p.vp9.webm",
+    "name": "Sakura cave",
+    "icon": "local_florist",
+    "order": 36,
+    "description": "A glowing cherry tree in a cave above still water, fantasy art, pink accents",
+    "wallpaperPreview": "previews/sakura-cave.jpg",
     "credits": {
-        "title": "Jellyfish at Monterey Bay Aquarium",
-        "author": "Fastily",
-        "license": "CC BY-SA 4.0",
-        "page": "https://commons.wikimedia.org/wiki/File:Jellyfish_at_Monterey_Bay_Aquarium_6_2024-01-11.webm"
+        "title": "Cave with trees, anime",
+        "author": "MAURICIO_BR",
+        "license": "Pixabay Content License",
+        "page": "https://pixabay.com/videos/cave-trees-anime-298330/"
     },
     "bar": {
         "config": {
@@ -34,8 +33,8 @@
                     "zones": {
                         "start": [
                             {
-                                "uid": "lsb",
-                                "type": "leftSidebarButton"
+                                "uid": "search",
+                                "type": "launcher"
                             },
                             {
                                 "uid": "ws",
@@ -49,17 +48,24 @@
                                 "uid": "med",
                                 "type": "media",
                                 "pill": true
+                            },
+                            {
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true
                             }
                         ],
                         "centerEnd": [],
                         "end": [
                             {
-                                "uid": "clk",
-                                "type": "clock",
-                                "pill": true,
-                                "options": {
-                                    "showDate": false
-                                }
+                                "uid": "dark",
+                                "type": "darkMode",
+                                "pill": true
+                            },
+                            {
+                                "uid": "tray",
+                                "type": "sysTray",
+                                "hideAt": 1
                             },
                             {
                                 "uid": "st",
@@ -69,21 +75,25 @@
                                 "uid": "bat",
                                 "type": "battery",
                                 "pill": true
+                            },
+                            {
+                                "uid": "pwr",
+                                "type": "session"
                             }
                         ]
                     }
                 },
                 "verticalLayout": null,
                 "style": {
-                    "thickness": 46,
+                    "thickness": 44,
                     "backgroundOpacity": -1,
                     "islands": false,
-                    "pillStyle": "none",
+                    "pillStyle": "filled",
                     "edgePadding": -1,
-                    "floatMargin": 10,
-                    "radius": 24,
+                    "floatMargin": -1,
+                    "radius": -1,
                     "textShadow": false,
-                    "glass": true
+                    "glass": false
                 },
                 "cornerStyle": 1,
                 "showBackground": true,
@@ -103,16 +113,16 @@
                 "transparency": {
                     "enable": true,
                     "automatic": false,
-                    "backgroundTransparency": 0.12,
-                    "contentTransparency": 0.5
+                    "backgroundTransparency": 0.1,
+                    "contentTransparency": 0.45
                 },
                 "palette": {
-                    "type": "scheme-tonal-spot"
+                    "type": "scheme-fidelity"
                 }
             }
         },
         "hyprland": {
-            "decoration:rounding": 22,
+            "decoration:rounding": 20,
             "decoration:blur:enabled": true,
             "decoration:blur:passes": 3,
             "decoration:blur:size": 8,
@@ -120,8 +130,8 @@
             "decoration:dim_inactive": true,
             "general:border_size": 1
         },
-        "mode": "light",
-        "accent": "#00ACC1"
+        "mode": "dark",
+        "accent": "#FF7EB6"
     },
     "dockWidgets": {
         "config": {
@@ -168,19 +178,18 @@
                     },
                     "cardStyle": "tonal",
                     "weather": {
-                        "enable": true,
-                        "placementStrategy": "leastBusy",
-                        "style": "card"
+                        "enable": false,
+                        "style": "pill"
                     },
                     "systemMonitor": {
                         "enable": false
                     },
                     "media": {
-                        "enable": true,
-                        "placementStrategy": "leastBusy"
+                        "enable": false
                     },
                     "calendar": {
-                        "enable": false
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
                     },
                     "countdown": {
                         "enable": false
@@ -199,22 +208,27 @@
         "animationProfile": "smooth",
         "config": {
             "appearance": {
-                "animationSpeed": 0.85
+                "animationSpeed": 1.0
             },
             "background": {
                 "liveWallpaper": {
-                    "pauseWhen": "anyWindow"
+                    "pauseWhen": "fullscreen"
                 }
             }
         },
         "hyprland": {
-            "general:gaps_in": 6,
-            "general:gaps_out": 14,
+            "general:gaps_in": 5,
+            "general:gaps_out": 12,
             "animations:enabled": true,
             "misc:animate_manual_resizes": false,
             "misc:animate_mouse_windowdragging": false
         },
-        "wallpaper": "https://upload.wikimedia.org/wikipedia/commons/transcoded/1/12/Jellyfish_at_Monterey_Bay_Aquarium_6_2024-01-11.webm/Jellyfish_at_Monterey_Bay_Aquarium_6_2024-01-11.webm.1080p.vp9.webm"
+        "wallpaper": "https://cdn.pixabay.com/video/2025/08/19/298330_large.mp4",
+        "loop": {
+            "start": 8.6,
+            "end": 28.6,
+            "crossfade": 0.8
+        }
     },
     "lock": {
         "config": {
@@ -224,14 +238,14 @@
                     "items": {
                         "clock": {
                             "show": true,
-                            "x": 0.27,
-                            "y": 0.42,
-                            "size": 1.3
+                            "x": 0.5,
+                            "y": 0.47,
+                            "size": 1
                         },
                         "greeting": {
                             "show": true,
-                            "x": 0.27,
-                            "y": 0.13,
+                            "x": 0.5,
+                            "y": 0.18,
                             "size": 1
                         },
                         "password": {
@@ -262,34 +276,34 @@
                             "size": 1
                         },
                         "media": {
-                            "show": true,
-                            "x": 0.73,
-                            "y": 0.45,
+                            "show": false,
+                            "x": 0.83,
+                            "y": 0.13,
                             "size": 1
                         },
                         "weather": {
-                            "show": true,
-                            "x": 0.73,
-                            "y": 0.22,
+                            "show": false,
+                            "x": 0.12,
+                            "y": 0.1,
                             "size": 1
                         },
                         "notifications": {
-                            "show": true,
-                            "x": 0.73,
-                            "y": 0.63,
+                            "show": false,
+                            "x": 0.5,
+                            "y": 0.85,
                             "size": 1
                         },
                         "timer": {
-                            "show": false,
-                            "x": 0.73,
-                            "y": 0.74,
+                            "show": true,
+                            "x": 0.88,
+                            "y": 0.1,
                             "size": 1
                         }
                     }
                 },
                 "animations": "full",
                 "animatedWallpaper": true,
-                "dim": 0.2,
+                "dim": 0.1,
                 "showLockedText": true,
                 "blur": {
                     "enable": true,

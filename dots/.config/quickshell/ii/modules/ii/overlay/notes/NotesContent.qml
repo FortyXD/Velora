@@ -261,6 +261,9 @@ OverlayBackground {
     FileView {
         id: noteFile
         path: Qt.resolvedUrl(Directories.notesPath)
+        // The overlay and a sidebar may both show the notes: take what the other one saved, unless typing here
+        watchChanges: true
+        onFileChanged: if (!textInput.activeFocus) noteFile.reload()
         onLoaded: {
             root.content = noteFile.text();
             if (root.content !== root.content) {

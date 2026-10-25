@@ -108,6 +108,23 @@ if [[ ! -e $shell_config && ! -L $shell_config ]]; then
   fi
 fi
 
+# Colors and settings-app output are rewritten while the desktop runs, so they aren't tracked;
+# a new checkout starts from their defaults.
+seed_generated() {
+  local template=$1 dest=$2
+  [[ -e $template && ! -e $dest && ! -L $dest ]] || return 0
+  if $dry_run; then
+    printf 'Would create %s from its default\n' "$dest"
+    return
+  fi
+  cp -- "$template" "$dest"
+}
+seed_generated "$repo_root/dots/.config/hypr/custom/shell_settings_default.json" "$repo_root/dots/.config/hypr/custom/shell_settings.json"
+seed_generated "$repo_root/dots/.config/hypr/custom/shell_settings_default.lua" "$repo_root/dots/.config/hypr/custom/shell_settings.lua"
+seed_generated "$repo_root/dots/.config/hypr/hyprland/colors_default.lua" "$repo_root/dots/.config/hypr/hyprland/colors.lua"
+seed_generated "$repo_root/dots/.config/hypr/hyprlock/colors_default.conf" "$repo_root/dots/.config/hypr/hyprlock/colors.conf"
+seed_generated "$repo_root/dots/.config/fuzzel/fuzzel_theme_default.ini" "$repo_root/dots/.config/fuzzel/fuzzel_theme.ini"
+
 link_item "$repo_root/dots/.config/wireplumber/wireplumber.conf.d/51-auto-audio-routes.conf" "$config_home/wireplumber/wireplumber.conf.d/51-auto-audio-routes.conf"
 link_item "$repo_root/dots/.local/share/wireplumber/scripts/folis/prefer-plugged-routes.lua" "$data_home/wireplumber/scripts/folis/prefer-plugged-routes.lua"
 link_item "$repo_root/dots/.config/starship.toml" "$config_home/starship.toml"

@@ -2,7 +2,7 @@
     "version": 1,
     "name": "Candy",
     "icon": "cake",
-    "order": 34,
+    "order": 40,
     "description": "A slow liquid gradient in pink, orange and violet, a light theme and a docked bottom bar",
     "credits": {
         "title": "Liquid",
@@ -211,7 +211,7 @@
             },
             "background": {
                 "liveWallpaper": {
-                    "pauseWhen": "anyWindow"
+                    "pauseWhen": "fullscreen"
                 },
                 "shaderWallpaper": {
                     "name": "liquid",
