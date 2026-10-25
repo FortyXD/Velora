@@ -77,7 +77,7 @@ Singleton {
         Scope {
             id: player
             required property ShellScreen modelData
-            readonly property string screenName: player.modelData.name
+            readonly property string screenName: player.modelData?.name ?? "" // Null for a moment while an unplugged screen goes away
             readonly property string socketPath: `${Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"}/folis-wallpaper-${player.screenName}.sock`
             readonly property bool shouldPlay: !GlobalStates.screenLocked && !PowerSaving.pauseLiveWallpaper && !root.coveredOn(player.screenName)
             property int runningGeneration: -1

@@ -13,7 +13,7 @@ QuickToggleModel {
     icon: "energy_savings_leaf"
     mainAction: () => PowerSaving.toggle()
     altAction: () => {
-        GlobalStates.sidebarRightOpen = false;
+        GlobalStates.closeSidebars();
         PowerSaving.openSettings();
     }
     tooltipText: Translation.tr("Energy saving | Right-click for settings")

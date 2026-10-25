@@ -33,3 +33,15 @@ __pycache__/
 
 # Frames of video wallpapers, made by switchwall.sh
 /dots/.config/hypr/custom/scripts/mpvpaper_thumbnails/
+
+# Rewritten while the desktop runs: colors made from the wallpaper and the settings app's output.
+# install.sh creates the missing ones from the *_default files next to them.
+/dots/.config/hypr/custom/shell_settings.json
+/dots/.config/hypr/custom/shell_settings.lua
+/dots/.config/hypr/custom/monitors.json
+/dots/.config/hypr/custom/monitors.lua
+/dots/.config/hypr/custom/keybind_overrides.json
+/dots/.config/hypr/custom/keybind_overrides.lua
+/dots/.config/hypr/hyprland/colors.lua
+/dots/.config/hypr/hyprlock/colors.conf
+/dots/.config/fuzzel/fuzzel_theme.ini

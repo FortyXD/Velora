@@ -202,6 +202,37 @@ class InstallerTests(IsolatedTest):
         self.assertEqual(original.read_text(), "keep this")
         self.assertFalse(original.is_symlink())
 
+    def test_relink_repairs_links_after_the_checkout_is_renamed(self):
+        (self.repo / "velora").write_text("#!/bin/sh\nexit 0\n")
+        (self.repo / "velora").chmod(0o755)
+        real_run = velora.run
+
+        def run(command, **kwargs):
+            if command[0] == "systemctl":
+                return ""
+            kwargs["capture"] = True
+            return real_run(command, **kwargs)
+
+        with patch.dict(os.environ, {"VELORA_TARGET_HOME": str(self.home)}), patch.object(velora, "run", side_effect=run), \
+                patch.object(velora.Path, "home", return_value=self.home):
+            with patch.object(velora, "ROOT", self.repo):
+                velora.link_configuration(velora.parser().parse_args(["install", "--no-reload"]), [])
+                self.assertEqual(velora.stale_links(), [])
+            moved = self.base / "renamed checkout"
+            self.repo.rename(moved)
+            hypr = Path(self.env["XDG_CONFIG_HOME"]) / "hypr"
+            self.assertFalse(hypr.exists())  # Dangling, like after renaming the folder
+            with patch.object(velora, "ROOT", moved):
+                self.assertIn(str(hypr), velora.stale_links())
+                velora.relink(velora.parser().parse_args(["relink", "--no-reload"]))
+                self.assertEqual(velora.stale_links(), [])
+        self.assertEqual(hypr.resolve(), moved / "dots/.config/hypr")
+        self.assertEqual((self.home / ".local/bin/velora").resolve(), moved / "velora")
+        self.assertEqual(velora.preferences()["repository"], str(moved))
+        service = (Path(self.env["XDG_CONFIG_HOME"]) / "systemd/user/velora-update.service").read_text()
+        self.assertIn(str(moved), service)
+        self.assertNotIn(str(self.repo), service)
+
     def test_restore_refuses_missing_backup_before_changing_anything(self):
         target = self.home / "keep"
         target.write_text("keep this")
@@ -364,6 +395,31 @@ class UpdateTests(IsolatedTest):
         self.assertIn("--skip-aur", installer_commands[0])
         self.assertIn("toolbox", installer_commands[0])
         self.assertTrue(velora.read_json(velora.state_dir() / "last-update.json")["complete"])
+
+    def test_generated_files_survive_the_update_that_stops_tracking_them(self):
+        colors = "dots/.config/hypr/hyprland/colors.lua"
+        (self.author / colors).parent.mkdir(parents=True)
+        (self.author / colors).write_text("shipped colors\n")
+        git(self.author, "add", ".")
+        git(self.author, "commit", "-m", "Track colors")
+        git(self.author, "push")
+        git(self.checkout, "pull")
+        (self.checkout / colors).write_text("colors from my wallpaper\n")  # Rewritten by the desktop
+        git(self.author, "rm", "--cached", colors)
+        (self.author / ".gitignore").write_text("/" + colors + "\n")
+        git(self.author, "add", ".gitignore")
+        git(self.author, "commit", "-m", "Stop tracking colors")
+        git(self.author, "push")
+        real_run = velora.run
+
+        def run(command, **kwargs):
+            return "" if Path(command[0]).name == "velora" else real_run(command, **kwargs)
+
+        with patch.object(velora, "run", side_effect=run):
+            velora.update(self.args())
+        self.assertEqual((self.checkout / colors).read_text(), "colors from my wallpaper\n")
+        self.assertEqual(git(self.checkout, "ls-files", colors), "")
+        self.assertFalse(velora.update_status(fetch=False)["dirty"])
 
     def test_failed_install_records_incomplete_update_for_recovery(self):
         self.remote_update()

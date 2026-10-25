@@ -3,11 +3,13 @@ import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.functions
+import qs.modules.common.widgets
 
 /**
  * One part of the lock screen, placed where services/LockLayout.qml says, with its animations:
  * in one by one when the screen locks, flying apart on unlock, and gliding when moved.
  * In an editor (scene.editing) it gets an outline and can be dragged; the scene snaps it to guides.
+ * Dragged off the screen, a part that can be hidden turns red and hides when let go.
  */
 Item {
     id: host
@@ -27,6 +29,7 @@ Item {
 
     // Where the middle is, in scene coordinates
     property bool dragging: false
+    property bool removing: false
     property point dragCenter: Qt.point(0, 0)
     readonly property real visualWidth: host.width * host.size
     readonly property real visualHeight: host.height * host.size
@@ -158,9 +161,19 @@ Item {
             margins: -4 / host.size
         }
         radius: 10 / host.size
-        color: host.selected ? ColorUtils.transparentize(Appearance.colors.colPrimary, 0.85) : "transparent"
-        border.width: (host.selected ? 3 : 1.5) / (host.scene.editScale * host.size)
-        border.color: host.selected ? Appearance.colors.colPrimary : ColorUtils.transparentize(Appearance.colors.colOnLayer0, 0.4)
+        color: host.removing ? ColorUtils.transparentize(Appearance.colors.colError, 0.55)
+            : host.selected ? ColorUtils.transparentize(Appearance.colors.colPrimary, 0.85) : "transparent"
+        border.width: (host.selected || host.removing ? 3 : 1.5) / (host.scene.editScale * host.size)
+        border.color: host.removing ? Appearance.colors.colError
+            : host.selected ? Appearance.colors.colPrimary : ColorUtils.transparentize(Appearance.colors.colOnLayer0, 0.4)
+
+        MaterialSymbol {
+            visible: host.removing
+            anchors.centerIn: parent
+            text: "visibility_off"
+            iconSize: Math.min(parent.width, parent.height, 48 / host.scene.editScale) * 0.7
+            color: Appearance.colors.colOnError
+        }
     }
     MouseArea {
         id: dragArea
@@ -189,12 +202,27 @@ Item {
             if (!host.dragging && Math.hypot(dx, dy) < 4 / host.scene.editScale) return;
             host.dragCenter = host.scene.snap(host, Qt.point(startCenter.x + dx, startCenter.y + dy));
             host.dragging = true;
+            // Off the screen: its middle left it, or the pointer is at the edge of a full-size editor
+            const w = host.scene.width;
+            const h = host.scene.height;
+            const rawX = startCenter.x + dx;
+            const rawY = startCenter.y + dy;
+            host.removing = (host.spec.hideable ?? false) && (rawX < 0 || rawX > w || rawY < 0 || rawY > h
+                || p.x <= 1 || p.y <= 1 || p.x >= w - 1 || p.y >= h - 1);
         }
         onReleased: {
             if (!host.dragging) return;
             const c = host.center;
-            host.scene.elementMoved(host.elementId, c.x / host.scene.width, c.y / host.scene.height);
+            const removing = host.removing;
             host.dragging = false;
+            host.removing = false;
+            host.scene.clearGuides();
+            if (removing) host.scene.elementRemoved(host.elementId);
+            else host.scene.elementMoved(host.elementId, c.x / host.scene.width, c.y / host.scene.height);
+        }
+        onCanceled: {
+            host.dragging = false;
+            host.removing = false;
             host.scene.clearGuides();
         }
         onDoubleClicked: host.scene.elementReset(host.elementId)

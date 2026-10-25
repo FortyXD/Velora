@@ -17,7 +17,8 @@ import Quickshell.Io
  *   lock                 the lock screen: arrangement, animations, darkening, blur, clock style
  * Each category may hold `config` (a partial config.json, limited to the paths below) and
  * `hyprland` (Hyprland options for HyprlandSettings), plus `mode`/`scheme` (theme),
- * `wallpaper` and `animationProfile` (wallpaperAnimations).
+ * `wallpaper` and `animationProfile` (wallpaperAnimations). A video from the web may come with
+ * `loop: { start, end, crossfade }` (seconds): that part of it is made to repeat without a jump.
  *
  * Built-in presets are defaults/presets/*.json; your own are saved under
  * ~/.config/illogical-impulse/presets/<slug>/preset.json (with a copy of the wallpaper).
@@ -66,7 +67,13 @@ Singleton {
         listProc.running = false;
         listProc.running = true;
         backupCheck.running = true;
+        downloadedProc.running = false;
+        downloadedProc.running = true;
     }
+
+    // File names in the folder of downloaded preset videos, so a card can play its look's own loop
+    property list<string> downloadedVideos: []
+    readonly property string videoDir: `${FileUtils.trimFileProtocol(Directories.videos)}/Wallpapers/Presets`
 
     readonly property var defaultPreset: root.presets.find(preset => preset.isDefault) ?? null
 
@@ -144,9 +151,19 @@ Singleton {
     function remoteWallpaperPath(preset) {
         const url = preset.wallpaperAnimations.wallpaper.split("?")[0];
         const video = FileUtils.isVideoPath(url);
-        const ext = video ? url.split(".").pop().toLowerCase() : (url.match(/\.(jpe?g|png|webp)$/i)?.[1] ?? "jpg").toLowerCase();
-        const dir = video ? `${FileUtils.trimFileProtocol(Directories.videos)}/Wallpapers/Presets` : `${FileUtils.trimFileProtocol(Directories.pictures)}/Wallpapers/Presets`;
+        // A made loop is always H.264 in MP4 (scripts/colors/random/common.sh, make_loop)
+        const ext = root.loopArgs(preset).length > 0 ? "mp4"
+            : video ? url.split(".").pop().toLowerCase() : (url.match(/\.(jpe?g|png|webp)$/i)?.[1] ?? "jpg").toLowerCase();
+        const dir = video ? root.videoDir : `${FileUtils.trimFileProtocol(Directories.pictures)}/Wallpapers/Presets`;
         return `${dir}/${preset.id.replace(/[^A-Za-z0-9._-]/g, "_")}.${ext}`;
+    }
+
+    // download_wallpaper.sh arguments for a video's `loop`, if it has a usable one
+    function loopArgs(preset) {
+        const loop = preset?.wallpaperAnimations?.loop;
+        if (!loop || !(loop.end > loop.start) || !(loop.start >= 0)) return [];
+        const crossfade = loop.crossfade > 0 ? loop.crossfade : 0.6;
+        return ["--loop", `${loop.start}:${loop.end}:${crossfade}`];
     }
 
     // A moving wallpaper: a video, or an animated one drawn by the shell (ShaderWallpaper)
@@ -171,7 +188,12 @@ Singleton {
         const clip = preset?.wallpaperPreviewVideo ?? "";
         if (root.isRemote(clip)) return clip;
         const local = root.wallpaperFile(preset);
-        return local.length > 0 && FileUtils.isVideoPath(local) ? `file://${local}` : "";
+        if (local.length > 0 && FileUtils.isVideoPath(local)) return `file://${local}`;
+        // A video from the web plays on the card once it has been downloaded, never streamed
+        const wallpaper = preset?.wallpaperAnimations?.wallpaper ?? "";
+        if (!root.isRemote(wallpaper) || !FileUtils.isVideoPath(wallpaper.split("?")[0])) return "";
+        const downloaded = root.remoteWallpaperPath(preset);
+        return root.downloadedVideos.includes(downloaded.split("/").pop()) ? `file://${downloaded}` : "";
     }
 
     function wallpaperFile(preset) {
@@ -197,10 +219,14 @@ Singleton {
 
     property var pending: null
 
+    // Counts applies, so a download that finishes after another look was applied doesn't switch back to its own
+    property int applyCount: 0
+
     function finishApply() {
         const preset = root.pending.preset;
         const chosen = root.pending.categories;
         root.pending = null;
+        root.applyCount++;
 
         // Shell settings. Every key is written explicitly: keys missing from the file would keep their old value.
         let patch = {};
@@ -237,12 +263,11 @@ Singleton {
             // Drawn by the shell; its still frame becomes the wallpaper picture for colors and previews
             ShaderWallpaper.activate(preset.wallpaperAnimations.wallpaper.slice(7), modeArgs);
         } else if (remote) {
-            // Downloaded once into ~/Pictures/Wallpapers/Presets, then colors are made from it
-            downloadProc.dest = root.remoteWallpaperPath(preset);
-            downloadProc.modeArgs = modeArgs;
-            downloadProc.command = [Quickshell.shellPath("scripts/colors/random/download_wallpaper.sh"), preset.wallpaperAnimations.wallpaper,
-                downloadProc.dest, "--meta", JSON.stringify(preset.credits ?? {}), "--title", Translation.tr(preset.name)];
-            downloadProc.running = true;
+            // Downloaded once into ~/Pictures/Wallpapers/Presets (videos: ~/Videos/…), then colors are made from it
+            downloadProc.start(root.applyCount, root.remoteWallpaperPath(preset), modeArgs,
+                [Quickshell.shellPath("scripts/colors/random/download_wallpaper.sh"), preset.wallpaperAnimations.wallpaper,
+                root.remoteWallpaperPath(preset), "--meta", JSON.stringify(preset.credits ?? {}), "--title", Translation.tr(preset.name),
+                ...root.loopArgs(preset)]);
         } else if (wallpaper.length > 0 || chosen.includes("theme")) {
             themeTimer.args = [...(wallpaper.length > 0 ? ["--image", wallpaper] : ["--noswitch"]), ...modeArgs];
             themeTimer.restart();
@@ -261,12 +286,48 @@ Singleton {
 
     Process {
         id: downloadProc
+        property int applyCount: 0
         property string dest: ""
         property var modeArgs: []
+        property var queued: null
+
+        // A download still running for an earlier look is stopped; this one starts once it has exited
+        function start(applyCount, dest, modeArgs, command) {
+            const next = { "applyCount": applyCount, "dest": dest, "modeArgs": modeArgs, "command": command };
+            if (downloadProc.running) {
+                downloadProc.queued = next;
+                downloadProc.running = false;
+                return;
+            }
+            downloadProc.run(next);
+        }
+        function run(next) {
+            downloadProc.applyCount = next.applyCount;
+            downloadProc.dest = next.dest;
+            downloadProc.modeArgs = next.modeArgs;
+            downloadProc.command = next.command;
+            downloadProc.running = true;
+        }
         onExited: exitCode => {
+            if (downloadProc.queued) {
+                const next = downloadProc.queued;
+                downloadProc.queued = null;
+                downloadProc.run(next);
+                return;
+            }
+            root.load(); // The card can now play the downloaded video
+            if (downloadProc.applyCount !== root.applyCount) return; // Another look was applied meanwhile
             // Without the picture (offline, blocked) the rest of the theme still applies
             themeTimer.args = [...(exitCode === 0 ? ["--image", downloadProc.dest] : ["--noswitch"]), ...downloadProc.modeArgs];
             themeTimer.restart();
+        }
+    }
+
+    Process {
+        id: downloadedProc
+        command: ["bash", "-c", 'cd -- "$1" 2>/dev/null && ls -1', "_", root.videoDir]
+        stdout: StdioCollector {
+            onStreamFinished: root.downloadedVideos = text.split("\n").filter(name => name.length > 0)
         }
     }
 
@@ -445,8 +506,10 @@ Singleton {
                 }
                 const [wallpaper, mode] = parts[2].trim().split("\n");
                 const accent = config.appearance?.palette?.accentColor ?? "";
-                themeTimer.args = [...(wallpaper ? ["--image", wallpaper] : ["--noswitch"]), ...(mode ? ["--mode", mode] : []),
-                    ...root.accentArgs({ "theme": { "accent": accent } })];
+                // The picture of an animated wallpaper is its still frame; without --keep-shader switchwall would stop the animation
+                const shader = (config.background?.shaderWallpaper?.name ?? "").length > 0;
+                themeTimer.args = [...(wallpaper ? ["--image", wallpaper] : ["--noswitch"]), ...(shader && wallpaper ? ["--keep-shader"] : []),
+                    ...(mode ? ["--mode", mode] : []), ...root.accentArgs({ "theme": { "accent": accent } })];
                 themeTimer.restart();
             }
         }

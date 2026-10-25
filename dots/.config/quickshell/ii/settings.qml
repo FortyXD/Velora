@@ -1,5 +1,7 @@
 //@ pragma UseQApplication
 //@ pragma Env QS_NO_RELOAD_POPUP=1
+//@ pragma Env QT_FFMPEG_DECODING_HW_DEVICE_TYPES=vaapi
+//@ pragma Env QT_FFMPEG_ENCODING_HW_DEVICE_TYPES=vaapi
 //@ pragma Env QT_QUICK_CONTROLS_STYLE=Basic
 //@ pragma Env QT_QUICK_FLICKABLE_WHEEL_DECELERATION=10000
 
@@ -87,9 +89,9 @@ ApplicationWindow {
             component: "modules/settings/BarConfig.qml"
         },
         {
-            key: "sidebars", group: "desktop", color: "#30B0C7", icon: "side_navigation",
+            key: "sidebars", group: "desktop", color: "#30B0C7", icon: "side_navigation", hero: false,
             name: Translation.tr("Sidebars"),
-            description: Translation.tr("Quick settings on the right, assistant and translator on the left"),
+            description: Translation.tr("Two sidebars made of parts you choose: quick settings, media, weather, assistant, clipboard and more"),
             component: "modules/settings/SidebarsConfig.qml"
         },
         {
@@ -99,7 +101,7 @@ ApplicationWindow {
             component: "modules/settings/NotificationsConfig.qml"
         },
         {
-            key: "lock", group: "desktop", color: "#636366", icon: "lock",
+            key: "lock", group: "desktop", color: "#636366", icon: "lock", hero: false,
             name: Translation.tr("Lock Screen"),
             description: Translation.tr("How the lock screen looks and what it protects"),
             component: "modules/settings/LockConfig.qml"

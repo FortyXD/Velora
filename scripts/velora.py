@@ -135,9 +135,9 @@ def configure_updates(args):
         enabled = args.automatic_checks == "on"
         units = xdg("XDG_CONFIG_HOME", ".config") / "systemd/user"
         service = units / "velora-update.service"
-        if enabled and not service.exists():
-            # A checkout used without 'velora install' gets its timer here instead
-            service_text, timer_text = update_units()
+        service_text, timer_text = update_units()
+        if enabled and (not service.exists() or service.read_text() != service_text):
+            # A checkout used without 'velora install' gets its timer here instead; a moved one gets its new path
             units.mkdir(parents=True, exist_ok=True)
             service.write_text(service_text)
             (units / "velora-update.timer").write_text(timer_text)
@@ -473,6 +473,72 @@ def register_installation(journal, args, without):
             print("Automatic checks could not start. After login, run: systemctl --user enable --now velora-update.timer")
 
 
+def link_environment(extra=None):
+    """The environment for scripts/install.sh: a package installation links its writable runtime copy."""
+    environment = dict(os.environ, **(extra or {}))
+    if package_metadata():
+        environment["VELORA_SOURCE_ROOT"] = str(xdg("XDG_DATA_HOME", ".local/share") / "velora/runtime")
+    return environment
+
+
+def link_configuration(args, without):
+    """Links the configuration and registers the command, launcher and update timer; a failed step
+    restores every file it replaced. Returns the backup directory."""
+    backup = state_dir() / "backups" / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    backup.mkdir(parents=True)
+    journal = backup / "journal.jsonl"
+    journal.touch()
+    environment = link_environment({"VELORA_BACKUP_ROOT": str(backup), "VELORA_INSTALL_JOURNAL": str(journal)})
+    if package_metadata():
+        runtime = Path(environment["VELORA_SOURCE_ROOT"])
+        conflicts = sync_runtime(ROOT, runtime)
+        if conflicts:
+            print("Local edits preserved. Review incoming templates in " + str(runtime / ".incoming"))
+            for conflict in conflicts:
+                print("  " + conflict)
+    try:
+        run(["bash", ROOT / "scripts/install.sh", "--skip-packages", "--no-reload"], env=environment)
+        register_installation(journal, args, without)
+    except (Exception, KeyboardInterrupt):
+        print("Installation did not finish. Restoring configuration files...", file=sys.stderr)
+        restore_journal(journal)
+        raise
+    if not args.no_reload and os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") and shutil.which("hyprctl"):
+        try:
+            run(["hyprctl", "reload"])
+        except VeloraError:
+            print("Configuration installed. Hyprland reload failed; log in again to load it.")
+    return backup
+
+
+def stale_links():
+    """Configuration links that are missing or point elsewhere than this checkout, as the installer's
+    own dry run reports them (it prints "Link <target> -> <source>" for each one it would change)."""
+    result = subprocess.run(["bash", str(ROOT / "scripts/install.sh"), "--dry-run", "--skip-packages", "--no-reload"],
+                            env=link_environment(), text=True, capture_output=True, check=False)
+    if result.returncode:
+        raise VeloraError("Could not check the configuration links: " + (result.stderr.strip() or "install.sh failed"))
+    return [line[len("Link "):].split(" -> ")[0] for line in result.stdout.splitlines() if line.startswith("Link ")]
+
+
+def relink(args):
+    """Points the configuration links, command, launcher and update timer at this checkout again,
+    for instance after the checkout was moved or renamed. Packages and fonts are left alone."""
+    saved = preferences()
+    moved_from = saved.get("repository")
+    if moved_from and Path(moved_from) != ROOT:
+        print(f"Velora moved: {moved_from} -> {ROOT}")
+    if args.dry_run:
+        run(["bash", ROOT / "scripts/install.sh", "--dry-run", "--skip-packages", "--no-reload"], env=link_environment())
+        print("Would register the velora command, update launcher and user timer. No files changed.")
+        return
+    options = argparse.Namespace(skip_aur=saved.get("skip_aur", False), skip_packages=saved.get("skip_packages", False),
+                                 no_updates=saved.get("no_updates", False), no_reload=args.no_reload,
+                                 source_packages=saved.get("build_from_source", []))
+    backup = link_configuration(options, saved.get("without", []))
+    print(f"\nConfiguration linked to {ROOT}. Backup: {backup}\nRestart Quickshell or log in again to load it.")
+
+
 def install(args):
     features, without = selected_features(args, wizard=True)
     # Persist the user's AUR choice, including for subsequent updates.
@@ -521,31 +587,7 @@ def install(args):
     if not package_metadata():
         run(["git", "submodule", "update", "--init", "--recursive"], cwd=ROOT)
     install_fonts()
-    backup = state_dir() / "backups" / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-    backup.mkdir(parents=True)
-    journal = backup / "journal.jsonl"
-    journal.touch()
-    environment = dict(os.environ, VELORA_BACKUP_ROOT=str(backup), VELORA_INSTALL_JOURNAL=str(journal))
-    if package_metadata():
-        runtime = xdg("XDG_DATA_HOME", ".local/share") / "velora/runtime"
-        conflicts = sync_runtime(ROOT, runtime)
-        environment["VELORA_SOURCE_ROOT"] = str(runtime)
-        if conflicts:
-            print("Local edits preserved. Review incoming templates in " + str(runtime / ".incoming"))
-            for conflict in conflicts:
-                print("  " + conflict)
-    try:
-        run(["bash", ROOT / "scripts/install.sh", "--skip-packages", "--no-reload"], env=environment)
-        register_installation(journal, args, without)
-    except (Exception, KeyboardInterrupt):
-        print("Installation did not finish. Restoring configuration files...", file=sys.stderr)
-        restore_journal(journal)
-        raise
-    if not args.no_reload and os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") and shutil.which("hyprctl"):
-        try:
-            run(["hyprctl", "reload"])
-        except VeloraError:
-            print("Configuration installed. Hyprland reload failed; log in again to load it.")
+    backup = link_configuration(args, without)
     print(f"\nVelora installed. Backup: {backup}\nRestore with: velora restore {backup.name}")
     print("Open Settings with Super+I. Update Velora from Settings > About, or run: velora update")
     print("User configuration lives in the writable runtime directory." if package_metadata()
@@ -564,6 +606,37 @@ def install_command(binary, args, without):
 
 def git(*args):
     return run(["git", *args], cwd=ROOT, capture=True, timeout=60)
+
+
+# Rewritten while the desktop runs (colors, the settings app's output). Ignored by Git; older checkouts
+# still track them, so they never count as local changes and an update keeps the user's copies.
+GENERATED_FILES = (
+    "dots/.config/hypr/custom/shell_settings.json", "dots/.config/hypr/custom/shell_settings.lua",
+    "dots/.config/hypr/custom/monitors.json", "dots/.config/hypr/custom/monitors.lua",
+    "dots/.config/hypr/custom/keybind_overrides.json", "dots/.config/hypr/custom/keybind_overrides.lua",
+    "dots/.config/hypr/hyprland/colors.lua", "dots/.config/hypr/hyprlock/colors.conf",
+    "dots/.config/fuzzel/fuzzel_theme.ini",
+)
+
+
+def local_changes():
+    return git("status", "--porcelain", "--untracked-files=normal", "--", ".",
+               *(f":(exclude){path}" for path in GENERATED_FILES))
+
+
+@contextmanager
+def generated_files_kept():
+    """Puts the generated files back after the block, even where the incoming commits change or stop tracking them."""
+    kept = {path: (ROOT / path).read_bytes() for path in GENERATED_FILES if (ROOT / path).is_file()}
+    tracked = git("ls-files", "--", *GENERATED_FILES).split()
+    if tracked:
+        git("checkout", "--", *tracked)  # A fast-forward refuses to touch locally modified files
+    try:
+        yield
+    finally:
+        for path, content in kept.items():
+            (ROOT / path).parent.mkdir(parents=True, exist_ok=True)
+            (ROOT / path).write_bytes(content)
 
 
 def update_status(*, fetch=True, channel=None):
@@ -620,7 +693,7 @@ def update_status(*, fetch=True, channel=None):
             "repository": repository, "channel": channel, "installation_type": "checkout",
             "current_version": version, "latest_version": release.get("version", target[:12]),
             "release_url": release.get("url", ""),
-            "dirty": bool(git("status", "--porcelain", "--untracked-files=normal")),
+            "dirty": bool(local_changes()),
             "checked_at": datetime.now(timezone.utc).isoformat(), "error": ""}
 
 
@@ -689,7 +762,8 @@ def update(args):
         print("Velora package updated. Restart Quickshell or log in again to load all changes.")
         return
     # Pin the fetched commit so another fetch cannot change what the user reviewed.
-    git("merge", "--ff-only", status["target"])
+    with generated_files_kept():
+        git("merge", "--ff-only", status["target"])
     saved = preferences()
     command = [ROOT / "velora", "install", "--yes", "--without", ",".join(saved.get("without", []))]
     command += ["--build-from-source", ",".join(saved.get("build_from_source", []))]
@@ -723,7 +797,15 @@ def doctor(args):
     print("  Python environment: " + (str(venv) if venv.exists() else "missing; run velora deps"))
     font = font_installed("Google Sans Flex")
     print("  Google Sans Flex font: " + ("installed" if font else "missing; run velora deps"))
-    if failed or repo or not venv.exists() or not font:
+    stale = stale_links()
+    moved_from = preferences().get("repository")
+    if moved_from and Path(moved_from) != ROOT and not package_metadata():
+        print(f"  Installed from {moved_from}, now running from {ROOT}")
+    if stale:
+        print(f"  Configuration links: {len(stale)} missing or pointing elsewhere, e.g. {stale[0]}; run velora relink")
+    else:
+        print("  Configuration links: all point to this installation")
+    if failed or repo or not venv.exists() or not font or stale:
         raise VeloraError("Some checks need attention. Run 'velora install --dry-run' to inspect the repair plan.")
 
 
@@ -761,6 +843,9 @@ def parser():
     sub.add_argument("--output", type=Path, help="Directory for the .pkg.tar.zst archive")
     sub.add_argument("--install", action="store_true", help="Install the built package with pacman")
     sub.add_argument("--dry-run", action="store_true")
+    sub = commands.add_parser("relink", help="Point the configuration links at this checkout again, e.g. after moving it")
+    sub.add_argument("--dry-run", action="store_true", help="Show changes without applying them")
+    sub.add_argument("--no-reload", action="store_true")
     commands.add_parser("status", help="Show saved installation and update state")
     commands.add_parser("components", help="List available dependency components")
     sub = commands.add_parser("restore", help="Restore configuration files from a Velora installation backup")
@@ -790,7 +875,7 @@ def main(argv=None):
     if args.command == "update-settings" and args.channel is None and args.automatic_checks is None:
         print(json.dumps(update_options()))
         return 0
-    mutating = args.command in ("install", "deps", "restore", "package", "update-settings") or (args.command == "update" and not args.check)
+    mutating = args.command in ("install", "deps", "relink", "restore", "package", "update-settings") or (args.command == "update" and not args.check)
     if mutating and not getattr(args, "dry_run", False) and os.geteuid() == 0:
         raise VeloraError("Run Velora as your normal user. It requests sudo only for system packages and services.")
 
@@ -807,6 +892,8 @@ def main(argv=None):
             install_fonts(dry=args.dry_run)
         elif args.command == "doctor":
             doctor(args)
+        elif args.command == "relink":
+            relink(args)
         elif args.command == "update":
             update(args)
         elif args.command == "update-settings":

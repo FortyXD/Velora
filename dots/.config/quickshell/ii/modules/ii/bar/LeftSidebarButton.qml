@@ -9,10 +9,7 @@ RippleButton {
 
     property bool showPing: false
 
-    property bool aiChatEnabled: Config.options.policies.ai !== 0
-    property bool translatorEnabled: Config.options.sidebar.translator.enable
-    property bool animeEnabled: Config.options.policies.weeb !== 0
-    readonly property bool barVisible: aiChatEnabled || translatorEnabled || animeEnabled
+    readonly property bool barVisible: SidebarLayout.shownParts("left").length > 0
     visible: barVisible
 
     property real buttonPadding: 5

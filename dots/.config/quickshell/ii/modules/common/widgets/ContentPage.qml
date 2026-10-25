@@ -24,9 +24,27 @@ StyledFlickable {
     property bool pageShown: true // False while another settings page is in front
     signal revealCancelled() // The user scrolled, so nothing should pull the page to a revealed item any more
 
+    // The page doesn't scroll as a whole: its column gets the window's height (children may fill it),
+    // and the parts that hold more scroll on their own in a SettingsScrollPane
+    property bool fitToWindow: false
+
     clip: true
-    contentHeight: contentColumn.implicitHeight + root.topContentPadding + root.bottomContentPadding
+    interactive: !root.fitToWindow
+    contentHeight: root.fitToWindow ? root.height : contentColumn.implicitHeight + root.topContentPadding + root.bottomContentPadding
     implicitWidth: contentColumn.implicitWidth
+
+    // The SettingsScrollPane an item sits in, if any
+    function scrollerOf(item) {
+        for (let node = item.parent; node && node !== root; node = node.parent) {
+            if (node.settingsScroller === true) return node;
+        }
+        return null;
+    }
+    property Item activeScroller: null
+    Connections {
+        target: root.activeScroller
+        function onUserScrolled() { root.cancelReveal() }
+    }
 
     // Scrolls so that `item` (anything inside this page) is in view and briefly outlines it.
     // Whatever keeps it out of sight first gets a chance to show it: an ancestor with a
@@ -41,6 +59,21 @@ StyledFlickable {
             pendingReveal.item = item;
             pendingReveal.highlight = highlight;
             pendingReveal.restart();
+            return;
+        }
+        const pane = root.scrollerOf(item);
+        if (pane) { // Scroll the pane it's in; the page itself stays put
+            const inPane = item.mapToItem(pane.contentItem, 0, 0);
+            const paneY = Math.max(0, Math.min(inPane.y - 24, Math.max(0, pane.contentHeight - pane.height)));
+            root.activeScroller = pane;
+            pane.scrollTo(paneY);
+            if (!highlight) return;
+            const origin = pane.mapToItem(root.contentItem, 0, 0);
+            revealHighlight.x = origin.x + inPane.x - 4;
+            revealHighlight.y = origin.y + inPane.y - paneY - 4;
+            revealHighlight.width = item.width + 8;
+            revealHighlight.height = item.height + 8;
+            revealHighlightAnim.restart();
             return;
         }
         const pos = item.mapToItem(contentColumn, 0, 0);
@@ -62,6 +95,7 @@ StyledFlickable {
     function cancelReveal() {
         pendingReveal.stop();
         revealScrollAnim.stop();
+        root.activeScroller?.stopScroll();
         root.revealCancelled();
     }
     onMovementStarted: root.cancelReveal()
@@ -75,6 +109,7 @@ StyledFlickable {
         y: root.topContentPadding
         x: Math.round((root.width - width) / 2)
         width: root.forceWidth ? root.baseWidth : Math.max(0, Math.min(root.maxContentWidth, root.width - root.horizontalPadding * 2))
+        height: root.fitToWindow ? Math.max(0, root.height - root.topContentPadding - 12) : implicitHeight
         spacing: 22
 
         Rectangle { // Hero

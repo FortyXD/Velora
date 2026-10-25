@@ -18,7 +18,10 @@ if not variables.dont_load_default_rules then
 end
 
 if not variables.dont_load_default_colors then
-    require("hyprland.colors")
+    -- Generated from the wallpaper (matugen); a new checkout starts without it
+    if not pcall(require, "hyprland.colors") then
+        require("hyprland.colors_default")
+    end
 end
 
 if not variables.dont_load_default_keybinds then

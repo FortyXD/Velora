@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.modules.common.functions
+import qs.services
 
 Singleton {
     id: root
@@ -12,6 +13,17 @@ Singleton {
     property bool ready: false
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
+
+    // A write that fails (the settings folder became a dangling link after the checkout was moved) would go
+    // unnoticed: the settings app shows the new value, but neither the file nor the shell ever get it
+    property real saveFailureNoticeTime: 0
+    function reportSaveFailure() {
+        if (Date.now() - root.saveFailureNoticeTime < 60000) return;
+        root.saveFailureNoticeTime = Date.now();
+        Quickshell.execDetached(["notify-send", "-a", "Shell", "-u", "critical", "-i", "dialog-error",
+            Translation.tr("Settings weren't saved"),
+            Translation.tr("Couldn't write %1. If the Velora folder was moved or renamed, run velora relink from its new place.").arg(root.filePath)]);
+    }
 
     function setNestedValue(nestedKey, value) {
         let keys = nestedKey.split(".");
@@ -96,6 +108,7 @@ Singleton {
         onFileChanged: fileReloadTimer.restart()
         onAdapterUpdated: fileWriteTimer.restart()
         onLoaded: root.ready = true
+        onSaveFailed: error => root.reportSaveFailure()
         onLoadFailed: error => {
             if (error == FileViewError.FileNotFound) {
                 writeAdapter();
@@ -698,7 +711,9 @@ Singleton {
                 property bool keepRightSidebarLoaded: true
                 property int width: 460 // Of the right sidebar, and of the left one unless it's widened
                 property JsonObject right: JsonObject {
-                    // Top to bottom; the header always comes first. `hidden` sections aren't shown (sliders: quickSliders.enable)
+                    // Parts top to bottom (format: SidebarLayoutDefaults); null = made from sections, header and widgets
+                    // below, which older versions used and which are only read while this is null
+                    property var parts: null
                     property list<var> sections: [
                         { "type": "header" }, { "type": "sliders" }, { "type": "toggles" }, { "type": "notifications" }, { "type": "widgets" }
                     ]
@@ -712,6 +727,8 @@ Singleton {
                     }
                 }
                 property JsonObject left: JsonObject {
+                    // Parts top to bottom, like right.parts; null = made from order, startTab, translator.enable and the policies
+                    property var parts: null
                     property list<string> order: ["ai", "translator", "anime"]
                     property string startTab: "last" // "last" (where you left it) or a tab: "ai", "translator", "anime"
                     property bool extendedByDefault: false

@@ -98,6 +98,27 @@ fetch_image() {
     mv -f -- "$tmp" "$dest"
 }
 
+# make_loop <source> <destination> <start> <end> <crossfade>: cuts start..end (seconds) out of a video and
+# blends its last <crossfade> seconds into its first, so it repeats without a jump. Clips found online
+# rarely end where they began. Also made at most 1440 p and 30 fps: enough for a wallpaper, half the decoding;
+# and 4:2:0, which hardware decoders play (xfade alone would hand the encoder 4:4:4).
+make_loop() {
+    local src=$1 dest=$2 start=$3 end=$4 fade=$5 tmp length
+    length=$(awk -v s="$start" -v e="$end" 'BEGIN { print e - s }')
+    awk -v l="$length" -v f="$fade" 'BEGIN { exit !(l > 2 * f && f > 0) }' || fail "The loop is too short for its crossfade."
+    tmp=$(mktemp "${dest}.part.XXXXXX.mp4") || fail "Cannot write to $(dirname "$dest")."
+    # [main] is start+fade..end, [head] the first fade seconds; fading main's tail into head ends the clip
+    # on the very frame it starts with
+    if ! ffmpeg -v error -y -ss "$start" -to "$end" -i "$src" -filter_complex \
+        "[0:v]fps=30,scale=-2:'min(1440,ih)',format=yuv420p,split[a][b];[a]trim=start=$fade,setpts=PTS-STARTPTS[main];[b]trim=end=$fade,setpts=PTS-STARTPTS[head];[main][head]xfade=transition=fade:duration=$fade:offset=$(awk -v l="$length" -v f="$fade" 'BEGIN { print l - 2 * f }'),format=yuv420p[out]" \
+        -map "[out]" -an -c:v libx264 -profile:v high -pix_fmt yuv420p -preset veryfast -crf 20 -movflags +faststart "$tmp"; then
+        rm -f -- "$tmp"
+        fail "Couldn't make the video loop."
+    fi
+    chmod 644 -- "$tmp"
+    mv -f -- "$tmp" "$dest"
+}
+
 # download_path <extension>: alternates names so the new file never overwrites the wallpaper in use
 download_path() {
     local dir path current

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.1 — 2026-10-25
+
+- Both sidebars are made of parts you choose and arrange, and any part can go in either sidebar, on its own or as a tab: the top row, sliders, quick toggles, notifications, calendar, to-do, timer, the assistant, translator and image browser, plus new parts:
+  - **Media:** what's playing, with its cover and controls.
+  - **Weather:** now, the next hours, the coming days and details.
+  - **Clipboard:** your copy history, searchable; click to copy again.
+  - **Notes:** the overlay's notes, kept in sync.
+  - **System:** processor, memory and swap with graphs, network speed, battery and updates.
+  - **Quick tools:** screenshot, recording, color picker, text from the screen, screen search, emoji, music recognition, QR codes, file conversion and your own apps.
+- The Sidebars page keeps a picture of the sidebar in place beside the settings: drag parts, hide them, click one to set it up, move it to the other sidebar or into tabs, and add parts from a catalog. New installs get a left sidebar with media, weather, quick tools and tabs for the assistant, translator, clipboard and notes; existing sidebars stay as they were.
+- The Bar page keeps the bar in view: a strip of the screen with the bar at its edge stays on top, with Widgets, Look, Behavior and Ready-made bars in tabs below, each scrolling on its own, and the selected widget's card beside the catalog.
+- Nine new looks with hand-drawn and anime moving wallpapers in place of the three nature videos. Each video is cut to a stretch that repeats without a jump, with a short crossfade where it starts over, and saved at 1440p and 30 fps.
+- Looks with moving wallpapers now pause only under a fullscreen window instead of under any window.
+- A look's video plays on its card once it has been downloaded; cards no longer stream clips from the web.
+- Applying another look while a wallpaper is still downloading no longer switches back to the first one when the download finishes.
+- `velora relink` points every configuration link at the checkout again after it was moved or renamed, and `velora doctor` reports links that are missing or point elsewhere. The update timer follows a moved checkout.
+- Settings that fail to save now show a notification instead of failing silently.
+- Colors generated from the wallpaper and files written by the settings app are no longer tracked by Git, so changing a look or a setting no longer blocks `velora update`. Updates keep your copies.
+- Hyprland is no longer reloaded while its configuration can't be reached.
+- Video playback in the shell and the settings app uses VA-API only. On laptops with an NVIDIA GPU, Qt no longer wakes the GPU, and once that GPU has crashed it no longer hangs the settings app.
+
 ## 0.1.0 — 2026-10-23
 
 First Velora release, developed from Illogical Impulse.

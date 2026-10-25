@@ -1,12 +1,14 @@
 import qs
 import qs.services
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 import QtQuick
 
 /**
  * Dragging in a bar window while it is edited: widgets already on the bar (move) and widgets from
  * the edit drawer's palette (add). Draws the dragged picture and the drop marker above everything.
+ * A widget taken off the bar (into the drawer, say) turns red and is removed when let go.
  * Positions are scene coordinates of the bar window.
  */
 Item {
@@ -15,6 +17,7 @@ Item {
     property var view: null // BarLayoutView of this window
     property var dragState: null // { mode: "move"|"add", uid, type, host, offsetX, offsetY }
     property var target: null // { zone, index, x } from view.dropTargetAt
+    property bool removing: false
     readonly property bool dragging: dragState !== null
 
     anchors.fill: parent
@@ -40,6 +43,9 @@ Item {
         const overBar = root.view.vertical ? (p.x >= -slack && p.x <= root.view.width + slack)
             : (p.y >= -slack && p.y <= root.view.height + slack);
         root.target = overBar ? root.view.dropTargetAt(p.x, p.y, root.dragState.mode === "move" ? root.dragState.uid : "") : null;
+        const away = slack * 2;
+        root.removing = root.dragState.mode === "move" && (root.view.vertical ? (p.x < -away || p.x > root.view.width + away)
+            : (p.y < -away || p.y > root.view.height + away));
     }
 
     function finish(sceneX, sceneY) {
@@ -47,9 +53,17 @@ Item {
         root.update(sceneX, sceneY);
         const state = root.dragState;
         const target = root.target;
+        const removing = root.removing;
         ghostImage.sourceItem = null;
         root.dragState = null;
         root.target = null;
+        root.removing = false;
+        if (removing) {
+            if (state.host) state.host.dragHidden = false;
+            if (GlobalStates.barEditSelection === state.uid) GlobalStates.barEditSelection = "";
+            BarLayout.remove(root.view.orientation, state.uid);
+            return;
+        }
         if (!target) {
             if (state.host) state.host.dragHidden = false;
             return;
@@ -69,12 +83,13 @@ Item {
         ghostImage.sourceItem = null;
         root.dragState = null;
         root.target = null;
+        root.removing = false;
     }
 
     Item {
         id: ghost
         visible: root.dragging
-        opacity: 0.9
+        opacity: root.removing ? 0.75 : 0.9
         implicitWidth: root.dragState?.mode === "add" ? chip.implicitWidth : ghostImage.width
         implicitHeight: root.dragState?.mode === "add" ? chip.implicitHeight : ghostImage.height
 
@@ -112,6 +127,21 @@ Item {
                     font.pixelSize: Appearance.font.pixelSize.small
                     color: Appearance.colors.colOnPrimaryContainer
                 }
+            }
+        }
+
+        Rectangle { // Off the bar: it goes away when let go
+            visible: root.removing
+            anchors.fill: parent
+            radius: Math.min(height / 2, Appearance.rounding.small)
+            color: ColorUtils.transparentize(Appearance.colors.colErrorContainer, 0.15)
+            border.width: 2
+            border.color: Appearance.colors.colError
+            MaterialSymbol {
+                anchors.centerIn: parent
+                text: "delete"
+                iconSize: Math.min(parent.height - 6, 20)
+                color: Appearance.colors.colOnErrorContainer
             }
         }
     }

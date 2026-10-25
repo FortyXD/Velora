@@ -46,11 +46,22 @@ Singleton {
     property bool wallpaperSelectorOpen: false
     property bool workspaceShowNumbers: false
 
+    // Tools and dialogs in a sidebar close whichever sidebar they're in
+    function closeSidebars() {
+        root.sidebarLeftOpen = false;
+        root.sidebarRightOpen = false;
+    }
+
+    // Notifications are read once the sidebar showing them opens (the right one, unless they were moved left)
+    function markNotificationsRead() {
+        Notifications.timeoutAll();
+        Notifications.markAllRead();
+    }
     onSidebarRightOpenChanged: {
-        if (GlobalStates.sidebarRightOpen) {
-            Notifications.timeoutAll();
-            Notifications.markAllRead();
-        }
+        if (root.sidebarRightOpen && SidebarLayout.sideOf("notifications") !== "left") root.markNotificationsRead();
+    }
+    onSidebarLeftOpenChanged: {
+        if (root.sidebarLeftOpen && SidebarLayout.sideOf("notifications") === "left") root.markNotificationsRead();
     }
 
     GlobalShortcut {

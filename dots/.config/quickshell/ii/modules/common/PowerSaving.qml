@@ -118,7 +118,7 @@ Singleton {
         const wanted = root.hyprWanted;
         if (wanted === root.hyprApplied) return;
         if ([...root.hyprApplied].some(cut => !wanted.includes(cut))) {
-            Quickshell.execDetached(["hyprctl", "reload"]); // configreloaded applies what is still wanted
+            Quickshell.execDetached(HyprlandSettings.reloadCommand); // configreloaded applies what is still wanted
             return;
         }
         let parts = [];
