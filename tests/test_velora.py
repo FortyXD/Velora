@@ -148,6 +148,29 @@ class InstallerTests(IsolatedTest):
         self.assertEqual(self.journal.read_text(), before)
         self.assertEqual(json.loads((config / "config.json").read_text()), {"personal": True})
 
+    def test_clean_install_links_right_click_defaults_without_overriding_them(self):
+        hypr_source = self.repo / "dots/.config/hypr"
+        for name in ("hyprland/general.lua", "custom/shell_settings_default.lua",
+                     "custom/shell_settings_default.json"):
+            source = PROJECT / "dots/.config/hypr" / name
+            destination = hypr_source / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(source, destination)
+
+        result = self.link()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        installed = Path(self.env["XDG_CONFIG_HOME"]) / "hypr"
+        self.assertTrue(installed.is_symlink())
+        touchpad = (installed / "hyprland/general.lua").read_text().split("touchpad = {", 1)[1].split("}", 1)[0]
+        self.assertIn("tap_to_click = true", touchpad)
+        self.assertIn("clickfinger_behavior = false", touchpad)
+        overrides = json.loads((installed / "custom/shell_settings.json").read_text())
+        self.assertNotIn("input:touchpad:tap_to_click", overrides)
+        self.assertNotIn("input:touchpad:clickfinger_behavior", overrides)
+        generated = (installed / "custom/shell_settings.lua").read_text()
+        self.assertNotIn("tap_to_click", generated)
+        self.assertNotIn("clickfinger_behavior", generated)
+
     def test_backups_restore_files_and_keep_later_edits(self):
         zshrc = self.home / ".zshrc"
         zshrc.write_text("original\n")
@@ -461,6 +484,21 @@ class ConcurrencyTests(IsolatedTest):
             with self.assertRaisesRegex(velora.VeloraError, "Another Velora operation"):
                 with velora.operation_lock():
                     self.fail("The second operation should not acquire the lock")
+
+
+class TouchpadDefaultsTests(unittest.TestCase):
+    def test_right_click_works_with_a_corner_click_or_two_finger_tap(self):
+        source = (PROJECT / "dots/.config/hypr/hyprland/general.lua").read_text()
+        touchpad = source.split("touchpad = {", 1)[1].split("}", 1)[0]
+        self.assertIn("tap_to_click = true", touchpad)
+        self.assertIn("clickfinger_behavior = false", touchpad)
+
+        settings = (PROJECT / "dots/.config/quickshell/ii/modules/settings/MouseConfig.qml").read_text()
+        self.assertRegex(settings, r'option: "input:touchpad:tap_to_click"\s+fallback: true')
+        self.assertRegex(settings, r'option: "input:touchpad:clickfinger_behavior"\s+fallback: false')
+        self.assertIn('title: Translation.tr("Physical right click")', settings)
+        self.assertRegex(settings, r'displayName: Translation.tr\("Bottom-right corner"\).*value: false')
+        self.assertRegex(settings, r'displayName: Translation.tr\("Two-finger click"\).*value: true')
 
 
 if __name__ == "__main__":

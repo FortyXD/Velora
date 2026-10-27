@@ -55,15 +55,19 @@ ContentPage {
         }
         HyprSwitch {
             option: "input:touchpad:tap_to_click"
+            fallback: true
             buttonIcon: "touch_app"
             text: Translation.tr("Tap to click")
+            description: Translation.tr("Two-finger tap for right click, independently of physical click method")
         }
-        HyprSwitch {
+        HyprChoice {
             option: "input:touchpad:clickfinger_behavior"
-            fallback: true
-            buttonIcon: "ads_click"
-            text: Translation.tr("Two-finger click for right click")
-            description: Translation.tr("Instead of clicking in the bottom right corner")
+            fallback: false
+            title: Translation.tr("Physical right click")
+            choices: [
+                { displayName: Translation.tr("Bottom-right corner"), icon: "ads_click", value: false },
+                { displayName: Translation.tr("Two-finger click"), icon: "touch_app", value: true }
+            ]
         }
         HyprSwitch {
             option: "input:touchpad:disable_while_typing"

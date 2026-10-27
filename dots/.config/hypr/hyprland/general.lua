@@ -105,8 +105,9 @@ hl.config({
         touchpad = {
             natural_scroll = true,
             disable_while_typing = false,
-            clickfinger_behavior = true,
-            tap_to_click = false,
+            -- One-finger clicks in the bottom-right corner and two-finger taps both produce right click.
+            clickfinger_behavior = false,
+            tap_to_click = true,
             scroll_factor = 2.0,
         },
     },
