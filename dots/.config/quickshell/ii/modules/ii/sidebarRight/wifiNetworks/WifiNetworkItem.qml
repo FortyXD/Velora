@@ -51,18 +51,11 @@ DialogListItem {
                 text: root.connecting ? Translation.tr("Connecting…") : Network.credentialErrorSsid === (root.wifiNetwork?.ssid ?? "") ? Translation.tr("Saved password rejected") : (root.wifiNetwork?.active ?? false) ? Translation.tr("Connected") : (root.wifiNetwork?.known ?? false) ? Translation.tr("Joined before") : (root.wifiNetwork?.isSecure ?? false) ? Translation.tr("Needs a password") : Translation.tr("Open network")
             }
         }
-        MaterialSymbol {
+        StatusIcon {
             visible: root.connecting
-            text: "sync"
             iconSize: Appearance.font.pixelSize.larger
             color: Appearance.colors.colOnSurfaceVariant
-            RotationAnimation on rotation {
-                from: 0
-                to: 360
-                duration: 1000
-                loops: Animation.Infinite
-                running: root.connecting
-            }
+            busy: root.connecting
         }
         MaterialSymbol {
             visible: !root.connecting && ((root.wifiNetwork?.isSecure && !root.wifiNetwork?.known) || (root.wifiNetwork?.active ?? false))

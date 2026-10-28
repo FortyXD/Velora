@@ -45,8 +45,8 @@ Singleton {
     readonly property int networkStrength: active?.strength ?? 0
     readonly property string materialSymbol: root.ethernet
         ? "lan"
-        : root.wifiConnecting ? "sync"
         : !root.wifiEnabled ? "signal_wifi_off"
+        : root.wifiConnecting ? "wifi"
         : root.wifiStatus === "connected" ? (
             root.networkStrength > 83 ? "signal_wifi_4_bar" :
             root.networkStrength > 67 ? "network_wifi" :
