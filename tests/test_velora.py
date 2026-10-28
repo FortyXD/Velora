@@ -52,6 +52,35 @@ class DependencyTests(IsolatedTest):
             self.assertEqual(velora.package_plan(features), (["kitty"], ["mpvpaper"]))
             self.assertEqual(velora.package_plan(features, True), (["kitty"], []))
 
+    def test_bluetooth_dependencies_and_controller_detection(self):
+        shell = velora.manifest()["shell"]
+        self.assertTrue({"bluez", "bluez-utils"}.issubset(shell["repo"]))
+        sysfs = self.base / "sys/class/bluetooth"
+        self.assertFalse(velora.bluetooth_adapters_present(sysfs))
+        (sysfs / "hci0").mkdir(parents=True)
+        self.assertTrue(velora.bluetooth_adapters_present(sysfs))
+
+    def test_bluetooth_service_only_enabled_for_detected_controller(self):
+        args = velora.parser().parse_args(["deps"])
+        features = {"shell": velora.manifest()["shell"]}
+        command = ["sudo", "systemctl", "enable", "--now", "bluetooth.service"]
+        with patch.object(velora, "package_plan", return_value=([], [])), \
+                patch.object(velora, "bluetooth_adapters_present", return_value=True), \
+                patch.object(velora, "run") as run:
+            velora.install_dependencies(args, features)
+            run.assert_any_call(command, dry=False)
+        with patch.object(velora, "package_plan", return_value=([], [])), \
+                patch.object(velora, "bluetooth_adapters_present", return_value=False), \
+                patch.object(velora, "run") as run:
+            velora.install_dependencies(args, features)
+            self.assertNotIn(command, [item.args[0] for item in run.call_args_list])
+        args.dry_run = True
+        with patch.object(velora, "package_plan", return_value=([], [])), \
+                patch.object(velora, "bluetooth_adapters_present", return_value=True), \
+                patch.object(velora, "run") as run:
+            velora.install_dependencies(args, features)
+            run.assert_any_call(command, dry=True)
+
     def test_font_step_skips_an_installed_font_and_only_warns_on_failure(self):
         with patch.object(velora, "font_installed", return_value=True), patch.object(velora, "run") as run:
             velora.install_fonts()
