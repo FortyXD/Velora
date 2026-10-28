@@ -4,7 +4,7 @@
 
 Use a working Arch Linux system with graphics drivers, a regular user account, sudo access, and an internet connection. Install Git and Python 3.11 or newer with `sudo pacman -Syu --needed git python`. Hyprland must support the Lua configuration API used by the repository.
 
-Run the installer as your normal user. It requests sudo for package installation and the power profile service. Read its plan and the package manager's prompts before proceeding.
+Run the installer as your normal user. It requests sudo for package installation and system services (power profiles and, when an adapter is present, Bluetooth). Read its plan and the package manager's prompts before proceeding.
 
 Installer diagnostics and package-manager subprocesses use an English locale so error reports remain consistent.
 
@@ -32,7 +32,7 @@ Choices are saved in `$XDG_STATE_HOME/velora/installation.json` and reused by up
 
 1. Validate tools, repository files, and the component selection.
 2. Display configuration paths and the planned package, backup, and update behavior.
-3. Install missing official packages with `pacman -Syu --needed`. Using `-Syu` avoids refreshing Arch's databases without a full system upgrade. A package counts as installed when another package provides it, such as `curl-git` for `curl`.
+3. Install missing official packages with `pacman -Syu --needed`, including `bluez` and `bluez-utils` for the shell's Bluetooth controls. Using `-Syu` avoids refreshing Arch's databases without a full system upgrade. A package counts as installed when another package provides it, such as `curl-git` for `curl`. If an adapter is detected, enable and start `bluetooth.service`; otherwise leave its service state unchanged. Discovery and pairing are not enabled automatically.
 4. Install missing AUR packages with yay or paru. If needed, build yay from `https://aur.archlinux.org/yay.git` using makepkg. Use `--skip-aur` to omit this step.
 5. Create the shell's Python 3.12 environment with uv and synchronize the committed lockfile.
 6. Download the Google Sans Flex interface font into `~/.local/share/fonts/velora-google-sans-flex` when fontconfig does not already provide it. Arch does not package it; a failed download only prints a warning, and `velora deps` retries it.
@@ -77,6 +77,7 @@ Older Folis backups remain in `~/.local/state/folis/backups/`. They are kept as-
 | --- | --- |
 | Python or Git is missing | Install `python` and `git` using pacman. |
 | An AUR build fails | Read the makepkg/helper output, fix the reported dependency, or rerun with `--skip-aur`. |
+| Bluetooth adapter was connected after installation | Run `./velora deps` to enable `bluetooth.service`; `--skip-packages` skips system service setup. |
 | A package download fails | Check network access and Arch mirrors, then rerun the installer. |
 | Python environment setup fails | Read uv's error. Check network access and build prerequisites, then run `velora deps`. |
 | The update timer cannot start | Log into the user session, then run `systemctl --user enable --now velora-update.timer`. |

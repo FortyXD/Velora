@@ -342,6 +342,11 @@ def preflight(args, features):
         raise VeloraError("Preflight failed:\n  - " + "\n  - ".join(errors))
 
 
+def bluetooth_adapters_present(sysfs=Path("/sys/class/bluetooth")):
+    """A controller is visible even when bluetooth.service is not running."""
+    return any(adapter.is_dir() for adapter in sysfs.glob("hci[0-9]*"))
+
+
 def install_dependencies(args, features):
     sources = getattr(args, "source_packages", [])
     repo, aur = package_plan(features, args.skip_aur, sources)
@@ -379,6 +384,11 @@ def install_dependencies(args, features):
     run(["uv", "pip", "sync", "--python", str(venv / "bin/python"),
          str(ROOT / "dependencies/python/requirements.txt")], dry=args.dry_run)
     run(["sudo", "systemctl", "enable", "--now", "power-profiles-daemon"], dry=args.dry_run)
+    if "shell" in features and bluetooth_adapters_present():
+        run(["sudo", "systemctl", "enable", "--now", "bluetooth.service"], dry=args.dry_run)
+    elif "shell" in features:
+        print("No Bluetooth adapter detected; leaving bluetooth.service unchanged. "
+              "After connecting one, run 'velora deps'.")
 
 
 def restore_journal(journal):
@@ -553,6 +563,9 @@ def install(args):
     print(f"  Configuration: {xdg('XDG_CONFIG_HOME', '.config')}")
     print("  Existing files: back up before replacing; restore on linking failure")
     print("  Dependencies: " + ("keep installed packages and Python environment" if args.skip_packages else "install missing packages and sync the locked Python environment"))
+    print("  Bluetooth: " + ("leave system service unchanged (--skip-packages)" if args.skip_packages
+                            else "enable service for detected adapter" if bluetooth_adapters_present()
+                            else "no adapter detected; leave service unchanged"))
     print("  Source builds: " + (", ".join(args.source_packages) or "none"))
     print("  Velora installation: " + ("build an Arch package" if args.build_package else "system package" if package_metadata() else "current checkout"))
     if not args.skip_packages and not args.skip_aur and not (shutil.which("yay") or shutil.which("paru")):
