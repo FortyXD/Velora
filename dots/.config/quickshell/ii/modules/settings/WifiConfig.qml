@@ -178,19 +178,11 @@ ContentPage {
                 buttonRadius: Appearance.rounding.full
                 colBackgroundHover: Appearance.colors.colLayer3Hover
                 onClicked: Network.rescanWifi(true)
-                contentItem: MaterialSymbol {
-                    horizontalAlignment: Text.AlignHCenter
+                contentItem: StatusIcon {
                     text: "refresh"
                     iconSize: 20
                     color: Appearance.colors.colSubtext
-                    RotationAnimation on rotation {
-                        running: Network.wifiScanning
-                        loops: Animation.Infinite
-                        from: 0
-                        to: 360
-                        duration: 1000
-                        onStopped: parent.rotation = 0
-                    }
+                    busy: Network.wifiScanning
                 }
                 StyledToolTip {
                     text: Translation.tr("Look again")
