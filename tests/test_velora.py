@@ -149,6 +149,7 @@ class DependencyTests(IsolatedTest):
         installed = set(velora.FONT_PACKAGES) - set(velora.FONT_DOWNLOADS)
         args = ["deps", "--skip-aur"]
         with patch.object(velora, "install_dependencies") as dependencies, \
+                patch.object(velora, "preflight"), \
                 patch.object(velora, "verify_runtime"), \
                 patch.object(velora, "font_tool", side_effect=lambda name: f"/usr/bin/{name}"), \
                 patch.object(velora, "font_installed", side_effect=lambda family: family in installed), \
