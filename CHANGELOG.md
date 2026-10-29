@@ -1,10 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.1.2 — 2026-10-29
 
 - Brightness controls select the backlight belonging to the connected screen on hybrid GPU laptops, instead of sometimes changing an unused GPU's backlight.
 - Moving wallpapers keep the full resolution of their source, up to 4K, instead of 1440p, and are encoded at a higher quality. A video made by an earlier version is made again in the background when its look is applied: the look switches at once with the older video, and the new one replaces it when ready.
 - Videos are scaled to each screen's size with spline36 instead of bilinear filtering, which is sharper. The still frame shown on the lock screen is saved at a higher JPEG quality.
+- Touchpad defaults enable tap-to-click and bottom-right physical clicks. Mouse & Touchpad settings offer a choice between corner and two-finger physical clicks, with tapping controlled separately. Existing custom overrides are preserved; installations without overrides use the new defaults.
+- Installs and dependency setup include BlueZ and enable Bluetooth when an adapter is detected. `--skip-packages` leaves packages, the Python environment and system services unchanged, including when used with `velora deps`.
+- Wi-Fi status symbols stay upright during connection changes, with a separate activity ring that stops while hidden. Background scans do not animate the bar's connection indicator.
 
 ## 0.1.1 — 2026-10-25
 
