@@ -787,7 +787,16 @@ Singleton {
             }
 
             property JsonObject screenRecord: JsonObject {
-                property string savePath: Directories.videos.replace("file://","") // strip "file://"
+                // Empty means XDG Videos, falling back to ~/Videos when XDG is disabled.
+                property string savePath: ""
+                property string mode: "region"
+                property string audio: "system"
+                property string systemSource: ""
+                property string microphoneSource: ""
+                property int fps: 30
+                property string quality: "balanced"
+                property string format: "mp4"
+                property int delay: 0
             }
 
             property JsonObject screenSnip: JsonObject {

@@ -54,7 +54,7 @@ Rectangle {
             case "emoji": root.global("overviewEmojiToggle"); break;
             case "clipboardSearch": root.global("overviewClipboardToggle"); break;
             case "record":
-                if (ScreenRecorder.recording) ScreenRecorder.toggle();
+                if (ScreenRecorder.active) ScreenRecorder.stop();
                 else root.afterClosing(() => ScreenRecorder.toggle());
                 break;
             case "colorPicker": root.afterClosing(() => Quickshell.execDetached([Quickshell.shellPath("scripts/colors/pick-color.sh")])); break;
@@ -85,7 +85,7 @@ Rectangle {
                 required property string modelData
                 readonly property bool isApp: modelData.startsWith("app:")
                 readonly property var tool: isApp ? null : SidebarCatalog.tool(modelData)
-                readonly property bool active: (modelData === "record" && ScreenRecorder.recording) || (modelData === "songRec" && SongRec.running)
+                readonly property bool active: (modelData === "record" && ScreenRecorder.active) || (modelData === "songRec" && SongRec.running)
                 readonly property string label: isApp ? TaskbarApps.displayName(modelData.slice(4))
                     : active && modelData === "record" ? Translation.tr("Stop") : (tool?.name ?? "")
                 Layout.fillWidth: true
