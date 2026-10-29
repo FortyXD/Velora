@@ -60,6 +60,16 @@ class DependencyTests(IsolatedTest):
         (sysfs / "hci0").mkdir(parents=True)
         self.assertTrue(velora.bluetooth_adapters_present(sysfs))
 
+    def test_deps_skip_packages_leaves_packages_environment_and_services_unchanged(self):
+        with patch.object(velora, "package_plan") as package_plan, \
+                patch.object(velora, "bluetooth_adapters_present") as adapters, \
+                patch.object(velora, "install_fonts"), \
+                patch.object(velora, "run") as run:
+            self.assertEqual(velora.main(["deps", "--skip-packages"]), 0)
+        package_plan.assert_not_called()
+        adapters.assert_not_called()
+        run.assert_not_called()
+
     def test_bluetooth_service_only_enabled_for_detected_controller(self):
         args = velora.parser().parse_args(["deps"])
         features = {"shell": velora.manifest()["shell"]}

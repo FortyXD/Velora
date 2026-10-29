@@ -348,6 +348,9 @@ def bluetooth_adapters_present(sysfs=Path("/sys/class/bluetooth")):
 
 
 def install_dependencies(args, features):
+    if args.skip_packages:
+        print("Skipping packages, Python environment and system services (--skip-packages).")
+        return
     sources = getattr(args, "source_packages", [])
     repo, aur = package_plan(features, args.skip_aur, sources)
     print(f"Dependencies: {len(repo)} missing Arch packages, {len(aur)} missing AUR packages.", flush=True)
