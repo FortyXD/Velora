@@ -75,18 +75,12 @@ ColumnLayout {
                 color: Appearance.colors.colSubtext
             }
 
-            MaterialSymbol {
+            StatusIcon {
                 visible: root.connecting || (root.network.isSecure && !root.network.known)
-                text: root.connecting ? "progress_activity" : "lock"
+                text: root.connecting ? "" : "lock"
                 iconSize: 18
                 color: Appearance.colors.colSubtext
-                RotationAnimation on rotation {
-                    running: root.connecting
-                    loops: Animation.Infinite
-                    from: 0
-                    to: 360
-                    duration: 900
-                }
+                busy: root.connecting
             }
 
             ForgetButton {
