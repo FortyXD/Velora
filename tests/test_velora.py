@@ -52,6 +52,45 @@ class DependencyTests(IsolatedTest):
             self.assertEqual(velora.package_plan(features), (["kitty"], ["mpvpaper"]))
             self.assertEqual(velora.package_plan(features, True), (["kitty"], []))
 
+    def test_bluetooth_dependencies_and_controller_detection(self):
+        shell = velora.manifest()["shell"]
+        self.assertTrue({"bluez", "bluez-utils"}.issubset(shell["repo"]))
+        sysfs = self.base / "sys/class/bluetooth"
+        self.assertFalse(velora.bluetooth_adapters_present(sysfs))
+        (sysfs / "hci0").mkdir(parents=True)
+        self.assertTrue(velora.bluetooth_adapters_present(sysfs))
+
+    def test_deps_skip_packages_leaves_packages_environment_and_services_unchanged(self):
+        with patch.object(velora, "package_plan") as package_plan, \
+                patch.object(velora, "bluetooth_adapters_present") as adapters, \
+                patch.object(velora, "install_fonts"), \
+                patch.object(velora, "run") as run:
+            self.assertEqual(velora.main(["deps", "--skip-packages"]), 0)
+        package_plan.assert_not_called()
+        adapters.assert_not_called()
+        run.assert_not_called()
+
+    def test_bluetooth_service_only_enabled_for_detected_controller(self):
+        args = velora.parser().parse_args(["deps"])
+        features = {"shell": velora.manifest()["shell"]}
+        command = ["sudo", "systemctl", "enable", "--now", "bluetooth.service"]
+        with patch.object(velora, "package_plan", return_value=([], [])), \
+                patch.object(velora, "bluetooth_adapters_present", return_value=True), \
+                patch.object(velora, "run") as run:
+            velora.install_dependencies(args, features)
+            run.assert_any_call(command, dry=False)
+        with patch.object(velora, "package_plan", return_value=([], [])), \
+                patch.object(velora, "bluetooth_adapters_present", return_value=False), \
+                patch.object(velora, "run") as run:
+            velora.install_dependencies(args, features)
+            self.assertNotIn(command, [item.args[0] for item in run.call_args_list])
+        args.dry_run = True
+        with patch.object(velora, "package_plan", return_value=([], [])), \
+                patch.object(velora, "bluetooth_adapters_present", return_value=True), \
+                patch.object(velora, "run") as run:
+            velora.install_dependencies(args, features)
+            run.assert_any_call(command, dry=True)
+
     def test_font_step_skips_an_installed_font_and_only_warns_on_failure(self):
         with patch.object(velora, "font_installed", return_value=True), patch.object(velora, "run") as run:
             velora.install_fonts()
@@ -147,6 +186,29 @@ class InstallerTests(IsolatedTest):
         self.assertEqual(self.link().returncode, 0)
         self.assertEqual(self.journal.read_text(), before)
         self.assertEqual(json.loads((config / "config.json").read_text()), {"personal": True})
+
+    def test_clean_install_links_right_click_defaults_without_overriding_them(self):
+        hypr_source = self.repo / "dots/.config/hypr"
+        for name in ("hyprland/general.lua", "custom/shell_settings_default.lua",
+                     "custom/shell_settings_default.json"):
+            source = PROJECT / "dots/.config/hypr" / name
+            destination = hypr_source / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(source, destination)
+
+        result = self.link()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        installed = Path(self.env["XDG_CONFIG_HOME"]) / "hypr"
+        self.assertTrue(installed.is_symlink())
+        touchpad = (installed / "hyprland/general.lua").read_text().split("touchpad = {", 1)[1].split("}", 1)[0]
+        self.assertIn("tap_to_click = true", touchpad)
+        self.assertIn("clickfinger_behavior = false", touchpad)
+        overrides = json.loads((installed / "custom/shell_settings.json").read_text())
+        self.assertNotIn("input:touchpad:tap_to_click", overrides)
+        self.assertNotIn("input:touchpad:clickfinger_behavior", overrides)
+        generated = (installed / "custom/shell_settings.lua").read_text()
+        self.assertNotIn("tap_to_click", generated)
+        self.assertNotIn("clickfinger_behavior", generated)
 
     def test_backups_restore_files_and_keep_later_edits(self):
         zshrc = self.home / ".zshrc"
@@ -461,6 +523,21 @@ class ConcurrencyTests(IsolatedTest):
             with self.assertRaisesRegex(velora.VeloraError, "Another Velora operation"):
                 with velora.operation_lock():
                     self.fail("The second operation should not acquire the lock")
+
+
+class TouchpadDefaultsTests(unittest.TestCase):
+    def test_right_click_works_with_a_corner_click_or_two_finger_tap(self):
+        source = (PROJECT / "dots/.config/hypr/hyprland/general.lua").read_text()
+        touchpad = source.split("touchpad = {", 1)[1].split("}", 1)[0]
+        self.assertIn("tap_to_click = true", touchpad)
+        self.assertIn("clickfinger_behavior = false", touchpad)
+
+        settings = (PROJECT / "dots/.config/quickshell/ii/modules/settings/MouseConfig.qml").read_text()
+        self.assertRegex(settings, r'option: "input:touchpad:tap_to_click"\s+fallback: true')
+        self.assertRegex(settings, r'option: "input:touchpad:clickfinger_behavior"\s+fallback: false')
+        self.assertIn('title: Translation.tr("Physical right click")', settings)
+        self.assertRegex(settings, r'displayName: Translation.tr\("Bottom-right corner"\).*value: false')
+        self.assertRegex(settings, r'displayName: Translation.tr\("Two-finger click"\).*value: true')
 
 
 if __name__ == "__main__":
