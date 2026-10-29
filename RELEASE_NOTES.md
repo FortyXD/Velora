@@ -1,16 +1,19 @@
-# Velora 0.1.2
+# Velora 0.1.3
 
-Better touchpad defaults, Bluetooth setup, clearer network activity, and fixes for laptop brightness and moving wallpapers.
+Guided setup, more ways to manage windows, smooth appearance changes, and configurable screen recording.
 
 Velora is an independently maintained fork of Illogical Impulse, built for Arch Linux with Hyprland and Quickshell.
 
 ## Highlights
 
-- **Touchpad right-click choices.** Tap-to-click is enabled by default, including two-finger taps for right click. Open Settings with Super+I, then Mouse & Touchpad → Touchpad to choose a bottom-right corner press or a two-finger physical click. Existing custom overrides are preserved; systems without overrides adopt the new defaults.
-- **Bluetooth ready during setup.** The installer includes BlueZ and starts its service when an adapter is detected. `--skip-packages` preserves package, Python environment and service state for both installation and `velora deps`.
-- **Upright Wi-Fi symbols.** A separate ring shows connection or scan activity without spinning Wi-Fi and lock symbols. Hidden indicators stop animating, and background scans do not animate the bar's connection indicator.
-- **Brightness on hybrid GPU laptops.** Controls select the backlight belonging to the connected screen, avoiding an unused GPU's backlight.
-- **Sharper moving wallpapers.** Video loops retain source resolution up to 4K with higher encoding quality. Older loops are rebuilt in the background when their look is applied. Playback uses sharper scaling, and lock-screen still frames use higher JPEG quality.
+- **Guided first run.** Set language and keyboard layouts, networking, displays, window behavior, appearance and optional apps in the new assistant. A desktop tour introduces the shell. Reopen setup with Shift+Super+Alt+/.
+- **Windows and apps.** Choose tiled or free windows, with snapping, minimizing, restoring, snap layouts and a window menu. Use Alt+Tab for window previews, add a taskbar to the bar, or open the application library with Super+Shift+Space. Configure touchpad gestures with visual hints.
+- **Smooth wallpapers and themes.** Each wallpaper keeps its own geometry during crossfades. Presets prepare wallpapers and colors before transitioning. A native helper handles palettes, theme staging and desktop widget placement. Wallpaper scaling stays correct when displays or fractional scaling change.
+- **Screen recording controls.** Choose region or screen capture, audio sources and devices, frame rate, quality, MP4/MKV, delay and destination. Microphone capture requires an explicit choice. Recording survives shell reloads and verifies the video before reporting it saved. Right-click the bar's recording button to open its settings. See [the recording guide](https://github.com/FortyXD/Velora/blob/v0.1.3/docs/screen-recording.md).
+- **Settings and desktop polish.** General settings now open dedicated Software Update, Storage, Language & Region, and Date & Time pages. The session screen, tooltips and tray menus have been refreshed, with expanded Russian translations.
+- **More complete installation checks.** Setup verifies fonts, commands, QML modules and Python/GTK imports before linking configuration, and configures audio, the virtual keyboard and NetworkManager when appropriate. `velora doctor` reports missing dependencies and service problems. Existing alternative network managers are preserved.
+
+Thanks to Nikita (@impala-tape) for [screen recording improvements (#4)](https://github.com/FortyXD/Velora/pull/4) and [reactive wallpaper scaling (#5)](https://github.com/FortyXD/Velora/pull/5).
 
 ## Install
 
@@ -21,19 +24,19 @@ cd ~/Velora
 ./velora install
 ```
 
-The installer offers automatic source builds for dependencies and an option to build and install Velora itself as an Arch package. Both can be enabled with:
+To build Velora and its core dependencies from source:
 
 ```bash
 ./velora install --build-package --build-from-source
 ```
 
-Review monitors, keyboard layout, and wallpaper paths for your machine after installation. This release targets Arch Linux and Hyprland's Lua configuration format.
+Review monitors, keyboard layout and wallpaper paths for your machine after installation. This release targets Arch Linux and Hyprland's Lua configuration API. The Arch package includes native code; use the artifact for your architecture. The release workflow supplies an x86_64 package; aarch64 users can build from source.
 
-If you downloaded the Arch package, install it with `sudo pacman -U ./velora-*.pkg.tar.zst`, then run `velora install` as your regular user.
+Install a downloaded package with `sudo pacman -U ./velora-*.pkg.tar.zst`, then run `velora install` as your regular user. Audio and virtual-keyboard repairs on existing installations may require logging out and back in.
 
 ## Updates and recovery
 
-Use Settings → About → GitHub updates to select stable releases and install a new version, or run:
+Open Settings → General → Software Update, select published releases and install the update, or run:
 
 ```bash
 velora update --interactive --channel release

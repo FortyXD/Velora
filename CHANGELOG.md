@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.3 — 2026-10-30
+
+- A new first-run assistant walks through language and keyboard layouts, networking, displays, window behavior, appearance and optional applications. A desktop tour introduces the shell; the assistant can be reopened with Shift+Super+Alt+/.
+- Choose tiled or free windows. Free windows support snapping, minimizing, restoring, snap layouts and a window menu. Alt+Tab switches windows with previews, the bar can show a taskbar, and Super+Shift+Space opens the application library.
+- Touchpad gestures can be configured in Settings, with on-screen hints. Hot corners use a rounded trigger area.
+- Wallpapers crossfade without resizing the previous image, and appearance presets prepare their wallpaper and palette before switching with a theme transition. A native Rust helper speeds up palette generation, theme staging and desktop widget placement, with Python fallbacks for checkout installations.
+- Wallpaper cover scaling follows display resizing, hotplug and fractional scaling for each image layer. Image metadata probes read only the first frame and ignore stale selections. Thanks to Nikita (@impala-tape), PR #5.
+- Screen recording offers region or screen capture, silent/system/microphone/mixed audio, device selection, frame rate, quality, format, delay and destination settings. Recording status follows the owned encoder, files are verified before reporting success, and unrelated recorders are preserved. Right-click the bar's recording button to open its settings. Thanks to Nikita (@impala-tape), PR #4.
+- General settings now lead to separate pages for software updates, storage, language, date and time. The session screen, tooltips, tray menus and settings navigation have been refreshed, with expanded Russian translations.
+- Installation verifies required fonts, runtime commands, QML modules and Python/GTK imports before linking configuration. It repairs desktop audio services and the virtual keyboard, enables NetworkManager when no competing manager is active, and supplies missing platform integration, icons and font dependencies. `velora doctor` reports these checks; `--skip-packages` preserves services and packages.
+- Arch packages include the native helper and are built for x86_64 or aarch64 rather than marked architecture independent.
+
 ## 0.1.2 — 2026-10-29
 
 - Brightness controls select the backlight belonging to the connected screen on hybrid GPU laptops, instead of sometimes changing an unused GPU's backlight.
