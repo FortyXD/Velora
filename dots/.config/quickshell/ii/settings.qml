@@ -249,7 +249,7 @@ ApplicationWindow {
         root.showPage(root.history[root.historyIndex]);
     }
 
-    // Opens a page by key and, if `sectionTitle` is given, scrolls to that section
+    // Opens a page and reveals a section by stable objectName or its displayed title.
     function openPage(key, sectionTitle) {
         const index = root.pageIndex(key);
         if (index < 0) return;
@@ -258,6 +258,7 @@ ApplicationWindow {
             revealTimer.pageIndex = index;
             revealTimer.target = null;
             revealTimer.sectionTitle = sectionTitle;
+            revealTimer.attemptsRemaining = 25;
             revealTimer.restart();
         }
     }
@@ -269,7 +270,7 @@ ApplicationWindow {
     // A section, or a titled group inside one, with this title
     function findSection(node, title) {
         if (!node) return null;
-        if ((node.settingsSection || node.settingsSearchable) && node.title === title) return node;
+        if ((node.settingsSection || node.settingsSearchable) && (node.objectName === title || node.title === title)) return node;
         const kids = node.children ?? [];
         for (let i = 0; i < kids.length; i++) {
             const found = root.findSection(kids[i], title);
@@ -283,12 +284,16 @@ ApplicationWindow {
         property int pageIndex: -1
         property var target: null
         property string sectionTitle: ""
+        property int attemptsRemaining: 25
         interval: 160
         onTriggered: {
             const page = root.pageItemAt(pageIndex);
-            if (!page?.revealItem) return;
-            const item = target ?? root.findSection(page, sectionTitle);
-            if (!item) return;
+            const item = target ?? (page ? root.findSection(page, sectionTitle) : null);
+            if (!page?.revealItem || !item || item.height <= 0) {
+                // Config/page construction can finish after the initial timer.
+                if (--attemptsRemaining > 0) restart();
+                return;
+            }
             page.revealItem(item);
             revealCheckTimer.page = page;
             revealCheckTimer.item = item;
@@ -333,9 +338,10 @@ ApplicationWindow {
     Component.onCompleted: {
         MaterialThemeLoader.reapplyTheme()
         Config.readWriteDelay = 0 // Settings app always only sets one var at a time so delay isn't needed
-        // Deep links: QS_SETTINGS_PAGE=<page key> and QS_SETTINGS_SEARCH=<query>
-        const startPage = root.pageIndex(Quickshell.env("QS_SETTINGS_PAGE") ?? "");
-        if (startPage >= 0) root.setPage(startPage);
+        // Deep links: page key, optional stable section ID, or a search query.
+        const startKey = Quickshell.env("QS_SETTINGS_PAGE") ?? "";
+        if (root.pageIndex(startKey) >= 0)
+            root.openPage(startKey, Quickshell.env("QS_SETTINGS_SECTION") ?? "");
         const startSearch = Quickshell.env("QS_SETTINGS_SEARCH") ?? "";
         if (startSearch.length > 0) {
             sidebar.searchText = startSearch;
@@ -668,6 +674,7 @@ ApplicationWindow {
                             if (item) {
                                 revealTimer.pageIndex = pageIndex;
                                 revealTimer.target = item;
+                                revealTimer.attemptsRemaining = 25;
                                 revealTimer.restart();
                             }
                         }
