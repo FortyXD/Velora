@@ -1,0 +1,147 @@
+pragma Singleton
+pragma ComponentBehavior: Bound
+
+import qs.modules.common
+import qs.modules.common.functions
+import QtQuick
+import Quickshell
+import Quickshell.Io
+
+/**
+ * Touchpad gestures for the settings app, the cheat sheet and the tour. The list comes from
+ * hyprland/gestures.lua ($XDG_RUNTIME_DIR/velora-gestures.json, written on every config load).
+ * Changes go to hypr/custom/gesture_overrides.json and, as Lua, gesture_overrides.lua, which
+ * gestures.lua reads; Hyprland is then reloaded.
+ */
+Singleton {
+    id: root
+
+    readonly property string manifestPath: `${Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"}/velora-gestures.json`
+    readonly property string jsonPath: FileUtils.trimFileProtocol(`${Directories.config}/hypr/custom/gesture_overrides.json`)
+    readonly property string luaPath: FileUtils.trimFileProtocol(`${Directories.config}/hypr/custom/gesture_overrides.lua`)
+
+    property var gestures: []
+    property var overrides: ({})
+    readonly property bool applying: saveTimer.running || reloadProc.running
+
+    // What a gesture can do, as the settings app lists it
+    readonly property var actions: [
+        { "value": "none", "displayName": Translation.tr("Nothing"), "icon": "block" },
+        { "value": "workspace", "displayName": Translation.tr("Switch workspaces"), "icon": "view_carousel" },
+        { "value": "overview", "displayName": Translation.tr("Overview"), "icon": "overview_key" },
+        { "value": "library", "displayName": Translation.tr("All apps"), "icon": "apps" },
+        { "value": "desktop", "displayName": Translation.tr("Show the desktop"), "icon": "desktop_windows" },
+        { "value": "switcher", "displayName": Translation.tr("Switch between windows"), "icon": "tab" },
+        { "value": "move", "displayName": Translation.tr("Move the window"), "icon": "drag_pan" },
+        { "value": "resize", "displayName": Translation.tr("Resize the window"), "icon": "open_in_full" },
+        { "value": "float", "displayName": Translation.tr("Float or tile the window"), "icon": "picture_in_picture" },
+        { "value": "maximize", "displayName": Translation.tr("Maximize or restore the window"), "icon": "fullscreen" },
+        { "value": "minimize", "displayName": Translation.tr("Minimize the window"), "icon": "minimize" },
+        { "value": "close", "displayName": Translation.tr("Close the window"), "icon": "close" },
+        { "value": "fullscreen", "displayName": Translation.tr("Fullscreen"), "icon": "fullscreen" },
+        { "value": "window_previous_workspace", "displayName": Translation.tr("Move the window to the previous workspace"), "icon": "arrow_back" },
+        { "value": "window_next_workspace", "displayName": Translation.tr("Move the window to the next workspace"), "icon": "arrow_forward" },
+        { "value": "volume", "displayName": Translation.tr("Volume"), "icon": "volume_up" },
+        { "value": "brightness", "displayName": Translation.tr("Screen brightness"), "icon": "light_mode" },
+        { "value": "zoom", "displayName": Translation.tr("Magnify the screen"), "icon": "zoom_in" },
+        { "value": "scratchpad", "displayName": Translation.tr("Show or hide the scratchpad"), "icon": "note_stack" },
+    ]
+
+    function actionName(value) {
+        return root.actions.find(action => action.value === value)?.displayName ?? value;
+    }
+
+    // "4 fingers ↓", with the key to hold when there is one
+    function shape(gesture) {
+        const arrows = { "up": "↑", "down": "↓", "left": "←", "right": "→", "horizontal": "← →", "vertical": "↑ ↓",
+            "swipe": Translation.tr("any way"), "pinch": Translation.tr("pinch"), "pinchin": Translation.tr("pinch in"),
+            "pinchout": Translation.tr("spread") };
+        const mods = (gesture.mods ?? "").split(/[ +]/).filter(mod => mod.length > 0)
+            .map(mod => mod.charAt(0) + mod.slice(1).toLowerCase()).join("+");
+        return `${mods ? mods + " + " : ""}${Translation.tr("%1 fingers").arg(gesture.fingers)} ${arrows[gesture.direction] ?? gesture.direction}`;
+    }
+
+    function setAction(id, action, command = "") {
+        let next = Object.assign({}, root.overrides);
+        const gesture = root.gestures.find(item => item.id === id);
+        if (gesture && action === gesture.default_action) delete next[id];
+        else if (action === "none") next[id] = false;
+        else next[id] = action === "command" ? { "action": "command", "command": command } : { "action": action };
+        root.overrides = next;
+        saveTimer.restart();
+    }
+
+    function reset(id = "") {
+        if (id) {
+            let next = Object.assign({}, root.overrides);
+            delete next[id];
+            root.overrides = next;
+        } else {
+            root.overrides = {};
+        }
+        saveTimer.restart();
+    }
+
+    function luaString(text) {
+        return `"${String(text).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`;
+    }
+
+    function buildLua() {
+        let lines = ["-- Generated by the Velora settings app (Mouse & touchpad → Gestures). Edits here are overwritten.", "return {"];
+        for (const id of Object.keys(root.overrides).sort()) {
+            const value = root.overrides[id];
+            const key = /^[A-Za-z_][A-Za-z0-9_]*$/.test(id) ? id : `[${root.luaString(id)}]`;
+            if (value === false) lines.push(`    ${key} = false,`);
+            else if (value?.action === "command") lines.push(`    ${key} = { action = "command", command = ${root.luaString(value.command ?? "")} },`);
+            else if (value?.action) lines.push(`    ${key} = { action = ${root.luaString(value.action)} },`);
+        }
+        lines.push("}", "");
+        return lines.join("\n");
+    }
+
+    Timer {
+        id: saveTimer
+        interval: 300
+        onTriggered: {
+            jsonFile.setText(JSON.stringify(root.overrides, null, 4) + "\n");
+            luaFile.setText(root.buildLua());
+            reloadProc.running = false;
+            reloadProc.running = true;
+        }
+    }
+    Process {
+        id: reloadProc
+        command: HyprlandSettings.reloadCommand
+    }
+
+    FileView {
+        id: manifestFile
+        path: root.manifestPath
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                root.gestures = JSON.parse(manifestFile.text()).gestures ?? [];
+            } catch (error) {
+                console.warn("[GestureSettings] Couldn't read", root.manifestPath, error);
+            }
+        }
+    }
+    FileView {
+        id: jsonFile
+        path: root.jsonPath
+        printErrors: false // None until something is changed
+        onLoaded: {
+            try {
+                root.overrides = JSON.parse(jsonFile.text()) ?? {};
+            } catch (error) {
+                root.overrides = {};
+            }
+        }
+    }
+    FileView {
+        id: luaFile
+        path: root.luaPath
+        printErrors: false
+    }
+}

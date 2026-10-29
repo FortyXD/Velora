@@ -1,6 +1,7 @@
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.ii.bar
 import QtQuick
 import QtQuick.Layouts
 
@@ -77,8 +78,8 @@ MouseArea {
         }
     }
 
-    PopupToolTip {
-        extraVisibleCondition: (root.options.tooltip ?? "").length > 0 || root.output.length > root.shownText.length
+    BarToolTip {
+        shown: root.containsMouse && ((root.options.tooltip ?? "").length > 0 || root.output.length > root.shownText.length)
         text: (root.options.tooltip ?? "").length > 0 ? root.options.tooltip : root.output
     }
 }

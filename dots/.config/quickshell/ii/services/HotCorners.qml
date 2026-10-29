@@ -52,7 +52,7 @@ Singleton {
         }
     }
 
-    // ---- Main shell only: take over the old sidebar.cornerOpen settings once ----
+    // ---- Main shell only: take over the old sidebar.cornerOpen settings and the old corner size once ----
 
     property bool loaded: false
     function load() {
@@ -65,7 +65,17 @@ Singleton {
         function onReadyChanged() { root.migrate() }
     }
     function migrate() {
-        if (!root.loaded || !Config.ready || Config.options.hotCorners.version >= 1) return;
+        if (!root.loaded || !Config.ready) return;
+        const corners = Config.options.hotCorners;
+        if (corners.version < 1) root.takeOverCornerOpen();
+        if (corners.version < 2) {
+            // The trigger area went from a square to a circle around the corner; the old default square of 6 px
+            // was too small to stop the pointer in next to another monitor
+            if (corners.size === 6) corners.size = 12;
+            corners.version = 2;
+        }
+    }
+    function takeOverCornerOpen() {
         const old = Config.options.sidebar.cornerOpen;
         const corners = Config.options.hotCorners;
         const used = old.bottom ? ["bottomLeft", "bottomRight"] : ["topLeft", "topRight"];

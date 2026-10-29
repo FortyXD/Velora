@@ -26,25 +26,25 @@ StyledPopup {
 
                 MaterialSymbol {
                     fill: 0
-                    font.weight: Font.Medium
+                    font.weight: Font.DemiBold
                     text: "location_on"
-                    iconSize: Appearance.font.pixelSize.large
-                    color: Appearance.colors.colOnSurfaceVariant
+                    iconSize: Appearance.popup.iconSize
+                    color: Appearance.popup.colText
                 }
 
                 StyledText {
                     text: Weather.place.name || Weather.data.city || Translation.tr("Unknown place")
                     font {
-                        weight: Font.Medium
-                        pixelSize: Appearance.font.pixelSize.normal
+                        weight: Font.DemiBold
+                        pixelSize: Appearance.popup.titleSize
                     }
-                    color: Appearance.colors.colOnSurfaceVariant
+                    color: Appearance.popup.colText
                 }
             }
             StyledText {
                 Layout.alignment: Qt.AlignHCenter
-                font.pixelSize: Appearance.font.pixelSize.smaller
-                color: Appearance.colors.colOnSurfaceVariant
+                font.pixelSize: Appearance.popup.captionSize
+                color: Appearance.popup.colSubtext
                 text: Weather.hasData ? `${Weather.data.temp} • ${Weather.data.description} • ${Translation.tr("Feels like %1").arg(Weather.data.tempFeelsLike)}`
                     : Weather.status === "error" ? Weather.error : Translation.tr("Getting the weather…")
             }

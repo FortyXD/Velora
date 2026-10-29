@@ -112,17 +112,20 @@ PopupWindow {
         implicitHeight: root.maxPreviewHeight + root.controlsHeight + margin * 2 + previewBackground.padding * 2
         width: implicitWidth
         height: implicitHeight
-        x: Math.max(0, Math.min(root.width - width, root.rowX + (root.tile?.baseCenter ?? 0) - width / 2))
+        // The center moves to the app on its own: animating x itself restarted the move on every frame
+        // of the width animation, so the previews trailed far behind the pointer
+        property real centerX: root.rowX + (root.tile?.baseCenter ?? 0)
+        x: Math.round(Math.max(0, Math.min(root.width - width, centerX - width / 2)))
         hoverEnabled: true
         onContainsMouseChanged: {
             if (containsMouse) hideTimer.stop();
             else if (!(root.dock.hoveredTile?.windowCount > 0)) hideTimer.restart();
         }
 
-        Behavior on x {
+        Behavior on centerX {
             enabled: root.shown
             NumberAnimation {
-                duration: 220
+                duration: 160
                 easing.type: Easing.OutCubic
             }
         }
@@ -143,8 +146,10 @@ PopupWindow {
             }
             implicitWidth: previewRow.implicitWidth + padding * 2
             implicitHeight: previewRow.implicitHeight + padding * 2
-            radius: Appearance.rounding.normal
-            color: Appearance.m3colors.m3surfaceContainer
+            radius: Appearance.popup.radius
+            color: Appearance.popup.colBackground
+            border.width: 1
+            border.color: Appearance.popup.colBorder
             clip: true
 
             opacity: root.shown ? 1 : 0
@@ -166,7 +171,7 @@ PopupWindow {
             Behavior on implicitWidth {
                 enabled: root.shown
                 NumberAnimation {
-                    duration: 220
+                    duration: 160
                     easing.type: Easing.OutCubic
                 }
             }
@@ -202,7 +207,7 @@ PopupWindow {
                                 StyledText {
                                     Layout.margins: 5
                                     Layout.fillWidth: true
-                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    font.pixelSize: Appearance.popup.textSize
                                     text: windowButton.modelData?.title ?? ""
                                     elide: Text.ElideRight
                                     color: Appearance.m3colors.m3onSurface

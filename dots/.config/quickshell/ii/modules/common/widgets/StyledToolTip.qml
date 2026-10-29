@@ -10,13 +10,13 @@ ToolTip {
     property bool alternativeVisibleCondition: false
 
     readonly property bool internalVisibleCondition: (extraVisibleCondition && (parent.hovered === undefined || parent?.hovered)) || alternativeVisibleCondition
-    verticalPadding: 5
+    verticalPadding: 6
     horizontalPadding: 10
     background: null
     font {
         family: Appearance.font.family.main
         variableAxes: Appearance.font.variableAxes.main
-        pixelSize: Appearance?.font.pixelSize.smaller ?? 14
+        pixelSize: Appearance?.popup.captionSize ?? 12
         hintingPreference: Font.PreferNoHinting // Prevent shaky text
     }
 

@@ -13,6 +13,10 @@ if not variables.dont_load_default_general then
     require("hyprland.general")
 end
 
+-- Free or tiled windows (Settings → Desktop → Windows). Before the rules, so a rule for a
+-- particular app still wins over "every window floats".
+require("hyprland.window_mode").load()
+
 if not variables.dont_load_default_rules then
     require("hyprland.rules")
 end
@@ -27,6 +31,9 @@ end
 if not variables.dont_load_default_keybinds then
     require("hyprland.keybinds")
 end
+
+-- Touchpad gestures, with the changes made in Settings → Mouse & touchpad
+require("hyprland.gestures").setup()
 
 require("custom.execs")
 require("custom.general")

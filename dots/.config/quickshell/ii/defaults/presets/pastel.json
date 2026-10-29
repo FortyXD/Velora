@@ -3,7 +3,7 @@
     "name": "Pastel sky",
     "icon": "cloud",
     "order": 22,
-    "description": "A soft pink planet in light colors, a rounded floating bar at the bottom",
+    "description": "A soft pink planet in light colors, a floating taskbar at the bottom and free windows, as on Windows",
     "wallpaperPreview": "https://th.wallhaven.cc/lg/ox/oxeo25.jpg",
     "credits": {
         "title": "Alien Moon",
@@ -33,10 +33,6 @@
                     "zones": {
                         "start": [
                             {
-                                "uid": "lsb",
-                                "type": "leftSidebarButton"
-                            },
-                            {
                                 "uid": "ws",
                                 "type": "workspaces",
                                 "pill": true
@@ -45,22 +41,12 @@
                         "centerStart": [],
                         "center": [
                             {
-                                "uid": "clk",
-                                "type": "clock",
-                                "pill": true,
-                                "options": {
-                                    "showDate": true
-                                }
+                                "uid": "start",
+                                "type": "launcher"
                             },
                             {
-                                "uid": "dark",
-                                "type": "darkMode",
-                                "pill": true
-                            },
-                            {
-                                "uid": "night",
-                                "type": "nightLight",
-                                "pill": true
+                                "uid": "tasks",
+                                "type": "taskbar"
                             }
                         ],
                         "centerEnd": [],
@@ -80,8 +66,12 @@
                                 "pill": true
                             },
                             {
-                                "uid": "pwr",
-                                "type": "session"
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "options": {
+                                    "showDate": true
+                                }
                             }
                         ]
                     }
@@ -221,5 +211,10 @@
             "misc:animate_mouse_windowdragging": false
         },
         "wallpaper": "https://w.wallhaven.cc/full/ox/wallhaven-oxeo25.jpg"
+    },
+    "windows": {
+        "hyprland": {
+            "shell:windowMode": "floating"
+        }
     }
 }

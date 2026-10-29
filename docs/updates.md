@@ -61,7 +61,7 @@ Use `--upgrade` when deliberately updating all pins, or `--upgrade-package NAME`
 
 ## GitHub update settings
 
-Settings → About → GitHub updates provides controls for automatic checks and the update channel, displays installed and available versions, and opens an interactive update in a terminal.
+Settings → General → Software Update provides controls for automatic checks and the update channel, displays installed and available versions, and opens an interactive update in a terminal.
 
 ```bash
 velora update-settings

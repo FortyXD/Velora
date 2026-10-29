@@ -34,6 +34,7 @@ Variants {
         id: bgRoot
 
         required property var modelData
+        Component.onDestruction: WallpaperTransition.remove(modelData.name)
 
         // Behind a fullscreen window the widgets stop drawing. The window itself stays mapped with the
         // wallpaper: unmapping it made the empty screen flash while it mapped again on leaving fullscreen.
@@ -58,6 +59,27 @@ Variants {
         readonly property bool shaderPlaying: ShaderWallpaper.active && !PowerSaving.pauseLiveWallpaper && !bgRoot.coveredByFullscreen
             && (GlobalStates.screenLocked ? Config.options.lock.animatedWallpaper : !LiveWallpaper.coveredOn(bgRoot.modelData.name))
         property string wallpaperPath: wallpaperIsVideo ? Config.options.background.thumbnailPath : Config.options.background.wallpaperPath
+        // switchwall sets a video first and makes its still frame after; until then the frame is an older video's.
+        // Frames are named after their video.
+        readonly property bool thumbnailMatches: !wallpaperIsVideo
+            || CF.FileUtils.fileNameForPath(Config.options.background.thumbnailPath).startsWith(CF.FileUtils.fileNameForPath(Config.options.background.wallpaperPath) + ".")
+        onThumbnailMatchesChanged: if (thumbnailMatches) wallpaper.show()
+        // A video plays under this window. Its still frame stays over it until mpvpaper has surely started
+        // (it doesn't tell), so switching to a video, or between two, fades instead of flashing the empty screen.
+        property bool videoShown: false
+        Connections {
+            target: Config.options.background
+            function onWallpaperPathChanged() {
+                bgRoot.videoShown = false;
+                videoTakeover.restart();
+            }
+        }
+        Timer {
+            id: videoTakeover
+            interval: 1600
+            running: true
+            onTriggered: bgRoot.videoShown = bgRoot.wallpaperIsVideo
+        }
         property bool wallpaperSafetyTriggered: {
             const enabled = Config.options.workSafety.enable.wallpaper;
             const sensitiveWallpaper = (CF.StringUtils.stringListContainsSubstring(wallpaperPath.toLowerCase(), Config.options.workSafety.triggerCondition.fileKeywords));
@@ -65,28 +87,6 @@ Variants {
             return enabled && sensitiveWallpaper && sensitiveNetwork;
         }
         readonly property real parallaxRation: Config.options.background.parallax.workspaceZoom
-        property real minSuitableScale: 1 // Some reasonable init, to be updated
-        property real effectiveWallpaperScale: minSuitableScale * parallaxRation
-        property int wallpaperWidth: modelData.width // Some reasonable init value, to be updated
-        property int wallpaperHeight: modelData.height // Some reasonable init value, to be updated
-        property real scaledWallpaperWidth: wallpaperWidth * effectiveWallpaperScale
-        property real scaledWallpaperHeight: wallpaperHeight * effectiveWallpaperScale
-        property real parallaxTotalPixelsX: Math.max(0, scaledWallpaperWidth - screen.width)
-        property real parallaxTotalPixelsY: Math.max(0, scaledWallpaperHeight - screen.height)
-        readonly property bool verticalParallax: (Config.options.background.parallax.autoVertical && wallpaperHeight > wallpaperWidth) || Config.options.background.parallax.vertical
-        // Colors
-        property bool shouldBlur: (GlobalStates.screenLocked && Config.options.lock.blur.enable)
-        property color dominantColor: Appearance.colors.colPrimary // Default, to be changed
-        property bool dominantColorIsDark: dominantColor.hslLightness < 0.5
-        property color colText: {
-            if (wallpaperSafetyTriggered)
-                return CF.ColorUtils.mix(Appearance.colors.colOnLayer0, Appearance.colors.colPrimary, 0.75);
-            return (GlobalStates.screenLocked && shouldBlur) ? Appearance.colors.colOnLayer0 : CF.ColorUtils.colorWithLightness(Appearance.colors.colPrimary, (dominantColorIsDark ? 0.8 : 0.12));
-        }
-        Behavior on colText {
-            animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
-        }
-
         // Layer props
         screen: modelData
         exclusionMode: ExclusionMode.Ignore
@@ -110,34 +110,23 @@ Variants {
             animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
         }
 
-        onWallpaperPathChanged: {
-            bgRoot.updateZoomScale();
-            // Clock position gets updated after zoom scale is updated
-        }
-
-        // Wallpaper zoom scale
-        function updateZoomScale() {
-            getWallpaperSizeProc.path = bgRoot.wallpaperPath;
-            getWallpaperSizeProc.running = true;
-        }
-        Process {
-            id: getWallpaperSizeProc
-            property string path: bgRoot.wallpaperPath
-            command: ["magick", "identify", "-format", "%w %h", path]
-            stdout: StdioCollector {
-                id: wallpaperSizeOutputCollector
-                onStreamFinished: {
-                    const output = wallpaperSizeOutputCollector.text;
-                    const [width, height] = output.split(" ").map(Number);
-                    const [screenWidth, screenHeight] = [bgRoot.screen.width, bgRoot.screen.height];
-                    bgRoot.wallpaperWidth = width;
-                    bgRoot.wallpaperHeight = height;
-
-                    // Perfect image; scale = 1
-                    // Small picture; scale > 1; will zoom in the picture
-                    // Big picture; scale < 1; will zoom out the picture
-                    // Choose max number so every side will fit
-                    bgRoot.minSuitableScale = Math.max(screenWidth / width, screenHeight / height);
+        // Measures a wallpaper before it's shown (see `wallpaper.measured`), one process per picture
+        Component {
+            id: sizeProbe
+            Process {
+                id: probe
+                required property string path
+                property bool preload: false
+                running: true
+                command: ["magick", "identify", "-format", "%w %h", `${probe.path}[0]`] // [0]: the first frame of an animation
+                stdout: StdioCollector {
+                    onStreamFinished: {
+                        const [width, height] = text.trim().split(" ").map(Number);
+                        if (width > 0 && height > 0) wallpaper.sizes[probe.path] = { width: width, height: height };
+                        if (probe.preload) wallpaper.preloadMeasured(probe.path, width, height);
+                        else wallpaper.measured(probe.path, width, height);
+                        probe.destroy();
+                    }
                 }
             }
         }
@@ -146,14 +135,86 @@ Variants {
             anchors.fill: parent
 
             // Wallpaper
-            StyledImage {
+            Item {
                 id: wallpaper
                 visible: opacity > 0 // Also under the blur, which fades out when unlocking
-                // A video plays under this window (LiveWallpaper); its first frame stands in on the lock screen, where it pauses
+                // A video plays under this window (LiveWallpaper); its still frame stands in on the lock screen, where it pauses
                 // An animated wallpaper draws inside this item, so it stays shown for it
-                opacity: ((status === Image.Ready && (!bgRoot.wallpaperIsVideo || GlobalStates.screenLocked)) || ShaderWallpaper.active) ? 1 : 0
-                cache: false
-                smooth: false
+                opacity: ((wallpaper.ready && (!bgRoot.videoShown || GlobalStates.screenLocked)) || ShaderWallpaper.active) ? 1 : 0
+                // Fades out onto a video that has started; comes back at once, as the video under it may have stopped
+                Behavior on opacity {
+                    enabled: wallpaper.opacity === 1
+                    animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
+                }
+                readonly property bool ready: wallpaperFader.ready
+
+                property string newestPath: ""
+                readonly property string wanted: bgRoot.wallpaperSafetyTriggered ? "" : bgRoot.wallpaperPath
+                onWantedChanged: wallpaper.show()
+                Component.onCompleted: wallpaper.show()
+                function show() {
+                    if (!bgRoot.thumbnailMatches || wallpaper.wanted === wallpaper.newestPath) return;
+                    wallpaper.newestPath = wallpaper.wanted;
+                    wallpaperFader.cancelPending();
+                    WallpaperTransition.begin(bgRoot.modelData.name, wallpaper.wanted);
+                    if (wallpaper.wanted.length === 0) {
+                        wallpaperFader.clear();
+                        WallpaperTransition.finish(bgRoot.modelData.name, wallpaper.wanted);
+                        return;
+                    }
+                    const size = wallpaper.sizes[wallpaper.wanted];
+                    if (size) wallpaper.measured(wallpaper.wanted, size.width, size.height);
+                    else sizeProbe.createObject(wallpaper, { "path": wallpaper.wanted });
+                }
+                function measured(path, width, height) {
+                    if (path !== wallpaper.newestPath) return;
+                    if (!(width > 0 && height > 0)) {
+                        WallpaperTransition.finish(bgRoot.modelData.name, path);
+                        return;
+                    }
+                    wallpaperFader.show(path, width, height);
+                }
+
+                // Sizes already measured, so switching to a picture decoded ahead needs no process
+                property var sizes: ({})
+                // A preset decodes its picture before it covers the screen (WallpaperTransition.preload)
+                Connections {
+                    target: WallpaperTransition
+                    function onPreloadRequested(path) {
+                        if (bgRoot.wallpaperSafetyTriggered || path === wallpaper.newestPath) {
+                            WallpaperTransition.reportPreloaded(bgRoot.modelData.name, path);
+                            return;
+                        }
+                        const size = wallpaper.sizes[path];
+                        if (size) wallpaper.preloadMeasured(path, size.width, size.height);
+                        else sizeProbe.createObject(wallpaper, { "path": path, "preload": true });
+                    }
+                }
+                function preloadMeasured(path, width, height) {
+                    if (width > 0 && height > 0) wallpaperFader.preload(path, width, height);
+                    else WallpaperTransition.reportPreloaded(bgRoot.modelData.name, path); // Nothing to wait for
+                }
+
+                WallpaperFader {
+                    id: wallpaperFader
+                    anchors.fill: parent
+                    duration: ThemeTransition.presetTransition && ThemeTransition.phase === "holding" ? 0 : Appearance.scaledDuration(700)
+                    devicePixelRatio: bgRoot.devicePixelRatio
+                    zoom: bgRoot.parallaxRation
+                    workspaceParallax: Config.options.background.parallax.enableWorkspace
+                    autoVertical: Config.options.background.parallax.autoVertical
+                    vertical: Config.options.background.parallax.vertical
+                    workspaceFraction: wallpaper.fraction
+                    sidebarOffset: Config.options.background.parallax.enableSidebar
+                        ? bgRoot.parallaxRation / bgRoot.workspaceChunkSize / 2 * (GlobalStates.sidebarRightOpen - GlobalStates.sidebarLeftOpen) : 0
+                    onPresented: path => WallpaperTransition.present(bgRoot.modelData.name, path, duration)
+                    onFinished: path => {
+                        WallpaperTransition.finish(bgRoot.modelData.name, path);
+                        if (bgRoot.wallpaperIsVideo) videoTakeover.restart();
+                    }
+                    onFailed: path => WallpaperTransition.finish(bgRoot.modelData.name, path)
+                    onPreloadReady: path => WallpaperTransition.reportPreloaded(bgRoot.modelData.name, path)
+                }
 
                 property int workspaceIndex: (bgRoot.monitor.activeWorkspace?.id ?? 1) - 1
                 property real middleFraction: 0.5
@@ -166,65 +227,28 @@ Variants {
                     return Math.max(0, Math.min(1, workspaceIndex / (bgRoot.totalWorkspaces - 1)));
                 }
 
-                property real usedFractionX: {
-                    let usedFraction = middleFraction;
-                    if (Config.options.background.parallax.enableWorkspace && !bgRoot.verticalParallax) {
-                        usedFraction = fraction;
-                    }
-                    if (Config.options.background.parallax.enableSidebar) {
-                        let sidebarFraction = bgRoot.parallaxRation / bgRoot.workspaceChunkSize / 2;
-                        usedFraction += (sidebarFraction * GlobalStates.sidebarRightOpen - sidebarFraction * GlobalStates.sidebarLeftOpen);
-                    }
-                    return Math.max(0, Math.min(1, usedFraction));
-                }
-                property real usedFractionY: {
-                    let usedFraction = middleFraction;
-                    if (Config.options.background.parallax.enableWorkspace && bgRoot.verticalParallax) {
-                        usedFraction = fraction;
-                    }
-                    return Math.max(0, Math.min(1, usedFraction));
-                }
-
-                x: {
-                    if (bgRoot.screen.width > width) {
-                        // Center the picture
-                        return (bgRoot.screen.width - width) / 2;
-                    }
-                    return - bgRoot.parallaxTotalPixelsX * usedFractionX;
-                }
-                y: {
-                    if (bgRoot.screen.height > height) {
-                        // Center the picture
-                        return (bgRoot.screen.height - height) / 2;
-                    }
-                    return - bgRoot.parallaxTotalPixelsY * usedFractionY;
-                }
-
-                source: bgRoot.wallpaperSafetyTriggered ? "" : bgRoot.wallpaperPath
-                fillMode: Image.PreserveAspectCrop
-                Behavior on x {
-                    NumberAnimation {
-                        duration: Appearance.scaledDuration(600)
-                        easing.type: Easing.OutCubic
-                    }
-                }
-                Behavior on y {
-                    NumberAnimation {
-                        duration: Appearance.scaledDuration(600)
-                        easing.type: Easing.OutCubic
-                    }
-                }
-                width: bgRoot.scaledWallpaperWidth
-                height: bgRoot.scaledWallpaperHeight
+                width: bgRoot.screen.width
+                height: bgRoot.screen.height
 
                 // Animated wallpaper (ShaderWallpaper); on the first screen it also takes the still frame when one is wanted
-                Loader {
+                FadeLoader {
                     id: shaderLoader
+                    z: 2
                     anchors.fill: parent
-                    active: ShaderWallpaper.active && !bgRoot.wallpaperSafetyTriggered
+                    shown: ShaderWallpaper.active && !bgRoot.wallpaperSafetyTriggered
+                    animation: NumberAnimation {
+                        duration: Appearance.scaledDuration(1400)
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Appearance.animationCurves.standard
+                    }
+                    // The last animated wallpaper, still drawn while it fades out
+                    property string shownName: ""
+                    readonly property string activeName: ShaderWallpaper.active ? ShaderWallpaper.name : ""
+                    onActiveNameChanged: if (activeName.length > 0) shownName = activeName
+                    Component.onCompleted: if (activeName.length > 0) shownName = activeName
                     sourceComponent: ShaderWallpaperView {
                         id: shaderView
-                        name: ShaderWallpaper.name
+                        name: shaderLoader.shownName
                         running: bgRoot.shaderPlaying
                         speed: Config.options.background.shaderWallpaper.speed
                         fps: Config.options.background.shaderWallpaper.fps
@@ -265,6 +289,7 @@ Variants {
                 }
 
                 Loader {
+                    z: 2
                     anchors.fill: parent
                     active: bgRoot.lockVideo
                     sourceComponent: Video {
@@ -335,13 +360,11 @@ Variants {
                     var f = Config.options.background.parallax.widgetsFactor;
                     return f / bgRoot.parallaxRation;
                 }
-                readonly property real baseWallpaperOffsetX: (bgRoot.screen.width - wallpaper.width) / 2
-                readonly property real baseWallpaperOffsetY: (bgRoot.screen.height - wallpaper.height) / 2
-                readonly property real wallpaperTotalOffsetX: wallpaper.x - baseWallpaperOffsetX
-                readonly property real wallpaperTotalOffsetY: wallpaper.y - baseWallpaperOffsetY
                 readonly property bool locked: GlobalStates.screenLocked
-                x: wallpaperTotalOffsetX * parallaxFactor * !locked
-                y: wallpaperTotalOffsetY * parallaxFactor * !locked
+                x: wallpaperFader.offsetX * parallaxFactor * !locked
+                y: wallpaperFader.offsetY * parallaxFactor * !locked
+                Behavior on x { NumberAnimation { duration: Appearance.scaledDuration(600); easing.type: Easing.OutCubic } }
+                Behavior on y { NumberAnimation { duration: Appearance.scaledDuration(600); easing.type: Easing.OutCubic } }
 
                 transitions: Transition {
                     PropertyAnimation {

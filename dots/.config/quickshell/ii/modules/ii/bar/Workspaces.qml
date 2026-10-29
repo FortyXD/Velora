@@ -276,8 +276,11 @@ Item {
                             || (Config.options?.bar.workspaces.showAppIcons && workspaceButtonBackground.biggestWindow)
                             ) ? 0 : 1
                         visible: opacity > 0
-                        anchors.centerIn: parent
-                        width: workspaceButtonWidth * 0.18
+                        // Whole screen pixels on the pixel grid: a fraction of a pixel smears the edge of such a small dot
+                        readonly property real dpr: root.QsWindow.window?.devicePixelRatio ?? 1
+                        x: Math.round((parent.width - width) / 2 * dpr) / dpr
+                        y: Math.round((parent.height - height) / 2 * dpr) / dpr
+                        width: Math.round(workspaceButtonWidth * 0.18 * dpr) / dpr
                         height: width
                         radius: width / 2
                         color: (root.effectiveActiveWorkspaceId == button.workspaceValue) ?

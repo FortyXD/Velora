@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Settings
+GenericName=Velora Settings
+Comment=Wi-Fi, appearance, the bar, displays and the rest of your desktop
+Icon=org.velora.Settings
+Exec=sh -c "exec qs -p ~/.config/quickshell/ii/settings.qml"
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=Preferences;Control;Configuration;Velora;
+StartupWMClass=org.velora.Settings

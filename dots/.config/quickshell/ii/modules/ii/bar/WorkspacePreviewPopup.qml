@@ -63,18 +63,19 @@ StyledPopup {
             spacing: 6
             StyledText {
                 Layout.fillWidth: true
+                font.pixelSize: Appearance.popup.titleSize
                 font.weight: Font.DemiBold
-                color: Appearance.colors.colOnSurfaceVariant
+                color: Appearance.popup.colText
                 text: Translation.tr("Workspace %1").arg(Config.options.bar.workspaces.numberMap[root.workspaceId - 1] || root.workspaceId)
             }
             MaterialSymbol {
                 text: "select_window"
-                iconSize: Appearance.font.pixelSize.normal
-                color: Appearance.colors.colSubtext
+                iconSize: Appearance.popup.iconSize
+                color: Appearance.popup.colSubtext
             }
             StyledText {
-                font.pixelSize: Appearance.font.pixelSize.small
-                color: Appearance.colors.colSubtext
+                font.pixelSize: Appearance.popup.textSize
+                color: Appearance.popup.colSubtext
                 text: root.windows.length
             }
         }
@@ -238,8 +239,8 @@ StyledPopup {
             Layout.fillWidth: true
             Layout.maximumWidth: root.previewWidth
             elide: Text.ElideRight
-            font.pixelSize: Appearance.font.pixelSize.small
-            color: Appearance.colors.colSubtext
+            font.pixelSize: Appearance.popup.captionSize
+            color: Appearance.popup.colSubtext
             text: root.hoveredTitle.length > 0 ? root.hoveredTitle : Translation.tr("Click a window to open it")
         }
     }

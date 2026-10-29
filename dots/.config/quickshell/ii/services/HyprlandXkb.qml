@@ -33,56 +33,35 @@ Singleton {
             ?? keyboards.find(kb => kb.main);
     }
 
-    // Update the layout code according to the layout name (Hyprland gives the name not the code)
-    onCurrentLayoutNameChanged: root.updateLayoutCode()
-    function updateLayoutCode() {
-        if (cachedLayoutCodes.hasOwnProperty(currentLayoutName)) {
-            root.currentLayoutCode = cachedLayoutCodes[currentLayoutName];
-        } else {
-            getLayoutProc.running = true;
-        }
+    // Index all names once. Switching layouts must not wait for a new process or file read.
+    FileView {
+        id: layoutNames
+        path: root.baseLayoutFilePath
+        blockLoading: true
+        onLoaded: root.indexLayoutNames(text())
     }
-
-    // Get the layout code from the base.lst file by grabbing the line with the current layout name
-    Process {
-        id: getLayoutProc
-        command: ["cat", root.baseLayoutFilePath]
-
-        stdout: StdioCollector {
-            id: layoutCollector
-
-            onStreamFinished: {
-                const lines = layoutCollector.text.split("\n");
-                const targetDescription = root.currentLayoutName;
-                const foundLine = lines.find(line => {
-                    // Skip comment lines and empty lines
-                    if (!line.trim() || line.trim().startsWith('!'))
-                        return false;
-
-                    // Match layout: (whitespace + ) key + whitespace + description
-                    const matchLayout = line.match(/^\s*(\S+)\s+(.+)$/);
-                    if (matchLayout && matchLayout[2] === targetDescription) {
-                        root.cachedLayoutCodes[matchLayout[2]] = matchLayout[1];
-                        root.currentLayoutCode = matchLayout[1];
-                        return true;
-                    }
-
-                    // Match variant: (whitespace + ) variant + whitespace + key + whitespace + description
-                    const matchVariant = line.match(/^\s*(\S+)\s+(\S+)\s+(.+)$/);
-                    if (matchVariant && matchVariant[3] === targetDescription) {
-                        const complexLayout = matchVariant[2] + matchVariant[1];
-                        root.cachedLayoutCodes[matchVariant[3]] = complexLayout;
-                        root.currentLayoutCode = complexLayout;
-                        return true;
-                    }
-                    
-                    return false;
-                });
-                // console.log("[HyprlandXkb] Found line:", foundLine);
-                // console.log("[HyprlandXkb] Layout:", root.currentLayoutName, "| Code:", root.currentLayoutCode);
-                // console.log("[HyprlandXkb] Cached layout codes:", JSON.stringify(root.cachedLayoutCodes, null, 2));
+    function indexLayoutNames(content) {
+        let codes = {};
+        let section = "";
+        for (const line of content.split("\n")) {
+            if (line.trim().startsWith("!")) {
+                section = line.trim().slice(1).trim();
+                continue;
+            }
+            const entry = line.trim().match(/^(\S+)\s+(.+)$/);
+            if (!entry) continue;
+            if (section === "layout") codes[entry[2]] = entry[1];
+            else if (section === "variant") {
+                const variant = entry[2].match(/^(\S+):\s+(.+)$/);
+                if (variant) codes[variant[2]] = variant[1];
             }
         }
+        root.cachedLayoutCodes = codes;
+        root.updateLayoutCode();
+    }
+    onCurrentLayoutNameChanged: root.updateLayoutCode()
+    function updateLayoutCode() {
+        root.currentLayoutCode = root.cachedLayoutCodes[root.currentLayoutName] ?? "";
     }
 
     // Find out available layouts and current active layout. Should only be necessary on init
@@ -94,10 +73,15 @@ Singleton {
         stdout: StdioCollector {
             id: devicesCollector
             onStreamFinished: {
-                const parsedOutput = JSON.parse(devicesCollector.text);
-                const hyprlandKeyboard = root.typingKeyboard(parsedOutput["keyboards"]);
-                root.layoutCodes = hyprlandKeyboard["layout"].split(",");
-                root.currentLayoutName = hyprlandKeyboard["active_keymap"];
+                try {
+                    const parsedOutput = JSON.parse(devicesCollector.text);
+                    const keyboard = root.typingKeyboard(parsedOutput.keyboards ?? []);
+                    if (!keyboard) return;
+                    root.layoutCodes = keyboard.layout.split(",").map(code => code.trim());
+                    root.currentLayoutName = keyboard.active_keymap;
+                } catch (error) {
+                    console.warn("[HyprlandXkb] Couldn't read keyboards:", error);
+                }
                 // console.log("[HyprlandXkb] Fetched | Layouts (multiple: " + (root.layoutCodes.length > 1) + "): "
                 //     + root.layoutCodes.join(", ") + " | Active: " + root.currentLayoutName);
             }
@@ -114,9 +98,6 @@ Singleton {
                     fetchLayoutsProc.running = true;
                 }
 
-                // If there's only one layout, the updated layout is always the same
-                if (root.layoutCodes.length <= 1) return;
-
                 // Update when layout might have changed
                 const dataString = event.data;
                 if (root.isPseudoKeyboard(dataString.substring(0, dataString.indexOf(",")))) return;
@@ -125,8 +106,9 @@ Singleton {
                 // Update layout for on-screen keyboard (osk)
                 Config.options.osk.layout = root.currentLayoutName.split(" (")[0];
             } else if (event.name == "configreloaded") {
-                // Mark layout code list to be updated when config is reloaded
+                // Read added/removed layouts now, rather than losing the first switch after a reload.
                 root.needsLayoutRefresh = true;
+                fetchLayoutsProc.running = true;
             }
         }
     }

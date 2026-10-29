@@ -20,21 +20,26 @@ RippleButton {
     signal dismiss()
     signal openSubmenu(handle: QsMenuHandle)
 
-    colBackground: menuEntry.isSeparator ? Appearance.m3colors.m3outlineVariant : ColorUtils.transparentize(Appearance.colors.colLayer0)
-    enabled: !menuEntry.isSeparator
+    // Looks like the entries of the shell's other menus (ContextMenuPopup)
+    readonly property color colContent: !root.enabled ? Appearance.colors.colSubtext
+        : root.hovered ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer0
+    colBackground: ColorUtils.transparentize(Appearance.colors.colLayer0)
+    colBackgroundHover: menuEntry.isSeparator ? colBackground : Appearance.colors.colPrimary
+    colRipple: Appearance.colors.colPrimaryActive
+    enabled: !menuEntry.isSeparator && menuEntry.enabled
     opacity: 1
 
-    horizontalPadding: 12
+    horizontalPadding: 10
     implicitWidth: contentItem.implicitWidth + horizontalPadding * 2
-    implicitHeight: menuEntry.isSeparator ? 1 : 36
-    Layout.topMargin: menuEntry.isSeparator ? 4 : 0
-    Layout.bottomMargin: menuEntry.isSeparator ? 4 : 0
+    implicitHeight: menuEntry.isSeparator ? 9 : Appearance.popup.menuRowHeight
     Layout.fillWidth: true
 
-    Component.onCompleted: {
-        if (menuEntry.isSeparator) {
-            root.buttonColor = root.colBackground;
-        }
+    Rectangle {
+        visible: root.menuEntry.isSeparator
+        anchors.centerIn: parent
+        width: parent.width - 16
+        height: 1
+        color: Appearance.colors.colOutlineVariant
     }
 
     releaseAction: () => { 
@@ -64,8 +69,8 @@ RippleButton {
         // Interaction: checkbox or radio button
         Item {
             visible: root.hasSpecialInteraction || root.forceSpecialInteractionColumn
-            implicitWidth: 20
-            implicitHeight: 20
+            implicitWidth: 16
+            implicitHeight: 16
 
             Loader {
                 anchors.fill: parent
@@ -84,7 +89,8 @@ RippleButton {
 
                 sourceComponent: MaterialSymbol {
                     text: root.menuEntry.checkState === Qt.PartiallyChecked ? "check_indeterminate_small" : "check"
-                    iconSize: 20
+                    iconSize: Appearance.popup.menuIconSize
+                    color: root.colContent
                 }
             }
         }
@@ -92,8 +98,8 @@ RippleButton {
         // Button icon
         Item {
             visible: root.hasIcon || root.forceIconColumn
-            implicitWidth: 20
-            implicitHeight: 20
+            implicitWidth: 16
+            implicitHeight: 16
 
             Loader {
                 anchors.centerIn: parent
@@ -101,7 +107,7 @@ RippleButton {
                 sourceComponent: IconImage {
                     asynchronous: true
                     source: root.menuEntry.icon
-                    implicitSize: 20
+                    implicitSize: 16
                     mipmap: true
                 }
             }
@@ -110,7 +116,9 @@ RippleButton {
         StyledText {
             id: label
             text: root.menuEntry.text
-            font.pixelSize: Appearance.font.pixelSize.smallie
+            font.pixelSize: Appearance.popup.textSize
+            color: root.colContent
+            elide: Text.ElideRight
             Layout.fillWidth: true
         }
 
@@ -119,7 +127,8 @@ RippleButton {
 
             sourceComponent: MaterialSymbol {
                 text: "chevron_right"
-                iconSize: 20
+                iconSize: Appearance.popup.menuIconSize
+                color: root.colContent
             }
         }
     }

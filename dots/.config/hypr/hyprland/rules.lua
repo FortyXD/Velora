@@ -165,13 +165,35 @@ layer([=[quickshell:openWith]=], { no_anim = true })
 layer([=[quickshell:popup]=], { no_anim = true }) -- Bar popups animate themselves
 layer([=[quickshell:popup]=], { xray = false })
 layer([=[quickshell:popup]=], { ignore_alpha = 1 })
+-- Theme changes: a still picture of the screen giving way, so no motion or blur of its own. Blur here
+-- would be redone over the whole screen on every frame and pointer move while the picture is shown.
+layer([=[quickshell:themeTransition]=], { no_anim = true })
+layer([=[quickshell:themeTransition]=], { blur = false })
+layer([=[quickshell:themeTransition]=], { blur_popups = false })
+layer([=[quickshell:themeTransition]=], { xray = false })
+layer([=[quickshell:themeTransition]=], { ignore_alpha = 1 })
 layer([=[quickshell:mediaControls]=], { ignore_alpha = 1 })
+-- The setup assistant: the live desktop stays visible, blurred, behind its tint
+layer([=[quickshell:onboarding]=], { no_anim = true })
+layer([=[quickshell:onboarding]=], { blur = true })
+layer([=[quickshell:onboarding]=], { ignore_alpha = 0.3 })
+-- The hint of a touchpad gesture animates itself
+layer([=[quickshell:gestureHint]=], { no_anim = true })
+-- The tour's card in a corner: it animates itself
+layer([=[quickshell:tour]=], { no_anim = true })
+layer([=[quickshell:tour]=], { blur = false })
+-- The app library blurs the desktop itself, more as it comes out
+layer([=[quickshell:appLibrary]=], { no_anim = true })
+layer([=[quickshell:appLibrary]=], { blur = false })
+-- Alt+Tab, snap layouts and the window menu animate themselves
+layer([=[quickshell:windowSwitcher]=], { no_anim = true })
+layer([=[quickshell:snapLayouts]=], { no_anim = true })
+layer([=[quickshell:windowMenu]=], { no_anim = true })
 layer([=[quickshell:reloadPopup]=], { animation = "slide" })
 layer([=[quickshell:regionSelector]=], { no_anim = true })
 layer([=[quickshell:screenshot]=], { no_anim = true })
-layer([=[quickshell:session]=], { blur = true })
-layer([=[quickshell:session]=], { no_anim = true })
-layer([=[quickshell:session]=], { ignore_alpha = 0 })
+layer([=[quickshell:session]=], { no_anim = true }) -- Animates itself, and blurs the desktop on its own
+layer([=[quickshell:session]=], { ignore_alpha = 1 })
 layer([=[quickshell:sidebarRight]=], { animation = "slide right" })
 layer([=[quickshell:sidebarLeft]=], { animation = "slide left" })
 layer([=[quickshell:verticalBar]=], { animation = "slide" })

@@ -1,58 +1,94 @@
 import qs.modules.common
 import qs.modules.common.widgets
 import QtQuick
-import QtQuick.Layouts
 
-RippleButton {
+/**
+ * One of the big actions of the session screen: a round icon with its name below. While it's the
+ * highlighted one (by pointer or arrow keys) the circle turns into the action's own shape, in the primary
+ * color, and slowly turns.
+ */
+Item {
     id: button
 
     property string buttonIcon
     property string buttonText
-    property bool keyboardDown: false
-    property real size: 120
+    property var selectedShape: MaterialShape.Shape.Cookie9Sided
+    property bool selected: false
+    readonly property bool hovered: mouseArea.containsMouse
+    readonly property real size: 104
 
-    buttonRadius: (button.focus || button.down) ? size / 2 : Appearance.rounding.verylarge
-    colBackground: button.keyboardDown ? Appearance.colors.colSecondaryContainerActive : 
-        button.focus ? Appearance.colors.colPrimary : 
-        Appearance.colors.colSecondaryContainer
-    colBackgroundHover: Appearance.colors.colPrimary
-    colRipple: Appearance.colors.colPrimaryActive
-    property color colText: (button.down || button.keyboardDown || button.focus || button.hovered) ?
-        Appearance.m3colors.m3onPrimary : Appearance.colors.colOnLayer0
+    signal clicked()
 
-    Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-    background.implicitHeight: size
-    background.implicitWidth: size
+    implicitWidth: Math.max(button.size, label.implicitWidth)
+    implicitHeight: button.size + 16 + label.implicitHeight
 
-    Behavior on buttonRadius {
-        animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-    }
-
-    Keys.onPressed: (event) => {
-        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-            keyboardDown = true
-            button.clicked()
-            event.accepted = true;
-        }
-    }
-    Keys.onReleased: (event) => {
-        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-            keyboardDown = false
-            event.accepted = true;
-        }
-    }
-
-    contentItem: MaterialSymbol {
-        id: icon
+    MouseArea {
+        id: mouseArea
         anchors.fill: parent
-        color: button.colText
-        horizontalAlignment: Text.AlignHCenter
-        iconSize: 45
-        text: buttonIcon
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: button.clicked()
     }
 
-    StyledToolTip {
-        text: buttonText
+    Item {
+        id: shapeHolder
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: button.size
+        height: button.size
+        scale: mouseArea.pressed ? 0.92 : button.selected ? 1.08 : 1
+        Behavior on scale {
+            NumberAnimation {
+                duration: Appearance.scaledDuration(Appearance.animationCurves.expressiveFastSpatialDuration)
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Appearance.animationCurves.expressiveFastSpatial
+            }
+        }
+
+        MaterialShape {
+            id: shape
+            anchors.fill: parent
+            implicitSize: button.size
+            shape: button.selected ? button.selectedShape : MaterialShape.Shape.Circle
+            color: button.selected ? Appearance.colors.colPrimary : Appearance.colors.colSecondaryContainer
+            Behavior on color {
+                animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+            }
+            // Turns only while it has a shape to show turning; as a circle it can stop anywhere
+            NumberAnimation on rotation {
+                running: button.selected && Appearance.animationSpeed > 0
+                from: 0
+                to: 360
+                duration: 16000
+                loops: Animation.Infinite
+            }
+        }
+
+        MaterialSymbol {
+            anchors.centerIn: parent
+            horizontalAlignment: Text.AlignHCenter
+            text: button.buttonIcon
+            iconSize: 40
+            fill: button.selected ? 1 : 0
+            color: button.selected ? Appearance.colors.colOnPrimary : Appearance.colors.colOnSecondaryContainer
+            Behavior on color {
+                animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+            }
+        }
     }
 
+    StyledText {
+        id: label
+        anchors {
+            horizontalCenter: parent.horizontalCenter
+            top: shapeHolder.bottom
+            topMargin: 16
+        }
+        text: button.buttonText
+        font.pixelSize: Appearance.font.pixelSize.normal
+        font.weight: button.selected ? Font.DemiBold : Font.Normal
+        color: button.selected ? Appearance.colors.colOnLayer0 : Appearance.colors.colSubtext
+        Behavior on color {
+            animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+        }
+    }
 }

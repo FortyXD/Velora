@@ -242,17 +242,34 @@ Scope {
                             onRightClicked: dock.dockMenuRequested(overviewTile)
 
                             Rectangle {
+                                id: appsSquare
                                 anchors.fill: parent
-                                anchors.margins: parent.width * 0.04
+                                anchors.margins: Math.round(parent.width * 0.04)
                                 radius: width * 0.26
                                 color: Appearance.colors.colPrimaryContainer
 
-                                MaterialSymbol {
-                                    anchors.centerIn: parent
-                                    text: "apps"
-                                    iconSize: parent.width * 0.55
-                                    fill: 1
-                                    color: Appearance.colors.colOnPrimaryContainer
+                                // The "apps" symbol, drawn as dots on whole screen pixels: the font's glyph lands on
+                                // fractions of a pixel at this size, which leaves every dot a little different
+                                Grid {
+                                    id: appsDots
+                                    readonly property real dpr: dockWindow.devicePixelRatio
+                                    // Like the symbol at 55% of the square: dots of 4/24 of its size, 2/24 apart
+                                    readonly property real unit: appsSquare.width * 0.55 / 24 * dpr
+                                    readonly property real dot: Math.round(unit * 4) / dpr
+                                    x: Math.round((parent.width - width) / 2 * dpr) / dpr
+                                    y: Math.round((parent.height - height) / 2 * dpr) / dpr
+                                    columns: 3
+                                    spacing: Math.max(1, Math.round(unit * 2)) / dpr
+
+                                    Repeater {
+                                        model: 9
+                                        Rectangle {
+                                            width: appsDots.dot
+                                            height: appsDots.dot
+                                            radius: width / 2
+                                            color: Appearance.colors.colOnPrimaryContainer
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -281,12 +298,13 @@ Scope {
                             }
                         }
 
+                        // Like the shell's tooltips (StyledToolTipContent)
                         implicitWidth: labelText.implicitWidth + 20
-                        implicitHeight: labelText.implicitHeight + 10
-                        radius: Appearance.rounding.small
-                        color: Appearance.colors.colLayer0
+                        implicitHeight: labelText.implicitHeight + 12
+                        radius: Appearance.popup.smallRadius
+                        color: Appearance.popup.colBackground
                         border.width: 1
-                        border.color: Appearance.colors.colLayer0Border
+                        border.color: Appearance.popup.colBorder
                         x: shownTile ? Math.round(Math.max(4, Math.min(parent.width - width - 4, row.x + shownTile.visualCenter - width / 2))) : 0
                         y: shownTile ? Math.round(row.y + shownTile.visualTop - height - 10) : 0
 
@@ -294,8 +312,8 @@ Scope {
                             id: labelText
                             anchors.centerIn: parent
                             text: nameLabel.text
-                            font.pixelSize: Appearance.font.pixelSize.small
-                            color: Appearance.colors.colOnLayer0
+                            font.pixelSize: Appearance.popup.captionSize
+                            color: Appearance.popup.colText
                         }
                     }
                 }

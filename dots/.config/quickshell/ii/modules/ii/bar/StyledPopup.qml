@@ -87,7 +87,8 @@ LazyLoader {
 
         exclusionMode: ExclusionMode.Ignore
         exclusiveZone: 0
-        // Centered on the target, but kept inside the bar's window (which spans the screen edge)
+        // Centered on the target, but kept inside the bar's window (which spans the screen edge).
+        // The card sits elevationMargin inside the window (room for its shadow), so the window starts that much earlier
         readonly property var barWindow: root.QsWindow?.window
         function clamp(value, size, available) {
             return Math.max(0, Math.min(value, available - size));
@@ -97,7 +98,7 @@ LazyLoader {
                 if (!Config.options.bar.vertical) return popupWindow.clamp(root.QsWindow?.mapFromItem(
                     root.hoverTarget,
                     (root.hoverTarget.width - popupBackground.implicitWidth) / 2, 0
-                ).x, popupWindow.implicitWidth, popupWindow.barWindow?.width ?? Infinity);
+                ).x - Appearance.sizes.elevationMargin, popupWindow.implicitWidth, popupWindow.barWindow?.width ?? Infinity);
                 return Appearance.sizes.verticalBarWidth
             }
             top: {
@@ -105,7 +106,7 @@ LazyLoader {
                 return popupWindow.clamp(root.QsWindow?.mapFromItem(
                     root.hoverTarget,
                     0, (root.hoverTarget.height - popupBackground.implicitHeight) / 2
-                ).y, popupWindow.implicitHeight, popupWindow.barWindow?.height ?? Infinity);
+                ).y - Appearance.sizes.elevationMargin, popupWindow.implicitHeight, popupWindow.barWindow?.height ?? Infinity);
             }
             right: Appearance.sizes.verticalBarWidth
             bottom: Appearance.sizes.barHeight
@@ -136,7 +137,7 @@ LazyLoader {
 
             Rectangle {
                 id: popupBackground
-                readonly property real margin: 10
+                readonly property real margin: Appearance.popup.padding
 
                 HoverHandler {
                     enabled: root.interactive
@@ -152,12 +153,12 @@ LazyLoader {
                 }
                 implicitWidth: root.contentItem.implicitWidth + margin * 2
                 implicitHeight: root.contentItem.implicitHeight + margin * 2
-                color: Appearance.m3colors.m3surfaceContainer
-                radius: Appearance.rounding.small
+                color: Appearance.popup.colBackground
+                radius: Appearance.popup.radius
                 children: [root.contentItem]
 
                 border.width: 1
-                border.color: Appearance.colors.colLayer0Border
+                border.color: Appearance.popup.colBorder
             }
         }
     }

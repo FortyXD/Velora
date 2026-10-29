@@ -13,6 +13,7 @@ RippleButton {
     property string description: ""
     property string valueText: ""
     property string trailingIcon: "chevron_right"
+    property color tileColor: "transparent" // See ConfigIconTile
 
     readonly property bool settingsSearchable: true
     property string searchText: `${root.title} ${root.description}`
@@ -29,6 +30,7 @@ RippleButton {
         spacing: 12
         ConfigIconTile {
             icon: root.buttonIcon
+            tileColor: root.tileColor
         }
         ColumnLayout {
             Layout.fillWidth: true

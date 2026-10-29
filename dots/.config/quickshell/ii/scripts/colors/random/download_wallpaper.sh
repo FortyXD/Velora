@@ -68,8 +68,8 @@ fi
 
 if [[ $apply -eq 1 ]]; then
     apply_wallpaper "$dest"
-else
-    args=(-a "$NOTIFY_APP" -t 3000)
-    [[ -n "$notification_id" ]] && args+=(-r "$notification_id")
-    notify-send "${args[@]}" "$NOTIFY_TITLE" "Saved to $dest" 2>/dev/null
+elif [[ -n "$notification_id" ]]; then
+    # Only after a download that showed its progress: a file already there needs no news, and a
+    # preset applying it would otherwise capture the popup in its picture of the screen
+    notify-send -a "$NOTIFY_APP" -t 3000 -r "$notification_id" "$NOTIFY_TITLE" "Saved to $dest" 2>/dev/null
 fi

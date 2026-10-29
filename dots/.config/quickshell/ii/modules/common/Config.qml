@@ -436,7 +436,7 @@ Singleton {
             }
 
             property JsonObject hotCorners: JsonObject {
-                property int version: 0 // 1 once the old sidebar.cornerOpen settings were taken over
+                property int version: 0 // 1 once the old sidebar.cornerOpen settings were taken over, 2 once size became a radius
                 property JsonObject topLeft: JsonObject {
                     property string action: "sidebarLeft" // See HotCorners.actions
                     property string command: "" // For "command"
@@ -457,7 +457,7 @@ Singleton {
                 property bool hint: true // A small glow shows where the active corners are
                 property bool inFullscreen: false // Also work over fullscreen apps and games
                 property bool scroll: true // Scrolling on a left corner changes brightness, on a right one volume
-                property int size: 6 // Size of the trigger area in the corner, px
+                property int size: 12 // Radius of the trigger area around the corner, px
             }
 
             property JsonObject powerSaving: JsonObject {

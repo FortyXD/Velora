@@ -1,0 +1,10 @@
+[
+    { "package": "firefox", "name": "Firefox", "icon": "firefox", "description": "Web browser" },
+    { "package": "chromium", "name": "Chromium", "icon": "chromium", "description": "Web browser" },
+    { "package": "telegram-desktop", "name": "Telegram", "icon": "org.telegram.desktop", "description": "Messenger" },
+    { "package": "code", "name": "Code - OSS", "icon": "com.visualstudio.code.oss", "description": "Code editor" },
+    { "package": "obs-studio", "name": "OBS Studio", "icon": "com.obsproject.Studio", "description": "Screen recording and streaming" },
+    { "package": "libreoffice-fresh", "name": "LibreOffice", "icon": "libreoffice-startcenter", "description": "Documents, spreadsheets and slides" },
+    { "package": "vlc", "name": "VLC", "icon": "vlc", "description": "Video player" },
+    { "package": "gimp", "name": "GIMP", "icon": "gimp", "description": "Image editor" }
+]

@@ -98,7 +98,36 @@ ContentPage {
 
     ContentSection {
         title: Translation.tr("Gestures")
-        description: Translation.tr("Swipe with four fingers sideways to switch workspaces, up for the overview")
+        description: Translation.tr("Four fingers: sideways for workspaces, up for the overview, toward you for all apps. Hold a key for more.")
+
+        Repeater {
+            model: GestureSettings.gestures
+
+            delegate: ConfigComboRow {
+                id: gestureRow
+                required property var modelData
+                readonly property string action: modelData.action
+                icon: ({ "up": "swipe_up", "down": "swipe_down", "left": "swipe_left", "right": "swipe_right", "horizontal": "swipe",
+                    "vertical": "swipe_vertical", "pinchin": "pinch_zoom_in", "pinchout": "pinch_zoom_out", "pinch": "pinch" })[modelData.direction] ?? "gesture"
+                text: GestureSettings.shape(modelData)
+                description: Translation.tr(modelData.description)
+                options: GestureSettings.actions
+                currentValue: gestureRow.action
+                customLabel: Translation.tr("Run a command")
+                customPlaceholder: "kitty"
+                customActive: gestureRow.action === "command"
+                customValue: modelData.command ?? ""
+                onSelected: value => GestureSettings.setAction(gestureRow.modelData.id, value)
+                onCustomEntered: text => GestureSettings.setAction(gestureRow.modelData.id, "command", text)
+            }
+        }
+        RippleButtonWithIcon {
+            visible: Object.keys(GestureSettings.overrides).length > 0
+            Layout.alignment: Qt.AlignRight
+            materialIcon: "restart_alt"
+            mainText: Translation.tr("Reset gestures")
+            onClicked: GestureSettings.reset()
+        }
 
         HyprSlider {
             option: "gestures:workspace_swipe_distance"

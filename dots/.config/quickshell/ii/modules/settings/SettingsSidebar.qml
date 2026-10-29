@@ -20,6 +20,12 @@ Item {
     property bool searching: false
     property alias searchText: searchInput.text
     property string profilePageKey: "about"
+    // A subpage (one with a `parentKey`, opened from inside another page) keeps that page highlighted
+    readonly property int highlightedPage: {
+        const parentKey = root.pages[root.currentPage]?.parentKey ?? "";
+        const parentIndex = parentKey.length > 0 ? root.pages.findIndex(page => page.key === parentKey) : -1;
+        return parentIndex >= 0 ? parentIndex : root.currentPage;
+    }
 
     readonly property real collapsedWidth: 64
     readonly property real expandedWidth: 260
@@ -256,7 +262,7 @@ Item {
 
             Rectangle { // Selected page, slides between items
                 id: activeIndicator
-                readonly property Item target: navRepeater.count > root.currentPage ? navRepeater.itemAt(root.currentPage) : null
+                readonly property Item target: navRepeater.count > root.highlightedPage ? navRepeater.itemAt(root.highlightedPage) : null
                 visible: target !== null && target.visible
                 width: navColumn.width
                 height: root.itemHeight
@@ -287,7 +293,7 @@ Item {
                         id: navDelegate
                         required property int index
                         required property var modelData
-                        readonly property bool current: index === root.currentPage && !root.searching
+                        readonly property bool current: index === root.highlightedPage && !root.searching
                         readonly property bool groupStart: index > 0 && root.pages[index - 1].group !== modelData.group
                         readonly property real buttonY: navButton.y
                         visible: !modelData.hidden

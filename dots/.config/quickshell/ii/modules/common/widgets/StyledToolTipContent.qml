@@ -9,7 +9,7 @@ Item {
     required property string text
     property bool shown: false
     property real horizontalPadding: 10
-    property real verticalPadding: 5
+    property real verticalPadding: 6
     property alias font: tooltipTextObject.font
     implicitWidth: tooltipTextObject.implicitWidth + 2 * root.horizontalPadding
     implicitHeight: tooltipTextObject.implicitHeight + 2 * root.verticalPadding
@@ -22,8 +22,11 @@ Item {
             bottom: root.bottom
             horizontalCenter: root.horizontalCenter
         }
-        color: Appearance?.colors.colTooltip ?? "#3C4043"
-        radius: Appearance?.rounding.verysmall ?? 7
+        // A small card like the shell's popups (Appearance.popup)
+        color: Appearance?.popup.colBackground ?? "#3C4043"
+        border.width: 1
+        border.color: Appearance?.popup.colBorder ?? "transparent"
+        radius: Appearance?.popup.smallRadius ?? 7
         opacity: shown ? 1 : 0
         implicitWidth: shown ? (tooltipTextObject.implicitWidth + 2 * root.horizontalPadding) : 0
         implicitHeight: shown ? (tooltipTextObject.implicitHeight + 2 * root.verticalPadding) : 0
@@ -43,9 +46,9 @@ Item {
             id: tooltipTextObject
             anchors.centerIn: parent
             text: root.text
-            font.pixelSize: Appearance?.font.pixelSize.smaller ?? 14
+            font.pixelSize: Appearance?.popup.captionSize ?? 12
             font.hintingPreference: Font.PreferNoHinting // Prevent shaky text
-            color: Appearance?.colors.colOnTooltip ?? "#FFFFFF"
+            color: Appearance?.popup.colText ?? "#FFFFFF"
             wrapMode: Text.Wrap
         }
     }   

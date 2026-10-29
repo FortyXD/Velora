@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>Velora Settings</title>
+  <defs>
+    <linearGradient id="background" x2="0.6" y2="1">
+      <stop stop-color="#262238"/>
+      <stop offset="1" stop-color="#10131e"/>
+    </linearGradient>
+    <linearGradient id="edge" x2="0" y2="1">
+      <stop stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.02"/>
+    </linearGradient>
+    <!-- The V of the Velora banner, in its own coordinates -->
+    <linearGradient id="accent" gradientUnits="userSpaceOnUse" x1="906" y1="86" x2="1062" y2="226">
+      <stop stop-color="#ddd1ff"/>
+      <stop offset="0.55" stop-color="#b3a2f5"/>
+      <stop offset="1" stop-color="#7ed9dd"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.55" r="0.5">
+      <stop stop-color="#9b80ee" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#9b80ee" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#background)"/>
+  <rect x="8.5" y="8.5" width="111" height="111" rx="25.5" fill="none" stroke="url(#edge)"/>
+  <circle cx="64" cy="70" r="46" fill="url(#glow)"/>
+  <g transform="translate(64 66) scale(0.44) translate(-984 -156)">
+    <path d="M906 100L975 216Q981 226 987 216L1062 86" fill="none" stroke="url(#accent)" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M947 85L981 143" fill="none" stroke="#e0d5ff" stroke-opacity="0.42" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="1087" cy="198" r="6" fill="#96d0de"/>
+  </g>
+</svg>

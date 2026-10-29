@@ -1,5 +1,6 @@
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.ii.bar
 import QtQuick
 
 /**
@@ -33,8 +34,8 @@ MouseArea {
         implicitHeight: childrenRect.height
     }
 
-    PopupToolTip {
-        extraVisibleCondition: root.tooltipText.length > 0
+    BarToolTip {
+        shown: root.containsMouse
         text: root.tooltipText
     }
 }
