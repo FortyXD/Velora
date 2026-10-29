@@ -88,6 +88,8 @@ repo = [
     "libportal-gtk4",
     "gobject-introspection",
     "bluedevil",
+    "bluez",
+    "bluez-utils",
     "gnome-keyring",
     "networkmanager",
     "plasma-nm",
