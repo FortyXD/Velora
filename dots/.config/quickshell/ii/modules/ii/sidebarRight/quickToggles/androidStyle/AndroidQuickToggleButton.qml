@@ -122,19 +122,13 @@ GroupButton {
                     animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
                 }
 
-                MaterialSymbol {
+                StatusIcon {
                     anchors.centerIn: parent
                     fill: root.toggled ? 1 : 0
                     iconSize: root.expandedSize ? 22 : 24
                     color: root.colIcon
                     text: root.buttonIcon
-                    RotationAnimation on rotation {
-                        from: 0
-                        to: 360
-                        duration: 1000
-                        loops: Animation.Infinite
-                        running: root.busy
-                    }
+                    busy: root.busy
                 }
 
                 // State layer
