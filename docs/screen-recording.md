@@ -2,6 +2,9 @@
 
 Open **Settings → Tools → Screen recording**. The bar and sidebar recording
 buttons use these settings. Click again to stop, or cancel area selection/countdown.
+**Right-click the camera button in the bar** to open settings directly at the
+recording section, already scrolled into view. Right-click does not start or stop
+recording; left-click keeps its recording/cancellation behavior.
 The recording indicator and timer start only after encoder/muxer initialization;
 “saved” is reported only after the encoder exits and the video stream is verified.
 
@@ -53,6 +56,10 @@ The executable `scripts/videos/record.sh` remains the entry point. It accepts
 (system + microphone; `--sound --mic` remains valid). `stop`, `status` (JSON), and
 `sources` (JSON) are also available. The shell exposes `recorder.toggle`,
 `recorder.stop`, `recorder.status`, and `region.recordWithMic` IPC.
+
+The settings deep link is `QS_SETTINGS_PAGE=tools QS_SETTINGS_SECTION=screen-recording`.
+The section ID is stable across UI languages; settings wait for the page/layout
+before revealing it rather than relying on a translated search query.
 
 ## Troubleshooting and safety
 

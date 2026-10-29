@@ -77,6 +77,10 @@ Singleton {
     function openFolder() {
         Qt.openUrlExternally("file://" + root.savePath);
     }
+    function openSettings() {
+        Quickshell.execDetached(["env", "QS_SETTINGS_PAGE=tools", "QS_SETTINGS_SECTION=screen-recording",
+            "QS_SETTINGS_SEARCH=", "qs", "-p", Quickshell.shellPath("settings.qml")]);
+    }
 
     Timer {
         id: launchTimer

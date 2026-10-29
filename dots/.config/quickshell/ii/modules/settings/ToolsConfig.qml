@@ -145,6 +145,7 @@ ContentPage {
     }
 
     ContentSection {
+        objectName: "screen-recording" // Stable, language-independent settings deep link
         icon: "videocam"
         title: Translation.tr("Screen recording")
         description: Translation.tr("Applies to the recording button. Explicit region, screen and sound shortcuts override only their own mode. Changes apply to the next recording.")
