@@ -57,6 +57,15 @@ Singleton {
         cleanupProc.running = true; // A login script of older versions may have started its own mpvpaper
     }
 
+    // qs -c ii ipc call liveWallpaper reload: plays the video file again after it was replaced in place
+    // (download_wallpaper.sh making a loop again); a player keeps the older file open until restarted
+    IpcHandler {
+        target: "liveWallpaper"
+        enabled: root.loaded
+
+        function reload(): void { root.generation++ }
+    }
+
     Process {
         id: cleanupProc
         command: ["pkill", "-x", "mpvpaper"]
@@ -117,7 +126,8 @@ Singleton {
                         // VA-API only, never "auto": probing NVDEC or the CUDA interop loads libcuda, which wakes a sleeping NVIDIA GPU
                         root.decoder === "cpu" ? "hwdec=no" : "hwdec=vaapi",
                         root.decoder === "cpu" ? "gpu-hwdec-interop=no" : "gpu-hwdec-interop=vaapi",
-                        "scale=bilinear", "interpolation=no", "panscan=1.0", "video-align-x=0.5", "video-align-y=0.5",
+                        // Drawn at the screen's own size: spline36 when the video is smaller, hermite when larger (4K loops)
+                        "scale=spline36", "dscale=hermite", "interpolation=no", "panscan=1.0", "video-align-x=0.5", "video-align-y=0.5",
                         `input-ipc-server=${player.socketPath}`,
                     ];
                     // Keep the player on the integrated GPU's EGL, so it doesn't wake a hybrid laptop's dGPU either

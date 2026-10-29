@@ -119,8 +119,9 @@ video_frame() {
     local frame="$THUMBNAIL_DIR/$(basename "$video").$(printf '%s' "$video" | md5sum | cut -c1-8).jpg"
     if [[ ! -s "$frame" || "$video" -nt "$frame" ]]; then
         # A second in, past fade-ins; very short clips fall back to the first frame
-        ffmpeg -y -ss 1 -i "$video" -vframes 1 "$frame" &>/dev/null
-        [[ -s "$frame" ]] || ffmpeg -y -i "$video" -vframes 1 "$frame" &>/dev/null
+        # -q:v 2: the lock screen shows this frame full size, ffmpeg's default JPEG quality is blocky there
+        ffmpeg -y -ss 1 -i "$video" -vframes 1 -q:v 2 "$frame" &>/dev/null
+        [[ -s "$frame" ]] || ffmpeg -y -i "$video" -vframes 1 -q:v 2 "$frame" &>/dev/null
     fi
     [[ -s "$frame" ]] && echo "$frame"
 }

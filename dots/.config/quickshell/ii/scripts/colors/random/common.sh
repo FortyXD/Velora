@@ -98,10 +98,19 @@ fetch_image() {
     mv -f -- "$tmp" "$dest"
 }
 
+# Written into every made loop. Loops without it come from an older make_loop (at most 1440p) and are made again.
+LOOP_TAG="wallpaper loop 2"
+
+# loop_is_current <video>: whether the video is a loop made by this version of make_loop
+loop_is_current() {
+    [[ $(ffprobe -v error -show_entries format_tags=comment -of csv=p=0 "$1" 2>/dev/null) == "$LOOP_TAG" ]]
+}
+
 # make_loop <source> <destination> <start> <end> <crossfade>: cuts start..end (seconds) out of a video and
 # blends its last <crossfade> seconds into its first, so it repeats without a jump. Clips found online
-# rarely end where they began. Also made at most 1440 p and 30 fps: enough for a wallpaper, half the decoding;
-# and 4:2:0, which hardware decoders play (xfade alone would hand the encoder 4:4:4).
+# rarely end where they began. Kept at the source's resolution up to 4K, and mpv scales it to each screen's
+# own size; at most 30 fps, half the decoding of 60; and 4:2:0, which hardware decoders play (xfade alone would
+# hand the encoder 4:4:4).
 make_loop() {
     local src=$1 dest=$2 start=$3 end=$4 fade=$5 tmp length
     length=$(awk -v s="$start" -v e="$end" 'BEGIN { print e - s }')
@@ -110,8 +119,9 @@ make_loop() {
     # [main] is start+fade..end, [head] the first fade seconds; fading main's tail into head ends the clip
     # on the very frame it starts with
     if ! ffmpeg -v error -y -ss "$start" -to "$end" -i "$src" -filter_complex \
-        "[0:v]fps=30,scale=-2:'min(1440,ih)',format=yuv420p,split[a][b];[a]trim=start=$fade,setpts=PTS-STARTPTS[main];[b]trim=end=$fade,setpts=PTS-STARTPTS[head];[main][head]xfade=transition=fade:duration=$fade:offset=$(awk -v l="$length" -v f="$fade" 'BEGIN { print l - 2 * f }'),format=yuv420p[out]" \
-        -map "[out]" -an -c:v libx264 -profile:v high -pix_fmt yuv420p -preset veryfast -crf 20 -movflags +faststart "$tmp"; then
+        "[0:v]fps=30,scale=-2:'min(2160,ih)':flags=lanczos,format=yuv420p,split[a][b];[a]trim=start=$fade,setpts=PTS-STARTPTS[main];[b]trim=end=$fade,setpts=PTS-STARTPTS[head];[main][head]xfade=transition=fade:duration=$fade:offset=$(awk -v l="$length" -v f="$fade" 'BEGIN { print l - 2 * f }'),format=yuv420p[out]" \
+        -map "[out]" -an -c:v libx264 -profile:v high -pix_fmt yuv420p -preset medium -crf 18 \
+        -metadata comment="$LOOP_TAG" -movflags +faststart "$tmp"; then
         rm -f -- "$tmp"
         fail "Couldn't make the video loop."
     fi

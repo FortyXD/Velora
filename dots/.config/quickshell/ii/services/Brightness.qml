@@ -97,6 +97,7 @@ Singleton {
         required property ShellScreen screen
         property bool isDdc
         property string busNum
+        property string backlightDevice
         property int rawMaxBrightness: 100
         property real brightness
         property real brightnessMultiplier: 1.0
@@ -127,16 +128,29 @@ Singleton {
             const match = root.ddcMonitors.find(m => m.name === screen.name && !root.monitors.slice(0, root.monitors.indexOf(this)).some(mon => mon.busNum === m.busNum));
             isDdc = !!match;
             busNum = match?.busNum ?? "";
-            initProc.command = isDdc ? ["ddcutil", "-b", busNum, "getvcp", "10", "--brief"] : ["sh", "-c", `echo "a b c $(brightnessctl g) $(brightnessctl m)"`];
+            backlightDevice = "";
+            initProc.command = isDdc ? ["ddcutil", "-b", busNum, "getvcp", "10", "--brief"] : ["python3", Quickshell.shellPath("scripts/hardware/backlight.py"), screen.name];
             initProc.running = true;
         }
 
         readonly property Process initProc: Process {
             stdout: SplitParser {
                 onRead: data => {
-                    const [, , , current, max] = data.split(" ");
-                    monitor.rawMaxBrightness = parseInt(max);
-                    monitor.brightness = parseInt(current) / monitor.rawMaxBrightness;
+                    let current, max;
+                    if (monitor.isDdc) {
+                        const fields = data.trim().split(/\s+/);
+                        if (fields[0] !== "VCP" || fields[2] !== "C") return;
+                        current = Number(fields[3]);
+                        max = Number(fields[4]);
+                    } else {
+                        const state = JSON.parse(data);
+                        monitor.backlightDevice = state.device;
+                        current = state.current;
+                        max = state.max;
+                    }
+                    if (!Number.isFinite(current) || !Number.isFinite(max) || max <= 0) return;
+                    monitor.rawMaxBrightness = max;
+                    monitor.brightness = current / max;
                     monitor.ready = true;
                 }
             }
@@ -155,6 +169,7 @@ Singleton {
         }
 
         function syncBrightness() {
+            if (!monitor.ready) return;
             const brightnessValue = Math.max(monitor.multipliedBrightness, 0);
             if (isDdc) {
                 const rawValueRounded = Math.max(Math.floor(brightnessValue * monitor.rawMaxBrightness), 1);
@@ -163,11 +178,12 @@ Singleton {
                 const valuePercentNumber = Math.floor(brightnessValue * 100);
                 let valuePercent = `${valuePercentNumber}%`;
                 if (valuePercentNumber == 0) valuePercent = "1"; // Prevent fully black
-                setProc.exec(["brightnessctl", "--class", "backlight", "s", valuePercent, "--quiet"])
+                setProc.exec(["brightnessctl", "--device", monitor.backlightDevice, "--class", "backlight", "s", valuePercent, "--quiet"])
             }
         }
 
         function setBrightness(value: real): void {
+            if (!monitor.ready) return;
             value = Math.max(0, Math.min(1, value));
             monitor.brightness = value;
         }
