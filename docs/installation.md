@@ -4,7 +4,7 @@
 
 Use a working Arch Linux system with graphics drivers, a regular user account, sudo access, and an internet connection. Install Git and Python 3.11 or newer with `sudo pacman -Syu --needed git python`. Hyprland must support the Lua configuration API used by the repository.
 
-Run the installer as your normal user. It requests sudo for package installation and system services (power profiles and, when an adapter is present, Bluetooth). Read its plan and the package manager's prompts before proceeding.
+Run the installer as your normal user. It requests sudo for package installation, power profiles, Bluetooth when an adapter is present, NetworkManager when no competing manager is active, and the virtual keyboard's uinput setup. Read its plan and the package manager's prompts before proceeding.
 
 Installer diagnostics and package-manager subprocesses use an English locale so error reports remain consistent.
 
@@ -35,10 +35,17 @@ Choices are saved in `$XDG_STATE_HOME/velora/installation.json` and reused by up
 3. Install missing official packages with `pacman -Syu --needed`, including `bluez` and `bluez-utils` for the shell's Bluetooth controls. Using `-Syu` avoids refreshing Arch's databases without a full system upgrade. A package counts as installed when another package provides it, such as `curl-git` for `curl`. If an adapter is detected, enable and start `bluetooth.service`; otherwise leave its service state unchanged. Discovery and pairing are not enabled automatically.
 4. Install missing AUR packages with yay or paru. If needed, build yay from `https://aur.archlinux.org/yay.git` using makepkg. Use `--skip-aur` to omit this step.
 5. Create the shell's Python 3.12 environment with uv and synchronize the committed lockfile.
-6. Download the Google Sans Flex interface font into `~/.local/share/fonts/velora-google-sans-flex` when fontconfig does not already provide it. Arch does not package it; a failed download only prints a warning, and `velora deps` retries it.
-7. Initialize Git submodules, back up existing configuration targets, create links, and install Dolphin integrations.
-8. Register `~/.local/bin/velora`, the Update Velora launcher, and the user update timer.
-9. Reload a running Hyprland session unless `--no-reload` is set.
+6. Refresh the font cache and verify every default font family. Missing Google Sans Flex, Material Symbols Rounded, Space Grotesk and Readex Pro are downloaded from Google's font repositories into `$XDG_DATA_HOME/fonts/velora-*` (by default `~/.local/share/fonts/`), together with their licenses. This also runs with `--skip-aur`. JetBrains Mono Nerd Font, Hack Nerd Font, Noto Sans and Noto Color Emoji are required official packages. The installer checks the downloaded font's family before copying it, refreshes the cache again, and stops before changing configuration if a required family is still missing.
+7. Check runtime commands for the selected components, the Qt/QML modules imported by both shell styles, and the locked Python environment's real imports. This includes GTK and the `GnomeDesktop 4.0` API used for wallpaper thumbnails. A failure stops installation before configuration linking.
+8. Initialize Git submodules, back up existing configuration targets, create links, and install Dolphin integrations.
+9. Register `~/.local/bin/velora`, the Update Velora launcher, and the user update timer.
+10. Reload a running Hyprland session unless `--no-reload` is set.
+
+The installer enables the PipeWire and PulseAudio-compatible sockets, WirePlumber, and the user `ydotool` service. User services are enabled for the next login even when the current terminal has no user service manager. The virtual keyboard uses `/etc/modules-load.d/velora-uinput.conf`, `/etc/udev/rules.d/70-velora-uinput.rules`, and a user service override under `~/.config/systemd/user/ydotool.service.d/velora.conf`. Logind grants the active local session access to `/dev/uinput`; the daemon's socket is private to that user at `$XDG_RUNTIME_DIR/ydotool.sock`. Log in again after repairing an existing installation so the desktop inherits that socket path.
+
+NetworkManager is enabled and started when another network manager is not active. An existing systemd-networkd, iwd, ConnMan or dhcpcd setup is kept running and reported. Velora's network controls use NetworkManager, so changing from another manager remains an explicit system administration step. `--skip-packages` skips all service changes. Package and service setup is outside the configuration-file rollback.
+
+The required dependencies include Qt's KDE platform integration, Breeze icons and a fallback cursor theme. Bibata is used when installed; otherwise the desktop uses Breeze cursors. Kando, local AI models, MicroTeX math rendering, WARP, EasyEffects and vendor GPU switchers are optional integrations with separately installed software. Optional application shortcuts use the applications you choose to install.
 
 The installer preserves an existing `illogical-impulse/config.json` and seeds a missing one from the tracked example. Linked configuration files take effect from the checkout. Keep that directory after installation. If you move or rename it, run `./velora relink` from the new place.
 
@@ -80,6 +87,9 @@ Older Folis backups remain in `~/.local/state/folis/backups/`. They are kept as-
 | Bluetooth adapter was connected after installation | Run `./velora deps` to enable `bluetooth.service`; `--skip-packages` skips system service setup. |
 | A package download fails | Check network access and Arch mirrors, then rerun the installer. |
 | Python environment setup fails | Read uv's error. Check network access and build prerequisites, then run `velora deps`. |
+| Text, icons or spacing look wrong | Run `velora doctor` to see each missing font family, then `velora deps` to repair it. Log out and back in so running Qt apps reload their fonts. `--skip-packages` requires the official font packages to be installed already. |
+| Wallpaper previews fail or a Qt page does not load | Run `velora doctor`; its runtime checks name missing QML modules, Python packages and GTK/GnomeDesktop typelibs. Run `velora deps` to repair them. |
+| Network, sound or the virtual keyboard does not work | Run `velora doctor` to inspect the relevant services. Run `velora deps` and log in again. With an existing alternative network manager, switch to NetworkManager before using Velora's network controls. |
 | The update timer cannot start | Log into the user session, then run `systemctl --user enable --now velora-update.timer`. |
 | `velora` is not found | Run `./velora` from the checkout or use `~/.local/bin/velora`; add `~/.local/bin` to PATH. |
 | A monitor has the wrong mode or scale | Open Settings → Displays and inspect `~/.config/hypr/custom/monitors.*`. |
@@ -90,7 +100,7 @@ Older Folis backups remain in `~/.local/state/folis/backups/`. They are kept as-
 
 The installer respects `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, and `XDG_STATE_HOME`. With the default values, configuration is under `~/.config`, data under `~/.local/share`, and maintenance state under `~/.local/state/velora`.
 
-Hyprland's current environment configuration still selects the default `~/.local/state/quickshell/.venv` Python environment. If you use a custom state directory, update `~/.config/hypr/hyprland/env.lua` to use the same location.
+Hyprland and the installer both select the Python environment at `$XDG_STATE_HOME/quickshell/.venv`, defaulting to `~/.local/state/quickshell/.venv`.
 
 ## Automatic source builds
 

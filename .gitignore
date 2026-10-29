@@ -42,6 +42,11 @@ __pycache__/
 /dots/.config/hypr/custom/monitors.lua
 /dots/.config/hypr/custom/keybind_overrides.json
 /dots/.config/hypr/custom/keybind_overrides.lua
+/dots/.config/hypr/custom/gesture_overrides.json
+/dots/.config/hypr/custom/gesture_overrides.lua
 /dots/.config/hypr/hyprland/colors.lua
 /dots/.config/hypr/hyprlock/colors.conf
 /dots/.config/fuzzel/fuzzel_theme.ini
+
+# Native helper build output (tools/Cargo.lock is kept)
+/tools/target/

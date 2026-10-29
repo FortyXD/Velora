@@ -13,6 +13,10 @@ jobs:
         run: bash -n velora install.sh setup diagnose scripts/install.sh dots/.config/quickshell/ii/scripts/maintenance/velora.sh
       - name: Run isolated installer and updater tests
         run: python3 -m unittest discover -s tests -v
+      - name: Test the native helper
+        run: |
+          cargo test --locked --manifest-path tools/Cargo.toml
+          cargo clippy --locked --manifest-path tools/Cargo.toml -- -D warnings
       - name: Validate dependency components
         run: ./velora components
       - name: Preview source-build installation

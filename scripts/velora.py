@@ -290,39 +290,111 @@ def package_plan(features, skip_aur=False, source_packages=()):
     return [pkg for pkg in repo if pkg in missing and pkg not in source_packages], [pkg for pkg in aur if pkg in missing and pkg not in source_packages]
 
 
-GOOGLE_SANS_FLEX = "https://github.com/end-4/google-sans-flex"
+FONT_PACKAGES = {
+    "Google Sans Flex": None,
+    "Material Symbols Rounded": "ttf-material-symbols-variable-git",
+    "Space Grotesk": "otf-space-grotesk",
+    "Readex Pro": "ttf-readex-pro",
+    "JetBrains Mono NF": "ttf-jetbrains-mono-nerd",
+    "Hack Nerd Font": "ttf-hack-nerd",
+    "Noto Sans": "noto-fonts",
+    "Noto Color Emoji": "noto-fonts-emoji",
+}
+
+# Install the non-repository UI fonts directly when absent, including with --skip-aur.
+# The accompanying license is kept with each downloaded font.
+GOOGLE_FONTS = "https://raw.githubusercontent.com/google/fonts/main/ofl"
+MATERIAL_FONTS = "https://raw.githubusercontent.com/google/material-design-icons/master"
+FONT_DOWNLOADS = {
+    "Google Sans Flex": ("google-sans-flex", f"{GOOGLE_FONTS}/googlesansflex/GoogleSansFlex%5BROND%2Copsz%2Cslnt%2Cwdth%2Cwght%5D.ttf",
+                         f"{GOOGLE_FONTS}/googlesansflex/OFL.txt"),
+    "Material Symbols Rounded": ("material-symbols-rounded", f"{MATERIAL_FONTS}/variablefont/MaterialSymbolsRounded%5BFILL%2CGRAD%2Copsz%2Cwght%5D.ttf",
+                                 f"{MATERIAL_FONTS}/LICENSE"),
+    "Space Grotesk": ("space-grotesk", f"{GOOGLE_FONTS}/spacegrotesk/SpaceGrotesk%5Bwght%5D.ttf",
+                      f"{GOOGLE_FONTS}/spacegrotesk/OFL.txt"),
+    "Readex Pro": ("readex-pro", f"{GOOGLE_FONTS}/readexpro/ReadexPro%5BHEXP%2Cwght%5D.ttf",
+                   f"{GOOGLE_FONTS}/readexpro/OFL.txt"),
+}
+
+
+def font_names(text):
+    # Fontconfig exposes aliases separated by commas; spacing differs between Qt and fontconfig.
+    return {re.sub(r"[\s_-]", "", name).casefold() for line in text.splitlines()
+            for name in line.split(",") if name.strip()}
+
+
+def system_tool(name):
+    # Conda can shadow fontconfig (with a separate config/cache) and curl (with stale CA paths).
+    # The desktop needs the system font database, even when installing from such a terminal.
+    system = Path("/usr/bin") / name
+    if name == "qsb" and Path("/usr/lib/qt6/bin/qsb").is_file():
+        return "/usr/lib/qt6/bin/qsb"
+    return str(system) if system.is_file() else shutil.which(name)
+
+
+def font_tool(name):
+    return system_tool(name)
 
 
 def font_installed(family):
-    if not shutil.which("fc-list"):
+    tool = font_tool("fc-list")
+    if not tool:
         return False
-    return family.lower() in run(["fc-list", ":", "family"], capture=True).lower()
+    return bool(font_names(family) & font_names(run([tool, "--format", "%{family}\\n"], capture=True)))
+
+
+def download_font(family):
+    curl, scanner = font_tool("curl"), font_tool("fc-scan")
+    if not curl or not scanner:
+        raise VeloraError("Font downloads require curl and fontconfig. Run 'velora deps'.")
+    slug, font_url, license_url = FONT_DOWNLOADS[family]
+    target = xdg("XDG_DATA_HOME", ".local/share") / f"fonts/velora-{slug}"
+    print(f"Installing the {family} font...", flush=True)
+    with tempfile.TemporaryDirectory(prefix="velora-font-") as temporary:
+        staging = Path(temporary)
+        for name, url in ((f"{slug}.ttf", font_url), ("LICENSE.txt", license_url)):
+            run([curl, "--fail", "--location", "--silent", "--show-error", "--retry", "2", "--connect-timeout", "15",
+                 "--max-time", "180", "--output", staging / name, "--url", url], timeout=600)
+        actual = run([scanner, "--format", "%{family}\\n", staging / f"{slug}.ttf"], capture=True)
+        if not font_names(family) & font_names(actual):
+            raise VeloraError(f"The downloaded file does not provide {family} (found: {actual or 'no font family'}).")
+        target.mkdir(parents=True, exist_ok=True)
+        for path in staging.iterdir():
+            shutil.copy2(path, target / path.name)
 
 
 def install_fonts(dry=False):
-    """The shell's default font isn't packaged for Arch, so it is fetched into the user's fonts once.
-    A failure only warns: the shell falls back to another font."""
-    if font_installed("Google Sans Flex"):
-        return
-    target = xdg("XDG_DATA_HOME", ".local/share") / "fonts/velora-google-sans-flex"
+    """Do not apply desktop configuration until every default font is actually available."""
     if dry:
-        print(f"  Would download the Google Sans Flex font from {GOOGLE_SANS_FLEX} into {target}")
+        print("  Would refresh the font cache and verify: " + ", ".join(FONT_PACKAGES))
+        for family, (slug, url, _) in FONT_DOWNLOADS.items():
+            if not font_installed(family):
+                print(f"  Would download {family} from {url} into "
+                      f"{xdg('XDG_DATA_HOME', '.local/share') / f'fonts/velora-{slug}'}")
         return
-    print("Installing the Google Sans Flex font...", flush=True)
-    try:
-        with tempfile.TemporaryDirectory(prefix="velora-font-") as temporary:
-            checkout = Path(temporary) / "font"
-            run(["git", "clone", "--depth", "1", "--", GOOGLE_SANS_FLEX, checkout], timeout=600)
-            fonts = [path for path in checkout.rglob("*") if path.suffix.lower() in (".ttf", ".otf")]
-            if not fonts:
-                raise VeloraError("The font repository has no font files.")
-            target.mkdir(parents=True, exist_ok=True)
-            for font in fonts:
-                shutil.copy2(font, target / font.name)
-        if shutil.which("fc-cache"):
-            run(["fc-cache", "-f", target])
-    except VeloraError as error:
-        print(f"Warning: Google Sans Flex was not installed ({error}). Install it later with 'velora deps'.", file=sys.stderr)
+    for tool in ("fc-list", "fc-cache", "fc-scan"):
+        if not font_tool(tool):
+            raise VeloraError(f"Missing command: {tool}. Install fontconfig, then run 'velora deps'.")
+    run([font_tool("fc-cache"), "-f"], timeout=180)
+    failures = []
+    downloaded = False
+    for family in FONT_DOWNLOADS:
+        if font_installed(family):
+            continue
+        try:
+            download_font(family)
+            downloaded = True
+        except (VeloraError, OSError) as error:
+            failures.append(f"{family}: {error}")
+    if downloaded:
+        run([font_tool("fc-cache"), "-f"], timeout=180)
+    missing = [family for family in FONT_PACKAGES if not font_installed(family)]
+    if missing:
+        details = [f"{family}" + (f" ({FONT_PACKAGES[family]})" if FONT_PACKAGES[family] else "") for family in missing]
+        raise VeloraError("Required fonts are missing: " + ", ".join(details) + ".\n"
+                          + ("\n".join(failures) + "\n" if failures else "")
+                          + "Run 'velora deps' to repair fonts before applying the desktop configuration.")
+    print("Required fonts: all installed.")
 
 
 def preflight(args, features):
@@ -335,7 +407,9 @@ def preflight(args, features):
             if not shutil.which(tool):
                 errors.append(f"Missing command: {tool}. Package installation supports Arch Linux only.")
     for source in ("dots/.config/hypr", "dots/.config/quickshell", "home/.zshrc", "home/.tmux.conf",
-                   "dots/.config/illogical-impulse/config.example.json", "dependencies/python/requirements.txt"):
+                   "dots/.config/illogical-impulse/config.example.json", "dependencies/python/requirements.txt",
+                   "dependencies/system/70-velora-uinput.rules", "dependencies/system/velora-uinput.conf",
+                   "dependencies/system/ydotool-user.conf"):
         if not (ROOT / source).exists():
             errors.append(f"Repository file is missing: {source}. Use a complete clone of Velora.")
     if errors:
@@ -345,6 +419,120 @@ def preflight(args, features):
 def bluetooth_adapters_present(sysfs=Path("/sys/class/bluetooth")):
     """A controller is visible even when bluetooth.service is not running."""
     return any(adapter.is_dir() for adapter in sysfs.glob("hci[0-9]*"))
+
+
+def service_active(unit, *, user=False):
+    try:
+        return run(["systemctl", *(["--user"] if user else []), "is-active", unit], capture=True, timeout=10) == "active"
+    except VeloraError:
+        return False
+
+
+def configure_desktop_services(args):
+    # Preserve an existing network manager rather than taking over a working connection.
+    competitors = [unit for unit in ("systemd-networkd.service", "iwd.service", "connman.service", "dhcpcd.service")
+                   if service_active(unit)]
+    if service_active("NetworkManager.service") or not competitors:
+        run(["sudo", "systemctl", "enable", "--now", "NetworkManager.service"], dry=args.dry_run)
+    else:
+        print("Keeping the existing network manager: " + ", ".join(competitors)
+              + ". Velora's network controls require NetworkManager; switch managers before using them.")
+
+    # uaccess grants only the active local session access to uinput. Do not add the user to the
+    # input group, which would also grant access to physical keyboard event devices.
+    for source, target in (("velora-uinput.conf", "/etc/modules-load.d/velora-uinput.conf"),
+                           ("70-velora-uinput.rules", "/etc/udev/rules.d/70-velora-uinput.rules")):
+        run(["sudo", "install", "-Dm644", ROOT / "dependencies/system" / source, target], dry=args.dry_run)
+    run(["sudo", "modprobe", "uinput"], dry=args.dry_run)
+    run(["sudo", "udevadm", "control", "--reload-rules"], dry=args.dry_run)
+    run(["sudo", "udevadm", "trigger", "--subsystem-match=misc", "--sysname-match=uinput"], dry=args.dry_run)
+    run(["sudo", "udevadm", "settle"], dry=args.dry_run)
+
+    dropin = xdg("XDG_CONFIG_HOME", ".config") / "systemd/user/ydotool.service.d/velora.conf"
+    run(["install", "-Dm644", ROOT / "dependencies/system/ydotool-user.conf", dropin], dry=args.dry_run)
+    units = ["pipewire.socket", "pipewire-pulse.socket", "wireplumber.service", "ydotool.service"]
+    # Enabling works before a graphical login, even without a running user service manager.
+    run(["systemctl", "--user", "--no-reload", "enable", *units], dry=args.dry_run)
+    try:
+        run(["systemctl", "--user", "daemon-reload"], dry=args.dry_run)
+        run(["systemctl", "--user", "start", *units], dry=args.dry_run)
+    except VeloraError as error:
+        print(f"User services are enabled for the next login, but could not start here: {error}")
+
+
+RUNTIME_COMMANDS = {
+    "desktop": ("Hyprland", "hyprctl", "qs", "hypridle", "hyprlock", "hyprsunset", "kitty"),
+    "shell": ("python3", "uv", "nmcli", "wpctl", "pw-record", "pw-play", "pactl", "wl-copy", "wl-paste",
+              "cliphist", "ydotool", "ydotoold", "brightnessctl", "ddcutil", "curl", "jq", "magick", "file",
+              "notify-send", "kdialog", "gsettings", "secret-tool", "qalc", "fish", "qsb"),
+    "applications": ("dolphin", "systemsettings", "plasma-systemmonitor", "foot", "fuzzel", "tmux", "zsh",
+                     "starship", "fzf", "eza", "bat", "rg", "zoxide"),
+    "toolbox": ("yt-dlp", "qrencode", "zbarimg", "pdfinfo", "pdftoppm", "qpdf", "7z", "pandoc", "gs"),
+    "live-wallpapers": ("mpvpaper",),
+}
+QML_RUNTIME_MODULES = ("QtQuick", "QtQuick/Controls", "QtQuick/Layouts", "QtQuick/Effects", "QtMultimedia",
+                       "QtPositioning", "Qt5Compat/GraphicalEffects", "QtQuick/Controls/FluentWinUI3",
+                       "QtCore", "QtQml", "QtQml/Models", "QtQuick/Dialogs", "QtQuick/Shapes", "QtQuick/Window",
+                       "QtQuick/Controls/Material", "Qt/labs/folderlistmodel", "Qt/labs/qmlmodels", "Qt/labs/synchronizer",
+                       "org/kde/kirigami", "org/kde/syntaxhighlighting", "Quickshell", "Quickshell/Hyprland",
+                       "Quickshell/Wayland", "Quickshell/Io", "Quickshell/Bluetooth", "Quickshell/Services/Pam",
+                       "Quickshell/Services/Pipewire", "Quickshell/Services/Polkit", "Quickshell/Widgets",
+                       "Quickshell/Services/Mpris", "Quickshell/Services/Notifications", "Quickshell/Services/SystemTray",
+                       "Quickshell/Services/UPower")
+PYTHON_RUNTIME_CHECK = """
+import importlib, json
+errors = []
+for name in ('PIL.Image', 'cv2', 'numpy', 'psutil', 'click', 'loguru', 'tqdm', 'requests', 'google.auth',
+             'sass', 'setproctitle', 'pywayland', 'materialyoucolor', 'material_color_utilities', 'kde_material_you_colors'):
+    try:
+        importlib.import_module(name)
+    except Exception as error:
+        errors.append(f'{name}: {error}')
+try:
+    import gi
+    gi.require_version('GnomeDesktop', '4.0')
+    gi.require_version('Gtk', '4.0')
+    from gi.repository import GnomeDesktop, Gtk, Gio
+except Exception as error:
+    errors.append(f'GTK/GnomeDesktop introspection: {error}')
+print(json.dumps(errors))
+"""
+
+
+def runtime_problems(features, *, skip_aur=False, qml_root=Path("/usr/lib/qt6/qml")):
+    problems = []
+    for feature, commands in RUNTIME_COMMANDS.items():
+        if feature not in features or (skip_aur and feature == "live-wallpapers"):
+            continue
+        for command in commands:
+            if not system_tool(command):
+                problems.append(f"Missing command: {command} ({feature})")
+    if "desktop" in features:
+        for module in QML_RUNTIME_MODULES:
+            if not (qml_root / module / "qmldir").is_file():
+                problems.append(f"Missing QML module: {module}")
+    if "shell" in features:
+        python = xdg("XDG_STATE_HOME", ".local/state") / "quickshell/.venv/bin/python"
+        if not python.is_file():
+            problems.append(f"Missing shell Python environment: {python}")
+        else:
+            try:
+                errors = json.loads(run([python, "-c", PYTHON_RUNTIME_CHECK], capture=True, timeout=60))
+                problems.extend(f"Python: {error}" for error in errors)
+            except (VeloraError, ValueError, TypeError) as error:
+                problems.append(f"Could not verify the shell Python environment: {error}")
+    return problems
+
+
+def verify_runtime(features, args):
+    if args.dry_run:
+        print("  Would verify runtime commands, QML modules and the shell's Python/GTK imports.")
+        return
+    problems = runtime_problems(features, skip_aur=args.skip_aur)
+    if problems:
+        raise VeloraError("Desktop runtime checks failed:\n  - " + "\n  - ".join(problems)
+                          + "\nRun 'velora deps' to repair dependencies before applying configuration.")
+    print("Desktop runtime: all required commands and libraries are available.")
 
 
 def install_dependencies(args, features):
@@ -386,7 +574,10 @@ def install_dependencies(args, features):
         run(["uv", "venv", "--python", "3.12", str(venv)], dry=args.dry_run)
     run(["uv", "pip", "sync", "--python", str(venv / "bin/python"),
          str(ROOT / "dependencies/python/requirements.txt")], dry=args.dry_run)
+    build_native_helper(dry=args.dry_run)
     run(["sudo", "systemctl", "enable", "--now", "power-profiles-daemon"], dry=args.dry_run)
+    if "shell" in features:
+        configure_desktop_services(args)
     if "shell" in features and bluetooth_adapters_present():
         run(["sudo", "systemctl", "enable", "--now", "bluetooth.service"], dry=args.dry_run)
     elif "shell" in features:
@@ -552,6 +743,68 @@ def relink(args):
     print(f"\nConfiguration linked to {ROOT}. Backup: {backup}\nRestart Quickshell or log in again to load it.")
 
 
+def native_helper_path():
+    return Path.home() / ".local/bin/velora-helper"
+
+
+def build_native_helper(dry=False):
+    """Builds tools/velora-helper (palettes, theme staging, widget placement) into ~/.local/bin.
+    The shell falls back to its Python scripts without it, so a failed build only warns."""
+    if package_metadata():
+        return  # The package builds it (packaging/arch/PKGBUILD.in)
+    cargo = shutil.which("cargo")
+    if not cargo:
+        print("Native helper: cargo is missing; the shell keeps using its Python scripts.")
+        return
+    target = xdg("XDG_CACHE_HOME", ".cache") / "velora/cargo-target"
+    try:
+        run([cargo, "build", "--release", "--locked", "--manifest-path", ROOT / "tools/Cargo.toml"],
+            env=dict(os.environ, CARGO_TARGET_DIR=str(target)), dry=dry)
+    except VeloraError as error:
+        print(f"Native helper wasn't built; the shell keeps using its Python scripts.\n{error}")
+        return
+    built = target / "release/velora-helper"
+    if dry or not built.is_file():
+        return
+    binary = native_helper_path()
+    binary.parent.mkdir(parents=True, exist_ok=True)
+    temporary = binary.with_name(".velora-helper.new")
+    shutil.copy2(built, temporary)
+    os.replace(temporary, binary)  # A running copy keeps its old file
+    print(f"Native helper: {binary}")
+
+
+def components_state():
+    """Each component with whether it is chosen and whether its packages are all there."""
+    without = set(preferences().get("without", []))
+    result = []
+    for name, item in manifest().items():
+        packages = item.get("repo", []) + item.get("aur", [])
+        missing = missing_packages(packages)
+        # Split by source, so the setup assistant installs repository packages with pacman and the rest with an AUR helper
+        result.append({"id": name, "description": item["description"], "required": bool(item.get("required")),
+                       "selected": name not in without, "installed": not missing, "missing": len(missing),
+                       "packages": len(packages), "packageNames": packages, "missingNames": missing,
+                       "missingRepo": [pkg for pkg in missing if pkg not in item.get("aur", [])],
+                       "missingAur": [pkg for pkg in missing if pkg in item.get("aur", [])],
+                       "aur": bool(item.get("aur"))})
+    return result
+
+
+def add_features(args):
+    """`deps --add`: more optional components, kept in the saved selection for later updates."""
+    features = manifest()
+    added = set(filter(None, args.add.split(",")))
+    unknown = added - features.keys()
+    if unknown:
+        raise VeloraError("Unknown components: " + ", ".join(sorted(unknown)))
+    saved = preferences()
+    without = sorted(set(saved.get("without", [])) - added)
+    args.without = ",".join(without)
+    if not args.dry_run and saved:
+        write_json(state_dir() / "installation.json", dict(saved, without=without))
+
+
 def install(args):
     features, without = selected_features(args, wizard=True)
     # Persist the user's AUR choice, including for subsequent updates.
@@ -569,6 +822,8 @@ def install(args):
     print("  Bluetooth: " + ("leave system service unchanged (--skip-packages)" if args.skip_packages
                             else "enable service for detected adapter" if bluetooth_adapters_present()
                             else "no adapter detected; leave service unchanged"))
+    print("  Desktop services: " + ("leave unchanged (--skip-packages)" if args.skip_packages else
+          "enable PipeWire, WirePlumber and the virtual keyboard; enable NetworkManager unless another manager is active"))
     print("  Source builds: " + (", ".join(args.source_packages) or "none"))
     print("  Velora installation: " + ("build an Arch package" if args.build_package else "system package" if package_metadata() else "current checkout"))
     if not args.skip_packages and not args.skip_aur and not (shutil.which("yay") or shutil.which("paru")):
@@ -580,6 +835,7 @@ def install(args):
         if not args.skip_packages:
             install_dependencies(args, features)
         install_fonts(dry=True)
+        verify_runtime(features, args)
         run(["bash", ROOT / "scripts/install.sh", "--dry-run", "--skip-packages", "--no-reload"])
         print("Would register the velora command, update launcher and user timer. No files changed.")
         return
@@ -603,8 +859,10 @@ def install(args):
     if not package_metadata():
         run(["git", "submodule", "update", "--init", "--recursive"], cwd=ROOT)
     install_fonts()
+    verify_runtime(features, args)
     backup = link_configuration(args, without)
     print(f"\nVelora installed. Backup: {backup}\nRestore with: velora restore {backup.name}")
+    print("Log in to Hyprland: the setup assistant starts on its own (later: Shift+Super+Alt+/).")
     print("Open Settings with Super+I. Update Velora from Settings > About, or run: velora update")
     print("User configuration lives in the writable runtime directory." if package_metadata()
           else "Keep the checkout in place: your configuration links point to it.")
@@ -806,13 +1064,28 @@ def doctor(args):
         failed |= found is None
     print("  AUR helper: " + (shutil.which("yay") or shutil.which("paru") or "not installed (use --skip-aur)"))
     features, _ = selected_features(args)
-    repo, aur = package_plan(features)
+    skip_aur = args.skip_aur if args.skip_aur is not None else preferences().get("skip_aur", False)
+    repo, aur = package_plan(features, skip_aur=skip_aur)
     print("  Missing official packages: " + (", ".join(repo) or "none"))
     print("  Missing AUR packages: " + (", ".join(aur) or "none"))
     venv = xdg("XDG_STATE_HOME", ".local/state") / "quickshell/.venv/bin/python"
     print("  Python environment: " + (str(venv) if venv.exists() else "missing; run velora deps"))
-    font = font_installed("Google Sans Flex")
-    print("  Google Sans Flex font: " + ("installed" if font else "missing; run velora deps"))
+    runtime_errors = runtime_problems(features, skip_aur=skip_aur)
+    print("  Desktop runtime: " + ("\n    " + "\n    ".join(runtime_errors) if runtime_errors else "commands and libraries available"))
+    if "shell" in features:
+        for unit, user in (("NetworkManager.service", False), ("pipewire.socket", True),
+                           ("pipewire-pulse.socket", True), ("wireplumber.service", True), ("ydotool.service", True)):
+            active = service_active(unit, user=user)
+            print(f"  Service {unit}: " + ("active" if active else "inactive; run velora deps or log in to the desktop"))
+            failed |= not active
+    fonts_missing = []
+    for family in FONT_PACKAGES:
+        installed = font_installed(family)
+        print(f"  Font {family}: " + ("installed" if installed else "missing; run velora deps"))
+        if not installed:
+            fonts_missing.append(family)
+    helper = shutil.which("velora-helper") or (str(native_helper_path()) if native_helper_path().is_file() else None)
+    print("  Native helper: " + (helper or "not built; the shell uses its Python scripts (run velora deps)"))
     stale = stale_links()
     moved_from = preferences().get("repository")
     if moved_from and Path(moved_from) != ROOT and not package_metadata():
@@ -821,7 +1094,7 @@ def doctor(args):
         print(f"  Configuration links: {len(stale)} missing or pointing elsewhere, e.g. {stale[0]}; run velora relink")
     else:
         print("  Configuration links: all point to this installation")
-    if failed or repo or not venv.exists() or not font or stale:
+    if failed or repo or not venv.exists() or fonts_missing or stale or runtime_errors:
         raise VeloraError("Some checks need attention. Run 'velora install --dry-run' to inspect the repair plan.")
 
 
@@ -845,6 +1118,9 @@ def parser():
         if name == "install":
             sub.add_argument("--build-package", action="store_true", default=None,
                              help="Build Velora as an Arch package and install it automatically")
+        if name == "deps":
+            sub.add_argument("--add", default=None, metavar="FEATURES",
+                             help="Comma-separated optional features to add to the saved selection, e.g. from the setup assistant")
     sub = commands.add_parser("update", help="Check or install updates from your tracked Velora branch")
     sub.add_argument("--check", action="store_true", help="Check only; never install")
     sub.add_argument("--notify", action="store_true", help="Notify once for each new target commit")
@@ -863,7 +1139,8 @@ def parser():
     sub.add_argument("--dry-run", action="store_true", help="Show changes without applying them")
     sub.add_argument("--no-reload", action="store_true")
     commands.add_parser("status", help="Show saved installation and update state")
-    commands.add_parser("components", help="List available dependency components")
+    sub = commands.add_parser("components", help="List available dependency components")
+    sub.add_argument("--json", action="store_true", help="With whether each one is chosen and installed, for the setup assistant")
     sub = commands.add_parser("restore", help="Restore configuration files from a Velora installation backup")
     sub.add_argument("backup", nargs="?", help="Backup ID; omit to list available backups")
     sub.add_argument("--yes", action="store_true")
@@ -880,6 +1157,9 @@ def main(argv=None):
             cli.print_help()
             return 0
     if args.command == "components":
+        if args.json:
+            print(json.dumps(components_state()))
+            return 0
         for name, item in manifest().items():
             print(f"{name:18} {'required' if item.get('required') else 'optional':8} {item['description']}")
         return 0
@@ -899,6 +1179,8 @@ def main(argv=None):
         if args.command == "install":
             install(args)
         elif args.command == "deps":
+            if args.add:
+                add_features(args)
             features, _ = selected_features(args)
             if args.skip_aur is None:
                 args.skip_aur = preferences().get("skip_aur", False)
@@ -906,6 +1188,7 @@ def main(argv=None):
             preflight(args, features)
             install_dependencies(args, features)
             install_fonts(dry=args.dry_run)
+            verify_runtime(features, args)
         elif args.command == "doctor":
             doctor(args)
         elif args.command == "relink":

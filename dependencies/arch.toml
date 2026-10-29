@@ -16,6 +16,9 @@ repo = [
     "xdg-desktop-portal-gtk",
     "xdg-desktop-portal-kde",
     "polkit-kde-agent",
+    "plasma-integration", # QT_QPA_PLATFORMTHEME=kde
+    "breeze-icons", # The shell's themed application and system icons
+    "breeze", # Fallback cursor when the optional Bibata theme is absent
 ]
 aur = []
 
@@ -25,6 +28,7 @@ required = false
 repo = [
     "dolphin",
     "systemsettings",
+    "plasma-systemmonitor", # The default task manager action
     "kitty",
     "foot",
     "fuzzel",
@@ -58,6 +62,12 @@ repo = [
     "brightnessctl",
     "ddcutil",
     "glib2",
+    "gsettings-desktop-schemas",
+    "dconf",
+    "file",
+    "which",
+    "util-linux",
+    "kmod", # Loads uinput for the virtual keyboard daemon
     "imagemagick",
     "hyprpicker",
     "songrec",
@@ -70,7 +80,10 @@ repo = [
     "cava",
     "pavucontrol-qt",
     "wireplumber",
+    "pipewire",
+    "pipewire-audio", # pw-record/pw-play: microphone tests and recording
     "pipewire-pulse",
+    "libpulse", # pactl: move streams between audio devices
     "libdbusmenu-gtk3",
     "playerctl",
     "hyprshot",
@@ -87,6 +100,7 @@ repo = [
     "libsoup3",
     "libportal-gtk4",
     "gobject-introspection",
+    "gnome-desktop-4", # GnomeDesktop 4.0 typelib used by thumbnail generation
     "bluedevil",
     "bluez",
     "bluez-utils",
@@ -101,6 +115,10 @@ repo = [
     "jq",
     "python",
     "python-pillow",
+    "fish", # The default system-update action invokes fish
+    "xkeyboard-config", # Layout names and the keyboard preview
+    "qt6-base",
+    "qt6-declarative",
     "qt6-svg",
     "qt6-imageformats",
     "qt6-multimedia",
@@ -116,20 +134,21 @@ repo = [
     "xdg-utils",
     "pacman-contrib",
     "matugen",
+    "rust", # Builds tools/velora-helper; rustup also satisfies it
+    "qt6-shadertools", # qsb, for the shaders in assets/shaders
     "kdialog",
     "fontconfig",
     "ttf-jetbrains-mono-nerd",
+    "ttf-hack-nerd", # Kitty's configured family
+    "noto-fonts", # Waffle's Noto Sans and fallback glyphs for translated UI
+    "noto-fonts-emoji",
     "kio-extras",
     "kvantum",
     "git",
     "base-devel",
 ]
-# The icon font and the clock and reading fonts the shell uses by default
-aur = [
-    "ttf-material-symbols-variable-git",
-    "otf-space-grotesk",
-    "ttf-readex-pro",
-]
+# The four UI font families are downloaded and verified by install_fonts, including with --skip-aur.
+aur = []
 
 [features.toolbox]
 description = "Conversion, downloads, QR codes and OCR"
