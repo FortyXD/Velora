@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Brightness controls select the backlight belonging to the connected screen on hybrid GPU laptops, instead of sometimes changing an unused GPU's backlight.
+- Moving wallpapers keep the full resolution of their source, up to 4K, instead of 1440p, and are encoded at a higher quality. A video made by an earlier version is made again in the background when its look is applied: the look switches at once with the older video, and the new one replaces it when ready.
+- Videos are scaled to each screen's size with spline36 instead of bilinear filtering, which is sharper. The still frame shown on the lock screen is saved at a higher JPEG quality.
+
 ## 0.1.1 — 2026-10-25
 
 - Both sidebars are made of parts you choose and arrange, and any part can go in either sidebar, on its own or as a tab: the top row, sliders, quick toggles, notifications, calendar, to-do, timer, the assistant, translator and image browser, plus new parts:
