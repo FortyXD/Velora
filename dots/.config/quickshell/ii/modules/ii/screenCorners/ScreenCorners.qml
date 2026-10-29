@@ -82,6 +82,7 @@ Scope {
         exclusionMode: ExclusionMode.Ignore
         mask: Region {
             item: triggerArea
+            shape: RegionShape.Ellipse
         }
         WlrLayershell.namespace: "quickshell:hotCorner"
         WlrLayershell.layer: WlrLayer.Overlay
@@ -131,10 +132,12 @@ Scope {
 
         FocusedScrollMouseArea {
             id: triggerArea
-            width: hotWindow.options.size
-            height: hotWindow.options.size
-            x: hotWindow.isLeft ? 0 : parent.width - width - (hotWindow.deadPixelWorkaround ? 1 : 0)
-            y: hotWindow.isTop ? 0 : parent.height - height - (hotWindow.deadPixelWorkaround ? 1 : 0)
+            // A circle around the very corner, of which the quarter on screen takes input, like the glow
+            readonly property real radius: hotWindow.options.size
+            width: triggerArea.radius * 2
+            height: triggerArea.radius * 2
+            x: (hotWindow.isLeft ? 0 : parent.width - (hotWindow.deadPixelWorkaround ? 1 : 0)) - triggerArea.radius
+            y: (hotWindow.isTop ? 0 : parent.height - (hotWindow.deadPixelWorkaround ? 1 : 0)) - triggerArea.radius
             hoverEnabled: true
             cursorShape: hotWindow.options.trigger === "click" ? Qt.PointingHandCursor : Qt.ArrowCursor
             onEntered: if (hotWindow.options.trigger === "hover") dwellTimer.restart()

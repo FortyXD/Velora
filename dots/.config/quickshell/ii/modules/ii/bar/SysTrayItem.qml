@@ -52,7 +52,18 @@ MouseArea {
             trayItemId: root.item.id
             anchor {
                 window: root.QsWindow.window
-                item: root
+                // Beside the bar like its other popups, centered on the icon. The bar's window spans the bar's
+                // length, and the bar sits at its outer edge
+                rect {
+                    x: !Config.options.bar.vertical ? root.mapToItem(null, root.width / 2, 0).x
+                        : Config.options.bar.bottom ? (root.QsWindow.window?.width ?? 0) - Appearance.sizes.verticalBarWidth
+                        : Appearance.sizes.verticalBarWidth - 1
+                    y: Config.options.bar.vertical ? root.mapToItem(null, 0, root.height / 2).y
+                        : Config.options.bar.bottom ? (root.QsWindow.window?.height ?? 0) - Appearance.sizes.barHeight
+                        : Appearance.sizes.barHeight - 1
+                    width: 1
+                    height: 1
+                }
                 gravity: Config.options.bar.vertical
                     ? (Config.options.bar.bottom ? Edges.Left : Edges.Right)
                     : (Config.options.bar.bottom ? Edges.Top : Edges.Bottom)
@@ -96,11 +107,9 @@ MouseArea {
         }
     }
 
-    PopupToolTip {
+    BarToolTip {
         id: tooltip
-        extraVisibleCondition: root.containsMouse
-        alternativeVisibleCondition: extraVisibleCondition
-        anchorEdges: (!Config.options.bar.bottom && !Config.options.bar.vertical) ? Edges.Bottom : Edges.Top
+        shown: root.containsMouse && !menu.active
     }
 
 }

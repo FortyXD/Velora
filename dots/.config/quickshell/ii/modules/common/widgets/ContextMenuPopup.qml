@@ -64,14 +64,14 @@ PopupWindow {
 
         Rectangle {
             id: menuBackground
-            readonly property real padding: 5
+            readonly property real padding: Appearance.popup.menuPadding
             anchors.centerIn: parent
             implicitWidth: Math.max(190, menuColumn.implicitWidth + padding * 2)
             implicitHeight: menuColumn.implicitHeight + padding * 2
-            radius: Appearance.rounding.normal
-            color: Appearance.colors.colLayer0
+            radius: Appearance.popup.radius
+            color: Appearance.popup.colBackground
             border.width: 1
-            border.color: Appearance.colors.colLayer0Border
+            border.color: Appearance.popup.colBorder
 
             opacity: root.visible ? 1 : 0
             scale: root.visible ? 1 : 0.92
@@ -107,7 +107,7 @@ PopupWindow {
                         readonly property bool isEnabled: !isSeparator && (modelData.enabled ?? true)
 
                         Layout.fillWidth: true
-                        implicitHeight: isSeparator ? 9 : 30
+                        implicitHeight: isSeparator ? 9 : Appearance.popup.menuRowHeight
                         implicitWidth: isSeparator ? 0 : entryText.implicitWidth + 36 + 12
 
                         Rectangle {
@@ -121,7 +121,7 @@ PopupWindow {
                         Rectangle {
                             visible: !entryItem.isSeparator
                             anchors.fill: parent
-                            radius: Appearance.rounding.small
+                            radius: Appearance.popup.smallRadius
                             color: entryMouseArea.containsMouse && entryItem.isEnabled ? Appearance.colors.colPrimary : "transparent"
                         }
 
@@ -133,7 +133,7 @@ PopupWindow {
                                 verticalCenter: parent.verticalCenter
                             }
                             text: (entryItem.modelData.checked ?? false) ? "check" : (entryItem.modelData.icon ?? "")
-                            iconSize: Appearance.font.pixelSize.normal
+                            iconSize: Appearance.popup.menuIconSize
                             color: entryMouseArea.containsMouse ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer0
                         }
 
@@ -149,7 +149,7 @@ PopupWindow {
                             }
                             text: entryItem.modelData.text ?? ""
                             elide: Text.ElideRight
-                            font.pixelSize: Appearance.font.pixelSize.small
+                            font.pixelSize: Appearance.popup.textSize
                             color: !entryItem.isEnabled ? Appearance.colors.colSubtext
                                 : entryMouseArea.containsMouse ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer0
                         }

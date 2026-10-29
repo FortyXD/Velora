@@ -17,5 +17,15 @@ hl.env("QT_QPA_PLATFORM", "wayland;xcb")
 hl.env("QT_QPA_PLATFORMTHEME", "kde")
 hl.env("XDG_MENU_PREFIX", "plasma-")
 
+-- Match the per-user daemon configured by the installer; do not share a /tmp socket.
+local runtime = os.getenv("XDG_RUNTIME_DIR")
+if runtime then
+    hl.env("YDOTOOL_SOCKET", runtime .. "/ydotool.sock")
+end
+
 -- Virtual environment
-hl.env("ILLOGICAL_IMPULSE_VIRTUAL_ENV", home .. "/.local/state/quickshell/.venv")
+local state_home = os.getenv("XDG_STATE_HOME")
+if not state_home or state_home == "" then
+    state_home = home .. "/.local/state"
+end
+hl.env("ILLOGICAL_IMPULSE_VIRTUAL_ENV", state_home .. "/quickshell/.venv")

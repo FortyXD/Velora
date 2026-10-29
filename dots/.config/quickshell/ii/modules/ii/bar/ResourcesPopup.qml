@@ -107,14 +107,15 @@ StyledPopup {
             spacing: 6
             MaterialSymbol {
                 text: card.icon
-                iconSize: Appearance.font.pixelSize.large
-                color: Appearance.colors.colOnSurfaceVariant
+                iconSize: Appearance.popup.iconSize
+                color: Appearance.popup.colText
             }
             StyledText {
                 Layout.fillWidth: true
                 text: card.title
+                font.pixelSize: Appearance.popup.titleSize
                 font.weight: Font.DemiBold
-                color: Appearance.colors.colOnSurfaceVariant
+                color: Appearance.popup.colText
             }
             StyledText {
                 text: card.valueText

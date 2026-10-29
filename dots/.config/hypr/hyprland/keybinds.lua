@@ -108,6 +108,9 @@ hl.define_submap("global", function()
     -- XKB keycodes: Ctrl 37/105, Shift 50/62, Alt 64/108, Super 133/134.
     local keycode_kind = { [37] = "ctrl", [105] = "ctrl", [50] = "shift", [62] = "shift", [64] = "alt", [108] = "alt", [133] = "super", [134] = "super" }
     local held = { ctrl = 0, shift = 0, alt = 0, super = 0 }
+    -- Alt+Tab: the window switcher takes the window under its selection when Alt is let go.
+    -- Hyprland sees that release whichever surface has the keyboard.
+    local switching_windows = false
     hl.on("input.keyboard.key", function(keycode, _, pressed)
         local kind = keycode_kind[keycode]
         if not kind then
@@ -125,6 +128,10 @@ hl.define_submap("global", function()
             end
         else
             held[kind] = math.max(0, held[kind] - 1)
+            if kind == "alt" and held.alt == 0 and switching_windows then
+                switching_windows = false
+                hl.dispatch(hl.dsp.global("quickshell:windowSwitcherCommit"))
+            end
             if (kind == "alt" or kind == "shift") and layout_switch_armed then
                 layout_switch_armed = false
                 switch_layout()
@@ -179,9 +186,12 @@ hl.define_submap("global", function()
     bind("Ctrl+Super", "T", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || ~/.config/quickshell/$qsConfig/scripts/colors/switchwall.sh]=]), { id = "shell.wallpaper" })
     bind("Ctrl+Super+Alt", "T", hl.dsp.global("quickshell:wallpaperSelectorRandom"), { id = "shell.wallpaper_random", description = "Random wallpaper" })
     bind("Super", "I", exec("$settingsApp"), { id = "shell.settings", description = "Settings" })
+    bind("Super+Shift", "Space", hl.dsp.global("quickshell:appLibraryToggle"), { id = "shell.app_library", description = "All apps" })
     bind("Ctrl+Super", "R", exec([=[killall ydotool qs quickshell; qs -c $qsConfig &]=]), { id = "shell.restart", description = "Restart the shell" })
     bind("Ctrl+Super", "P", hl.dsp.global("quickshell:panelFamilyCycle"), { id = "shell.panel_family", description = "Switch panel style" })
-    bind("Shift+Super+Alt", "Slash", exec([=[qs -p ~/.config/quickshell/$qsConfig/welcome.qml]=]))
+    bind("Shift+Super+Alt", "Slash", exec([=[qs -p ~/.config/quickshell/$qsConfig/onboarding.qml]=]), { id = "shell.setup", description = "Setup assistant" })
+    -- Always closes the setup assistant, even if it stopped responding
+    bind("Super+Shift", "Escape", exec([=[pkill -f 'quickshell/$qsConfig/onboarding.qml']=]), { id = "shell.setup_close" })
 
     keymap.group("tools", "Screenshots & tools", "screenshot_region")
     bind("Super+Shift", "S", hl.dsp.global("quickshell:regionScreenshot"), { id = "tools.screenshot_region", description = "Screenshot of a region" })
@@ -227,31 +237,66 @@ hl.define_submap("global", function()
     bind("Super", "Period", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pkill fuzzel || ~/.config/hypr/hyprland/scripts/fuzzel-emoji.sh copy]=]), { id = "shell.emoji" })
 
     keymap.group("windows", "Window management", "select_window")
+    -- Free windows (Settings → Desktop → Windows) snap with Super+arrows instead of moving focus
+    local free = require("hyprland.window_mode").current() == "floating" and require("hyprland.modes.floating") or nil
     bind("Super", "Q", hl.dsp.window.close(), { id = "window.close", description = "Close window" })
     bind("Alt", "F4", hl.dsp.window.close())
     bind("Super+Shift+Alt", "Q", exec([=[hyprctl kill]=]), { id = "window.kill", description = "Force quit an app (click its window)" })
-    bind("Super+Alt", "Space", hl.dsp.window.float(), { id = "window.float", description = "Float or tile window" })
-    bind("Super", "D", hl.dsp.window.fullscreen({ mode = "maximized" }), { id = "window.maximize", description = "Maximize window" })
+    bind("Super+Alt", "Space", hl.dsp.window.float(), { id = "window.float", description = free and "Tile or free window" or "Float or tile window" })
+    bind("Alt", "Tab", function()
+        switching_windows = true
+        hl.dispatch(hl.dsp.global("quickshell:windowSwitcherNext"))
+    end, { id = "window.switch_next", description = "Switch between windows", repeating = true })
+    bind("Alt+Shift", "Tab", function()
+        switching_windows = true
+        hl.dispatch(hl.dsp.global("quickshell:windowSwitcherPrevious"))
+    end, { id = "window.switch_previous", description = "Switch between windows, backwards", repeating = true })
+    -- Alt+Esc while switching: back out; the rest of the time the keys reach the app
+    bind("Alt", "Escape", function()
+        if switching_windows then
+            switching_windows = false
+            hl.dispatch(hl.dsp.global("quickshell:windowSwitcherCancel"))
+        end
+    end, { non_consuming = true })
+    if free then
+        bind("Super", "Up", free.up, { id = "window.free_up", description = "Maximize, or snap to the top quarter" })
+        bind("Super", "Down", free.down, { id = "window.free_down", description = "Restore, snap to the bottom quarter or minimize" })
+        bind("Super", "Left", free.left, { id = "window.snap_left", description = "Snap to the left half" })
+        bind("Super", "Right", free.right, { id = "window.snap_right", description = "Snap to the right half" })
+        bind("Super", "D", free.show_desktop, { id = "window.show_desktop", description = "Show the desktop" })
+        bind("Super", "Z", hl.dsp.global("quickshell:snapLayoutsToggle"), { id = "window.snap_layouts", description = "Snap layouts" })
+        bind("Alt", "Space", hl.dsp.global("quickshell:windowMenuToggle"), { id = "window.menu", description = "Window menu" })
+        bind("Super+Shift", "Left", hl.dsp.window.move({ monitor = "l" }), { id = "window.monitor_left", description = "Move window to the monitor on the left" })
+        bind("Super+Shift", "Right", hl.dsp.window.move({ monitor = "r" }), { id = "window.monitor_right", description = "Move window to the monitor on the right" })
+    else
+        bind("Super", "D", hl.dsp.window.fullscreen({ mode = "maximized" }), { id = "window.maximize", description = "Maximize window" })
+    end
     bind("Super", "F", hl.dsp.window.fullscreen({ mode = "fullscreen" }), { id = "window.fullscreen", description = "Fullscreen" })
     bind("Super+Alt", "F", hl.dsp.window.fullscreen_state({ internal = 0, client = 3 }), { id = "window.fullscreen_spoof", description = "Fullscreen inside the window only" })
     bind("Super", "P", hl.dsp.window.pin(), { id = "window.pin", description = "Pin window on all workspaces" })
-    keymap.note("Super", "Arrows", "Focus window in a direction")
-    keymap.note("Super+Shift", "Arrows", "Move window in a direction")
+    if not free then
+        keymap.note("Super", "Arrows", "Focus window in a direction")
+        keymap.note("Super+Shift", "Arrows", "Move window in a direction")
+    end
     keymap.note("Super", "mouse:272", "Drag to move window")
     keymap.note("Super", "mouse:273", "Drag to resize window")
     bind("Super", "mouse:272", hl.dsp.window.drag(), { mouse = true })
     bind("Super", "mouse:274", hl.dsp.window.drag(), { mouse = true })
     bind("Super", "mouse:273", hl.dsp.window.resize(), { mouse = true })
-    bind("Super", "Left", hl.dsp.focus({ direction = "l" }))
-    bind("Super", "Right", hl.dsp.focus({ direction = "r" }))
-    bind("Super", "Up", hl.dsp.focus({ direction = "u" }))
-    bind("Super", "Down", hl.dsp.focus({ direction = "d" }))
+    if not free then
+        bind("Super", "Left", hl.dsp.focus({ direction = "l" }))
+        bind("Super", "Right", hl.dsp.focus({ direction = "r" }))
+        bind("Super", "Up", hl.dsp.focus({ direction = "u" }))
+        bind("Super", "Down", hl.dsp.focus({ direction = "d" }))
+    end
     bind("Super", "BracketLeft", hl.dsp.focus({ direction = "l" }))
     bind("Super", "BracketRight", hl.dsp.focus({ direction = "r" }))
-    bind("Super+Shift", "Left", hl.dsp.window.move({ direction = "l" }))
-    bind("Super+Shift", "Right", hl.dsp.window.move({ direction = "r" }))
-    bind("Super+Shift", "Up", hl.dsp.window.move({ direction = "u" }))
-    bind("Super+Shift", "Down", hl.dsp.window.move({ direction = "d" }))
+    if not free then
+        bind("Super+Shift", "Left", hl.dsp.window.move({ direction = "l" }))
+        bind("Super+Shift", "Right", hl.dsp.window.move({ direction = "r" }))
+        bind("Super+Shift", "Up", hl.dsp.window.move({ direction = "u" }))
+        bind("Super+Shift", "Down", hl.dsp.window.move({ direction = "d" }))
+    end
     bind("Super", "Semicolon", hl.dsp.layout("splitratio -0.1"), { repeating = true })
     bind("Super", "Apostrophe", hl.dsp.layout("splitratio +0.1"), { repeating = true })
     bind("Ctrl+Super", "Backslash", hl.dsp.window.resize({ x = 640, y = 480 }))

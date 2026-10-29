@@ -7,25 +7,41 @@ import qs.modules.common.functions
 // From https://github.com/caelestia-dots/shell with modifications.
 // License: GPLv3
 
-StyledImage {
+Item {
     id: root
     required property var fileModelData
-    asynchronous: true
-    fillMode: Image.PreserveAspectFit
+    property color color: Appearance.colors.colPrimary
 
-    source: {
-        if (!fileModelData.fileIsDir)
-            return Quickshell.iconPath("application-x-zerosize");
+    StyledImage {
+        id: image
+        anchors.fill: parent
+        fillMode: Image.PreserveAspectFit
 
-        if ([Directories.documents, Directories.downloads, Directories.music, Directories.pictures, Directories.videos].some(dir => FileUtils.trimFileProtocol(dir) === fileModelData.filePath))
-            return Quickshell.iconPath(`folder-${fileModelData.fileName.toLowerCase()}`);
+        source: {
+            if (!root.fileModelData.fileIsDir)
+                return Quickshell.iconPath("application-x-zerosize", true);
 
-        return Quickshell.iconPath("inode-directory");
+            // XDG directory names can be localized; icon names stay in English.
+            const directories = [
+                [Directories.documents, "folder-documents"],
+                [Directories.downloads, "folder-download"],
+                [Directories.music, "folder-music"],
+                [Directories.pictures, "folder-pictures"],
+                [Directories.videos, "folder-videos"]
+            ];
+            const special = directories.find(dir => FileUtils.trimFileProtocol(dir[0]) === root.fileModelData.filePath);
+            return (special ? Quickshell.iconPath(special[1], true) : "")
+                || Quickshell.iconPath("folder", true)
+                || Quickshell.iconPath("inode-directory", true);
+        }
     }
 
-    onStatusChanged: {
-        if (status === Image.Error)
-            source = Quickshell.iconPath("error");
+    MaterialSymbol {
+        anchors.centerIn: parent
+        visible: image.status !== Image.Ready
+        text: root.fileModelData.fileIsDir ? "folder" : "draft"
+        iconSize: Math.min(root.width, root.height)
+        color: root.color
     }
 
     Process {
@@ -34,7 +50,7 @@ StyledImage {
         stdout: StdioCollector {
             onStreamFinished: {
                 const mime = text.split(";")[0].replace("/", "-");
-                root.source = Images.validImageTypes.some(t => mime === `image-${t}`) ? fileModelData.fileUrl : Quickshell.iconPath(mime, "image-missing");
+                image.source = Images.validImageTypes.some(t => mime === `image-${t}`) ? fileModelData.fileUrl : Quickshell.iconPath(mime, true);
             }
         }
     }

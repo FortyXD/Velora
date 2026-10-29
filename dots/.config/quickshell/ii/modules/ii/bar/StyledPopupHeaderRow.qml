@@ -14,8 +14,8 @@ Row {
         fill: 0
         font.weight: Font.DemiBold
         text: root.icon
-        iconSize: Appearance.font.pixelSize.large
-        color: Appearance.colors.colOnSurfaceVariant
+        iconSize: Appearance.popup.iconSize
+        color: Appearance.popup.colText
     }
 
     StyledText {
@@ -23,8 +23,8 @@ Row {
         text: root.label
         font {
             weight: Font.DemiBold
-            pixelSize: Appearance.font.pixelSize.normal
+            pixelSize: Appearance.popup.titleSize
         }
-        color: Appearance.colors.colOnSurfaceVariant
+        color: Appearance.popup.colText
     }
 }

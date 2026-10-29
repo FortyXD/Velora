@@ -9,6 +9,7 @@
 ////@ pragma Env QT_SCALE_FACTOR=1
 
 import "modules/common"
+import "modules/common/panels"
 import "services"
 import "panelFamilies"
 
@@ -23,6 +24,25 @@ ShellRoot {
 
     // Stuff for every panel family
     ReloadPopup {}
+    ThemeTransitionOverlay {}
+
+    // `qs -c ii ipc call themeTransition test`: the wave alone, over an unchanged screen
+    IpcHandler {
+        target: "themeTransition"
+        function test(): void {
+            ThemeTransition.run(() => {});
+        }
+    }
+    // Free or tiled windows; from the settings app, so the change happens under the shell's wave
+    IpcHandler {
+        target: "windowMode"
+        function set(mode: string): void {
+            HyprlandSettings.setWindowMode(mode === "floating" ? "floating" : "tiling");
+        }
+        function get(): string {
+            return HyprlandSettings.windowMode;
+        }
+    }
 
     Component.onCompleted: {
         MaterialThemeLoader.reapplyTheme()
@@ -41,6 +61,7 @@ ShellRoot {
         HotCorners.load()
         TimerService.load()
         Weather.load()
+        TouchpadGestures.libraryProgress // Listens for gestures from hyprland/gestures.lua
     }
 
 

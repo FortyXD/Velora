@@ -1,4 +1,6 @@
 //@ pragma UseQApplication
+// Its own app id, so the dock, the launcher and the window switcher show it with its own icon and name
+//@ pragma AppId org.velora.Settings
 //@ pragma Env QS_NO_RELOAD_POPUP=1
 //@ pragma Env QT_FFMPEG_DECODING_HW_DEVICE_TYPES=vaapi
 //@ pragma Env QT_FFMPEG_ENCODING_HW_DEVICE_TYPES=vaapi
@@ -43,7 +45,7 @@ ApplicationWindow {
         {
             key: "general", group: "basics", color: "#8E8E93", icon: "settings",
             name: Translation.tr("General"),
-            description: Translation.tr("Language, date and time"),
+            description: Translation.tr("Updates, storage, language, date and time, and other things about your computer"),
             component: "modules/settings/GeneralConfig.qml"
         },
         {
@@ -165,6 +167,31 @@ ApplicationWindow {
             name: Translation.tr("About"),
             description: Translation.tr("Your system and the Folis dotfiles"),
             component: "modules/settings/About.qml"
+        },
+        // Opened from General (`parentKey`), which stays highlighted in the sidebar meanwhile
+        {
+            key: "updates", group: "system", parentKey: "general", color: "#8E8E93", icon: "system_update", hidden: true, hero: false,
+            name: Translation.tr("Software Update"),
+            description: Translation.tr("New Velora versions from GitHub"),
+            component: "modules/settings/UpdatesConfig.qml"
+        },
+        {
+            key: "storage", group: "system", parentKey: "general", color: "#8E8E93", icon: "hard_drive", hidden: true, hero: false,
+            name: Translation.tr("Storage"),
+            description: Translation.tr("How full your disks are"),
+            component: "modules/settings/StorageConfig.qml"
+        },
+        {
+            key: "datetime", group: "system", parentKey: "general", color: "#0A84FF", icon: "schedule", hidden: true, hero: false,
+            name: Translation.tr("Date & Time"),
+            description: Translation.tr("How the clock and dates look, the time zone and setting the time automatically"),
+            component: "modules/settings/DateTimeConfig.qml"
+        },
+        {
+            key: "language", group: "system", parentKey: "general", color: "#0A84FF", icon: "language", hidden: true, hero: false,
+            name: Translation.tr("Language & Region"),
+            description: Translation.tr("The language of the shell"),
+            component: "modules/settings/LanguageConfig.qml"
         }
     ]
     property int currentPage: Math.max(0, root.pageIndex(pageStateFile.text().trim())) // Last opened page

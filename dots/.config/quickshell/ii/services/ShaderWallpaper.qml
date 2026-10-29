@@ -46,14 +46,18 @@ Singleton {
     // A still frame is wanted for the wallpaper picture; Background.qml takes it and calls frameSaved()
     property bool framePending: false
     property var pendingArgs: []
+    property var pendingCompletion: null
 
     // Makes `name` the wallpaper; `switchwallArgs` carry a look's light/dark mode and accent
-    function activate(name, switchwallArgs = []) {
+    function activate(name, switchwallArgs = [], completion = null) {
         if (!root.shader(name)) {
             console.warn("[ShaderWallpaper] Unknown wallpaper", name);
+            if (completion) completion();
             return;
         }
+        if (root.pendingCompletion) root.pendingCompletion();
         root.pendingArgs = switchwallArgs;
+        root.pendingCompletion = completion;
         root.framePending = true;
         Config.options.background.shaderWallpaper.name = name;
         Config.options.background.daily.enable = false;
@@ -61,16 +65,37 @@ Singleton {
     }
 
     function frameSaved(path) {
-        if (!root.framePending) return;
+        if (!root.framePending || path !== root.framePath(root.name)) return;
         root.framePending = false;
         frameTimeout.stop();
-        Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--image", path, "--keep-shader", ...root.pendingArgs]);
+        colorJob.createObject(root, {
+            "command": [Directories.wallpaperSwitchScriptPath, "--image", path, "--keep-shader", ...root.pendingArgs],
+            "completion": root.pendingCompletion
+        });
+        root.pendingCompletion = null;
+    }
+
+    Component {
+        id: colorJob
+        Process {
+            id: job
+            property var completion: null
+            running: true
+            onExited: {
+                if (job.completion) job.completion();
+                job.destroy();
+            }
+        }
     }
 
     Timer { // No background window took the frame (another panel family): keep the animation, skip the colors
         id: frameTimeout
         interval: 8000
-        onTriggered: root.framePending = false
+        onTriggered: {
+            root.framePending = false;
+            if (root.pendingCompletion) root.pendingCompletion();
+            root.pendingCompletion = null;
+        }
     }
 
     IpcHandler {

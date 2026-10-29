@@ -11,7 +11,7 @@ MouseArea {
     required property var fileModelData
     property bool isDirectory: fileModelData.fileIsDir
     property bool isVideo: !isDirectory && LiveWallpaper.isVideoPath(fileModelData.fileName)
-    property bool useThumbnail: Images.isValidImageByName(fileModelData.fileName) || isVideo
+    property bool useThumbnail: !isDirectory && (Images.isValidImageByName(fileModelData.fileName) || isVideo)
 
     property alias colBackground: background.color
     property alias colText: wallpaperItemName.color
@@ -131,8 +131,24 @@ MouseArea {
                     id: iconLoader
                     active: !root.useThumbnail
                     anchors.fill: parent
-                    sourceComponent: DirectoryIcon {
-                        fileModelData: root.fileModelData
+                    sourceComponent: root.isDirectory ? folderIcon : fileIcon
+                    Component {
+                        id: folderIcon
+                        MaterialSymbol {
+                            text: "folder"
+                            fill: 1
+                            iconSize: Math.min(width, height) * 0.65
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            color: root.colText
+                        }
+                    }
+                    Component {
+                        id: fileIcon
+                        DirectoryIcon {
+                            fileModelData: root.fileModelData
+                            color: root.colText
+                        }
                     }
                 }
             }

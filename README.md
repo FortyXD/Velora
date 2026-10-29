@@ -145,7 +145,7 @@ Open **Settings → Presets** to save your current look. Visit **Settings → Wa
 
 **Check automatically. Install when you choose.**
 
-1. Open **Settings → About → GitHub updates**.
+1. Open **Settings → General → Software Update**.
 2. Choose published GitHub releases or your tracked branch, and toggle automatic checks.
 3. When a version is available, select **Install update** and confirm in the terminal.
 

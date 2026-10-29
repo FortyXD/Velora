@@ -240,6 +240,10 @@ Singleton {
                 "name": Translation.tr("Search button"), "description": Translation.tr("Opens search and the overview"),
                 "icon": "search", "category": "buttons", "vertical": true
             },
+            "taskbar": {
+                "name": Translation.tr("Taskbar"), "description": Translation.tr("Pinned and running apps, as on Windows"),
+                "icon": "apps", "category": "system", "vertical": true, "unique": true
+            },
             "session": {
                 "name": Translation.tr("Power button"), "description": Translation.tr("Opens the session menu"),
                 "icon": "power_settings_new", "category": "buttons", "vertical": true

@@ -75,9 +75,8 @@ RippleButton {
         interval: 600
         onTriggered: button.hoverSettled = true
     }
-    PopupToolTip {
-        extraVisibleCondition: button.hoverSettled
+    BarToolTip {
+        shown: button.hoverSettled
         text: button.tooltipText
-        anchorEdges: Config.options.bar.bottom ? Edges.Top : Edges.Bottom
     }
 }

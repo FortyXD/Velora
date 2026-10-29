@@ -27,10 +27,17 @@ Flow {
     ]
     property var currentValue: null
 
+    // A layout that doesn't stretch it gives it its width on one row, not its implicit width: that is the
+    // widest row of the last wrap, so being laid out narrow once (pages load at width 0) kept it wrapped
+    property real singleRowWidth: 0
+    Layout.preferredWidth: Layout.fillWidth ? -1 : singleRowWidth
+
     signal selected(var newValue)
 
     // Pill ends go wherever a row of buttons starts or ends, also after wrapping
     function updateEdges() {
+        let rowWidth = 0;
+        let shown = 0;
         for (let i = 0; i < repeater.count; i++) {
             const button = repeater.itemAt(i);
             if (!button) continue;
@@ -38,7 +45,11 @@ Flow {
             const next = i < repeater.count - 1 ? repeater.itemAt(i + 1) : null;
             button.leftmost = !previous || previous.y !== button.y;
             button.rightmost = !next || next.y !== button.y;
+            if (!button.visible) continue;
+            rowWidth += button.implicitWidth;
+            shown++;
         }
+        root.singleRowWidth = Math.ceil(rowWidth + root.spacing * Math.max(0, shown - 1));
     }
     onPositioningComplete: root.updateEdges()
 

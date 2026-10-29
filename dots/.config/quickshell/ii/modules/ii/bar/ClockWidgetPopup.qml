@@ -87,13 +87,14 @@ StyledPopup {
             spacing: -2
             StyledText {
                 text: root.capitalize(root.locale.toString(root.today, "dddd"))
-                font.pixelSize: Appearance.font.pixelSize.larger
+                font.pixelSize: Appearance.popup.titleSize
                 font.weight: Font.DemiBold
-                color: Appearance.colors.colOnSurfaceVariant
+                color: Appearance.popup.colText
             }
             StyledText {
                 text: root.locale.toString(root.today, "d MMMM yyyy")
-                color: Appearance.colors.colSubtext
+                font.pixelSize: Appearance.popup.textSize
+                color: Appearance.popup.colSubtext
             }
         }
 

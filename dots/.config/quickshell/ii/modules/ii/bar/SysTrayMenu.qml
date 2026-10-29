@@ -60,9 +60,9 @@ PopupWindow {
             opacity: popupBackground.opacity
         }
 
-        Rectangle {
+        Rectangle { // Looks like the shell's other menus (ContextMenuPopup)
             id: popupBackground
-            readonly property real padding: 4
+            readonly property real padding: Appearance.popup.menuPadding
             anchors {
                 left: parent.left
                 right: parent.right
@@ -72,19 +72,35 @@ PopupWindow {
                 margins: root.padding
             }
 
-            color: Appearance.colors.colLayer0
-            radius: Appearance.rounding.windowRounding
+            color: Appearance.popup.colBackground
+            radius: Appearance.popup.radius
             border.width: 1
-            border.color: Appearance.colors.colLayer0Border
+            border.color: Appearance.popup.colBorder
             clip: true
 
+            // Grows a little out of the bar while it fades in
             opacity: 0
-            Component.onCompleted: opacity = 1
-            implicitWidth: stackView.implicitWidth + popupBackground.padding * 2
+            scale: 0.92
+            transformOrigin: !Config.options.bar.vertical ? (Config.options.bar.bottom ? Item.Bottom : Item.Top)
+                : (Config.options.bar.bottom ? Item.Right : Item.Left)
+            Component.onCompleted: {
+                opacity = 1;
+                scale = 1;
+            }
+            implicitWidth: Math.max(190, stackView.implicitWidth + popupBackground.padding * 2)
             implicitHeight: stackView.implicitHeight + popupBackground.padding * 2
 
             Behavior on opacity {
-                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                NumberAnimation {
+                    duration: 140
+                    easing.type: Easing.OutCubic
+                }
+            }
+            Behavior on scale {
+                NumberAnimation {
+                    duration: 180
+                    easing.type: Easing.OutCubic
+                }
             }
             Behavior on implicitHeight {
                 animation: Appearance.animation.elementResize.numberAnimation.createObject(this)
@@ -149,10 +165,13 @@ PopupWindow {
             active: visible
             sourceComponent: RippleButton {
                 id: backButton
-                buttonRadius: popupBackground.radius - popupBackground.padding
-                horizontalPadding: 12
+                buttonRadius: Appearance.popup.smallRadius
+                horizontalPadding: 10
                 implicitWidth: contentItem.implicitWidth + horizontalPadding * 2
-                implicitHeight: 36
+                implicitHeight: Appearance.popup.menuRowHeight
+                colBackgroundHover: Appearance.colors.colPrimary
+                colRipple: Appearance.colors.colPrimaryActive
+                readonly property color colContent: hovered ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer0
 
                 downAction: () => stackView.pop()
 
@@ -166,11 +185,14 @@ PopupWindow {
                     }
                     spacing: 8
                     MaterialSymbol {
-                        iconSize: 20
+                        iconSize: Appearance.popup.menuIconSize
                         text: "chevron_left"
+                        color: backButton.colContent
                     }
                     StyledText {
                         Layout.fillWidth: true
+                        font.pixelSize: Appearance.popup.textSize
+                        color: backButton.colContent
                         text: Translation.tr("Back")
                     }
                 }
@@ -178,10 +200,13 @@ PopupWindow {
         }
         RippleButton {
             id: pinEntry
-            buttonRadius: popupBackground.radius - popupBackground.padding
-            horizontalPadding: 12
+            buttonRadius: Appearance.popup.smallRadius
+            horizontalPadding: 10
             implicitWidth: contentItem.implicitWidth + horizontalPadding * 2
-            implicitHeight: 36
+            implicitHeight: Appearance.popup.menuRowHeight
+            colBackgroundHover: Appearance.colors.colPrimary
+            colRipple: Appearance.colors.colPrimaryActive
+            readonly property color colContent: hovered ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer0
             Layout.topMargin: 0
             Layout.bottomMargin: 0
             Layout.fillWidth: true
@@ -200,23 +225,30 @@ PopupWindow {
                 spacing: 8
 
                 MaterialSymbol {
-                    iconSize: 18
+                    iconSize: Appearance.popup.menuIconSize
                     text: "push_pin"
+                    color: pinEntry.colContent
                 }
 
                 StyledText {
                     Layout.fillWidth: true
+                    font.pixelSize: Appearance.popup.textSize
+                    color: pinEntry.colContent
                     text: TrayService.isPinned(root.trayItemId) ? Translation.tr("Unpin") : Translation.tr("Pin")
                 }
             }
         }
 
-        Rectangle {
+        Item { // Separator, like the menu's own ones
+            visible: pinEntry.visible || submenu.isSubMenu
             Layout.fillWidth: true
-            implicitHeight: 1
-            color: Appearance.colors.colSubtext
-            Layout.topMargin: 4
-            Layout.bottomMargin: 4
+            implicitHeight: 9
+            Rectangle {
+                anchors.centerIn: parent
+                width: parent.width - 16
+                height: 1
+                color: Appearance.colors.colOutlineVariant
+            }
         }
 
         Repeater {
@@ -242,7 +274,7 @@ PopupWindow {
                 forceSpecialInteractionColumn: menuEntriesRepeater.specialInteractionColumnNeeded
                 menuEntry: modelData
 
-                buttonRadius: popupBackground.radius - popupBackground.padding
+                buttonRadius: Appearance.popup.smallRadius
 
                 onDismiss: root.close()
                 onOpenSubmenu: handle => {

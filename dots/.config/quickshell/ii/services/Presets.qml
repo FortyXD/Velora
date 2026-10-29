@@ -15,6 +15,7 @@ import Quickshell.Io
  *   dockWidgets          the dock and the desktop widgets
  *   wallpaperAnimations  the wallpaper (a picture, a video or an animated "shader:<name>"), gaps and motion
  *   lock                 the lock screen: arrangement, animations, darkening, blur, clock style
+ *   windows              free windows (as on Windows and macOS) or tiling, and the tiling layout
  * Each category may hold `config` (a partial config.json, limited to the paths below) and
  * `hyprland` (Hyprland options for HyprlandSettings), plus `mode`/`scheme` (theme),
  * `wallpaper` and `animationProfile` (wallpaperAnimations). A video from the web may come with
@@ -22,18 +23,22 @@ import Quickshell.Io
  *
  * Built-in presets are defaults/presets/*.json; your own are saved under
  * ~/.config/illogical-impulse/presets/<slug>/preset.json (with a copy of the wallpaper).
- * Applying runs in the shell (IPC "presets"), after backing up what it changes for undo.
+ * Applying runs in the shell (IPC "presets"), after backing up what it changes for undo. Everything
+ * slow happens while the screen is still live: downloading the wallpaper, generating its palette
+ * (switchwall --prepare) and decoding it on every screen. Only then is the screen captured, and
+ * under that picture the prepared files, settings and layout are put in place in a moment.
  */
 Singleton {
     id: root
 
-    readonly property list<string> categoryIds: ["bar", "theme", "dockWidgets", "wallpaperAnimations", "lock"]
+    readonly property list<string> categoryIds: ["bar", "theme", "dockWidgets", "wallpaperAnimations", "lock", "windows"]
     readonly property var categories: [
         { "id": "bar", "name": Translation.tr("Bar"), "icon": "toast" },
         { "id": "theme", "name": Translation.tr("Theme and colors"), "icon": "palette" },
         { "id": "dockWidgets", "name": Translation.tr("Dock and desktop widgets"), "icon": "widgets" },
         { "id": "wallpaperAnimations", "name": Translation.tr("Wallpaper and motion"), "icon": "animation" },
         { "id": "lock", "name": Translation.tr("Lock screen"), "icon": "lock" },
+        { "id": "windows", "name": Translation.tr("Window behavior"), "icon": "select_window" },
     ]
     // Config paths each category may change; anything else in a preset is ignored
     readonly property var allowedPaths: ({
@@ -42,11 +47,13 @@ Singleton {
         "dockWidgets": ["dock", "background.widgets"],
         "wallpaperAnimations": ["appearance.animationSpeed", "background.liveWallpaper.pauseWhen", "background.shaderWallpaper"],
         "lock": ["lock.layout", "lock.animations", "lock.animatedWallpaper", "lock.dim", "lock.blur", "lock.showLockedText", "background.widgets.clock.styleLocked"],
+        "windows": [],
     })
     // Hyprland options each category may change, by prefix (RegExps don't survive a `var` property)
     readonly property var allowedHyprland: ({
         "theme": ["decoration:", "general:border_size"],
         "wallpaperAnimations": ["general:gaps_", "animations:enabled", "misc:animate_"],
+        "windows": ["shell:windowMode", "general:layout"],
     })
     function hyprlandAllowed(category, key) {
         return (root.allowedHyprland[category] ?? []).some(prefix => key.startsWith(prefix));
@@ -60,6 +67,13 @@ Singleton {
     property bool loading: listProc.running
     property bool hasBackup: false
     property bool applying: false
+    property bool interactivePreview: false
+    // A snapshot would freeze the setup assistant's hover, press and selection animations.
+    Binding {
+        target: ThemeTransition
+        property: "captureInhibited"
+        value: root.applying && root.interactivePreview
+    }
 
     signal applied(string id)
 
@@ -143,6 +157,12 @@ Singleton {
         return /^#?[0-9a-f]{6}$/i.test(accent) ? ["--color", accent.startsWith("#") ? accent : `#${accent}`] : ["--color", "clear"];
     }
 
+    function themeOptions(preset) {
+        const scheme = preset.theme?.config?.appearance?.palette?.type;
+        return [...(["dark", "light"].includes(preset.theme?.mode) ? ["--mode", preset.theme.mode] : []),
+            ...(scheme ? ["--type", scheme] : []), ...root.accentArgs(preset)];
+    }
+
     function isRemote(path) {
         return /^https?:\/\//.test(path ?? "");
     }
@@ -203,17 +223,40 @@ Singleton {
         return preset.dir ? `${preset.dir}/${wallpaper}` : "";
     }
 
-    // Applies the chosen categories of a preset (all it has when `categories` is empty)
-    function apply(id, categories = []) {
-        const preset = root.find(id);
+    // Applies the chosen categories of a preset (all it has when `categories` is empty). "motion" is
+    // wallpaperAnimations without the wallpaper: its gaps and animations on the picture you have.
+    // `themeFrom` takes the theme of another preset instead, so different looks share one palette;
+    // `mode` ("light" or "dark") overrides the one the theme has.
+    function apply(id, categories = [], themeFrom = "", mode = "", interactivePreview = false) {
+        let preset = root.find(id);
         if (!preset) {
             console.warn("[Presets] Unknown preset", id);
             return;
         }
+        const themeSource = themeFrom === "current" ? { "theme": {
+            "mode": Appearance.m3colors.darkmode ? "dark" : "light",
+            "accent": Config.options.appearance.palette.accentColor ?? "",
+        } } : themeFrom.length > 0 ? root.find(themeFrom) : preset;
+        if (themeSource?.theme && (themeFrom.length > 0 || ["light", "dark"].includes(mode))) {
+            const theme = Object.assign({}, themeSource.theme, ["light", "dark"].includes(mode) ? { "mode": mode } : {});
+            preset = Object.assign({}, preset, { "theme": theme });
+        }
+        if (categories.includes("motion") && preset.wallpaperAnimations) {
+            const motion = Object.assign({}, preset.wallpaperAnimations);
+            delete motion.wallpaper;
+            delete motion.loop;
+            preset = Object.assign({}, preset, { "wallpaperAnimations": motion });
+            categories = categories.map(category => category === "motion" ? "wallpaperAnimations" : category);
+        }
         const chosen = (categories.length > 0 ? categories : root.categoriesOf(preset)).filter(category => preset[category]);
         if (chosen.length === 0) return;
+        root.applyCount++;
+        themeTimer.stop();
+        ThemeTransition.release(root.activeTransition);
+        root.activeTransition = 0;
+        root.interactivePreview = interactivePreview;
         root.applying = true;
-        root.pending = { "preset": preset, "categories": chosen };
+        root.pending = { "preset": preset, "categories": chosen, "applyCount": root.applyCount };
         backupProc.running = true; // Continues in finishApply() once the backup is written
     }
 
@@ -222,15 +265,161 @@ Singleton {
     // Counts applies, so a download that finishes after another look was applied doesn't switch back to its own
     property int applyCount: 0
 
-    function finishApply() {
-        const preset = root.pending.preset;
-        const chosen = root.pending.categories;
-        root.pending = null;
-        root.applyCount++;
+    property int activeTransition: 0
+    property int transitionApplyCount: 0
+    property bool waitingForColors: false
+    property string activePresetId: ""
 
+    function finishApply() {
+        const request = root.pending;
+        root.pending = null;
+        if (!request || request.applyCount !== root.applyCount) return;
+        const preset = request.preset;
+        const remote = request.categories.includes("wallpaperAnimations") && root.isRemote(preset.wallpaperAnimations.wallpaper);
+        if (remote) {
+            // Network and video encoding happen before a screen is captured.
+            const dest = root.remoteWallpaperPath(preset);
+            downloadProc.start(request, dest,
+                [Quickshell.shellPath("scripts/colors/random/download_wallpaper.sh"), preset.wallpaperAnimations.wallpaper,
+                 dest, "--meta", JSON.stringify(preset.credits ?? {}), "--title", Translation.tr(preset.name), ...root.loopArgs(preset)]);
+        } else {
+            root.prepareTheme(request, "");
+        }
+    }
+
+    // switchwall arguments for what a preset changes, or null when it needs no run of it here
+    // (an animated or daily wallpaper brings its own colors)
+    function themeArgs(preset, chosen, downloadedWallpaper) {
+        const setting = chosen.includes("wallpaperAnimations") ? (preset.wallpaperAnimations.wallpaper ?? "") : "";
+        if (setting.startsWith("shader:") || setting.startsWith("daily:")) return null;
+        const remote = root.isRemote(setting);
+        const wallpaper = remote ? downloadedWallpaper : setting.length > 0 ? root.wallpaperFile(preset) : "";
+        if (wallpaper.length === 0 && !remote && !chosen.includes("theme")) return null;
+        const modeArgs = chosen.includes("theme") ? root.themeOptions(preset) : [];
+        return [...(wallpaper.length > 0 ? ["--image", wallpaper] : ["--noswitch"]), ...modeArgs];
+    }
+
+    // While the screen is still live: the palette generated aside, then the new picture decoded
+    function prepareTheme(request, downloadedWallpaper) {
+        if (request.applyCount !== root.applyCount) return;
+        request.downloadedWallpaper = downloadedWallpaper;
+        const args = root.themeArgs(request.preset, request.categories, downloadedWallpaper);
+        if (args === null) {
+            root.startTransition(request, null);
+            return;
+        }
+        prepareJob.createObject(root, { "request": request, "command": [Directories.wallpaperSwitchScriptPath, "--prepare", ...args] });
+    }
+
+    function preloadThenStart(request, prepared) {
+        if (request.applyCount !== root.applyCount) return;
+        const picture = prepared ? (FileUtils.isVideoPath(prepared.wallpaper) ? prepared.thumbnail : prepared.wallpaper) : "";
+        if (!picture || WallpaperTransition.isPreloaded(picture)) {
+            root.startTransition(request, prepared);
+            return;
+        }
+        preloadWait.request = request;
+        preloadWait.prepared = prepared;
+        preloadWait.picture = picture;
+        preloadWait.restart();
+        WallpaperTransition.preload(picture);
+    }
+    function startPreloaded() {
+        const request = preloadWait.request;
+        preloadWait.stop();
+        preloadWait.request = null;
+        if (request) root.startTransition(request, preloadWait.prepared);
+    }
+    Timer {
+        id: preloadWait
+        property var request: null
+        property var prepared: null
+        property string picture: ""
+        interval: 1500 // A screen that can't decode it in time decodes it under the picture instead
+        onTriggered: root.startPreloaded()
+    }
+
+    function startTransition(request, prepared) {
+        if (request.applyCount !== root.applyCount) return;
+        ThemeTransition.run(token => {
+            if (request.applyCount !== root.applyCount) {
+                ThemeTransition.release(token);
+                return;
+            }
+            root.activeTransition = token;
+            root.transitionApplyCount = request.applyCount;
+            root.activePresetId = request.preset.id;
+            root.applyNow(request.preset, request.categories, request.applyCount, request.downloadedWallpaper ?? "", prepared);
+        }, true);
+    }
+
+    function colorsFinished(applyCount) {
+        if (applyCount !== root.applyCount || applyCount !== root.transitionApplyCount) return;
+        root.waitingForColors = false;
+        root.finishTransitionIfReady();
+    }
+
+    function finishTransitionIfReady() {
+        completionTimer.restart();
+    }
+    function completeTransition() {
+        if (!root.applying || root.transitionApplyCount !== root.applyCount || root.waitingForColors || WallpaperTransition.changing) return;
+        if (HyprlandSettings.applying) return;
+        if (MaterialThemeLoader.pendingColors.length > 0) return;
+        ThemeTransition.release(root.activeTransition);
+        root.activeTransition = 0;
+        root.applying = false;
+        root.runPostRequest();
+        root.hasBackup = true;
+        if (root.activePresetId.length > 0) root.applied(root.activePresetId);
+    }
+    Connections {
+        target: WallpaperTransition
+        function onChangingChanged() { root.finishTransitionIfReady() }
+        function onPreloadedChanged() {
+            if (preloadWait.running && WallpaperTransition.isPreloaded(preloadWait.picture)) root.startPreloaded();
+        }
+    }
+    Connections {
+        target: HyprlandSettings
+        function onApplyingChanged() { root.finishTransitionIfReady() }
+    }
+    // Qt and VS Code theming, once the wave is over: nothing on screen waits for it
+    property string postRequest: ""
+    function runPostRequest() {
+        if (ThemeTransition.phase !== "idle" || root.postRequest.length === 0) return;
+        Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--post", root.postRequest]);
+        root.postRequest = "";
+    }
+    Connections {
+        target: ThemeTransition
+        function onPhaseChanged() {
+            root.runPostRequest();
+        }
+    }
+    Connections {
+        target: MaterialThemeLoader
+        function onPendingColorsChanged() { root.finishTransitionIfReady() }
+    }
+    Timer {
+        id: completionTimer
+        interval: 80 // Includes the config file watcher and the first rendered layout.
+        onTriggered: root.completeTransition()
+    }
+
+    function applyNow(preset, chosen, applyCount, preparedWallpaper = "", prepared = null) {
+        root.waitingForColors = false;
         // Shell settings. Every key is written explicitly: keys missing from the file would keep their old value.
         let patch = {};
         for (const category of chosen) root.mergeInto(patch, root.filterConfig(preset[category].config, root.allowedPaths[category]));
+        // What switchwall would publish, in the same single write
+        if (prepared?.wallpaper) {
+            root.setPath(patch, "background.wallpaperPath", prepared.wallpaper);
+            if (prepared.thumbnail) root.setPath(patch, "background.thumbnailPath", prepared.thumbnail);
+            if (!prepared.keepShader) root.setPath(patch, "background.shaderWallpaper.name", "");
+        }
+        if (prepared && prepared.accent !== null && prepared.accent !== undefined)
+            root.setPath(patch, "appearance.palette.accentColor", prepared.accent);
         Config.applyPatch(patch);
 
         // Hyprland options and window motion, with a single reload
@@ -249,27 +438,26 @@ Singleton {
                 delete hyprland["shell:animationProfile"];
                 HyprlandSettings.reset(["shell:animationProfile"]);
             }
-            HyprlandSettings.setMany(hyprland);
+            HyprlandSettings.setLive(hyprland); // In effect at once: windows settle under the picture
         }
 
         // Colors: one run of switchwall once the config is written, with the new wallpaper if any
-        const modeArgs = chosen.includes("theme") ? [...(["dark", "light"].includes(preset.theme.mode) ? ["--mode", preset.theme.mode] : []),
-            ...root.accentArgs(preset)] : [];
+        const modeArgs = chosen.includes("theme") ? root.themeOptions(preset) : [];
         const remote = chosen.includes("wallpaperAnimations") && root.isRemote(preset.wallpaperAnimations.wallpaper);
-        const wallpaper = chosen.includes("wallpaperAnimations") ? root.wallpaperFile(preset) : "";
+        const wallpaper = remote ? preparedWallpaper : chosen.includes("wallpaperAnimations") ? root.wallpaperFile(preset) : "";
         const daily = chosen.includes("wallpaperAnimations") && (preset.wallpaperAnimations.wallpaper ?? "").startsWith("daily:");
         const shader = chosen.includes("wallpaperAnimations") && (preset.wallpaperAnimations.wallpaper ?? "").startsWith("shader:");
+        root.waitingForColors = shader || remote || daily || wallpaper.length > 0 || chosen.includes("theme");
         if (shader) {
-            // Drawn by the shell; its still frame becomes the wallpaper picture for colors and previews
-            ShaderWallpaper.activate(preset.wallpaperAnimations.wallpaper.slice(7), modeArgs);
-        } else if (remote) {
-            // Downloaded once into ~/Pictures/Wallpapers/Presets (videos: ~/Videos/…), then colors are made from it
-            downloadProc.start(root.applyCount, root.remoteWallpaperPath(preset), modeArgs,
-                [Quickshell.shellPath("scripts/colors/random/download_wallpaper.sh"), preset.wallpaperAnimations.wallpaper,
-                root.remoteWallpaperPath(preset), "--meta", JSON.stringify(preset.credits ?? {}), "--title", Translation.tr(preset.name),
-                ...root.loopArgs(preset)]);
-        } else if (wallpaper.length > 0 || chosen.includes("theme")) {
+            ShaderWallpaper.activate(preset.wallpaperAnimations.wallpaper.slice(7), modeArgs,
+                () => root.colorsFinished(applyCount));
+        } else if (prepared) {
+            // Generated already: only put in place, the slow app theming after the wave
+            commitJob.createObject(root, { "applyCount": applyCount, "request": prepared.request,
+                "command": [Directories.wallpaperSwitchScriptPath, "--commit", prepared.request, "--no-publish", "--no-post"] });
+        } else if (wallpaper.length > 0 || remote || chosen.includes("theme")) {
             themeTimer.args = [...(wallpaper.length > 0 ? ["--image", wallpaper] : ["--noswitch"]), ...modeArgs];
+            themeTimer.applyCount = applyCount;
             themeTimer.restart();
         }
         if (daily) {
@@ -279,32 +467,25 @@ Singleton {
         } else if (wallpaper.length > 0 || remote || shader) {
             Config.options.background.daily.enable = false; // A look with its own picture keeps it
         }
-        root.applying = false;
-        root.hasBackup = true;
-        root.applied(preset.id);
+        root.finishTransitionIfReady();
     }
 
     Process {
         id: downloadProc
-        property int applyCount: 0
+        property var request: null
         property string dest: ""
-        property var modeArgs: []
         property var queued: null
 
-        // A download still running for an earlier look is stopped; this one starts once it has exited
-        function start(applyCount, dest, modeArgs, command) {
-            const next = { "applyCount": applyCount, "dest": dest, "modeArgs": modeArgs, "command": command };
+        function start(request, dest, command) {
+            const next = { request: request, dest: dest, command: command };
             if (downloadProc.running) {
                 downloadProc.queued = next;
                 downloadProc.running = false;
-                return;
-            }
-            downloadProc.run(next);
+            } else downloadProc.run(next);
         }
         function run(next) {
-            downloadProc.applyCount = next.applyCount;
+            downloadProc.request = next.request;
             downloadProc.dest = next.dest;
-            downloadProc.modeArgs = next.modeArgs;
             downloadProc.command = next.command;
             downloadProc.running = true;
         }
@@ -315,11 +496,10 @@ Singleton {
                 downloadProc.run(next);
                 return;
             }
-            root.load(); // The card can now play the downloaded video
-            if (downloadProc.applyCount !== root.applyCount) return; // Another look was applied meanwhile
-            // Without the picture (offline, blocked) the rest of the theme still applies
-            themeTimer.args = [...(exitCode === 0 ? ["--image", downloadProc.dest] : ["--noswitch"]), ...downloadProc.modeArgs];
-            themeTimer.restart();
+            root.load();
+            if (downloadProc.request?.applyCount !== root.applyCount) return;
+            // Offline: still switch the layout and palette, retaining the existing wallpaper.
+            root.prepareTheme(downloadProc.request, exitCode === 0 ? downloadProc.dest : "");
         }
     }
 
@@ -334,13 +514,90 @@ Singleton {
     Timer {
         id: themeTimer
         property var args: []
-        interval: 400 // After Config has written the palette type that switchwall reads
-        onTriggered: Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, ...args])
+        property int applyCount: 0
+        interval: Math.max(100, Config.readWriteDelay * 2 + 30)
+        onTriggered: {
+            if (themeTimer.applyCount !== root.applyCount) return;
+            themeJob.createObject(root, {
+                "applyCount": themeTimer.applyCount,
+                "command": [Directories.wallpaperSwitchScriptPath, ...themeTimer.args]
+            });
+        }
+    }
+    Component {
+        id: themeJob
+        Process {
+            id: job
+            required property int applyCount
+            running: true
+            onExited: {
+                root.colorsFinished(job.applyCount);
+                job.destroy();
+            }
+        }
+    }
+    Component {
+        id: prepareJob
+        Process {
+            id: preparing
+            objectName: "themePrepareJob"
+            required property var request
+            property bool done: false
+            running: true
+            function finish(prepared) {
+                if (preparing.done) return;
+                preparing.done = true;
+                root.preloadThenStart(preparing.request, prepared);
+                preparing.destroy();
+            }
+            // The last line is the prepared request, as JSON
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    let prepared = null;
+                    try {
+                        prepared = JSON.parse(text.trim().split("\n").pop());
+                    } catch (e) {}
+                    preparing.finish(prepared?.request ? prepared : null);
+                }
+            }
+            // Failed: applied the slow way, generating under the picture
+            onExited: exitCode => { if (exitCode !== 0) preparing.finish(null); }
+        }
+    }
+    Component {
+        id: commitJob
+        Process {
+            id: committing
+            objectName: "themeCommitJob"
+            required property int applyCount
+            required property string request
+            running: true
+            onExited: {
+                root.postRequest = committing.request;
+                root.colorsFinished(committing.applyCount);
+                committing.destroy();
+            }
+        }
+    }
+
+    Connections {
+        target: WallpaperOfTheDay
+        function onRunningChanged() {
+            if (!WallpaperOfTheDay.running && root.waitingForColors && Config.options.background.daily.enable)
+                root.colorsFinished(root.transitionApplyCount);
+        }
     }
 
     // Puts back what the last apply changed
+    property int restoreRequestCount: 0
     function undo() {
         if (!root.hasBackup) return;
+        root.restoreRequestCount = ++root.applyCount;
+        themeTimer.stop();
+        ThemeTransition.release(root.activeTransition);
+        root.activeTransition = 0;
+        root.interactivePreview = false;
+        root.applying = true;
         restoreProc.running = true;
     }
 
@@ -362,6 +619,7 @@ Singleton {
                 for (const key of Object.keys(HyprlandSettings.values)) {
                     if (root.hyprlandAllowed(category, key)) hyprland[key] = HyprlandSettings.values[key];
                 }
+                if (category === "windows") hyprland["shell:windowMode"] = HyprlandSettings.windowMode; // Not a Hyprland option
                 preset[category].hyprland = hyprland;
             }
         }
@@ -489,28 +747,50 @@ Singleton {
     Process {
         id: restoreProc
         command: ["bash", "-c", 'cat "$1/config.json"; printf "\\n\\u001e\\n"; cat "$1/shell_settings.json"; printf "\\n\\u001e\\n"; cat "$1/wallpaper.txt"', "_", root.backupDir]
+        onExited: exitCode => {
+            if (exitCode !== 0 && root.restoreRequestCount === root.applyCount) root.applying = false;
+        }
         stdout: StdioCollector {
             onStreamFinished: {
+                if (root.restoreRequestCount !== root.applyCount) return;
                 const parts = text.split("\n\u001e\n");
-                if (parts.length < 3) return;
+                if (parts.length < 3) {
+                    root.applying = false;
+                    return;
+                }
                 let config = {};
+                let overrides = {};
                 try {
                     config = JSON.parse(parts[0]);
+                    overrides = JSON.parse(parts[1]);
+                } catch (e) {
+                    console.warn("[Presets] Couldn't restore the backup:", e);
+                    root.applying = false;
+                    return;
+                }
+                const applyCount = root.restoreRequestCount;
+                ThemeTransition.run(token => {
+                    if (applyCount !== root.applyCount) {
+                        ThemeTransition.release(token);
+                        return;
+                    }
+                    root.activeTransition = token;
+                    root.transitionApplyCount = applyCount;
+                    root.activePresetId = "";
+                    root.waitingForColors = true;
                     let patch = {};
                     for (const category of root.categoryIds) root.mergeInto(patch, root.filterConfig(config, root.allowedPaths[category]));
                     Config.applyPatch(patch);
-                    HyprlandSettings.replaceOverrides(JSON.parse(parts[1]));
-                } catch (e) {
-                    console.warn("[Presets] Couldn't restore the backup:", e);
-                    return;
-                }
-                const [wallpaper, mode] = parts[2].trim().split("\n");
-                const accent = config.appearance?.palette?.accentColor ?? "";
-                // The picture of an animated wallpaper is its still frame; without --keep-shader switchwall would stop the animation
-                const shader = (config.background?.shaderWallpaper?.name ?? "").length > 0;
-                themeTimer.args = [...(wallpaper ? ["--image", wallpaper] : ["--noswitch"]), ...(shader && wallpaper ? ["--keep-shader"] : []),
-                    ...(mode ? ["--mode", mode] : []), ...root.accentArgs({ "theme": { "accent": accent } })];
-                themeTimer.restart();
+                    HyprlandSettings.replaceOverrides(overrides);
+                    const [wallpaper, mode] = parts[2].trim().split("\n");
+                    const accent = config.appearance?.palette?.accentColor ?? "";
+                    // The picture of an animated wallpaper is its still frame; without --keep-shader switchwall would stop the animation
+                    const shader = (config.background?.shaderWallpaper?.name ?? "").length > 0;
+                    themeTimer.args = [...(wallpaper ? ["--image", wallpaper] : ["--noswitch"]), ...(shader && wallpaper ? ["--keep-shader"] : []),
+                        ...(mode ? ["--mode", mode] : []), ...root.accentArgs({ "theme": { "accent": accent } })];
+                    themeTimer.applyCount = applyCount;
+                    themeTimer.restart();
+                }, true);
             }
         }
     }
@@ -524,6 +804,21 @@ Singleton {
         // categories: comma-separated, or empty for all of them
         function apply(id: string, categories: string): void {
             root.apply(id, categories.split(",").map(category => category.trim()).filter(category => category.length > 0));
+        }
+        // Like apply, with the theme of another preset (or "") and light or dark forced (or "").
+        // Returns the apply's number, for busy()
+        function applyWith(id: string, categories: string, themeFrom: string, mode: string): int {
+            root.apply(id, categories.split(",").map(category => category.trim()).filter(category => category.length > 0), themeFrom, mode);
+            return root.applyCount;
+        }
+        // Setup keeps its own UI animated while the live desktop preview changes beneath it.
+        function applyForOnboarding(id: string, categories: string, themeFrom: string, mode: string): int {
+            root.apply(id, categories.split(",").map(category => category.trim()).filter(category => category.length > 0), themeFrom, mode, true);
+            return root.applyCount;
+        }
+        // Whether apply number `count` is still on its way: downloading, generating colors or in its wave
+        function busy(count: int): bool {
+            return root.applying && root.applyCount === count;
         }
         function undo(): void {
             root.undo();

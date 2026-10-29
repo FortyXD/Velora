@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-# Disclaimer: This script was ai-generated and went through minimal revision.
-
 import os
 os.environ["OPENCV_LOG_LEVEL"] = "SILENT"
 import cv2
 import numpy as np
 import argparse
 import json
+from functools import lru_cache
+
+# Several desktop widgets may analyze a wallpaper at once.
+cv2.setNumThreads(1)
 
 def center_crop(img, target_w, target_h):
     h, w = img.shape[:2]
@@ -19,32 +21,8 @@ def center_crop(img, target_w, target_h):
     return img[y1:y2, x1:x2]
 
 def find_least_busy_region(image_path, region_width=300, region_height=200, screen_width=None, screen_height=None, verbose=False, stride=2, screen_mode="fill", horizontal_padding=50, vertical_padding=50, busiest=False, slot=0, gap=120):
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        raise FileNotFoundError(f"Image not found: {image_path}")
-    orig_h, orig_w = img.shape
-    scale = 1.0
-    if screen_width is not None and screen_height is not None:
-        scale_w = screen_width / orig_w
-        scale_h = screen_height / orig_h
-        if screen_mode == "fill":
-            scale = max(scale_w, scale_h)
-        else:
-            scale = min(scale_w, scale_h)
-        new_w = int(orig_w * scale)
-        new_h = int(orig_h * scale)
-        if verbose:
-            print(f"Scaling image from {orig_w}x{orig_h} to {new_w}x{new_h} (scale: {scale:.3f}, mode: {screen_mode})")
-        img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
-        img = center_crop(img, screen_width, screen_height)
-        if verbose:
-            print(f"Cropped image to {screen_width}x{screen_height}")
-    else:
-        if verbose:
-            print(f"Using original image size: {orig_w}x{orig_h}")
-    arr = img.astype(np.float64)
-    h, w = arr.shape
-    # Validate & adjust stride
+    img = cv2.cvtColor(load_wallpaper(image_path, screen_width, screen_height, screen_mode), cv2.COLOR_BGR2GRAY)
+    h, w = img.shape
     stride = max(1, int(stride) if stride else 1)
     # Adjust region size if it does not fit given padding
     if horizontal_padding * 2 >= w or vertical_padding * 2 >= h:
@@ -63,40 +41,17 @@ def find_least_busy_region(image_path, region_width=300, region_height=200, scre
         if verbose:
             print(f"Requested region_height {region_height} too large; clamping to {max_region_h}")
         region_height = max_region_h
-    # Use OpenCV's integral for fast computation
-    integral = cv2.integral(arr, sdepth=cv2.CV_64F)[1:,1:]
-    integral_sq = cv2.integral(arr**2, sdepth=cv2.CV_64F)[1:,1:]
-    def region_sum(ii, x1, y1, x2, y2):
-        # Assume bounds have been checked before calling
-        total = ii[y2, x2]
-        if x1 > 0:
-            total -= ii[y2, x1-1]
-        if y1 > 0:
-            total -= ii[y1-1, x2]
-        if x1 > 0 and y1 > 0:
-            total += ii[y1-1, x1-1]
-        return total
+    # Evaluate all windows in NumPy instead of running a Python loop for every pixel window.
+    integral, integral_sq = cv2.integral2(img, sdepth=cv2.CV_64F, sqdepth=cv2.CV_64F)
+    xs = np.arange(horizontal_padding, w - region_width - horizontal_padding + 1, stride)
+    ys = np.arange(vertical_padding, h - region_height - vertical_padding + 1, stride)
+    xx, yy = np.meshgrid(xs, ys)
+    x2, y2 = xx + region_width, yy + region_height
     area = region_width * region_height
-    x_start = horizontal_padding
-    y_start = vertical_padding
-    x_end = w - region_width - horizontal_padding + 1
-    y_end = h - region_height - vertical_padding + 1
-    if x_end < x_start:
-        x_end = x_start
-    if y_end < y_start:
-        y_end = y_start
-    candidates = []
-    for y in range(y_start, y_end + 1, stride):
-        for x in range(x_start, x_end + 1, stride):
-            x1, y1 = x, y
-            x2, y2 = x + region_width - 1, y + region_height - 1
-            if x2 >= w or y2 >= h:
-                continue  # Skip out-of-bounds window
-            s = region_sum(integral, x1, y1, x2, y2)
-            s2 = region_sum(integral_sq, x1, y1, x2, y2)
-            mean = s / area
-            var = (s2 / area) - (mean ** 2)
-            candidates.append((var, x, y))
+    sums = integral[y2, x2] - integral[yy, x2] - integral[y2, xx] + integral[yy, xx]
+    squares = integral_sq[y2, x2] - integral_sq[yy, x2] - integral_sq[y2, xx] + integral_sq[yy, xx]
+    variances = np.maximum(0, squares / area - (sums / area) ** 2)
+    candidates = list(zip(variances.ravel().tolist(), xx.ravel().tolist(), yy.ravel().tolist()))
     if not candidates:
         return (horizontal_padding, vertical_padding), None
     # Stable order, so every widget sees the same sequence of spots
@@ -268,46 +223,32 @@ def draw_largest_region(image_path, center, size, output_path='output.png', scre
     cv2.imwrite(output_path, img)
     # print removed for quieter operation
 
-def get_dominant_color(image_path, x, y, w, h, screen_width=None, screen_height=None, screen_mode="fill"):
+@lru_cache(maxsize=2)
+def load_wallpaper(image_path, screen_width=None, screen_height=None, screen_mode="fill"):
     img = cv2.imread(image_path)
     if img is None:
         raise FileNotFoundError(f"Image not found: {image_path}")
-    orig_h, orig_w = img.shape[:2]
     if screen_width is not None and screen_height is not None:
-        scale_w = screen_width / orig_w
-        scale_h = screen_height / orig_h
-        if screen_mode == "fill":
-            scale = max(scale_w, scale_h)
-        else:
-            scale = min(scale_w, scale_h)
-        new_w = int(orig_w * scale)
-        new_h = int(orig_h * scale)
-        img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
+        h, w = img.shape[:2]
+        scale = (max if screen_mode == "fill" else min)(screen_width / w, screen_height / h)
+        img = cv2.resize(img, (max(1, round(w * scale)), max(1, round(h * scale))),
+                         interpolation=cv2.INTER_AREA if scale < 1 else cv2.INTER_LINEAR)
         img = center_crop(img, screen_width, screen_height)
-    # Ensure region is within bounds
-    x = max(0, x)
-    y = max(0, y)
-    w = max(1, min(w, img.shape[1] - x))
-    h = max(1, min(h, img.shape[0] - y))
+    return img
+
+
+def get_dominant_color(image_path, x, y, w, h, screen_width=None, screen_height=None, screen_mode="fill"):
+    img = load_wallpaper(image_path, screen_width, screen_height, screen_mode)
+    x = max(0, min(int(x), img.shape[1] - 1))
+    y = max(0, min(int(y), img.shape[0] - 1))
+    w = max(1, min(int(w), img.shape[1] - x))
+    h = max(1, min(int(h), img.shape[0] - y))
     region = img[y:y+h, x:x+w]
-    if region.size == 0 or region.shape[0] == 0 or region.shape[1] == 0:
-        return [0, 0, 0]
-    region = region.reshape((-1, 3))
-    # Filter out black pixels (optional, improves accuracy for some images)
-    non_black = region[np.any(region > 10, axis=1)]
-    if non_black.shape[0] == 0:
-        non_black = region
-    region = np.float32(non_black)
-    if region.shape[0] < 3:
-        return [int(x) for x in np.mean(region, axis=0)]
-    # K-means to find dominant color
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-    K = min(3, region.shape[0])
-    _, labels, centers = cv2.kmeans(region, K, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
-    counts = np.bincount(labels.flatten())
-    dominant = centers[np.argmax(counts)]
-    # Reverse from BGR to RGB
-    return [int(x) for x in reversed(dominant)]
+    # A bounded, deterministic sample is enough for text contrast. K-means over
+    # every pixel was expensive and could give a different answer on each run.
+    sample = cv2.resize(region, (min(64, w), min(64, h)), interpolation=cv2.INTER_AREA)
+    bgr = np.median(sample.reshape(-1, 3), axis=0)
+    return [int(channel) for channel in reversed(bgr)]
 
 def main():
     parser = argparse.ArgumentParser(description="Find least busy region in an image and output a JSON. Made for determining a suitable position for a wallpaper widget.")
@@ -328,7 +269,15 @@ def main():
     parser.add_argument("--busiest", action="store_true", help="Find the busiest region instead of the least busy")
     parser.add_argument("--slot", type=int, default=0, help="Take the Nth best region that keeps clear of the regions before it")
     parser.add_argument("--gap", type=int, default=120, help="Space kept between the regions of different slots")
+    parser.add_argument("--sample-x", type=int, help="Sample a widget at its existing position instead of searching")
+    parser.add_argument("--sample-y", type=int, default=0)
     args = parser.parse_args()
+
+    if args.sample_x is not None:
+        color = get_dominant_color(args.image_path, args.sample_x, args.sample_y, args.width, args.height,
+                                   args.screen_width, args.screen_height, args.screen_mode)
+        print(json.dumps({"dominant_color": '#{:02x}{:02x}{:02x}'.format(*color)}))
+        return
 
     if args.largest_region:
         center, size, var = find_largest_region(

@@ -2,116 +2,97 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import qs.services
 import qs.modules.common
 import qs.modules.common.functions
 import qs.modules.common.widgets
 
+/**
+ * General, as on a Mac: grouped rows that lead to the pages about the computer as a whole,
+ * each with a glance at where it stands.
+ */
 ContentPage {
     id: root
 
-    // Previews only need to change once a minute; the options list is rebuilt whenever this does
-    readonly property date now: {
-        const date = DateTime.clock.date;
-        return new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes());
+    // Velora's last update check (written by the velora command, see UpdatesConfig)
+    property var updateStatus: ({})
+    property var systemDisk: null // { size, avail } of / in bytes
+
+    FileView {
+        path: `${Quickshell.env("XDG_STATE_HOME") || `${FileUtils.trimFileProtocol(Directories.home)}/.local/state`}/velora/update.json`
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            try { root.updateStatus = JSON.parse(text()); }
+            catch (error) { root.updateStatus = ({}); }
+        }
     }
 
-    // Each style sets the three date formats used around the shell together
-    readonly property var dateStyles: [
-        { long: "ddd, dd/MM", short: "dd/MM", withYear: "dd/MM/yyyy" },
-        { long: "ddd, dd.MM", short: "dd.MM", withYear: "dd.MM.yyyy" },
-        { long: "ddd, MM/dd", short: "MM/dd", withYear: "MM/dd/yyyy" },
-        { long: "ddd, d MMM", short: "d MMM", withYear: "d MMM yyyy" }
-    ]
+    Process {
+        id: systemDiskUsage
+        running: true
+        command: ["df", "-B1", "--output=size,avail", "/"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const [size, avail] = (text.trim().split("\n")[1] ?? "").trim().split(/\s+/).map(Number);
+                root.systemDisk = size > 0 ? { size, avail } : null;
+            }
+        }
+    }
+    onPageShownChanged: if (root.pageShown) systemDiskUsage.running = true
+
+    // A row leading to another settings page, with that page's icon, color and name as in the sidebar
+    component PageLink: ConfigNavRow {
+        id: link
+        property string pageKey
+        readonly property var page: (ApplicationWindow.window?.pages ?? []).find(page => page.key === link.pageKey) ?? null
+        buttonIcon: link.page?.icon ?? ""
+        title: link.page?.name ?? ""
+        tileColor: link.page ? ColorUtils.mix(link.page.color, Appearance.colors.colPrimary, 0.82) : "transparent"
+        onClicked: ApplicationWindow.window?.openPage(link.pageKey)
+    }
 
     ContentSection {
         title: ""
 
-        ConfigNavRow {
-            buttonIcon: "info"
-            title: Translation.tr("About")
+        PageLink {
+            pageKey: "about"
             valueText: `${SystemInfo.distroName} · Velora`
-            onClicked: ApplicationWindow.window?.openPage("about")
+        }
+        PageLink {
+            pageKey: "updates"
+            valueText: root.updateStatus.error ? Translation.tr("Couldn't check")
+                : root.updateStatus.available ? Translation.tr("Update available")
+                : root.updateStatus.checked_at ? Translation.tr("Up to date")
+                : ""
+        }
+        PageLink {
+            pageKey: "storage"
+            valueText: root.systemDisk ? Translation.tr("%1 GB available").arg((root.systemDisk.avail / 1e9).toFixed(1)) : ""
         }
     }
 
     ContentSection {
-        title: Translation.tr("Language")
-        description: Translation.tr("Applies to the bar, sidebars, settings and other parts of the shell")
+        title: ""
 
-        ConfigComboRow {
-            icon: "translate"
-            text: Translation.tr("Interface Language")
-            maximumWidth: 300
-            currentValue: Config.options.language.ui
-            onSelected: value => Config.options.language.ui = value
-            options: [
-                { displayName: Translation.tr("Auto (System)") + ` · ${Translation.languageName(Qt.locale().name)}`, value: "auto", icon: "language" },
-                ...Translation.allAvailableLanguages.map(lang => ({ displayName: Translation.languageName(lang), value: lang }))
-            ]
+        PageLink {
+            pageKey: "datetime"
+            valueText: `${DateTime.time} · ${DateTime.shortDate}`
+        }
+        PageLink {
+            pageKey: "language"
+            readonly property string code: Config.options.language.ui === "auto" ? Qt.locale().name : Config.options.language.ui
+            valueText: Translation.languageNames[code] ?? code
         }
     }
 
     ContentSection {
-        title: Translation.tr("Date & time")
-        description: Translation.tr("How the clock and dates look in the bar, sidebars and on the lock screen")
+        title: ""
 
-        ContentSubsection {
-            title: Translation.tr("Time format")
-            ConfigSelectionArray {
-                currentValue: Config.options.time.format
-                onSelected: newValue => {
-                    // Hyprlock has its own clock, keep it in line
-                    if (newValue === "hh:mm") {
-                        Quickshell.execDetached(["bash", "-c", `sed -i 's/\\TIME12\\b/TIME/' '${FileUtils.trimFileProtocol(Directories.config)}/hypr/hyprlock.conf'`]);
-                    } else {
-                        Quickshell.execDetached(["bash", "-c", `sed -i 's/\\TIME\\b/TIME12/' '${FileUtils.trimFileProtocol(Directories.config)}/hypr/hyprlock.conf'`]);
-                    }
-                    Config.options.time.format = newValue;
-                }
-                options: ["hh:mm", "h:mm ap", "h:mm AP"].map(format => ({
-                    displayName: Qt.locale().toString(root.now, format),
-                    value: format
-                }))
-            }
-        }
-
-        ContentSubsection {
-            title: Translation.tr("Date format")
-            ConfigSelectionArray {
-                currentValue: Config.options.time.dateFormat
-                onSelected: newValue => {
-                    const style = root.dateStyles.find(style => style.long === newValue);
-                    Config.options.time.dateFormat = style.long;
-                    Config.options.time.shortDateFormat = style.short;
-                    Config.options.time.dateWithYearFormat = style.withYear;
-                }
-                options: root.dateStyles.map(style => ({
-                    displayName: Qt.locale().toString(root.now, style.long),
-                    value: style.long
-                }))
-            }
-        }
-
-        ConfigSwitch {
-            buttonIcon: "pace"
-            text: Translation.tr("Show seconds")
-            description: Translation.tr("Clocks update every second instead of every minute")
-            checked: Config.options.time.secondPrecision
-            onCheckedChanged: {
-                Config.options.time.secondPrecision = checked;
-            }
-        }
-    }
-
-    ContentSection {
-        title: Translation.tr("Apps")
-
-        ConfigNavRow {
-            buttonIcon: "apps"
-            title: Translation.tr("Default Apps")
-            description: Translation.tr("Browser, terminal, file manager and the apps that open your files")
-            onClicked: ApplicationWindow.window?.openPage("apps")
+        PageLink {
+            pageKey: "apps"
+            valueText: ""
         }
     }
 }

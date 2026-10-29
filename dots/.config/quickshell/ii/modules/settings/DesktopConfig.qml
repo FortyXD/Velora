@@ -58,20 +58,28 @@ ContentPage {
     ContentSection {
         icon: "view_quilt"
         title: Translation.tr("Windows")
-        description: Translation.tr("Tiling puts new windows next to each other automatically. Snapping helps align floating ones.")
+        description: Translation.tr("Free windows stay where you put them, as on Windows and macOS. Tiling puts new windows next to each other automatically.")
 
         ContentSubsection {
-            title: Translation.tr("Tiling layout")
+            title: Translation.tr("How windows behave")
             enabled: HyprlandSettings.ready
             Flow {
                 Layout.fillWidth: true
                 spacing: 4
-                readonly property string current: HyprlandSettings.get("general:layout", "dwindle")
+                readonly property bool free: HyprlandSettings.windowMode === "floating"
+                readonly property string current: free ? "free" : HyprlandSettings.get("general:layout", "dwindle")
+                // Changed by the shell, so windows rearrange under its transition
+                function setMode(mode) {
+                    Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "windowMode", "set", mode]);
+                }
                 SchemeTile {
                     id: dwindleTile
                     label: Translation.tr("Dwindle")
                     selected: parent.current === "dwindle"
-                    onClicked: HyprlandSettings.set("general:layout", "dwindle")
+                    onClicked: {
+                        HyprlandSettings.set("general:layout", "dwindle");
+                        if (parent.free) parent.setMode("tiling");
+                    }
                     Block { x: 6; y: 6; width: 40; height: 48; color: dwindleTile.ink }
                     Block { x: 50; y: 6; width: 40; height: 22; color: dwindleTile.faint }
                     Block { x: 50; y: 32; width: 19; height: 22; color: dwindleTile.faint }
@@ -81,11 +89,22 @@ ContentPage {
                     id: masterTile
                     label: Translation.tr("Master")
                     selected: parent.current === "master"
-                    onClicked: HyprlandSettings.set("general:layout", "master")
+                    onClicked: {
+                        HyprlandSettings.set("general:layout", "master");
+                        if (parent.free) parent.setMode("tiling");
+                    }
                     Block { x: 6; y: 6; width: 50; height: 48; color: masterTile.ink }
                     Block { x: 60; y: 6; width: 30; height: 14; color: masterTile.faint }
                     Block { x: 60; y: 23; width: 30; height: 14; color: masterTile.faint }
                     Block { x: 60; y: 40; width: 30; height: 14; color: masterTile.faint }
+                }
+                SchemeTile {
+                    id: freeTile
+                    label: Translation.tr("Free windows")
+                    selected: parent.current === "free"
+                    onClicked: parent.setMode("floating")
+                    Block { x: 8; y: 8; width: 48; height: 30; color: freeTile.faint }
+                    Block { x: 30; y: 20; width: 54; height: 34; color: freeTile.ink }
                 }
             }
         }

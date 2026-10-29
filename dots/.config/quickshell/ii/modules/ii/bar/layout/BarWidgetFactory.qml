@@ -135,6 +135,7 @@ QtObject {
         "weather": weather,
         "utilButtons": utilButtons,
         "launcher": launcher,
+        "taskbar": taskbar,
         "session": session,
         "settingsButton": settingsButton,
         "wallpaperButton": wallpaperButton,
@@ -380,6 +381,10 @@ QtObject {
             property var host: null
             kind: host?.type ?? ""
         }
+    }
+
+    property Component taskbar: Component {
+        TaskbarWidget {}
     }
 
     property Component launcher: Component {

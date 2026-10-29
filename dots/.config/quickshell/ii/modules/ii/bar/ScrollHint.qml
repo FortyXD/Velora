@@ -29,9 +29,9 @@ Revealer { // Scroll hint
             onTriggered: mouseArea.showHintTimedOut = true
         }
 
-        PopupToolTip {
-            extraVisibleCondition: (tooltipText.length > 0 && mouseArea.showHintTimedOut)
-            text: tooltipText
+        BarToolTip {
+            shown: mouseArea.hovered && mouseArea.showHintTimedOut
+            text: root.tooltipText
         }
 
         Column {
