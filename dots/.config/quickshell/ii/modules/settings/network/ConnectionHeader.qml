@@ -11,7 +11,7 @@ Rectangle {
     id: root
     property string icon: ""
     property color iconColor: Appearance.colors.colPrimary
-    property bool busy: false // Spins the icon, e.g. while connecting
+    property bool busy: false // Shows an activity ring without rotating the connection icon
     property string title: ""
     property string subtitle: ""
     property string detail: ""
@@ -53,20 +53,13 @@ Rectangle {
                     GradientStop { position: 0; color: root.checked ? Qt.lighter(root.iconColor, 1.18) : Appearance.colors.colLayer3 }
                     GradientStop { position: 1; color: root.checked ? root.iconColor : Appearance.colors.colLayer3 }
                 }
-                MaterialSymbol {
+                StatusIcon {
                     anchors.centerIn: parent
                     text: root.icon
                     iconSize: 40
                     fill: root.checked ? 1 : 0
                     color: root.checked ? "white" : Appearance.colors.colSubtext
-                    RotationAnimation on rotation {
-                        running: root.busy
-                        loops: Animation.Infinite
-                        from: 0
-                        to: 360
-                        duration: 1200
-                        onStopped: parent.rotation = 0
-                    }
+                    busy: root.busy
                 }
             }
 
