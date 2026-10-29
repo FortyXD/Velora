@@ -37,7 +37,7 @@ Variants {
 
         // Behind a fullscreen window the widgets stop drawing. The window itself stays mapped with the
         // wallpaper: unmapping it made the empty screen flash while it mapped again on leaving fullscreen.
-        property list<HyprlandWorkspace> workspacesForMonitor: Hyprland.workspaces.values.filter(workspace => workspace.monitor && workspace.monitor.name == monitor.name)
+        property list<HyprlandWorkspace> workspacesForMonitor: Hyprland.workspaces.values.filter(workspace => workspace.monitor && workspace.monitor.name == bgRoot.modelData.name)
         property var activeWorkspaceWithFullscreen: workspacesForMonitor.filter(workspace => ((workspace.toplevels.values.filter(window => window.wayland?.fullscreen)[0] != undefined) && workspace.active))[0]
         readonly property bool coveredByFullscreen: !GlobalStates.screenLocked && activeWorkspaceWithFullscreen !== undefined && Config.options.background.hideWhenFullscreen
 
@@ -65,14 +65,20 @@ Variants {
             return enabled && sensitiveWallpaper && sensitiveNetwork;
         }
         readonly property real parallaxRation: Config.options.background.parallax.workspaceZoom
-        property real minSuitableScale: 1 // Some reasonable init, to be updated
-        property real effectiveWallpaperScale: minSuitableScale * parallaxRation
-        property int wallpaperWidth: modelData.width // Some reasonable init value, to be updated
-        property int wallpaperHeight: modelData.height // Some reasonable init value, to be updated
-        property real scaledWallpaperWidth: wallpaperWidth * effectiveWallpaperScale
-        property real scaledWallpaperHeight: wallpaperHeight * effectiveWallpaperScale
-        property real parallaxTotalPixelsX: Math.max(0, scaledWallpaperWidth - screen.width)
-        property real parallaxTotalPixelsY: Math.max(0, scaledWallpaperHeight - screen.height)
+        property int wallpaperWidth: 0
+        property int wallpaperHeight: 0
+        readonly property real scaledWallpaperWidth: wallpaperGeometry.scaledWidth
+        readonly property real scaledWallpaperHeight: wallpaperGeometry.scaledHeight
+        readonly property real parallaxTotalPixelsX: Math.max(0, scaledWallpaperWidth - bgRoot.width)
+        readonly property real parallaxTotalPixelsY: Math.max(0, scaledWallpaperHeight - bgRoot.height)
+        WallpaperGeometry {
+            id: wallpaperGeometry
+            viewportWidth: bgRoot.width
+            viewportHeight: bgRoot.height
+            imageWidth: bgRoot.wallpaperWidth
+            imageHeight: bgRoot.wallpaperHeight
+            zoom: bgRoot.parallaxRation
+        }
         readonly property bool verticalParallax: (Config.options.background.parallax.autoVertical && wallpaperHeight > wallpaperWidth) || Config.options.background.parallax.vertical
         // Colors
         property bool shouldBlur: (GlobalStates.screenLocked && Config.options.lock.blur.enable)
@@ -111,33 +117,38 @@ Variants {
         }
 
         onWallpaperPathChanged: {
+            bgRoot.wallpaperWidth = 0;
+            bgRoot.wallpaperHeight = 0;
             bgRoot.updateZoomScale();
-            // Clock position gets updated after zoom scale is updated
         }
+        Component.onCompleted: bgRoot.updateZoomScale()
 
-        // Wallpaper zoom scale
+        // Read intrinsic dimensions only; geometry stays bound to the window size.
         function updateZoomScale() {
+            if (getWallpaperSizeProc.running || !bgRoot.wallpaperPath)
+                return;
             getWallpaperSizeProc.path = bgRoot.wallpaperPath;
             getWallpaperSizeProc.running = true;
         }
         Process {
             id: getWallpaperSizeProc
-            property string path: bgRoot.wallpaperPath
-            command: ["magick", "identify", "-format", "%w %h", path]
+            property string path: ""
+            command: ["magick", "identify", "-ping", "-format", "%w %h", path + "[0]"]
+            onExited: {
+                // A newer selection may have arrived while identify was running.
+                if (path !== bgRoot.wallpaperPath)
+                    bgRoot.updateZoomScale();
+            }
             stdout: StdioCollector {
                 id: wallpaperSizeOutputCollector
                 onStreamFinished: {
-                    const output = wallpaperSizeOutputCollector.text;
-                    const [width, height] = output.split(" ").map(Number);
-                    const [screenWidth, screenHeight] = [bgRoot.screen.width, bgRoot.screen.height];
+                    if (getWallpaperSizeProc.path !== bgRoot.wallpaperPath)
+                        return;
+                    const [width, height] = wallpaperSizeOutputCollector.text.trim().split(/\s+/).map(Number);
+                    if (!isFinite(width) || !isFinite(height) || width <= 0 || height <= 0)
+                        return;
                     bgRoot.wallpaperWidth = width;
                     bgRoot.wallpaperHeight = height;
-
-                    // Perfect image; scale = 1
-                    // Small picture; scale > 1; will zoom in the picture
-                    // Big picture; scale < 1; will zoom out the picture
-                    // Choose max number so every side will fit
-                    bgRoot.minSuitableScale = Math.max(screenWidth / width, screenHeight / height);
                 }
             }
         }
@@ -155,7 +166,7 @@ Variants {
                 cache: false
                 smooth: false
 
-                property int workspaceIndex: (bgRoot.monitor.activeWorkspace?.id ?? 1) - 1
+                property int workspaceIndex: (bgRoot.monitor?.activeWorkspace?.id ?? 1) - 1
                 property real middleFraction: 0.5
                 property real fraction: {
                     // 0 - start of the picture
@@ -186,16 +197,16 @@ Variants {
                 }
 
                 x: {
-                    if (bgRoot.screen.width > width) {
+                    if (bgRoot.width > width) {
                         // Center the picture
-                        return (bgRoot.screen.width - width) / 2;
+                        return (bgRoot.width - width) / 2;
                     }
                     return - bgRoot.parallaxTotalPixelsX * usedFractionX;
                 }
                 y: {
-                    if (bgRoot.screen.height > height) {
+                    if (bgRoot.height > height) {
                         // Center the picture
-                        return (bgRoot.screen.height - height) / 2;
+                        return (bgRoot.height - height) / 2;
                     }
                     return - bgRoot.parallaxTotalPixelsY * usedFractionY;
                 }
@@ -335,8 +346,8 @@ Variants {
                     var f = Config.options.background.parallax.widgetsFactor;
                     return f / bgRoot.parallaxRation;
                 }
-                readonly property real baseWallpaperOffsetX: (bgRoot.screen.width - wallpaper.width) / 2
-                readonly property real baseWallpaperOffsetY: (bgRoot.screen.height - wallpaper.height) / 2
+                readonly property real baseWallpaperOffsetX: (bgRoot.width - wallpaper.width) / 2
+                readonly property real baseWallpaperOffsetY: (bgRoot.height - wallpaper.height) / 2
                 readonly property real wallpaperTotalOffsetX: wallpaper.x - baseWallpaperOffsetX
                 readonly property real wallpaperTotalOffsetY: wallpaper.y - baseWallpaperOffsetY
                 readonly property bool locked: GlobalStates.screenLocked
