@@ -2,6 +2,7 @@ import QtQuick
 import QtTest
 
 Item {
+    id: viewport
     width: 200
     height: 140
 
@@ -13,6 +14,9 @@ Item {
         when: windowShown
 
         function init() {
+            viewport.width = 200;
+            viewport.height = 140;
+            fader.zoom = 1;
             fader.clear();
             wait(1);
             finished.clear();
@@ -32,6 +36,27 @@ Item {
             tryCompare(finished, "count", 2);
             tryCompare(fader.pictures(), "length", 1);
             compare(fader.current.scale, 1);
+        }
+
+        function test_each_layer_covers_resized_viewport() {
+            fader.preload(Qt.resolvedUrl("blue.svg").toString(), 120, 500);
+            tryVerify(() => fader.preloaded.status === Image.Ready);
+            const current = fader.current;
+            const ahead = fader.preloaded;
+            for (const size of [[344, 144], [151, 101], [108, 192]]) {
+                viewport.width = size[0];
+                viewport.height = size[1];
+                for (const picture of [current, ahead]) {
+                    verify(picture.width + 0.001 >= fader.width);
+                    verify(picture.height + 0.001 >= fader.height);
+                    fuzzyCompare(picture.width / picture.height, picture.imageWidth / picture.imageHeight, 0.000001);
+                }
+            }
+            fader.zoom = NaN;
+            verify(isFinite(current.width) && current.width >= fader.width);
+            fader.show(ahead.path, 120, 500);
+            tryCompare(finished, "count", 2);
+            compare(fader.current, ahead);
         }
 
         function test_blends_pixels_without_black_frame() {

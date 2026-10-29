@@ -28,6 +28,7 @@ class WallpaperTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='velora-wallpaper-') as directory:
             root = Path(directory)
             shutil.copy2(SHELL / 'modules/common/widgets/WallpaperFader.qml', root)
+            shutil.copy2(SHELL / 'modules/common/widgets/WallpaperGeometry.qml', root)
             shutil.copy2(SHELL / 'modules/common/MaterialPalette.qml', root)
             # Only replace the shell singleton base; all coordination logic is production code.
             (root / 'WallpaperTransition.qml').write_text(

@@ -38,7 +38,7 @@ Variants {
 
         // Behind a fullscreen window the widgets stop drawing. The window itself stays mapped with the
         // wallpaper: unmapping it made the empty screen flash while it mapped again on leaving fullscreen.
-        property list<HyprlandWorkspace> workspacesForMonitor: Hyprland.workspaces.values.filter(workspace => workspace.monitor && workspace.monitor.name == monitor.name)
+        property list<HyprlandWorkspace> workspacesForMonitor: Hyprland.workspaces.values.filter(workspace => workspace.monitor && workspace.monitor.name == bgRoot.modelData.name)
         property var activeWorkspaceWithFullscreen: workspacesForMonitor.filter(workspace => ((workspace.toplevels.values.filter(window => window.wayland?.fullscreen)[0] != undefined) && workspace.active))[0]
         readonly property bool coveredByFullscreen: !GlobalStates.screenLocked && activeWorkspaceWithFullscreen !== undefined && Config.options.background.hideWhenFullscreen
 
@@ -118,10 +118,10 @@ Variants {
                 required property string path
                 property bool preload: false
                 running: true
-                command: ["magick", "identify", "-format", "%w %h", `${probe.path}[0]`] // [0]: the first frame of an animation
+                command: ["magick", "identify", "-ping", "-format", "%w %h", `${probe.path}[0]`] // [0]: the first frame of an animation
                 stdout: StdioCollector {
                     onStreamFinished: {
-                        const [width, height] = text.trim().split(" ").map(Number);
+                        const [width, height] = text.trim().split(/\s+/).map(Number);
                         if (width > 0 && height > 0) wallpaper.sizes[probe.path] = { width: width, height: height };
                         if (probe.preload) wallpaper.preloadMeasured(probe.path, width, height);
                         else wallpaper.measured(probe.path, width, height);
@@ -227,8 +227,8 @@ Variants {
                     return Math.max(0, Math.min(1, workspaceIndex / (bgRoot.totalWorkspaces - 1)));
                 }
 
-                width: bgRoot.screen.width
-                height: bgRoot.screen.height
+                width: bgRoot.width
+                height: bgRoot.height
 
                 // Animated wallpaper (ShaderWallpaper); on the first screen it also takes the still frame when one is wanted
                 FadeLoader {

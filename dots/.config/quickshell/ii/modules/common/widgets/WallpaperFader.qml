@@ -91,12 +91,19 @@ Item {
             required property real imageWidth
             required property real imageHeight
             property bool activated: false
-            readonly property real fit: Math.max(root.width / imageWidth, root.height / imageHeight) * Math.max(1, root.zoom)
+            WallpaperGeometry {
+                id: geometry
+                viewportWidth: root.width
+                viewportHeight: root.height
+                imageWidth: picture.imageWidth
+                imageHeight: picture.imageHeight
+                zoom: root.zoom
+            }
             readonly property bool useVertical: root.vertical || (root.autoVertical && imageHeight > imageWidth)
             readonly property real fractionX: Math.max(0, Math.min(1, (root.workspaceParallax && !useVertical ? root.workspaceFraction : 0.5) + root.sidebarOffset))
             readonly property real fractionY: root.workspaceParallax && useVertical ? root.workspaceFraction : 0.5
-            width: imageWidth * fit
-            height: imageHeight * fit
+            width: geometry.scaledWidth
+            height: geometry.scaledHeight
             x: -(width - root.width) * fractionX
             y: -(height - root.height) * fractionY
             Behavior on x { NumberAnimation { duration: root.duration; easing.type: Easing.OutCubic } }
