@@ -47,11 +47,11 @@ Loader {
 
     property Component screenRecord: Component {
         CircleUtilButton {
-            toggled: ScreenRecorder.recording
+            toggled: ScreenRecorder.active
             urgent: true
-            iconName: ScreenRecorder.recording ? "stop_circle" : "videocam"
+            iconName: ScreenRecorder.active ? "stop_circle" : "videocam"
             iconFill: 1
-            tooltipText: ScreenRecorder.recording ? Translation.tr("Stop recording") : Translation.tr("Record screen")
+            tooltipText: ScreenRecorder.tooltip
             onClicked: ScreenRecorder.toggle()
         }
     }

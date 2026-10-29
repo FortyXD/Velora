@@ -47,19 +47,20 @@ StyledOverlayWidget {
 
                 BigRecorderButton {
                     materialSymbol: "screen_record"
-                    name: "Record region"
+                    name: ScreenRecorder.active ? Translation.tr("Stop recording") : Translation.tr("Record region")
                     onClicked: {
                         GlobalStates.overlayOpen = false;
-                        Quickshell.execDetached(["qs", "-p", Quickshell.shellPath(""), "ipc", "call", "region", "recordWithSound"]);
+                        if (ScreenRecorder.active) ScreenRecorder.stop();
+                        else ScreenRecorder.selectRegion();
                     }
                 }
                 
                 BigRecorderButton {
                     materialSymbol: "capture"
-                    name: "Record screen"
+                    name: ScreenRecorder.active ? Translation.tr("Stop recording") : Translation.tr("Record screen")
                     onClicked: {
                         GlobalStates.overlayOpen = false;
-                        Quickshell.execDetached([Directories.recordScriptPath, "--fullscreen", "--sound"]);
+                        ScreenRecorder.toggle("screen");
                     }
                 }
             }
@@ -73,7 +74,7 @@ StyledOverlayWidget {
                 colRipple: Appearance.colors.colLayer3Active
                 onClicked: {
                     GlobalStates.overlayOpen = false;
-                    Qt.openUrlExternally(`file://${Config.options.screenRecord.savePath}`);
+                    ScreenRecorder.openFolder();
                 }
                 contentItem: Row {
                     anchors.centerIn: parent
