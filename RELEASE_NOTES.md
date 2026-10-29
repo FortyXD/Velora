@@ -1,17 +1,16 @@
-# Velora 0.1.1
+# Velora 0.1.2
 
-Build either sidebar from the parts you use, arrange them in a live preview, and keep your desktop settings through updates.
+Better touchpad defaults, Bluetooth setup, clearer network activity, and fixes for laptop brightness and moving wallpapers.
 
 Velora is an independently maintained fork of Illogical Impulse, built for Arch Linux with Hyprland and Quickshell.
 
 ## Highlights
 
-- **Sidebars made from parts.** Place media, weather, clipboard history, notes, system graphs, quick tools, notifications, sliders and other parts in either sidebar. Move parts between sidebars, group them into tabs, and undo layout changes. Existing sidebar layouts are preserved.
-- **Editors that keep the layout in view.** The Sidebars page shows a preview beside the selected part's settings. The Bar and Lock Screen pages keep their previews visible while their settings scroll.
-- **Nine new moving wallpaper looks.** Illustrated and anime scenes replace the three nature videos. Downloaded videos play in preset previews, and applying another look cancels an older download's pending wallpaper change.
-- **Updates preserve generated settings.** Wallpaper colors and files written by Settings are no longer tracked by Git. New installations use default templates, and updates preserve local copies.
-- **Repair a moved checkout.** Run `./velora relink` after moving or renaming the checkout. `velora doctor` reports missing or stale links, and the update timer follows the new location.
-- **Playback and saving fixes.** Qt video playback uses VA-API to avoid waking a hybrid laptop's NVIDIA GPU. Failed settings saves show a notification, and Hyprland reloads are skipped when its configuration is unavailable.
+- **Touchpad right-click choices.** Tap-to-click is enabled by default, including two-finger taps for right click. Open Settings with Super+I, then Mouse & Touchpad → Touchpad to choose a bottom-right corner press or a two-finger physical click. Existing custom overrides are preserved; systems without overrides adopt the new defaults.
+- **Bluetooth ready during setup.** The installer includes BlueZ and starts its service when an adapter is detected. `--skip-packages` preserves package, Python environment and service state for both installation and `velora deps`.
+- **Upright Wi-Fi symbols.** A separate ring shows connection or scan activity without spinning Wi-Fi and lock symbols. Hidden indicators stop animating, and background scans do not animate the bar's connection indicator.
+- **Brightness on hybrid GPU laptops.** Controls select the backlight belonging to the connected screen, avoiding an unused GPU's backlight.
+- **Sharper moving wallpapers.** Video loops retain source resolution up to 4K with higher encoding quality. Older loops are rebuilt in the background when their look is applied. Playback uses sharper scaling, and lock-screen still frames use higher JPEG quality.
 
 ## Install
 
