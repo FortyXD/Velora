@@ -51,6 +51,7 @@ class StatusIconTests(unittest.TestCase):
             result = subprocess.run(
                 [QT_TEST_RUNNER, '-input', str(root), '-o', '-,txt'],
                 env={**os.environ, 'QT_QPA_PLATFORM': 'offscreen', 'QT_QUICK_BACKEND': 'software',
+                     'QT_QPA_PLATFORMTHEME': 'generic', 'FONTCONFIG_FILE': '/etc/fonts/fonts.conf',
                      'QT_LOGGING_RULES': '*.warning=true;*.critical=true', 'QT_LOGGING_TO_CONSOLE': '1'},
                 capture_output=True, text=True, timeout=30,
             )

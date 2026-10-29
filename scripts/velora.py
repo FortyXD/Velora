@@ -863,7 +863,7 @@ def install(args):
     backup = link_configuration(args, without)
     print(f"\nVelora installed. Backup: {backup}\nRestore with: velora restore {backup.name}")
     print("Log in to Hyprland: the setup assistant starts on its own (later: Shift+Super+Alt+/).")
-    print("Open Settings with Super+I. Update Velora from Settings > About, or run: velora update")
+    print("Open Settings with Super+I. Update Velora from Settings > General > Software Update, or run: velora update")
     print("User configuration lives in the writable runtime directory." if package_metadata()
           else "Keep the checkout in place: your configuration links point to it.")
 
@@ -996,7 +996,7 @@ def update(args):
         if args.notify and status["available"] and previous.get("target") != status["target"] and shutil.which("notify-send"):
             try:
                 run(["notify-send", "--app-name=Velora", "Velora update available",
-                     "Open Settings > About > Install update, or run velora update."])
+                     "Open Settings > General > Software Update > Install update, or run velora update."])
             except VeloraError:
                 print("Update status saved. The desktop notification service is unavailable.")
         return

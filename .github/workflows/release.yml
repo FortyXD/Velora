@@ -18,7 +18,7 @@ jobs:
       contents: write
     steps:
       - name: Install build tools
-        run: pacman -Syu --noconfirm --needed git python sudo github-cli
+        run: pacman -Syu --noconfirm --needed git python sudo github-cli rust
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.release_tag || github.ref }}
