@@ -122,7 +122,7 @@ Variants {
                 stdout: StdioCollector {
                     onStreamFinished: {
                         const [width, height] = text.trim().split(/\s+/).map(Number);
-                        if (width > 0 && height > 0) wallpaper.sizes[probe.path] = { width: width, height: height };
+                        if (isFinite(width) && isFinite(height) && width > 0 && height > 0) wallpaper.sizes[probe.path] = { width: width, height: height };
                         if (probe.preload) wallpaper.preloadMeasured(probe.path, width, height);
                         else wallpaper.measured(probe.path, width, height);
                         probe.destroy();
@@ -168,7 +168,7 @@ Variants {
                 }
                 function measured(path, width, height) {
                     if (path !== wallpaper.newestPath) return;
-                    if (!(width > 0 && height > 0)) {
+                    if (!(isFinite(width) && isFinite(height) && width > 0 && height > 0)) {
                         WallpaperTransition.finish(bgRoot.modelData.name, path);
                         return;
                     }
@@ -191,7 +191,7 @@ Variants {
                     }
                 }
                 function preloadMeasured(path, width, height) {
-                    if (width > 0 && height > 0) wallpaperFader.preload(path, width, height);
+                    if (isFinite(width) && isFinite(height) && width > 0 && height > 0) wallpaperFader.preload(path, width, height);
                     else WallpaperTransition.reportPreloaded(bgRoot.modelData.name, path); // Nothing to wait for
                 }
 

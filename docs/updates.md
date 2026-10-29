@@ -4,7 +4,7 @@
 
 The installer registers `velora-update.service` and `velora-update.timer` in the user's systemd configuration. The timer checks shortly after login and approximately every six hours, with a small randomized delay. It fetches the remote of the current branch's configured tracking relationship and records the result in `$XDG_STATE_HOME/velora/update.json`.
 
-A check never installs dependencies, merges commits, changes checked-out files, or restarts the desktop. An available target triggers a desktop notification when the notification service is accessible. Settings → About reads the same status file and offers **Check for updates** and **Install update** buttons. Installation opens Kitty, the required desktop terminal, to show progress and package-manager prompts.
+A check never installs dependencies, merges commits, changes checked-out files, or restarts the desktop. An available target triggers a desktop notification when the notification service is accessible. Settings → General → Software Update reads the same status file and offers **Check for updates** and **Install update** buttons. Installation opens Kitty, the required desktop terminal, to show progress and package-manager prompts.
 
 ```bash
 velora update --check
