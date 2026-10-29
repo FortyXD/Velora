@@ -19,7 +19,8 @@ Singleton {
         Search,
         CharRecognition,
         Record,
-        RecordWithSound
+        RecordWithSound,
+        RecordWithMic
     }
 
     property string imageSearchEngineBaseUrl: Config.options.search.imageSearch.imageSearchEngineBaseUrl
@@ -76,11 +77,13 @@ Singleton {
                 return ["bash", "-c", `${cropInPlace} && tesseract '${StringUtils.shellSingleQuoteEscape(screenshotPath)}' stdout -l $(tesseract --list-langs | awk 'NR>1{print $1}' | tr '\\n' '+' | sed 's/\\+$/\\n/') | wl-copy && ${cleanup}`]
                 break;
             case ScreenshotAction.Action.Record:
-                return ["bash", "-c", `${Directories.recordScriptPath} --region '${slurpRegion}'`]
+                return [Directories.recordScriptPath, "--region", slurpRegion]
                 break;
             case ScreenshotAction.Action.RecordWithSound:
-                return ["bash", "-c", `${Directories.recordScriptPath} --region '${slurpRegion}' --sound`]
+                return [Directories.recordScriptPath, "--region", slurpRegion, "--sound"]
                 break;
+            case ScreenshotAction.Action.RecordWithMic:
+                return [Directories.recordScriptPath, "--region", slurpRegion, "--mic"];
             default:
                 console.warn("[Region Selector] Unknown snip action, skipping snip.");
                 return;

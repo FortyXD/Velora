@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import qs
 import qs.modules.common
+import qs.services
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -10,6 +11,7 @@ Scope {
     id: root
 
     function dismiss() {
+        ScreenRecorder.regionSelecting = false;
         GlobalStates.regionSelectorOpen = false
     }
 
@@ -54,21 +56,26 @@ Scope {
         GlobalStates.regionSelectorOpen = true
     }
 
-    function record() {
-        root.action = RegionSelection.SnipAction.Record
-        root.selectionMode = RegionSelection.SelectionMode.RectCorners
-        // If already open then re-trigger to stop recording
-        if (GlobalStates.regionSelectorOpen) GlobalStates.regionSelectorOpen = false
-        GlobalStates.regionSelectorOpen = true
+    Connections {
+        target: ScreenRecorder
+        function onRegionRequested(sound) {
+            if (sound === "both") root.recordWithMic();
+            else if (sound === "system") root.recordWithSound();
+            else root.record();
+        }
     }
 
-    function recordWithSound() {
-        root.action = RegionSelection.SnipAction.RecordWithSound
-        root.selectionMode = RegionSelection.SelectionMode.RectCorners
-        // If already open then re-trigger to stop recording
-        if (GlobalStates.regionSelectorOpen) GlobalStates.regionSelectorOpen = false
-        GlobalStates.regionSelectorOpen = true
+    function openRecording(action) {
+        if (ScreenRecorder.active) { ScreenRecorder.stop(); root.dismiss(); return; }
+        GlobalStates.regionSelectorOpen = false;
+        root.action = action;
+        root.selectionMode = RegionSelection.SelectionMode.RectCorners;
+        ScreenRecorder.regionSelecting = true;
+        GlobalStates.regionSelectorOpen = true;
     }
+    function record() { root.openRecording(RegionSelection.SnipAction.Record); }
+    function recordWithSound() { root.openRecording(RegionSelection.SnipAction.RecordWithSound); }
+    function recordWithMic() { root.openRecording(RegionSelection.SnipAction.RecordWithMic); }
 
     IpcHandler {
         target: "region"
@@ -88,6 +95,7 @@ Scope {
         function recordWithSound() {
             root.recordWithSound()
         }
+        function recordWithMic() { root.recordWithMic(); }
     }
 
     GlobalShortcut {
@@ -109,6 +117,11 @@ Scope {
         name: "regionRecord"
         description: "Records the selected region"
         onPressed: root.record()
+    }
+    GlobalShortcut {
+        name: "regionRecordWithMic"
+        description: "Records the selected region with system sound and microphone"
+        onPressed: root.recordWithMic()
     }
     GlobalShortcut {
         name: "regionRecordWithSound"

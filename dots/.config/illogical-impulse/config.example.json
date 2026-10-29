@@ -457,7 +457,15 @@
         "updateInterval": 3000
     },
     "screenRecord": {
-        "savePath": "/home/andrey/Videos"
+        "savePath": "",
+        "mode": "region",
+        "audio": "system",
+        "systemSource": "",
+        "microphoneSource": "",
+        "fps": 30,
+        "quality": "balanced",
+        "format": "mp4",
+        "delay": 0
     },
     "screenSnip": {
         "savePath": ""

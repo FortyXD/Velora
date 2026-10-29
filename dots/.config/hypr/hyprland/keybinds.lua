@@ -203,14 +203,18 @@ hl.define_submap("global", function()
         non_consuming = true,
     })
     bind("Super+Shift", "R", hl.dsp.global("quickshell:regionRecord"), { id = "tools.record_region", locked = true, description = "Record a region" })
-    bind("Super+Shift", "R", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || ~/.config/quickshell/$qsConfig/scripts/videos/record.sh]=]), { id = "tools.record_region", locked = true })
+    bind("Super+Shift", "R", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || ~/.config/quickshell/$qsConfig/scripts/videos/record.sh --select-region]=]), { id = "tools.record_region", locked = true })
     bind("Super+Alt", "R", hl.dsp.global("quickshell:regionRecord"), { locked = true })
-    bind("Super+Alt", "R", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || ~/.config/quickshell/$qsConfig/scripts/videos/record.sh]=]), { locked = true })
-    bind("Ctrl+Alt", "R", exec([=[~/.config/quickshell/$qsConfig/scripts/videos/record.sh --fullscreen]=]), { locked = true })
-    bind("Super+Shift+Alt", "R", exec([=[~/.config/quickshell/$qsConfig/scripts/videos/record.sh --fullscreen --sound]=]), {
+    bind("Super+Alt", "R", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || ~/.config/quickshell/$qsConfig/scripts/videos/record.sh --select-region]=]), { locked = true })
+    bind("Ctrl+Alt", "R", exec([=[qs -c $qsConfig ipc call recorder screenSilent || ~/.config/quickshell/$qsConfig/scripts/videos/record.sh --fullscreen --silent]=]), { locked = true })
+    bind("Super+Shift+Alt", "R", exec([=[qs -c $qsConfig ipc call recorder screenWithSound || ~/.config/quickshell/$qsConfig/scripts/videos/record.sh --fullscreen --sound]=]), {
         id = "tools.record_screen",
         locked = true,
         description = "Record the screen with sound",
+    })
+    bind("Ctrl+Super+Alt", "R", exec([=[qs -c $qsConfig ipc call recorder screenWithMic || ~/.config/quickshell/$qsConfig/scripts/videos/record.sh --fullscreen --mic]=]), {
+        locked = true,
+        description = "Record the screen with system sound and microphone",
     })
     bind("Super+Shift", "A", hl.dsp.global("quickshell:regionSearch"), { id = "tools.lens", description = "Search a region with Google Lens" })
     bind("Super+Shift", "A", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pidof slurp || ~/.config/hypr/hyprland/scripts/snip_to_search.sh]=]), { id = "tools.lens" })
