@@ -51,8 +51,9 @@ Loader {
             urgent: true
             iconName: ScreenRecorder.active ? "stop_circle" : "videocam"
             iconFill: 1
-            tooltipText: ScreenRecorder.tooltip
+            tooltipText: `${ScreenRecorder.tooltip} | ${Translation.tr("Right-click for recording settings")}`
             onClicked: ScreenRecorder.toggle()
+            altAction: () => ScreenRecorder.openSettings()
         }
     }
 

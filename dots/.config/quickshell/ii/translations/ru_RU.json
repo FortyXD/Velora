@@ -2557,5 +2557,6 @@
   "System audio device": "Устройство системного звука",
   "The file is finalized before recording is reported as saved.": "Уведомление о сохранении появится только после завершения записи файла.",
   "Unavailable device: %1": "Недоступное устройство: %1",
-  "Where screenshots go": "Куда сохраняются снимки экрана"
+  "Where screenshots go": "Куда сохраняются снимки экрана",
+  "Right-click for recording settings": "ПКМ — настройки записи экрана"
 }
