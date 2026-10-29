@@ -1,0 +1,2 @@
+# Allow the active local session to use its virtual keyboard, without joining the input group.
+SUBSYSTEM=="misc", KERNEL=="uinput", TAG+="uaccess", OPTIONS+="static_node=uinput"

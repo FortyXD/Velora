@@ -1,0 +1,15 @@
+[package]
+name = "velora-helper"
+version = "0.1.0"
+edition = "2021"
+description = "Fast native helpers for the Velora desktop: wallpaper palettes, theme staging and widget placement"
+license = "GPL-3.0-only"
+publish = false
+
+[dependencies]
+anyhow = "1"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif", "bmp", "tiff"] }
+fast_image_resize = { version = "6", features = ["image"] }
+material-colors = "0.5"
+serde_json = { version = "1", features = ["preserve_order"] }
+toml = "0.8"

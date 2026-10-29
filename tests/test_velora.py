@@ -52,6 +52,24 @@ class DependencyTests(IsolatedTest):
             self.assertEqual(velora.package_plan(features), (["kitty"], ["mpvpaper"]))
             self.assertEqual(velora.package_plan(features, True), (["kitty"], []))
 
+    def test_components_report_choice_and_installation_for_the_setup_assistant(self):
+        velora.write_json(velora.state_dir() / "installation.json", {"without": ["toolbox"]})
+        with patch.object(velora, "missing_packages", side_effect=lambda packages: [p for p in packages if p == "yt-dlp"]):
+            state = {item["id"]: item for item in velora.components_state()}
+        self.assertFalse(state["toolbox"]["selected"])
+        self.assertFalse(state["toolbox"]["installed"])
+        self.assertEqual((state["toolbox"]["missingRepo"], state["toolbox"]["missingAur"]), (["yt-dlp"], []))
+        self.assertTrue(state["desktop"]["required"] and state["desktop"]["installed"])
+
+    def test_deps_add_keeps_the_new_components_in_the_saved_selection(self):
+        velora.write_json(velora.state_dir() / "installation.json", {"without": ["toolbox", "live-wallpapers"], "skip_aur": False})
+        args = velora.parser().parse_args(["deps", "--add", "toolbox"])
+        velora.add_features(args)
+        self.assertEqual(args.without, "live-wallpapers")
+        self.assertEqual(velora.preferences()["without"], ["live-wallpapers"])
+        with self.assertRaisesRegex(velora.VeloraError, "Unknown components"):
+            velora.add_features(velora.parser().parse_args(["deps", "--add", "nonsense"]))
+
     def test_bluetooth_dependencies_and_controller_detection(self):
         shell = velora.manifest()["shell"]
         self.assertTrue({"bluez", "bluez-utils"}.issubset(shell["repo"]))
@@ -64,6 +82,7 @@ class DependencyTests(IsolatedTest):
         with patch.object(velora, "package_plan") as package_plan, \
                 patch.object(velora, "bluetooth_adapters_present") as adapters, \
                 patch.object(velora, "install_fonts"), \
+                patch.object(velora, "verify_runtime"), \
                 patch.object(velora, "run") as run:
             self.assertEqual(velora.main(["deps", "--skip-packages"]), 0)
         package_plan.assert_not_called()
@@ -91,15 +110,140 @@ class DependencyTests(IsolatedTest):
             velora.install_dependencies(args, features)
             run.assert_any_call(command, dry=True)
 
-    def test_font_step_skips_an_installed_font_and_only_warns_on_failure(self):
-        with patch.object(velora, "font_installed", return_value=True), patch.object(velora, "run") as run:
+    def test_font_step_refreshes_cache_without_downloading_installed_fonts(self):
+        with patch.object(velora, "font_installed", return_value=True), \
+                patch.object(velora, "font_tool", side_effect=lambda name: f"/usr/bin/{name}"), \
+                patch.object(velora, "download_font") as download, patch.object(velora, "run") as run:
             velora.install_fonts()
-        run.assert_not_called()
+        download.assert_not_called()
+        run.assert_called_once_with(["/usr/bin/fc-cache", "-f"], timeout=180)
+
+    def test_missing_required_font_is_fatal_instead_of_linking_a_broken_desktop(self):
+        with patch.object(velora, "font_installed", side_effect=lambda family: family != "Google Sans Flex"), \
+                patch.object(velora, "font_tool", side_effect=lambda name: f"/usr/bin/{name}"), \
+                patch.object(velora, "run"), \
+                patch.object(velora, "download_font", side_effect=velora.VeloraError("offline")):
+            with self.assertRaisesRegex(velora.VeloraError, "Required fonts are missing: Google Sans Flex"):
+                velora.install_fonts()
+
+    def test_font_detection_matches_aliases_without_accepting_partial_names(self):
+        with patch.object(velora, "font_tool", side_effect=lambda name: f"/usr/bin/{name}"), \
+                patch.object(velora, "run", return_value="JetBrainsMono Nerd Font,JetBrainsMono NF\nGoogle Sans Flex\nNoto Sans Arabic\n"):
+            self.assertTrue(velora.font_installed("JetBrains Mono NF"))
+            self.assertTrue(velora.font_installed("Google Sans Flex"))
+            self.assertFalse(velora.font_installed("Google Sans"))
+            self.assertFalse(velora.font_installed("Noto Sans"))
+
+    def test_core_font_requirements_cover_configured_families_and_stay_required(self):
+        example = json.loads((PROJECT / "dots/.config/illogical-impulse/config.example.json").read_text())
+        required = set(velora.FONT_PACKAGES)
+        self.assertTrue(set(example["appearance"]["fonts"].values()) <= required)
+        self.assertTrue({"Material Symbols Rounded", "Hack Nerd Font", "Noto Sans", "Noto Color Emoji"} <= required)
+        shell = velora.manifest()["shell"]
+        self.assertTrue(shell["required"])
+        self.assertTrue({"fontconfig", "ttf-jetbrains-mono-nerd", "ttf-hack-nerd", "noto-fonts", "noto-fonts-emoji"} <= set(shell["repo"]))
+        downloadable_packages = {velora.FONT_PACKAGES[family] for family in velora.FONT_DOWNLOADS}
+        self.assertFalse(downloadable_packages & set(shell["aur"]))
+
+    def test_skip_aur_repairs_ui_fonts_and_refreshes_cache_before_verifying(self):
+        installed = set(velora.FONT_PACKAGES) - set(velora.FONT_DOWNLOADS)
+        args = ["deps", "--skip-aur"]
+        with patch.object(velora, "install_dependencies") as dependencies, \
+                patch.object(velora, "verify_runtime"), \
+                patch.object(velora, "font_tool", side_effect=lambda name: f"/usr/bin/{name}"), \
+                patch.object(velora, "font_installed", side_effect=lambda family: family in installed), \
+                patch.object(velora, "download_font", side_effect=installed.add) as download, \
+                patch.object(velora, "run") as run:
+            self.assertEqual(velora.main(args), 0)
+        self.assertTrue(dependencies.call_args.args[0].skip_aur)
+        self.assertEqual({call.args[0] for call in download.call_args_list}, set(velora.FONT_DOWNLOADS))
+        self.assertEqual([call.args[0] for call in run.call_args_list], [["/usr/bin/fc-cache", "-f"]] * 2)
+        self.assertEqual(installed, set(velora.FONT_PACKAGES))
+
+    def test_missing_package_font_names_the_package_to_repair(self):
+        with patch.object(velora, "font_installed", side_effect=lambda family: family != "Hack Nerd Font"), \
+                patch.object(velora, "font_tool", side_effect=lambda name: f"/usr/bin/{name}"), \
+                patch.object(velora, "run"), patch.object(velora, "download_font") as download:
+            with self.assertRaisesRegex(velora.VeloraError, r"Hack Nerd Font \(ttf-hack-nerd\)"):
+                velora.install_fonts()
+        download.assert_not_called()
+
+    def test_font_dry_run_does_not_create_directories_or_refresh_cache(self):
         with patch.object(velora, "font_installed", return_value=False), \
-                patch.object(velora, "run", side_effect=velora.VeloraError("offline")), \
-                contextlib.redirect_stderr(io.StringIO()) as errors:
-            velora.install_fonts()
-        self.assertIn("Google Sans Flex was not installed", errors.getvalue())
+                patch.object(velora, "download_font") as download, patch.object(velora, "run") as run:
+            velora.install_fonts(dry=True)
+        download.assert_not_called()
+        run.assert_not_called()
+        self.assertFalse((self.base / "data/fonts").exists())
+
+    def test_download_validates_family_and_preserves_the_license(self):
+        family = "Material Symbols Rounded"
+        def fetched(command, **kwargs):
+            if Path(command[0]).name == "curl":
+                Path(command[command.index("--output") + 1]).write_bytes(b"downloaded font or license")
+                return ""
+            self.assertEqual(Path(command[0]).name, "fc-scan")
+            return family
+        with patch.object(velora, "font_tool", side_effect=lambda name: f"/usr/bin/{name}"), \
+                patch.object(velora, "run", side_effect=fetched):
+            velora.download_font(family)
+        target = self.base / "data/fonts/velora-material-symbols-rounded"
+        self.assertTrue((target / "material-symbols-rounded.ttf").is_file())
+        self.assertTrue((target / "LICENSE.txt").is_file())
+
+    def test_invalid_download_is_rejected_before_replacing_a_font(self):
+        target = self.base / "data/fonts/velora-google-sans-flex"
+        target.mkdir(parents=True)
+        previous = target / "google-sans-flex.ttf"
+        previous.write_bytes(b"existing font")
+        def fetched(command, **kwargs):
+            if Path(command[0]).name == "curl":
+                Path(command[command.index("--output") + 1]).write_bytes(b"wrong font")
+                return ""
+            return "Unrelated Font"
+        with patch.object(velora, "font_tool", side_effect=lambda name: f"/usr/bin/{name}"), \
+                patch.object(velora, "run", side_effect=fetched):
+            with self.assertRaisesRegex(velora.VeloraError, "does not provide Google Sans Flex"):
+                velora.download_font("Google Sans Flex")
+        self.assertEqual(previous.read_bytes(), b"existing font")
+
+    def test_installer_does_not_link_configuration_after_font_failure(self):
+        args = velora.parser().parse_args(["install", "--yes", "--skip-packages"])
+        with patch.object(velora, "run"), patch.object(velora, "preflight"), \
+                patch.object(velora, "install_fonts", side_effect=velora.VeloraError("Required fonts are missing")), \
+                patch.object(velora, "link_configuration") as link:
+            with self.assertRaisesRegex(velora.VeloraError, "Required fonts are missing"):
+                velora.install(args)
+        link.assert_not_called()
+
+    def test_system_font_tools_win_over_an_environment_on_path(self):
+        with patch.object(velora.Path, "is_file", return_value=True), \
+                patch.object(velora.shutil, "which", return_value="/opt/conda/bin/fc-list") as which:
+            self.assertEqual(velora.font_tool("fc-list"), "/usr/bin/fc-list")
+        which.assert_not_called()
+
+    def test_unavailable_fontconfig_stops_before_any_download(self):
+        with patch.object(velora, "font_tool", return_value=None), \
+                patch.object(velora, "download_font") as download:
+            with self.assertRaisesRegex(velora.VeloraError, "Install fontconfig"):
+                velora.install_fonts()
+        download.assert_not_called()
+
+    def test_doctor_checks_all_families_even_when_the_main_font_is_installed(self):
+        venv = velora.xdg("XDG_STATE_HOME", ".local/state") / "quickshell/.venv/bin/python"
+        venv.parent.mkdir(parents=True)
+        venv.touch()
+        with patch.object(velora, "font_installed", side_effect=lambda family: family != "Material Symbols Rounded"), \
+                patch.object(velora, "package_plan", return_value=([], [])), \
+                patch.object(velora, "stale_links", return_value=[]), \
+                patch.object(velora, "runtime_problems", return_value=[]), \
+                patch.object(velora, "service_active", return_value=True), \
+                patch.object(velora.shutil, "which", return_value="/usr/bin/tool"), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            with self.assertRaises(velora.VeloraError):
+                velora.doctor(velora.parser().parse_args(["doctor"]))
+        self.assertIn("Font Google Sans Flex: installed", output.getvalue())
+        self.assertIn("Font Material Symbols Rounded: missing", output.getvalue())
 
     def test_packages_provided_by_others_count_as_installed(self):
         # pacman -T lists only what nothing installed provides, e.g. not curl when curl-git is installed
@@ -153,6 +297,8 @@ class InstallerTests(IsolatedTest):
                  "dots/.config/wireplumber/wireplumber.conf.d/51-auto-audio-routes.conf",
                  "dots/.local/share/wireplumber/scripts/folis/prefer-plugged-routes.lua",
                  "dots/.local/share/icons/illogical-impulse.svg",
+                 "dots/.local/share/icons/hicolor/scalable/apps/org.velora.Settings.svg",
+                 "dots/.local/share/applications/org.velora.Settings.desktop",
                  "dots/.local/share/kxmlgui5/dolphin/dolphinui.rc",
                  "dots/.local/share/folis/dolphin-create-archive.py",
                  "dots/.local/share/dbus-1/services/org.freedesktop.FileManager1.service",
@@ -258,6 +404,7 @@ class InstallerTests(IsolatedTest):
 
         with patch.object(velora, "ROOT", self.repo), patch.object(velora, "run", side_effect=run), \
              patch.object(velora, "install_fonts"), \
+             patch.object(velora, "verify_runtime"), \
              patch.object(velora, "register_installation", side_effect=velora.VeloraError("registration failed")):
             with self.assertRaisesRegex(velora.VeloraError, "registration failed"):
                 velora.install(args)

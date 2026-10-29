@@ -3,15 +3,23 @@ pkgname=velora
 pkgver=@VERSION@
 pkgrel=1
 pkgdesc='A customizable Hyprland and Quickshell desktop for Arch Linux'
-arch=('any')
+arch=('x86_64' 'aarch64') # tools/velora-helper is native code
 url='https://github.com/FortyXD/Velora'
 license=('GPL-3.0-only')
 depends=('bash' 'coreutils' 'git' 'python>=3.11' 'pacman' 'sudo')
-options=('!strip' '!debug')
+makedepends=('cargo')
+options=('!debug')
 source=('velora-source.tar.gz')
 sha256sums=('@SHA256@')
 
+build() {
+    cd "$srcdir/velora/tools"
+    export CARGO_TARGET_DIR="$srcdir/cargo-target"
+    cargo build --release --locked
+}
+
 package() {
+    install -Dm755 "$srcdir/cargo-target/release/velora-helper" "$pkgdir/usr/bin/velora-helper"
     install -d "$pkgdir/usr/share/velora" "$pkgdir/usr/bin"
     cp -a --no-preserve=ownership "$srcdir/velora/." "$pkgdir/usr/share/velora/"
     chmod 755 "$pkgdir/usr/share/velora/velora"
