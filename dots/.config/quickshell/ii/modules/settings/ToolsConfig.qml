@@ -273,10 +273,19 @@ ContentPage {
     }
 
     ContentSection {
-        icon: "file_open"
-        title: Translation.tr("Save paths")
-        description: Translation.tr("Where screenshots go")
+        icon: "screenshot"
+        title: Translation.tr("Screenshots")
+        description: Translation.tr("Cursor visibility and screenshot storage")
 
+        ConfigSwitch {
+            objectName: "screenshotShowCursor"
+            buttonIcon: "arrow_selector_tool"
+            text: Translation.tr("Show cursor in screenshots")
+            description: Translation.tr("Include the pointer in screen and region captures")
+            autoToggle: false
+            checked: Config.options.screenSnip.showCursor
+            onClicked: Config.options.screenSnip.showCursor = !checked
+        }
         ConfigSwitch {
             buttonIcon: "screenshot"
             text: Translation.tr("Save screenshots to a folder")
