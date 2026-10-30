@@ -73,12 +73,39 @@ Scope {
         readonly property bool hovered: triggerArea.containsMouse
         readonly property real glowRadius: hotWindow.hovered ? 46 : (hotWindow.options.hint ? 9 : 0)
         readonly property bool deadPixelWorkaround: Config.options.interactions.deadPixelWorkaround.enable
+        readonly property HyprlandMonitor hyprlandMonitor: Hyprland.monitorFor(screen)
+
+        HotCornerActivationGuard {
+            id: activationGuard
+            suppressed: HotCorners.blocked
+            corner: hotWindow.corner
+            screenX: hotWindow.hyprlandMonitor?.x ?? 0
+            screenY: hotWindow.hyprlandMonitor?.y ?? 0
+            screenWidth: hotWindow.screen?.width ?? 0
+            screenHeight: hotWindow.screen?.height ?? 0
+            size: hotWindow.options.size
+            // Current circular masks have a diameter of 2 * size; older shells used a square.
+            circular: triggerArea.width === 2 * hotWindow.options.size
+            onAllowedChanged: {
+                if (!allowed) dwellTimer?.stop();
+                else if (triggerArea?.containsMouse && hotWindow.options.trigger === "hover")
+                    dwellTimer?.restart(); // A fresh entry may have arrived during the cursor check.
+            }
+        }
+        Connections {
+            target: HotCorners
+            function onSelectionFinished(x, y, valid) {
+                activationGuard.resumeAt(x, y, valid && hotWindow.hyprlandMonitor !== null);
+            }
+        }
 
         function trigger() {
+            if (!activationGuard.allowed) return;
             HotCorners.run(hotWindow.action, hotWindow.options[hotWindow.corner]?.command ?? "");
         }
 
-        visible: hotWindow.action !== "none" && (!hotWindow.fullscreen || hotWindow.options.inFullscreen)
+        visible: hotWindow.action !== "none" && !GlobalStates.regionSelectorOpen
+            && (!hotWindow.fullscreen || hotWindow.options.inFullscreen)
         exclusionMode: ExclusionMode.Ignore
         mask: Region {
             item: triggerArea
@@ -137,16 +164,19 @@ Scope {
             y: hotWindow.isTop ? 0 : parent.height - height - (hotWindow.deadPixelWorkaround ? 1 : 0)
             hoverEnabled: true
             cursorShape: hotWindow.options.trigger === "click" ? Qt.PointingHandCursor : Qt.ArrowCursor
-            onEntered: if (hotWindow.options.trigger === "hover") dwellTimer.restart()
-            onExited: dwellTimer.stop()
+            onEntered: if (activationGuard.allowed && hotWindow.options.trigger === "hover") dwellTimer.restart()
+            onExited: {
+                dwellTimer.stop();
+                activationGuard.pointerExited();
+            }
             onPressed: if (hotWindow.options.trigger === "click") hotWindow.trigger()
             onScrollUp: {
-                if (!hotWindow.options.scroll) return;
+                if (!activationGuard.allowed || !hotWindow.options.scroll) return;
                 if (hotWindow.isLeft) Brightness.increaseBrightness();
                 else Audio.incrementVolume();
             }
             onScrollDown: {
-                if (!hotWindow.options.scroll) return;
+                if (!activationGuard.allowed || !hotWindow.options.scroll) return;
                 if (hotWindow.isLeft) Brightness.decreaseBrightness();
                 else Audio.decrementVolume();
             }
