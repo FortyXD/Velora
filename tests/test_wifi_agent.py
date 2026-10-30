@@ -8,6 +8,15 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+# Ubuntu CI does not provide libnm's GI typelib. Exercise the real adapter on
+# systems that have it; the snapshot and UI tests still run without libnm.
+try:
+    import gi
+    gi.require_version('NM', '1.0')
+    gi.require_version('GLibUnix', '2.0')
+except (ImportError, ValueError):
+    raise unittest.SkipTest('libnm/GObject introspection unavailable')
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / 'dots/.config/quickshell/ii/scripts/network/wifi_agent.py'
 spec = importlib.util.spec_from_file_location('wifi_agent', SCRIPT)
