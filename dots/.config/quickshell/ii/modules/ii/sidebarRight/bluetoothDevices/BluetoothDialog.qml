@@ -57,21 +57,14 @@ WindowDialog {
     }
     WindowDialogSeparator {}
     WindowDialogButtonRow {
+        Layout.fillWidth: true
         DialogButton {
+            Layout.fillWidth: true
             buttonText: Translation.tr("Details")
             onClicked: {
-                Quickshell.execDetached(["bash", "-c", `${Config.options.apps.bluetooth}`]);
+                Quickshell.execDetached(["env", "QS_SETTINGS_PAGE=bluetooth", "QS_SETTINGS_SEARCH=", "qs", "-p", Quickshell.shellPath("settings.qml")]);
                 GlobalStates.closeSidebars();
             }
-        }
-
-        Item {
-            Layout.fillWidth: true
-        }
-
-        DialogButton {
-            buttonText: Translation.tr("Done")
-            onClicked: root.dismiss()
         }
     }
 }

@@ -144,12 +144,5 @@ ContentPage {
             checked: Config.options.bar.indicators.bluetoothBattery
             onCheckedChanged: Config.options.bar.indicators.bluetoothBattery = checked
         }
-        ConfigNavRow {
-            buttonIcon: "settings_bluetooth"
-            title: Translation.tr("Advanced Bluetooth settings")
-            description: Translation.tr("File transfer, audio profiles and other details")
-            trailingIcon: "open_in_new"
-            onClicked: Quickshell.execDetached(["bash", "-c", Config.options.apps.bluetooth])
-        }
     }
 }
