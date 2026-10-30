@@ -38,6 +38,13 @@ def fields(line):
     return result
 
 
+def security_kind(value):
+    value = value.upper()
+    if "802.1X" in value or "EAP" in value or "WEP" in value:
+        return "advanced"
+    return "personal" if "WPA" in value or "SAE" in value else "open" if value in ("", "--") else "advanced"
+
+
 def saved_profiles():
     result = nmcli("-t", "-f", "UUID,TYPE,TIMESTAMP", "connection", "show")
     if result.returncode:
@@ -54,26 +61,28 @@ def saved_profiles():
         # A profile name is not necessarily its SSID. Avoid --show-secrets here:
         # it prompts polkit and emits profile-change events for every saved Wi-Fi.
         detail = nmcli(
-            "--escape", "no", "-g", "802-11-wireless.ssid",
+            "--escape", "no", "-g", "802-11-wireless.ssid,802-11-wireless-security.key-mgmt",
             "connection", "show", "uuid", uuid,
         )
         if detail.returncode:
             return None
-        ssid = detail.stdout.strip()
-        if not ssid:
+        lines = detail.stdout.splitlines()
+        if not lines or not lines[0]:
             return None
-        # Never connected (a profile left by an attempt that didn't get through): it has no working password
-        return ssid, {"uuid": uuid, "hasCredentials": True, "neverUsed": last_used.get(uuid, 0) == 0}
+        ssid = lines[0]
+        mode = lines[1] if len(lines) > 1 else ""
+        kind = "personal" if mode in ("wpa-psk", "sae") else "open" if mode in ("", "--") else "advanced"
+        return (ssid, kind), {"uuid": uuid, "joinedBefore": last_used.get(uuid, 0) > 0}
 
     profiles = {}
     with ThreadPoolExecutor(max_workers=8) as pool:
         for entry in pool.map(profile, uuids):
             if entry is None:
                 continue
-            ssid, candidate = entry
-            # Prefer a profile that was used, then one with credentials
-            if ssid not in profiles or (profiles[ssid]["neverUsed"] and not candidate["neverUsed"]):
-                profiles[ssid] = candidate
+            key, candidate = entry
+            # History is for display only, never proof of secret availability.
+            if key not in profiles or (not profiles[key]["joinedBefore"] and candidate["joinedBefore"]):
+                profiles[key] = candidate
     return profiles
 
 
@@ -83,7 +92,7 @@ def visible_networks(profiles):
         "device", "wifi", "list", "--rescan", "no",
     )
     if result.returncode:
-        return [], result.stderr.strip().splitlines()[0] if result.stderr.strip() else "NetworkManager unavailable"
+        return [], "NetworkManager unavailable"
     networks = {}
     for line in result.stdout.splitlines():
         values = fields(line)
@@ -95,27 +104,28 @@ def visible_networks(profiles):
         except ValueError:
             continue
         ssid = values[3]
+        key = (ssid, security_kind(values[5]))
         network = {
+            "key": "\n".join(key),
             "active": values[0] == "*",
             "strength": strength,
             "frequency": frequency,
             "ssid": ssid,
             "bssid": values[4],
             "security": values[5],
-            "savedUuid": profiles.get(ssid, {}).get("uuid", ""),
-            "savedCredentials": not values[5] or profiles.get(ssid, {}).get("hasCredentials", False),
-            "neverUsed": profiles.get(ssid, {}).get("neverUsed", False),
+            "savedUuid": profiles.get(key, {}).get("uuid", ""),
+            "joinedBefore": profiles.get(key, {}).get("joinedBefore", False),
         }
-        previous = networks.get(ssid)
+        previous = networks.get(key)
         if previous is None or (network["active"], strength) > (previous["active"], previous["strength"]):
-            networks[ssid] = network
+            networks[key] = network
     return list(networks.values()), ""
 
 
 def main():
     profiles = saved_profiles()
     networks, error = visible_networks(profiles)
-    saved = [{"ssid": ssid, "uuid": profile["uuid"]} for ssid, profile in sorted(profiles.items(), key=lambda item: item[0].lower())]
+    saved = [{"ssid": key[0], "uuid": profile["uuid"]} for key, profile in sorted(profiles.items(), key=lambda item: item[0])]
     print(json.dumps({"networks": networks, "saved": saved, "error": error}, ensure_ascii=False))
 
 

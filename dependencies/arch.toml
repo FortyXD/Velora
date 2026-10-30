@@ -90,6 +90,8 @@ repo = [
     "bluedevil",
     "gnome-keyring",
     "networkmanager",
+    "libnm",
+    "python-gobject",
     "plasma-nm",
     "wl-clipboard",
     "grim",

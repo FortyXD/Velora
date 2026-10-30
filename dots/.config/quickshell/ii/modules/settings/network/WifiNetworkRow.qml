@@ -12,8 +12,7 @@ import qs.modules.common.widgets
 ColumnLayout {
     id: root
     required property WifiAccessPoint network
-    readonly property bool connecting: Network.connectionPending && Network.wifiConnectSsid === root.network.ssid
-    readonly property bool rejected: Network.credentialErrorSsid === root.network.ssid
+    readonly property bool connecting: Network.connectionPending && Network.operationKey === root.network.key
     readonly property bool saved: root.network.savedUuid.length > 0
 
     Layout.fillWidth: true
@@ -30,7 +29,7 @@ ColumnLayout {
         colRipple: Appearance.colors.colLayer2Active
         enabled: Network.wifiEnabled && (!Network.connectionPending || root.connecting)
         onClicked: {
-            if (!root.network.active && !root.network.askingPassword) Network.connectToWifiNetwork(root.network);
+            if (!root.network.active && !root.connecting) Network.connectToWifiNetwork(root.network);
         }
 
         contentItem: RowLayout {
@@ -58,9 +57,8 @@ ColumnLayout {
                     Layout.fillWidth: true
                     elide: Text.ElideRight
                     font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: root.rejected ? Appearance.colors.colError : Appearance.colors.colSubtext
+                    color: Appearance.colors.colSubtext
                     text: root.connecting ? Translation.tr("Connecting…")
-                        : root.rejected ? Translation.tr("Saved password rejected")
                         : root.network.active ? Translation.tr("Connected")
                         : root.network.known ? Translation.tr("Joined before")
                         : root.network.isSecure ? Translation.tr("Needs a password")
@@ -101,39 +99,40 @@ ColumnLayout {
         }
     }
 
-    // The saved password stopped working
     RowLayout {
-        visible: root.rejected && !root.network.askingPassword
+        visible: Network.failedNetworkKey === root.network.key && !root.connecting
         Layout.fillWidth: true
         Layout.leftMargin: 50
         Layout.rightMargin: 12
         Layout.bottomMargin: 10
-        spacing: 8
         StyledText {
             Layout.fillWidth: true
-            text: Translation.tr("The network didn't accept the saved password.")
+            text: Network.wifiErrorMessage
+            textFormat: Text.PlainText
             wrapMode: Text.Wrap
+            color: Appearance.colors.colError
             font.pixelSize: Appearance.font.pixelSize.smaller
-            color: Appearance.colors.colSubtext
         }
         DialogButton {
-            buttonText: Translation.tr("Enter a new one")
-            onClicked: Network.requestPasswordUpdate()
+            objectName: "wifiRetryButton"
+            buttonText: Translation.tr("Try again")
+            onClicked: Network.connectToWifiNetwork(root.network)
         }
     }
 
     Loader {
-        active: root.network.askingPassword
+        active: root.connecting
         visible: active
         Layout.fillWidth: true
         Layout.leftMargin: 50
         Layout.rightMargin: 12
         Layout.bottomMargin: 12
         sourceComponent: PasswordForm {
-            errorText: root.network.errorText
-            busy: root.connecting
-            onAccepted: password => Network.changePassword(root.network, password)
-            onCanceled: Network.cancelPasswordPrompt()
+            errorText: Network.wifiErrorMessage
+            busy: !Network.awaitingPassword
+            promptToken: Network.secretRequest
+            onAccepted: password => Network.submitPassword(password)
+            onCanceled: { Network.cancelPasswordPrompt(); rowButton.forceActiveFocus(); }
         }
     }
 }

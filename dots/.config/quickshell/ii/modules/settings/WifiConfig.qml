@@ -19,7 +19,6 @@ ContentPage {
     readonly property var otherNearby: page.matching.filter(network => !network.known)
     property bool showAllSaved: false
     property bool showAllNearby: false // The strongest few first: two dozen rows took over half a second to build
-    property bool changingPassword: false
     property bool joiningHidden: false
 
     function signalWord(strength) {
@@ -27,6 +26,12 @@ ContentPage {
     }
 
     Component.onCompleted: Network.trackDetails = true
+    // Settings pages stay instantiated behind each other: never retain a
+    // partially entered or revealed password on a hidden page.
+    onPageShownChanged: if (!pageShown) {
+        if (Network.connectionPending) Network.cancelPasswordPrompt();
+        page.joiningHidden = false;
+    }
 
     // A fresh list as soon as the page is shown, then every half a minute while it stays open
     Timer {
@@ -93,11 +98,6 @@ ContentPage {
                 buttonText: Translation.tr("Disconnect")
                 onClicked: Network.disconnectWifiNetwork()
             }
-            DialogButton {
-                visible: (page.current?.isSecure ?? false) && (page.current?.savedUuid ?? "").length > 0
-                buttonText: Translation.tr("Change password")
-                onClicked: page.changingPassword = !page.changingPassword
-            }
             Item {
                 Layout.fillWidth: true
             }
@@ -108,22 +108,16 @@ ContentPage {
             }
         }
 
-        Loader {
-            active: page.changingPassword && page.current !== null
-            visible: active
-            Layout.fillWidth: true
-            Layout.margins: 12
-            sourceComponent: PasswordForm {
-                acceptText: Translation.tr("Save")
-                placeholderText: Translation.tr("New password")
-                busy: Network.connectionPending
-                onAccepted: password => {
-                    Network.changePassword(page.current, password);
-                    page.changingPassword = false;
-                }
-                onCanceled: page.changingPassword = false
-            }
-        }
+
+    }
+
+    StyledText {
+        Layout.fillWidth: true
+        visible: text.length > 0 && !Network.awaitingPassword && !Network.failedNetworkKey && !(page.joiningHidden && Network.operationHidden)
+        text: Network.snapshotError || Network.wifiErrorMessage
+        textFormat: Text.PlainText
+        wrapMode: Text.Wrap
+        color: Appearance.colors.colError
     }
 
     ContentSection {
@@ -146,7 +140,7 @@ ContentPage {
     ContentSection {
         icon: "wifi_find"
         title: Translation.tr("Networks nearby")
-        description: Translation.tr("Click a network to join it. Networks you joined before are remembered and joined again by themselves.")
+        description: Translation.tr("Click a network to join it. Saved networks may ask for a password again.")
 
         RowLayout {
             Layout.fillWidth: true
@@ -313,7 +307,10 @@ ContentPage {
             description: Translation.tr("For networks that don't show their name")
             trailingIcon: page.joiningHidden ? "expand_less" : "expand_more"
             enabled: Network.wifiEnabled
-            onClicked: page.joiningHidden = !page.joiningHidden
+            onClicked: {
+                if (page.joiningHidden && Network.operationHidden) Network.cancelPasswordPrompt();
+                page.joiningHidden = !page.joiningHidden;
+            }
         }
         ColumnLayout {
             visible: page.joiningHidden
@@ -322,32 +319,44 @@ ContentPage {
             spacing: 8
             ConfigTextRow {
                 id: hiddenName
+                enabled: !Network.connectionPending
                 Layout.leftMargin: 0
                 Layout.rightMargin: 0
                 placeholderText: Translation.tr("Network name")
                 wrapMode: TextEdit.NoWrap
             }
+            StyledText {
+                Layout.fillWidth: true
+                visible: Network.operationHidden && !Network.connectionPending && text.length > 0
+                text: Network.wifiErrorMessage
+                textFormat: Text.PlainText
+                wrapMode: Text.Wrap
+                color: Appearance.colors.colError
+            }
+            ComboBox {
+                id: hiddenSecurity
+                Layout.fillWidth: true
+                enabled: !Network.connectionPending
+                model: [Translation.tr("WPA2 Personal"), Translation.tr("WPA3 Personal"), Translation.tr("Open network")]
+            }
+            DialogButton {
+                visible: !Network.connectionPending
+                buttonText: Translation.tr("Join")
+                enabled: hiddenName.value.length > 0
+                onClicked: Network.connectToHiddenNetwork(hiddenName.value, ["wpa-psk", "sae", "open"][hiddenSecurity.currentIndex])
+            }
             Loader {
-                active: page.joiningHidden
+                active: Network.connectionPending && Network.operationHidden && page.pageShown
+                visible: active
                 Layout.fillWidth: true
                 sourceComponent: PasswordForm {
-                    focusOnShow: false
-                    allowEmpty: true
-                    acceptText: Translation.tr("Join")
-                    placeholderText: Translation.tr("Password, if it has one")
-                    busy: Network.connectionPending
-                    errorText: Network.wifiConnectSsid === "" && hiddenName.value.length > 0 ? Network.wifiErrorMessage : ""
-                    onAccepted: password => Network.connectToHiddenNetwork(hiddenName.value.trim(), password)
-                    onCanceled: page.joiningHidden = false
+                    busy: !Network.awaitingPassword
+                    promptToken: Network.secretRequest
+                    errorText: Network.wifiErrorMessage
+                    onAccepted: password => Network.submitPassword(password)
+                    onCanceled: { Network.cancelPasswordPrompt(); page.joiningHidden = false; }
                 }
             }
-        }
-        ConfigNavRow {
-            buttonIcon: "tune"
-            title: Translation.tr("Advanced connection settings")
-            description: Translation.tr("VPN, proxy, fixed addresses and everything else about your connections")
-            trailingIcon: "open_in_new"
-            onClicked: Quickshell.execDetached(["bash", "-c", Network.ethernet ? Config.options.apps.networkEthernet : Config.options.apps.network])
         }
     }
 }

@@ -13,10 +13,19 @@ ColumnLayout {
     id: root
     property string errorText: ""
     property string acceptText: Translation.tr("Connect")
+    property string cancelText: busy ? Translation.tr("Stop waiting") : Translation.tr("Cancel")
     property string placeholderText: Translation.tr("Password")
     property bool busy: false
     property bool allowEmpty: false // For open networks, where the password is optional
     readonly property alias text: field.text
+    property string promptToken: ""
+    onPromptTokenChanged: if (promptToken && !busy) Qt.callLater(() => field.forceActiveFocus())
+    onBusyChanged: Qt.callLater(() => { if (visible) { if (busy) { clear(); cancelButton.forceActiveFocus(); } else field.forceActiveFocus(); } })
+    Keys.onEscapePressed: cancel()
+    function clear() { field.clear(); revealButton.toggled = false; field.focus = false; }
+    function cancel() { clear(); root.canceled(); }
+    onVisibleChanged: if (!visible) clear()
+
 
     signal accepted(string password)
     signal canceled()
@@ -25,11 +34,13 @@ ColumnLayout {
 
     function submit() {
         if ((field.text.length === 0 && !root.allowEmpty) || root.busy) return;
-        root.accepted(field.text);
+        const password = field.text;
+        clear();
+        root.accepted(password);
     }
 
     property bool focusOnShow: true
-    Component.onCompleted: if (root.focusOnShow) field.forceActiveFocus()
+    Component.onCompleted: if (root.focusOnShow) { if (busy) cancelButton.forceActiveFocus(); else field.forceActiveFocus(); }
 
     RowLayout {
         Layout.fillWidth: true
@@ -37,6 +48,9 @@ ColumnLayout {
 
         TextField {
             id: field
+            objectName: "wifiPasswordField"
+            enabled: !root.busy
+            inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
             Layout.fillWidth: true
             echoMode: revealButton.toggled ? TextInput.Normal : TextInput.Password
             placeholderText: root.placeholderText
@@ -61,10 +75,11 @@ ColumnLayout {
             }
             Keys.onReturnPressed: root.submit()
             Keys.onEnterPressed: root.submit()
-            Keys.onEscapePressed: root.canceled()
+            Keys.onEscapePressed: root.cancel()
 
             RippleButton {
                 id: revealButton
+                objectName: "wifiRevealButton"
                 anchors {
                     right: parent.right
                     rightMargin: 4
@@ -89,8 +104,10 @@ ColumnLayout {
         }
 
         DialogButton {
-            buttonText: Translation.tr("Cancel")
-            onClicked: root.canceled()
+            id: cancelButton
+            objectName: "wifiCancelButton"
+            buttonText: root.cancelText
+            onClicked: root.cancel()
         }
         DialogButton {
             buttonText: root.acceptText
@@ -107,6 +124,7 @@ ColumnLayout {
         visible: root.errorText.length > 0
         Layout.fillWidth: true
         text: root.errorText
+        textFormat: Text.PlainText
         wrapMode: Text.Wrap
         font.pixelSize: Appearance.font.pixelSize.smaller
         color: Appearance.colors.colError

@@ -1,5 +1,6 @@
 import qs
 import qs.services
+import qs.modules.settings.network
 import qs.services.network
 import qs.modules.common
 import qs.modules.common.widgets
@@ -10,8 +11,10 @@ import Quickshell
 WindowDialog {
     id: root
     backgroundHeight: 600
+    // WindowDialog fades instead of destroying its children. Closing it must
+    // discard the password field and the outstanding request.
+    onShowChanged: if (!show && Network.connectionPending) Network.cancelPasswordPrompt()
     readonly property WifiAccessPoint passwordNetwork: Network.wifiNetworks.find(network => network.ssid === Network.passwordPromptSsid) ?? null
-    readonly property WifiAccessPoint credentialErrorNetwork: Network.wifiNetworks.find(network => network.ssid === Network.credentialErrorSsid) ?? null
 
     WindowDialogTitle {
         text: Translation.tr("Network connections")
@@ -93,51 +96,42 @@ WindowDialog {
                     width: networkColumn.width
                     spacing: 0
                     WifiNetworkItem {
+                        id: entryButton
                         Layout.fillWidth: true
                         wifiNetwork: networkEntry.modelData
                     }
-                    ColumnLayout {
-                        visible: networkEntry.modelData?.askingPassword ?? false
+                    RowLayout {
+                        visible: Network.failedNetworkKey === networkEntry.modelData.key
                         Layout.fillWidth: true
                         Layout.leftMargin: Appearance.rounding.large + 30
                         Layout.rightMargin: Appearance.rounding.large
                         Layout.bottomMargin: 10
-                        spacing: 6
-                        onVisibleChanged: {
-                            passwordField.text = "";
-                            if (visible) passwordField.forceActiveFocus();
-                        }
-                        MaterialTextField {
-                            id: passwordField
-                            Layout.fillWidth: true
-                            enabled: !Network.connectionPending
-                            placeholderText: Translation.tr("Password for %1").arg(networkEntry.modelData?.ssid ?? "")
-                            echoMode: TextInput.Password
-                            inputMethodHints: Qt.ImhSensitiveData
-                            onAccepted: if (text.length > 0) Network.changePassword(networkEntry.modelData, text)
-                            Keys.onEscapePressed: Network.cancelPasswordPrompt()
-                        }
                         StyledText {
                             Layout.fillWidth: true
-                            visible: text.length > 0
+                            text: Network.wifiErrorMessage
+                            textFormat: Text.PlainText
                             wrapMode: Text.Wrap
-                            text: networkEntry.modelData?.errorText ?? ""
                             font.pixelSize: Appearance.font.pixelSize.smaller
                             color: Appearance.colors.colError
                         }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Item { Layout.fillWidth: true }
-                            DialogButton {
-                                buttonText: Translation.tr("Cancel")
-                                enabled: !Network.connectionPending
-                                onClicked: Network.cancelPasswordPrompt()
-                            }
-                            DialogButton {
-                                buttonText: Translation.tr("Connect")
-                                enabled: passwordField.text.length > 0 && !Network.connectionPending
-                                onClicked: Network.changePassword(networkEntry.modelData, passwordField.text)
-                            }
+                        DialogButton {
+                            buttonText: Translation.tr("Try again")
+                            onClicked: Network.connectToWifiNetwork(networkEntry.modelData)
+                        }
+                    }
+                    Loader {
+                        active: root.show && Network.connectionPending && Network.operationKey === networkEntry.modelData.key
+                        visible: active
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Appearance.rounding.large + 30
+                        Layout.rightMargin: Appearance.rounding.large
+                        Layout.bottomMargin: 10
+                        sourceComponent: PasswordForm {
+                            errorText: Network.wifiErrorMessage
+                            busy: !Network.awaitingPassword
+                            promptToken: Network.secretRequest
+                            onAccepted: password => Network.submitPassword(password)
+                            onCanceled: { Network.cancelPasswordPrompt(); entryButton.forceActiveFocus(); }
                         }
                     }
                 }
@@ -157,33 +151,19 @@ WindowDialog {
         visible: text.length > 0
         wrapMode: Text.Wrap
         color: Appearance.colors.colError
-        text: Network.snapshotError || (root.passwordNetwork ? "" : Network.wifiErrorMessage) // Password errors show at the network
+        text: Network.snapshotError || (root.passwordNetwork || Network.failedNetworkKey ? "" : Network.wifiErrorMessage) // Password errors show at the network
         textFormat: Text.PlainText
-    }
-    DialogButton {
-        Layout.fillWidth: true
-        visible: root.credentialErrorNetwork !== null
-        buttonText: Translation.tr("Update saved password")
-        onClicked: Network.requestPasswordUpdate()
     }
     WindowDialogSeparator {}
     WindowDialogButtonRow {
+        Layout.fillWidth: true
         DialogButton {
+            Layout.fillWidth: true
             buttonText: Translation.tr("Details")
             onClicked: {
-                Quickshell.execDetached(["bash", "-c", `${Network.ethernet ? Config.options.apps.networkEthernet : Config.options.apps.network}`]);
+                Quickshell.execDetached(["env", "QS_SETTINGS_PAGE=wifi", "QS_SETTINGS_SEARCH=", "qs", "-p", Quickshell.shellPath("settings.qml")]);
                 GlobalStates.closeSidebars();
             }
-        }
-        Item { Layout.fillWidth: true }
-        DialogButton {
-            visible: Network.active !== null
-            buttonText: Translation.tr("Disconnect Wi-Fi")
-            onClicked: Network.disconnectWifiNetwork()
-        }
-        DialogButton {
-            buttonText: Translation.tr("Done")
-            onClicked: root.dismiss()
         }
     }
 }

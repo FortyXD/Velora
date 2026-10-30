@@ -14,7 +14,7 @@ QuickToggleButton {
     buttonIcon: Network.materialSymbol
     onClicked: Network.toggleWifi()
     altAction: () => {
-        Quickshell.execDetached(["bash", "-c", `${Network.ethernet ? Config.options.apps.networkEthernet : Config.options.apps.network}`])
+        Quickshell.execDetached(["env", "QS_SETTINGS_PAGE=wifi", "QS_SETTINGS_SEARCH=", "qs", "-p", Quickshell.shellPath("settings.qml")])
         GlobalStates.closeSidebars()
     }
     StyledToolTip {

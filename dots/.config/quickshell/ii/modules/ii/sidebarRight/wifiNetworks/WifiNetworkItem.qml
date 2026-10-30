@@ -9,9 +9,9 @@ import QtQuick.Layouts
 DialogListItem {
     id: root
     required property WifiAccessPoint wifiNetwork
-    readonly property bool connecting: Network.connectionPending && Network.wifiConnectSsid === (wifiNetwork?.ssid ?? "")
+    readonly property bool connecting: Network.connectionPending && Network.operationKey === (wifiNetwork?.key ?? "")
     enabled: wifiNetwork !== null && Network.wifiEnabled && !Network.connectionPending
-    active: (wifiNetwork?.active ?? false) || (wifiNetwork?.askingPassword ?? false) || connecting
+    active: (wifiNetwork?.active ?? false) || connecting
 
     onClicked: {
         if (wifiNetwork && !wifiNetwork.active) Network.connectToWifiNetwork(wifiNetwork);
@@ -48,7 +48,7 @@ DialogListItem {
                 color: Appearance.colors.colOnSurfaceVariant
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 elide: Text.ElideRight
-                text: root.connecting ? Translation.tr("Connecting…") : Network.credentialErrorSsid === (root.wifiNetwork?.ssid ?? "") ? Translation.tr("Saved password rejected") : (root.wifiNetwork?.active ?? false) ? Translation.tr("Connected") : (root.wifiNetwork?.known ?? false) ? Translation.tr("Joined before") : (root.wifiNetwork?.isSecure ?? false) ? Translation.tr("Needs a password") : Translation.tr("Open network")
+                text: root.connecting ? Translation.tr("Connecting…") : (root.wifiNetwork?.active ?? false) ? Translation.tr("Connected") : (root.wifiNetwork?.known ?? false) ? Translation.tr("Joined before") : (root.wifiNetwork?.isSecure ?? false) ? Translation.tr("Needs a password") : Translation.tr("Open network")
             }
         }
         MaterialSymbol {

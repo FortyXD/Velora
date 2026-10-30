@@ -19,10 +19,16 @@ Singleton {
     property bool connectionPending: false
     property string wifiConnectSsid: ""
     property string passwordPromptSsid: ""
-    property string credentialErrorSsid: ""
     property string wifiErrorMessage: ""
+    property string failedNetworkKey: ""
     property string snapshotError: ""
-    property string connectErrorBuffer: ""
+    property string operationId: ""
+    property string operationKey: ""
+    property bool operationHidden: false
+    property string secretRequest: ""
+    property bool backendReady: false
+    property var queuedConnection: null
+    readonly property bool awaitingPassword: connectionPending && secretRequest.length > 0
     property bool snapshotRefreshPending: false
 
     readonly property bool wifiConnecting: connectionPending || wifiStatus === "connecting"
@@ -108,128 +114,121 @@ Singleton {
         forgetProc.exec(["nmcli", "connection", "delete", "uuid", uuid]);
     }
 
-    function connectToHiddenNetwork(ssid: string, password: string): void {
-        if (!ssid || !wifiEnabled || connectionPending) return;
-        wifiErrorMessage = "";
-        wifiConnectSsid = ssid;
-        connectErrorBuffer = "";
-        connectionPending = true;
-        passwordProc.exec({
-            environment: { LANG: "C", LC_ALL: "C", PASSWORD: password, SSID: ssid },
-            command: ["sh", "-c", 'if [ -n "$PASSWORD" ]; then nmcli device wifi connect "$SSID" password "$PASSWORD" hidden yes; else nmcli device wifi connect "$SSID" hidden yes; fi']
-        });
-    }
-
-    function targetNetwork() {
-        return wifiNetworks.find(network => network.ssid === wifiConnectSsid) ?? null;
-    }
-
-    function beginConnection(network) {
-        if (!network || !wifiEnabled || connectionPending || network.active) return;
-        // A password is asked for right away, like other systems do, for a new network and for a saved one
-        // that never got connected (its profile has no working password)
-        if (network.isSecure && !network.known) {
-            network.askingPassword = true;
-            passwordPromptSsid = network.ssid;
-            wifiErrorMessage = "";
-            return;
+    function errorMessage(code: string): string {
+        switch (code) {
+        case "retry": return Translation.tr("Password needed again. Try another.");
+        case "invalid-password": return Translation.tr("Check the password length and format.");
+        case "invalid-name": return Translation.tr("Use a network name of 1–32 bytes.");
+        case "auth": return Translation.tr("Authentication failed. Try connecting again.");
+        case "ip": return Translation.tr("Could not obtain an IP address. Check the router.");
+        case "timeout": return Translation.tr("Connection timed out. Try again.");
+        case "permission": return Translation.tr("Connection not allowed. Check permissions.");
+        case "busy": return Translation.tr("Another Wi-Fi connection is in progress.");
+        case "unsupported": return Translation.tr("This security type isn't supported in Velora's Wi-Fi settings.");
+        case "not-saved": return Translation.tr("Connected, but the password could not be saved.");
+        case "unavailable": return Translation.tr("Wi-Fi helper unavailable. Try again.");
+        case "already-connected": return "";
+        default: return Translation.tr("Could not connect. Try again.");
         }
+    }
+
+    function startConnection(command, key: string, hidden: bool): void {
+        if (!wifiEnabled || connectionPending) return;
+        operationId = Date.now().toString() + "-" + Math.random().toString(36).slice(2);
+        operationKey = key;
+        operationHidden = hidden;
+        wifiConnectSsid = command.ssid;
+        failedNetworkKey = "";
+        wifiErrorMessage = "";
+        secretRequest = "";
         passwordPromptSsid = "";
-        credentialErrorSsid = "";
-        network.askingPassword = false;
-        network.errorText = "";
-        wifiErrorMessage = "";
-        credentialErrorSsid = "";
-        wifiConnectSsid = network.ssid;
-        connectErrorBuffer = "";
         connectionPending = true;
-        if (network.savedUuid) {
-            connectProc.exec(["nmcli", "connection", "up", "uuid", network.savedUuid]);
+        command.command = "connect";
+        command.operation = operationId;
+        if (backendReady && credentialBackend.running) {
+            credentialBackend.write(JSON.stringify(command) + "\n");
         } else {
-            const command = ["nmcli", "device", "wifi", "connect", network.ssid];
-            if (network.bssid) command.push("bssid", network.bssid);
-            connectProc.exec(command);
+            queuedConnection = command;
+            credentialBackend.running = true;
+            backendStartTimer.restart();
         }
+    }
+
+    function connectToHiddenNetwork(ssid: string, security: string): void {
+        startConnection({ssid: ssid, hidden: true, security: security}, "hidden", true);
     }
 
     function connectToWifiNetwork(network: WifiAccessPoint): void {
-        beginConnection(network);
+        if (!network || network.active) return;
+        startConnection({ssid: network.ssid, uuid: network.savedUuid, bssid: network.bssid}, network.key, false);
     }
 
-    function changePassword(network: WifiAccessPoint, password: string): void {
-        if (!network || connectionPending || !password) return;
-        network.errorText = "";
+    function submitPassword(password: string): void {
+        if (!awaitingPassword || !backendReady) return;
+        const request = secretRequest;
+        secretRequest = "";
+        passwordPromptSsid = "";
         wifiErrorMessage = "";
-        wifiConnectSsid = network.ssid;
-        connectErrorBuffer = "";
-        connectionPending = true;
-        if (network.savedUuid && network.neverUsed) {
-            // A profile that never connected may lack its security settings: start over with a fresh one
-            passwordProc.exec({
-                environment: { PASSWORD: password, UUID: network.savedUuid, SSID: network.ssid, BSSID: network.bssid },
-                command: ["sh", "-c", 'nmcli connection delete uuid "$UUID" >/dev/null; nmcli device wifi connect "$SSID" password "$PASSWORD" bssid "$BSSID"']
-            });
-        } else if (network.savedUuid) {
-            passwordProc.exec({
-                environment: { PASSWORD: password, UUID: network.savedUuid },
-                command: ["sh", "-c", 'nmcli connection modify uuid "$UUID" wifi-sec.psk "$PASSWORD" && nmcli connection up uuid "$UUID"']
-            });
-        } else {
-            passwordProc.exec({
-                environment: { PASSWORD: password, SSID: network.ssid, BSSID: network.bssid },
-                command: ["sh", "-c", 'nmcli device wifi connect "$SSID" password "$PASSWORD" bssid "$BSSID"']
-            });
-        }
-    }
-
-    function finishConnection(exitCode: int): void {
-        const target = targetNetwork();
-        if (exitCode !== 0) {
-            const message = connectErrorBuffer.trim().split("\n").find(line => line.trim().length > 0) ?? Translation.tr("Connection failed");
-            const needsPassword = /secrets|password|passphrase|authentication/i.test(connectErrorBuffer);
-            const shouldAsk = needsPassword && !(target?.savedCredentials ?? false);
-            passwordPromptSsid = shouldAsk ? wifiConnectSsid : "";
-            credentialErrorSsid = needsPassword && !shouldAsk && (target?.savedUuid ?? "") ? wifiConnectSsid : "";
-            wifiErrorMessage = needsPassword
-                ? (shouldAsk ? Translation.tr("Password rejected. Try again.") : Translation.tr("Saved password was rejected. You can update it below."))
-                : message;
-            if (target) {
-                target.askingPassword = shouldAsk;
-                target.errorText = wifiErrorMessage;
-            }
-        } else {
-            wifiErrorMessage = "";
-            passwordPromptSsid = "";
-            credentialErrorSsid = "";
-            if (target) {
-                target.askingPassword = false;
-                target.errorText = "";
-            }
-        }
-        connectionPending = false;
-        wifiConnectSsid = "";
-        update();
-    }
-
-    function requestPasswordUpdate(): void {
-        const target = wifiNetworks.find(network => network.ssid === credentialErrorSsid);
-        if (!target || !target.savedUuid || connectionPending) return;
-        passwordPromptSsid = target.ssid;
-        credentialErrorSsid = "";
-        target.askingPassword = true;
-        target.errorText = "";
-        wifiErrorMessage = "";
+        credentialBackend.write(JSON.stringify({command: "submit", operation: operationId, request: request, password: password}) + "\n");
     }
 
     function cancelPasswordPrompt(): void {
-        const target = wifiNetworks.find(network => network.ssid === passwordPromptSsid);
-        if (target) {
-            target.askingPassword = false;
-            target.errorText = "";
-        }
-        passwordPromptSsid = "";
-        credentialErrorSsid = "";
+        if (connectionPending && backendReady)
+            credentialBackend.write(JSON.stringify({command: "cancel", operation: operationId}) + "\n");
+        queuedConnection = null;
+        clearConnection();
+        failedNetworkKey = "";
         wifiErrorMessage = "";
+    }
+
+    function clearConnection(): void {
+        connectionPending = false;
+        secretRequest = "";
+        passwordPromptSsid = "";
+        wifiConnectSsid = "";
+        operationId = "";
+        operationKey = "";
+    }
+
+    function backendEvent(line: string): void {
+        let message;
+        try { message = JSON.parse(line); } catch (error) { backendUnavailable(); return; }
+        if (message.event === "ready") {
+            backendStartTimer.stop();
+            backendReady = true;
+            if (queuedConnection) {
+                credentialBackend.write(JSON.stringify(queuedConnection) + "\n");
+                queuedConnection = null;
+            }
+            return;
+        }
+        if (message.event === "unavailable") { backendUnavailable(); return; }
+        if (!connectionPending || message.operation !== operationId) return;
+        if (message.event === "secret-required") {
+            secretRequest = message.request;
+            passwordPromptSsid = wifiConnectSsid;
+            wifiErrorMessage = message.code ? errorMessage(message.code) : "";
+        } else if (message.event === "connecting" || message.event === "saving") {
+            secretRequest = "";
+            passwordPromptSsid = "";
+        } else if (["connected", "failed", "cancelled"].includes(message.event)) {
+            wifiErrorMessage = message.code ? errorMessage(message.code) : "";
+            failedNetworkKey = message.event === "failed" && !operationHidden ? operationKey : "";
+            clearConnection();
+            update();
+        }
+    }
+
+    function backendUnavailable(): void {
+        backendStartTimer.stop();
+        backendReady = false;
+        queuedConnection = null;
+        if (connectionPending) {
+            wifiErrorMessage = errorMessage("unavailable");
+            failedNetworkKey = operationHidden ? "" : operationKey;
+            clearConnection();
+        }
+        credentialBackend.running = false;
     }
 
     function disconnectWifiNetwork(): void {
@@ -250,21 +249,18 @@ Singleton {
     }
 
     Process {
-        id: connectProc
-        environment: ({ LANG: "C", LC_ALL: "C" })
-        stderr: SplitParser {
-            onRead: line => root.connectErrorBuffer += line + "\n"
-        }
-        onExited: (exitCode, exitStatus) => root.finishConnection(exitCode)
+        id: credentialBackend
+        command: ["python3", Quickshell.shellPath("scripts/network/wifi_agent.py")]
+        stdinEnabled: true
+        stdout: SplitParser { onRead: line => root.backendEvent(line) }
+        // The helper deliberately emits no raw exception/input diagnostics.
+        onExited: root.backendUnavailable()
     }
 
-    Process {
-        id: passwordProc
-        environment: ({ LANG: "C", LC_ALL: "C" })
-        stderr: SplitParser {
-            onRead: line => root.connectErrorBuffer += line + "\n"
-        }
-        onExited: (exitCode, exitStatus) => root.finishConnection(exitCode)
+    Timer {
+        id: backendStartTimer
+        interval: 12000
+        onTriggered: root.backendUnavailable()
     }
 
     Process {
@@ -434,11 +430,11 @@ Singleton {
                 try {
                     snapshot = JSON.parse(text);
                 } catch (error) {
-                    root.snapshotError = "Could not read Wi-Fi networks";
+                    root.snapshotError = Translation.tr("Could not read Wi-Fi networks");
                     return;
                 }
                 if (snapshot.error) {
-                    root.snapshotError = snapshot.error;
+                    root.snapshotError = Translation.tr(snapshot.error);
                     return;
                 }
                 root.snapshotError = "";
@@ -449,11 +445,18 @@ Singleton {
                 const previous = root.wifiNetworks;
                 const next = [];
                 for (const network of networks) {
-                    const existing = next.find(item => item.ssid === network.ssid)
-                        ?? previous.find(item => item.ssid === network.ssid);
+                    const existing = next.find(item => item.key === network.key)
+                        ?? previous.find(item => item.key === network.key);
                     if (existing) existing.lastIpcObject = network;
                     if (!next.includes(existing)) next.push(existing ?? apComp.createObject(root, { lastIpcObject: network }));
                 }
+                // Keep a disappearing target's inline cancel/form alive until the operation ends.
+                const pendingTarget = previous.find(item => root.connectionPending && item.key === root.operationKey);
+                if (pendingTarget && !next.includes(pendingTarget)) next.push(pendingTarget);
+                // The AP may disappear mid-failure; keep the error visible in the
+                // general message when its inline row is no longer available.
+                if (root.failedNetworkKey && !next.some(item => item.key === root.failedNetworkKey))
+                    root.failedNetworkKey = "";
                 const gone = previous.filter(item => !next.includes(item));
                 root.wifiNetworks = next;
                 for (const item of gone) item.destroy();
