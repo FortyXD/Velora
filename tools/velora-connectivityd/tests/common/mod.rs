@@ -39,12 +39,17 @@ pub struct Daemon {
 
 impl Daemon {
     pub async fn start(bus: &TestBus, arguments: &[&str]) -> Self {
+        let runtime = std::env::temp_dir().join(format!("velora-connectivity-test-{}-{}", std::process::id(), bus.address.replace(|c: char| !c.is_ascii_alphanumeric(), "_")));
+        std::fs::create_dir_all(&runtime).unwrap();
         let mut child = Command::new(env!("CARGO_BIN_EXE_velora-connectivityd"))
             .args(arguments)
             .env("DBUS_SYSTEM_BUS_ADDRESS", &bus.address)
             .env("DBUS_SESSION_BUS_ADDRESS", &bus.address)
             .env("VELORA_NM_VPN_DIRS", "/nonexistent")
             .env("PATH", safe_path())
+            .env("XDG_RUNTIME_DIR", &runtime)
+            .env("XDG_STATE_HOME", runtime.join("state"))
+            .env("XDG_CONFIG_HOME", runtime.join("config"))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -83,12 +88,7 @@ impl Daemon {
     }
 
     pub async fn wait_response(&mut self, id: u64) -> Value {
-        loop {
-            let message = self.next_message().await;
-            if message["type"] == "response" && message["id"] == id {
-                return message;
-            }
-        }
+        self.wait_message("the response", |message| message["type"] == "response" && message["id"] == id).await
     }
 
     pub async fn call(&mut self, method: &str, params: Value) -> Value {
@@ -104,11 +104,16 @@ impl Daemon {
                 return self.last_network.clone();
             }
             assert!(tokio::time::Instant::now() < deadline, "timed out waiting for: {what}\nlast state: {:#}", self.last_network);
-            let _ = tokio::time::timeout(Duration::from_millis(500), self.next_message()).await;
+            if let Ok(message) = tokio::time::timeout(Duration::from_millis(500), self.next_message()).await {
+                self.events.push(message);
+            }
         }
     }
 
     pub async fn wait_message(&mut self, what: &str, check: impl Fn(&Value) -> bool) -> Value {
+        if let Some(index) = self.events.iter().position(&check) {
+            return self.events.remove(index);
+        }
         let deadline = tokio::time::Instant::now() + WAIT;
         loop {
             assert!(tokio::time::Instant::now() < deadline, "timed out waiting for: {what}");
@@ -116,6 +121,7 @@ impl Daemon {
                 if check(&message) {
                     return message;
                 }
+                self.events.push(message);
             }
         }
     }
@@ -174,11 +180,16 @@ impl Daemon {
     /// Starts it with these programs found first, in place of the real ones.
     pub async fn start_with_tools(bus: &TestBus, tools: &FakeTools) -> Self {
         let path = format!("{}:{}", tools.directory.display(), safe_path());
+        let runtime = std::env::temp_dir().join(format!("velora-connectivity-test-{}-{}", std::process::id(), bus.address.replace(|c: char| !c.is_ascii_alphanumeric(), "_")));
+        std::fs::create_dir_all(&runtime).unwrap();
         let mut child = Command::new(env!("CARGO_BIN_EXE_velora-connectivityd"))
             .env("DBUS_SYSTEM_BUS_ADDRESS", &bus.address)
             .env("DBUS_SESSION_BUS_ADDRESS", &bus.address)
             .env("VELORA_NM_VPN_DIRS", "/nonexistent")
             .env("PATH", path)
+            .env("XDG_RUNTIME_DIR", &runtime)
+            .env("XDG_STATE_HOME", runtime.join("state"))
+            .env("XDG_CONFIG_HOME", runtime.join("config"))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -210,6 +221,8 @@ impl Daemon {
 
     /// Starts it with its state directory and home in the given place.
     pub async fn start_in(bus: &TestBus, home: &std::path::Path, arguments: &[&str], rfkill: Option<&std::path::Path>) -> Self {
+        let runtime = home.join("runtime");
+        std::fs::create_dir_all(&runtime).unwrap();
         let mut command = Command::new(env!("CARGO_BIN_EXE_velora-connectivityd"));
         command
             .args(arguments)
@@ -217,6 +230,9 @@ impl Daemon {
             .env("DBUS_SESSION_BUS_ADDRESS", &bus.address)
             .env("VELORA_NM_VPN_DIRS", "/nonexistent")
             .env("PATH", safe_path())
+            .env("XDG_RUNTIME_DIR", &runtime)
+            .env("XDG_STATE_HOME", runtime.join("state"))
+            .env("XDG_CONFIG_HOME", runtime.join("config"))
             .env("HOME", home)
             .env("XDG_STATE_HOME", home.join("state"))
             .env("XDG_CACHE_HOME", home.join("cache"))

@@ -13,7 +13,7 @@ Velora targets Arch Linux with Hyprland's Lua configuration and the Quickshell `
 | `scripts/builds.py` | Source recipes and Velora package builds |
 | `scripts/runtime.py` | Writable configuration refresh for package installs |
 | `dependencies/arch.toml` | Official and AUR dependencies grouped by component |
-| `tools/velora-helper/` | Native helpers: palettes, theme staging, widget placement |
+| `tools/velora-helper/` | Native shell helpers: palettes, themes, widgets, capture status, apps and system tools |
 | `tools/velora-connectivityd/` | The shell's link to NetworkManager and BlueZ; see below |
 | `tools/velora-connectivity-fakes/` | Stand-ins for those services, for tests; not installed |
 | `dependencies/python/` | Python dependency declarations and locked versions |
@@ -59,6 +59,8 @@ New installer messages, diagnostics, comments, and technical documentation shoul
 Review `git diff` before publishing: linked configuration directories can contain local paths or runtime-generated changes. Commit intended local edits before using the updater. Merge upstream improvements deliberately and test them with Velora's settings and installation workflow.
 
 ## Wi-Fi, VPN and Bluetooth
+
+See [the Wi-Fi guide](wifi.md) for password retries, cancellation and profile persistence.
 
 `velora-connectivityd` talks to NetworkManager, BlueZ, obexd and the Secret Service over D-Bus, and to the shell in JSON lines over stdin and stdout (`tools/velora-connectivityd/src/protocol.rs`). `services/ConnectivityBackend.qml` keeps it running. The shell runs it with `--agents`, which answers password, pairing and file requests; the settings app runs its own copy without them.
 

@@ -12,7 +12,7 @@ async fn setup() -> (TestBus, FakeNm, Daemon) {
     let nm = FakeNm::start(&bus).await.unwrap();
     let mut daemon = Daemon::start(&bus, &[]).await;
     let hello = daemon.wait_message("hello", |message| message["type"] == "hello").await;
-    assert_eq!(hello, json!({ "type": "hello", "protocol": 1, "agents": false }));
+    assert_eq!(hello, json!({ "type": "hello", "protocol": 2, "agents": false }));
     daemon.wait_network("the first snapshot", |state| state["available"] == true).await;
     (bus, nm, daemon)
 }

@@ -26,6 +26,9 @@ Item {
         }
 
         function init() {
+            Network.operationId = "";
+            Network.awaitingPassword = false;
+            Network.connectionWarning = "";
             Network.connectionPending = false;
             Network.wifiConnectSsid = "";
             Network.passwordPromptSsid = "";
@@ -104,7 +107,7 @@ Item {
         function test_a_saved_network_activates_its_profile() {
             publish({ networks: [ap("Home", { savedUuid: "u" })] });
             Network.connectToWifiNetwork(network("Home"));
-            compare(lastCall().method, "network.activate");
+            compare(lastCall().method, "network.connectWifi");
             compare(lastCall().params.uuid, "u");
             verify(Network.connectionPending);
             compare(Network.wifiConnectSsid, "Home");
@@ -114,7 +117,7 @@ Item {
         function test_an_open_network_joins_directly() {
             publish({ networks: [ap("Cafe", { security: "", securityType: "none" })] });
             Network.connectToWifiNetwork(network("Cafe"));
-            compare(lastCall().method, "network.join");
+            compare(lastCall().method, "network.connectWifi");
             compare(lastCall().params.ssid, "Cafe");
             compare(lastCall().params.bssid, "00:00:00:00:00:01");
         }
@@ -145,7 +148,7 @@ Item {
         function test_a_refused_new_password_asks_again() {
             publish({ networks: [ap("Home")] });
             Network.changePassword(network("Home"), "typed");
-            compare(lastCall().method, "network.join");
+            compare(lastCall().method, "network.connectWifi");
             compare(lastCall().params.password, "typed");
             lastCall().done(null, { code: "wrong_secret", message: "refused" });
             verify(network("Home").askingPassword);
@@ -154,18 +157,14 @@ Item {
             verify(!Network.connectionPending);
         }
 
-        function test_a_refused_saved_password_offers_to_update_it() {
+        function test_a_refused_saved_password_asks_again_inside_the_row() {
             publish({ networks: [ap("Home", { savedUuid: "u" })] });
             Network.connectToWifiNetwork(network("Home"));
             lastCall().done(null, { code: "secrets_required", message: "none" });
-            compare(Network.credentialErrorSsid, "Home");
-            verify(!network("Home").askingPassword);
-            Network.requestPasswordUpdate();
             verify(network("Home").askingPassword);
-            compare(Network.credentialErrorSsid, "");
+            compare(Network.passwordPromptSsid, "Home");
             Network.cancelPasswordPrompt();
             verify(!network("Home").askingPassword);
-            compare(Network.passwordPromptSsid, "");
         }
 
         function test_other_failures_show_their_message() {
@@ -180,29 +179,70 @@ Item {
         function test_changing_a_used_profiles_password_keeps_the_profile() {
             publish({ networks: [ap("Home", { savedUuid: "u" })] });
             Network.changePassword(network("Home"), "new");
-            compare(lastCall().method, "network.changePassword");
+            compare(lastCall().method, "network.connectWifi");
             compare(lastCall().params.uuid, "u");
             compare(lastCall().params.password, "new");
         }
 
-        function test_a_profile_that_never_connected_starts_over() {
+        function test_a_profile_that_never_connected_keeps_its_uuid() {
             publish({ networks: [ap("Home", { savedUuid: "u", neverUsed: true })] });
-            verify(!network("Home").known);
-            Network.changePassword(network("Home"), "new");
-            compare(lastCall().method, "network.forget");
-            lastCall().done(null, null);
-            compare(lastCall().method, "network.join");
-            compare(lastCall().params.password, "new");
+            Network.changePassword(network("Home"), "new-password");
+            compare(lastCall().method, "network.connectWifi");
+            compare(lastCall().params.uuid, "u");
+            verify(!ConnectivityBackend.calls.some(call => call.method === "network.forget"));
         }
 
-        function test_a_failed_removal_doesnt_join() {
-            publish({ networks: [ap("Home", { savedUuid: "u", neverUsed: true })] });
-            Network.changePassword(network("Home"), "new");
-            const forget = lastCall();
-            forget.done(null, { code: "permission_denied", message: "no" });
-            compare(lastCall(), forget);
-            compare(Network.wifiErrorMessage, "no");
+        function test_cancel_drops_the_wait_and_ignores_a_late_result() {
+            publish({ networks: [ap("Home", { savedUuid: "u" }), ap("Other", { savedUuid: "o" })] });
+            Network.connectToWifiNetwork(network("Home"));
+            const old = lastCall();
+            Network.cancelPasswordPrompt();
             verify(!Network.connectionPending);
+            compare(lastCall().method, "network.cancelWifi");
+            Network.connectToWifiNetwork(network("Other"));
+            old.done(null, { code: "wrong_secret", message: "late" });
+            compare(Network.wifiConnectSsid, "Other");
+            verify(Network.connectionPending);
+            verify(!network("Home").askingPassword);
+        }
+
+        function test_native_retry_is_inline_and_uses_the_current_request_token() {
+            publish({ networks: [ap("Home", { savedUuid: "u" })] });
+            Network.connectToWifiNetwork(network("Home"));
+            const operation = lastCall().params.operation;
+            ConnectivityBackend.event("wifiPassword", { operation: "old", request: "1" });
+            verify(!Network.awaitingPassword);
+            ConnectivityBackend.event("wifiPassword", { operation, request: "2", retry: true });
+            verify(Network.awaitingPassword && network("Home").askingPassword);
+            Network.changePassword(network("Home"), "new-password");
+            compare(lastCall().method, "network.submitWifiPassword");
+            compare(lastCall().params.request, "2");
+            lastCall().done({ accepted: true }, null);
+            verify(!Network.awaitingPassword);
+            verify(Network.connectionPending);
+        }
+
+        function test_a_save_warning_does_not_turn_success_into_failure() {
+            publish({ networks: [ap("Home", { savedUuid: "u" })] });
+            Network.connectToWifiNetwork(network("Home"));
+            lastCall().done({ saved: false, warning: "Connected, but the password could not be saved" }, null);
+            verify(!Network.connectionPending);
+            compare(Network.wifiErrorMessage, "");
+            verify(Network.connectionWarning.length > 0);
+        }
+
+        function test_a_submit_reply_cannot_hide_a_newer_retry() {
+            publish({ networks: [ap("Home", { savedUuid: "u" })] });
+            Network.connectToWifiNetwork(network("Home"));
+            const operation = lastCall().params.operation;
+            ConnectivityBackend.event("wifiPassword", { operation, request: "1", retry: false });
+            Network.submitPassword("first-password");
+            const first = lastCall();
+            ConnectivityBackend.event("wifiPassword", { operation, request: "2", retry: true });
+            first.done({ accepted: true }, null);
+            verify(Network.awaitingPassword);
+            compare(Network.secretRequest, "2");
+            compare(Network.wifiErrorMessage, "Password rejected. Try again.");
         }
 
         function test_an_empty_password_goes_nowhere() {
@@ -213,7 +253,7 @@ Item {
 
         function test_hidden_and_qr_joins() {
             Network.connectToHiddenNetwork("Ghost", "secret");
-            compare(lastCall().method, "network.join");
+            compare(lastCall().method, "network.connectWifi");
             verify(lastCall().params.hidden);
             lastCall().done(null, null);
             Network.joinNetwork("Shared", "secret");

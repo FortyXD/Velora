@@ -32,6 +32,8 @@ fn none() -> OwnedObjectPath {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Outcome {
     Succeed,
+    AskPassword { requests: u32 },
+    Wait,
     /// Reaches a failed state, reporting these reasons.
     Fail { device_reason: u32, active_reason: u32 },
     /// Refused by the permission check.
@@ -77,6 +79,10 @@ struct Shared {
     next_ap: u32,
     /// Path → (settings without secrets, secrets)
     profiles: HashMap<String, (Settings, Settings)>,
+    disk: HashMap<String, (Settings, Settings)>,
+    versions: HashMap<String, u64>,
+    deny_updates: bool,
+    change_during_secrets: bool,
     /// Names of the methods called, without parameters, for tests of what was asked
     calls: Vec<String>,
     /// Secrets queries that should fail as if nothing were stored
@@ -187,6 +193,12 @@ impl Manager {
         let section = settings.entry("connection".to_string()).or_default();
         section.entry("uuid".to_string()).or_insert_with(|| value(format!("generated-{}", std::process::id())));
         let profile = add_profile(&self.connection, &self.shared, settings).await.map_err(NmError::ZBus)?;
+        let persist = options.get("persist").and_then(|entry| entry.downcast_ref::<&str>().ok()).unwrap_or("disk");
+        if persist == "disk" {
+            let mut shared = self.shared.lock().expect("test state");
+            let saved = shared.profiles[profile.as_str()].clone();
+            shared.disk.insert(profile.to_string(), saved);
+        }
         let active = start_activation(self.connection.clone(), Arc::clone(&self.shared), profile.to_string(), outcome).await?;
         Ok((profile, active, HashMap::new()))
     }
@@ -225,7 +237,25 @@ async fn start_activation(connection: Connection, shared: SharedState, profile: 
         let server = connection.object_server();
         let Ok(reference) = server.interface::<_, ActiveConnection>(active_path.as_str()).await else { return };
         let Ok(device_reference) = server.interface::<_, Device>(device).await else { return };
+        let mut outcome = outcome;
+        if let Outcome::AskPassword { requests } = outcome {
+            for request in 0..requests {
+                let (agent, mut settings, has_secret) = {
+                    let state = shared.lock().expect("test state");
+                    let (plain, secrets) = &state.profiles[&profile];
+                    (state.agent.clone(), plain.clone(), secrets.get("802-11-wireless-security").is_some_and(|section| !section.is_empty()))
+                };
+                settings.entry("802-11-wireless-security".into()).or_default().remove("psk");
+                let Some(agent) = agent else { return };
+                let flags = if request == 0 && !has_secret { 0x1u32 } else { 0x3u32 };
+                let reply = connection.call_method(Some(agent.as_str()), "/org/freedesktop/NetworkManager/SecretAgent", Some("org.freedesktop.NetworkManager.SecretAgent"), "GetSecrets", &(&settings, path(&profile), "802-11-wireless-security", Vec::<String>::new(), flags)).await;
+                if reply.is_err() { outcome = Outcome::Fail { device_reason: 7, active_reason: 9 }; break; }
+            }
+            if matches!(outcome, Outcome::AskPassword { .. }) { outcome = Outcome::Succeed; }
+        }
         match outcome {
+            Outcome::Wait => (),
+            Outcome::AskPassword { .. } => unreachable!(),
             Outcome::Succeed | Outcome::Deny => {
                 device_reference.get_mut().await.state = 100;
                 let _ = Device::state_signal(device_reference.signal_emitter(), 100, 30, 0).await;
@@ -319,6 +349,11 @@ impl SettingsService {
             return Err(NmError::InvalidConnection("connection.uuid: property is missing".to_string()));
         }
         let profile = add_profile(connection, &self.shared, settings).await.map_err(NmError::ZBus)?;
+        if flags & 1 != 0 {
+            let mut shared = self.shared.lock().expect("test state");
+            let saved = shared.profiles[profile.as_str()].clone();
+            shared.disk.insert(profile.to_string(), saved);
+        }
         Ok((profile, HashMap::new()))
     }
 }
@@ -333,7 +368,13 @@ struct Profile {
 impl Profile {
     #[zbus(property, name = "Unsaved")]
     fn unsaved(&self) -> bool {
-        false
+        let shared = self.shared.lock().expect("test state");
+        shared.disk.get(&self.path) != shared.profiles.get(&self.path)
+    }
+
+    #[zbus(property, name = "VersionId")]
+    fn version_id(&self) -> u64 {
+        self.shared.lock().expect("test state").versions.get(&self.path).copied().unwrap_or(0)
     }
     #[zbus(property, name = "Flags")]
     fn flags(&self) -> u32 {
@@ -360,6 +401,7 @@ impl Profile {
         if shared.no_secrets {
             return Err(NmError::NoSecrets("No agents were available for this request.".to_string()));
         }
+        if shared.change_during_secrets { *shared.versions.entry(self.path.clone()).or_default() += 1; }
         let (_, secrets) = shared.profiles.get(&self.path).ok_or(NmError::UnknownConnection(self.path.clone()))?;
         Ok(secrets.iter().filter(|(name, _)| **name == section).map(|(name, props)| (name.clone(), props.clone())).collect())
     }
@@ -369,13 +411,18 @@ impl Profile {
         &mut self,
         settings: Settings,
         flags: u32,
-        _args: HashMap<String, OwnedVariant>,
+        args: HashMap<String, OwnedVariant>,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> Result<HashMap<String, OwnedVariant>, NmError> {
         {
             let mut shared = self.shared.lock().expect("test state");
             shared.calls.push(format!("Update2 flags={flags}"));
+            if shared.deny_updates { return Err(NmError::PermissionDenied("Not authorized to save this connection.".into())); }
+            let expected = args.get("version-id").and_then(|value| value.downcast_ref::<u64>().ok()).unwrap_or(0);
+            if expected != 0 && shared.versions.get(&self.path) != Some(&expected) { return Err(NmError::InvalidConnection("The connection changed while saving.".into())); }
             let (plain, secrets) = split_secrets(&settings);
+            if flags & 1 != 0 { shared.disk.insert(self.path.clone(), (plain.clone(), secrets.clone())); }
+            *shared.versions.entry(self.path.clone()).or_default() += 1;
             // As the real service: what isn't in the update, secrets included, is gone
             shared.profiles.insert(self.path.clone(), (plain, secrets));
         }
@@ -386,6 +433,7 @@ impl Profile {
     #[zbus(name = "Delete")]
     async fn delete(&mut self) -> Result<(), NmError> {
         self.shared.lock().expect("test state").profiles.remove(&self.path);
+        self.shared.lock().expect("test state").disk.remove(&self.path);
         self.shared.lock().expect("test state").calls.push(format!("Delete {}", self.path));
         let connection = self.connection.clone();
         let target = self.path.clone();
@@ -406,6 +454,7 @@ async fn add_profile(connection: &Connection, shared: &SharedState, settings: Se
         state.next_profile += 1;
         let profile_path = format!("{SETTINGS_PATH}/{}", state.next_profile);
         state.profiles.insert(profile_path.clone(), split_secrets(&settings));
+        state.versions.insert(profile_path.clone(), 1);
         profile_path
     };
     let object = Profile { shared: Arc::clone(shared), connection: connection.clone(), path: profile_path.clone() };
@@ -661,7 +710,30 @@ impl FakeNm {
     }
 
     pub async fn add_profile(&self, settings: Settings) -> anyhow::Result<String> {
-        Ok(add_profile(&self.connection, &self.shared, settings).await?.to_string())
+        let path = add_profile(&self.connection, &self.shared, settings).await?.to_string();
+        let mut shared = self.shared.lock().expect("test state");
+        let saved = shared.profiles[&path].clone();
+        shared.disk.insert(path.clone(), saved);
+        Ok(path)
+    }
+
+    pub fn saved_profile_count(&self) -> usize {
+        self.shared.lock().expect("test state").disk.len()
+    }
+
+    pub fn set_updates_denied(&self, denied: bool) {
+        self.shared.lock().expect("test state").deny_updates = denied;
+    }
+
+    pub fn set_change_during_secrets(&self, change: bool) {
+        self.shared.lock().expect("test state").change_during_secrets = change;
+    }
+
+    pub fn saved_secret(&self, uuid: &str, section: &str, key: &str) -> Option<String> {
+        self.shared.lock().expect("test state").disk.values().find_map(|(plain, secrets)| {
+            (plain.get("connection")?.get("uuid")?.downcast_ref::<&str>().ok()? == uuid)
+                .then(|| secrets.get(section)?.get(key)?.downcast_ref::<&str>().ok().map(str::to_string)).flatten()
+        })
     }
 
     pub fn set_outcome(&self, outcome: Outcome) {
@@ -704,6 +776,10 @@ impl FakeNm {
 
     pub fn agent_registered(&self) -> bool {
         self.shared.lock().expect("test state").agent.is_some()
+    }
+
+    pub fn agent_destination(&self) -> Option<String> {
+        self.shared.lock().expect("test state").agent.clone()
     }
 
     /// Asks the registered agent for secrets, as the service does when connecting.

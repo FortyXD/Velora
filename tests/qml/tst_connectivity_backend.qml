@@ -8,7 +8,7 @@ Item {
         name: "ConnectivityBackend"
 
         function hello(protocol, agents) {
-            ConnectivityBackend.handleLine(JSON.stringify({ type: "hello", protocol: protocol ?? 1, agents: agents ?? false }));
+            ConnectivityBackend.handleLine(JSON.stringify({ type: "hello", protocol: protocol ?? 2, agents: agents ?? false }));
         }
 
         function init() {
@@ -36,7 +36,7 @@ Item {
             verify(ConnectivityBackend.ready);
             compare(ConnectivityBackend.problem, "");
             verify(!ConnectivityBackend.agentsActive);
-            hello(1, true);
+            hello(2, true);
             verify(ConnectivityBackend.agentsActive);
         }
 
@@ -50,7 +50,7 @@ Item {
             verify(ConnectivityBackend.restarts.running);
             // An update has rebuilt it
             ConnectivityBackend.process.running = true;
-            hello(1);
+            hello(2);
             compare(ConnectivityBackend.problem, "");
             verify(ConnectivityBackend.ready);
         }

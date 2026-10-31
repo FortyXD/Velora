@@ -5,6 +5,7 @@ use crate::bluez::client::BluezClient;
 use crate::bluez::obex::{self, ObexShared, ReceivePolicy};
 use crate::bluez::state::OnLogin;
 use crate::nm::client::{JoinRequest, NmClient};
+use crate::nm::wifi;
 use crate::prompts::{Answer, Prompts};
 use crate::airplane;
 use crate::protocol::{ApiError, ErrorCode};
@@ -19,6 +20,7 @@ use zbus::Connection;
 
 pub struct Service {
     pub network: NmClient,
+    pub wifi: wifi::Operations,
     pub bluetooth: BluezClient,
     pub prompts: Arc<Prompts>,
     pub session: Option<Connection>,
@@ -146,6 +148,18 @@ struct ChangePassword {
     password: Secret,
 }
 
+#[derive(Deserialize)]
+struct WifiOperation {
+    operation: String,
+}
+
+#[derive(Deserialize)]
+struct WifiPassword {
+    operation: String,
+    request: String,
+    password: Secret,
+}
+
 fn params<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, ApiError> {
     // The parse error names the field at fault, never its value
     serde_json::from_value(value).map_err(|error| ApiError::invalid(format!("bad parameters: {}", field_error(&error))))
@@ -177,6 +191,20 @@ impl Service {
             "network.scan" => {
                 let Scan { force } = params(parameters)?;
                 Ok(json!({ "requested": self.network.scan(force).await? }))
+            }
+            "network.connectWifi" => {
+                let request: wifi::Connect = params(parameters)?;
+                let result = self.wifi.connect(request, self.out.clone()).await;
+                self.network.changed.notify_one();
+                result
+            }
+            "network.cancelWifi" => {
+                let WifiOperation { operation } = params(parameters)?;
+                Ok(json!({ "canceled": self.wifi.cancel(&operation) }))
+            }
+            "network.submitWifiPassword" => {
+                let WifiPassword { operation, request, password } = params(parameters)?;
+                Ok(json!({ "accepted": self.wifi.submit(&operation, &request, password)? }))
             }
             "network.activate" => {
                 let Uuid { uuid } = params(parameters)?;

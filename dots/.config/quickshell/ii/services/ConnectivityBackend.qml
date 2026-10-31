@@ -15,7 +15,7 @@ Singleton {
     id: root
 
     // What this shell expects; a daemon left over from another version isn't spoken to
-    readonly property int protocolVersion: 1
+    readonly property int protocolVersion: 2
 
     // The running shell answers password and pairing requests; the settings app doesn't
     property bool agents: false

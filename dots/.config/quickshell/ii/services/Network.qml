@@ -29,6 +29,11 @@ Singleton {
     property string passwordPromptSsid: ""
     property string credentialErrorSsid: ""
     property string wifiErrorMessage: ""
+    property string connectionWarning: ""
+    property string operationId: ""
+    property int nextOperation: 0
+    property string secretRequest: ""
+    property bool awaitingPassword: false
 
     readonly property bool wifiConnecting: connectionPending || wifiStatus === "connecting"
     property list<WifiAccessPoint> wifiNetworks: []
@@ -132,21 +137,51 @@ Singleton {
 
     function startConnecting(ssid: string): void {
         wifiErrorMessage = "";
+        connectionWarning = "";
         wifiConnectSsid = ssid;
+        operationId = `${Date.now()}-${++nextOperation}`;
+        secretRequest = "";
+        awaitingPassword = false;
         connectionPending = true;
     }
 
-    function connectToHiddenNetwork(ssid: string, password: string): void {
+    function activateWifi(parameters): void {
+        startConnecting(parameters.ssid);
+        const operation = root.operationId;
+        ConnectivityBackend.call("network.connectWifi", Object.assign({ operation }, parameters), (result, error) => {
+            if (operation !== root.operationId) return;
+            root.finishConnection(error);
+            root.connectionWarning = result?.warning ? Translation.tr(result.warning) : "";
+        });
+    }
+
+    function submitPassword(password: string): void {
+        if (!root.awaitingPassword || !root.operationId || !password) return;
+        const operation = root.operationId;
+        const request = root.secretRequest;
+        ConnectivityBackend.call("network.submitWifiPassword", { operation, request, password }, (result, error) => {
+            if (operation !== root.operationId || request !== root.secretRequest) return;
+            if (error) {
+                root.wifiErrorMessage = Translation.tr(error.message);
+                const target = root.targetNetwork();
+                if (target) target.errorText = root.wifiErrorMessage;
+            } else if (result?.accepted) {
+                root.awaitingPassword = false;
+                root.wifiErrorMessage = "";
+            }
+        });
+    }
+
+    function connectToHiddenNetwork(ssid: string, password: string, security = password ? "wpa-psk" : "none"): void {
+        if (root.connectionPending && root.awaitingPassword) { root.submitPassword(password); return; }
         if (!ssid || !wifiEnabled || connectionPending) return;
-        startConnecting(ssid);
-        ConnectivityBackend.call("network.join", { ssid, password, hidden: true }, (result, error) => root.finishConnection(error));
+        activateWifi(Object.assign({ ssid, hidden: true, security }, password ? { password } : {}));
     }
 
     /** Joins by name and password, from a Wi-Fi QR code. */
     function joinNetwork(ssid: string, password: string): void {
         if (!ssid || !wifiEnabled || connectionPending) return;
-        startConnecting(ssid);
-        ConnectivityBackend.call("network.join", { ssid, password }, (result, error) => root.finishConnection(error));
+        activateWifi(Object.assign({ ssid }, password ? { password } : {}));
     }
 
     function targetNetwork() {
@@ -167,12 +202,7 @@ Singleton {
         credentialErrorSsid = "";
         network.askingPassword = false;
         network.errorText = "";
-        startConnecting(network.ssid);
-        if (network.savedUuid) {
-            ConnectivityBackend.call("network.activate", { uuid: network.savedUuid }, (result, error) => root.finishConnection(error));
-        } else {
-            ConnectivityBackend.call("network.join", { ssid: network.ssid, bssid: network.bssid }, (result, error) => root.finishConnection(error));
-        }
+        activateWifi({ ssid: network.ssid, bssid: network.bssid, uuid: network.savedUuid });
     }
 
     function connectToWifiNetwork(network: WifiAccessPoint): void {
@@ -188,20 +218,26 @@ Singleton {
             return;
         }
         credentialErrorSsid = "";
-        startConnecting(profile.ssid);
-        ConnectivityBackend.call("network.activate", { uuid: profile.uuid }, (result, error) => root.finishConnection(error));
+        if (profile.connectionType === "802-11-wireless") activateWifi({ ssid: profile.ssid, uuid: profile.uuid });
+        else {
+            startConnecting(profile.ssid);
+            const operation = root.operationId;
+            ConnectivityBackend.call("network.activate", { uuid: profile.uuid }, (result, error) => {
+                if (operation === root.operationId) root.finishConnection(error);
+            });
+        }
     }
 
     /** Replaces a saved profile's password and connects with it. */
     function changeProfilePassword(profile: var, password: string): void {
+        if (root.connectionPending && root.awaitingPassword) { root.submitPassword(password); return; }
         if (!profile || connectionPending || !password) return;
         const accessPoint = wifiNetworks.find(network => network.savedUuid === profile.uuid);
         if (accessPoint) {
             changePassword(accessPoint, password);
             return;
         }
-        startConnecting(profile.ssid);
-        ConnectivityBackend.call("network.changePassword", { uuid: profile.uuid, password }, (result, error) => root.finishConnection(error));
+        activateWifi({ ssid: profile.ssid, uuid: profile.uuid, password });
     }
 
     function deactivateProfile(uuid: string): void {
@@ -226,25 +262,17 @@ Singleton {
     }
 
     function changePassword(network: WifiAccessPoint, password: string): void {
+        if (root.connectionPending && root.awaitingPassword) { root.submitPassword(password); return; }
         if (!network || connectionPending || !password) return;
         network.errorText = "";
-        startConnecting(network.ssid);
-        const join = () => ConnectivityBackend.call("network.join", { ssid: network.ssid, bssid: network.bssid, password }, (result, error) => root.finishConnection(error));
-        if (network.savedUuid && network.neverUsed) {
-            // A profile that never connected may lack its security settings: start over with a fresh one
-            ConnectivityBackend.call("network.forget", { uuid: network.savedUuid }, (result, error) => error ? root.finishConnection(error) : join());
-        } else if (network.savedUuid) {
-            ConnectivityBackend.call("network.changePassword", { uuid: network.savedUuid, password }, (result, error) => root.finishConnection(error));
-        } else {
-            join();
-        }
+        activateWifi({ ssid: network.ssid, bssid: network.bssid, uuid: network.savedUuid, password });
     }
 
     function finishConnection(error): void {
         const target = targetNetwork();
         if (error) {
             const needsPassword = error.code === "wrong_secret" || error.code === "secrets_required";
-            const shouldAsk = needsPassword && !(target?.known ?? false);
+            const shouldAsk = needsPassword;
             passwordPromptSsid = shouldAsk ? wifiConnectSsid : "";
             credentialErrorSsid = needsPassword && !shouldAsk ? wifiConnectSsid : "";
             wifiErrorMessage = needsPassword
@@ -264,6 +292,9 @@ Singleton {
             }
         }
         connectionPending = false;
+        operationId = "";
+        secretRequest = "";
+        awaitingPassword = false;
         wifiConnectSsid = "";
     }
 
@@ -278,14 +309,31 @@ Singleton {
     }
 
     function cancelPasswordPrompt(): void {
-        const target = wifiNetworks.find(network => network.ssid === passwordPromptSsid);
-        if (target) {
-            target.askingPassword = false;
-            target.errorText = "";
-        }
+        const target = targetNetwork() ?? wifiNetworks.find(network => network.ssid === passwordPromptSsid);
+        const operation = operationId;
+        if (target) { target.askingPassword = false; target.errorText = ""; }
+        operationId = "";
+        connectionPending = false;
+        awaitingPassword = false;
+        secretRequest = "";
+        wifiConnectSsid = "";
         passwordPromptSsid = "";
         credentialErrorSsid = "";
         wifiErrorMessage = "";
+        if (operation) ConnectivityBackend.call("network.cancelWifi", { operation }, null);
+    }
+
+    Connections {
+        target: ConnectivityBackend
+        function onEvent(name, data) {
+            if (name !== "wifiPassword" || data.operation !== root.operationId || !root.connectionPending) return;
+            root.awaitingPassword = true;
+            root.secretRequest = data.request;
+            root.passwordPromptSsid = root.wifiConnectSsid;
+            root.wifiErrorMessage = data.retry ? Translation.tr("Password rejected. Try again.") : "";
+            const target = root.targetNetwork();
+            if (target) { target.askingPassword = true; target.errorText = root.wifiErrorMessage; }
+        }
     }
 
     function disconnectWifiNetwork(): void {
