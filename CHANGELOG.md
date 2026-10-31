@@ -2,6 +2,7 @@
 
 ## 0.1.4 — 2026-10-31
 
+- Installation and updates synchronize both native executables even with `--skip-packages`. Re-running `velora update` repairs missing or stale binaries when sources are already current. Package installs replace old per-user checkout binaries, and shell launchers consistently prefer the managed pair. This prevents an outdated connection service after upgrading from 0.1.3.
 - Wi-Fi, VPN and Bluetooth can be managed inside Velora. Every saved network is listed with its protocol, and its password can be shown, copied or shared as a QR code. Network & VPN lists other connections, with OpenVPN and WireGuard forms, import and export. A connection editor covers addresses, routes, DNS, security including 802.1X, proxy and stored settings. Airplane mode and sharing the connection over Wi-Fi are included.
 - Bluetooth lists every paired device with its type, battery and services. Devices can be renamed, trusted, blocked and sent files. Pairing with a PIN or a number to compare works, files can be received, and Bluetooth can be set to come back at login and after sleep as it was left.
 - Password prompts: VPNs that ask for a one-time code, and networks with secrets kept per user, now work outside Plasma. Secrets are found where Plasma keeps them.

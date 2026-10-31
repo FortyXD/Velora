@@ -6,6 +6,7 @@ Velora is an independently maintained fork of Illogical Impulse for Arch Linux, 
 
 ## Highlights
 
+- **Reliable upgrades from 0.1.3.** Installation updates both native executables before linking the shell, including with `--skip-packages`. Package installs synchronize old user copies as well. If sources are already current, `velora update` detects and repairs missing or stale native binaries automatically. Background checks do not build anything.
 - **Connectivity settings.** Manage Wi-Fi, saved passwords, connection profiles, OpenVPN and WireGuard, or pair and manage Bluetooth devices without leaving Velora. Bluetooth includes PIN and confirmation prompts, battery information and file transfer.
 - **A clearer network list.** Expand the current Wi-Fi connection for its details. Ethernet appears whenever an adapter exists. Available saved networks come first, followed by nearby networks ordered by signal. Saved passwords have a separate section, and open networks keep their GHz labels aligned.
 - **Safer Wi-Fi passwords.** Retry a rejected password inside the row. New profiles are saved after activation succeeds; failed replacements preserve existing credentials and UUIDs. Stop waiting closes the prompt without disconnecting the network. Hidden networks offer WPA/WPA2, WPA3 and open security. An unsuccessful save leaves the connection active and shows a warning.
