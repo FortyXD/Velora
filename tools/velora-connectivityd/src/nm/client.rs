@@ -73,7 +73,7 @@ impl NmClient {
         Self { connection, cache: Mutex::default(), scans: Mutex::default(), changed: Notify::new(), availability_changed: Notify::new() }
     }
 
-    async fn proxy<'a>(&'a self, path: &'a str, interface: &'a str) -> Result<Proxy<'a>, ApiError> {
+    pub(super) async fn proxy<'a>(&'a self, path: &'a str, interface: &'a str) -> Result<Proxy<'a>, ApiError> {
         // Cached properties would go stale between snapshots, and nothing here reads them
         zbus::proxy::Builder::<Proxy<'a>>::new(&self.connection)
             .destination(BUS_NAME)
@@ -91,7 +91,7 @@ impl NmClient {
         Ok(objects.into_iter().map(|(path, interfaces)| (path.to_string(), interfaces)).collect())
     }
 
-    async fn settings(&self, path: &str) -> Result<Settings, ApiError> {
+    pub(super) async fn settings(&self, path: &str) -> Result<Settings, ApiError> {
         self.proxy(path, IFACE_SETTINGS_CONNECTION).await?.call("GetSettings", &()).await.map_err(error)
     }
 
@@ -180,7 +180,7 @@ impl NmClient {
         }
     }
 
-    async fn find_profile(&self, uuid: &str) -> Result<String, ApiError> {
+    pub(super) async fn find_profile(&self, uuid: &str) -> Result<String, ApiError> {
         let settings = self.proxy(SETTINGS_PATH, IFACE_SETTINGS).await?;
         let path: OwnedObjectPath = settings.call("GetConnectionByUuid", &(uuid,)).await.map_err(error)?;
         Ok(path.to_string())
@@ -228,7 +228,7 @@ impl NmClient {
 
     /// Runs an activation and waits for how it ends. The failure reasons come from signals, so they are
     /// watched from before the request goes out.
-    async fn activated<F, Fut>(&self, start: F) -> Result<String, ApiError>
+    pub(super) async fn activated<F, Fut>(&self, start: F) -> Result<String, ApiError>
     where
         F: FnOnce() -> Fut,
         Fut: std::future::Future<Output = Result<String, ApiError>>,
@@ -708,14 +708,18 @@ pub struct JoinRequest {
 
 /// A new profile for a Wi-Fi network; the service fills in the name and the rest.
 pub fn new_wifi_settings(ssid: &str, hidden: bool, security: Security, password: Option<&Secret>) -> Result<Settings, ApiError> {
+    if security.is_personal() && password.is_none_or(Secret::is_empty) {
+        return Err(ApiError::new(ErrorCode::SecretsRequired, "This network needs a password"));
+    }
+    wifi_settings(ssid, hidden, security, password)
+}
+
+/// An owned activation can ask its secret agent for a missing password later.
+pub(super) fn wifi_settings(ssid: &str, hidden: bool, security: Security, password: Option<&Secret>) -> Result<Settings, ApiError> {
     if !super::validate::ssid(ssid) {
         return Err(ApiError::invalid("A network name is 1 to 32 bytes long"));
     }
-    let needs_password = security.is_personal();
     let password = password.filter(|password| !password.is_empty());
-    if needs_password && password.is_none() {
-        return Err(ApiError::new(ErrorCode::SecretsRequired, "This network needs a password"));
-    }
     let mut settings = Settings::new();
     let mut connection = Props::new();
     connection.insert("type".to_string(), owned("802-11-wireless"));

@@ -22,7 +22,7 @@ async fn it_says_hello_with_its_version_first() {
     let bus = TestBus::start().unwrap();
     let mut daemon = Daemon::start(&bus, &["--agents"]).await;
     let first = daemon.wait_message("anything", |_| true).await;
-    assert_eq!(first, json!({ "type": "hello", "protocol": 1, "agents": true }));
+    assert_eq!(first, json!({ "type": "hello", "protocol": 2, "agents": true }));
 }
 
 #[tokio::test]

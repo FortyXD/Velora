@@ -243,6 +243,7 @@ pub async fn run(options: Options) -> anyhow::Result<()> {
     let receive: Arc<ObexShared> = ObexShared::new(ReceiveSettings { policy: ReceivePolicy::Ask, folder: default_receive_folder() });
     let service = Arc::new(Service {
         network: NmClient::new(system.clone()),
+        wifi: Default::default(),
         bluetooth: BluezClient::new(system.clone()),
         prompts: Arc::clone(&prompts),
         session: session.clone(),

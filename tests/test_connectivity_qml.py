@@ -78,7 +78,7 @@ class ConnectivityQmlTests(unittest.TestCase):
             root = Path(directory)
             write_common(root)
             write_singletons(root, {
-                'ConnectivityBackend': 'property var network: ({}); property string problem: ""; property var calls: []; '
+                'ConnectivityBackend': 'property var network: ({}); property string problem: ""; property var calls: []; signal event(string name, var data); '
                 'function call(method, params, done) { calls = calls.concat([{ method, params, done }]); }',
             })
             (root / 'Network.qml').write_text(production('services/Network.qml'))
@@ -99,6 +99,27 @@ class ConnectivityQmlTests(unittest.TestCase):
             with (root / 'qmldir').open('a') as file:
                 file.write('singleton ProfileEditor 1.0 ProfileEditor.qml\n')
             self.run_tests(root, 'tst_connectivity_editor.qml')
+
+    def test_wifi_password_form(self):
+        with tempfile.TemporaryDirectory(prefix='velora-connectivity-') as directory:
+            root = Path(directory)
+            write_common(root)
+            write_singletons(root, {
+                'Appearance': 'property var colors: ({colSubtext:"gray", colOnLayer3:"white", colSecondaryContainer:"blue", '
+                'colOnSecondaryContainer:"white", colLayer3Hover:"gray", colLayer3:"black", colError:"red", '
+                'colPrimary:"blue", colPrimaryHover:"blue", colPrimaryActive:"blue", colOnPrimary:"white"}); '
+                'property var rounding: ({small:4, full:100}); property var font: ({family:{main:"sans-serif"}, pixelSize:{small:12, smaller:10}})',
+            })
+            (root / 'PasswordForm.qml').write_text(production('modules/settings/network/PasswordForm.qml'))
+            (root / 'RippleButton.qml').write_text(
+                'import QtQuick\nimport QtQuick.Controls\nButton { property bool toggled; property real buttonRadius; '
+                'property color colBackgroundToggled; property color colBackgroundToggledHover; '
+                'property color colBackground; property color colBackgroundHover; property color colRipple }')
+            (root / 'DialogButton.qml').write_text('import QtQuick\nRippleButton { property string buttonText; property color colEnabled }')
+            (root / 'StyledText.qml').write_text('import QtQuick\nText {}')
+            (root / 'MaterialSymbol.qml').write_text('import QtQuick\nText { property real iconSize }')
+            (root / 'StyledToolTip.qml').write_text('import QtQuick\nItem { property string text }')
+            self.run_tests(root, 'tst_wifi_password_form.qml')
 
     def test_bluetooth_manager_and_prompts(self):
         with tempfile.TemporaryDirectory(prefix='velora-connectivity-') as directory:
@@ -145,7 +166,7 @@ class ConnectivitySourceTests(unittest.TestCase):
 
     def test_every_message_from_the_daemon_is_in_the_russian_translation(self):
         russian = json.loads((SHELL / 'translations/ru_RU.json').read_text())
-        sources = [TOOLS / 'velora-connectivityd/src/nm/reasons.rs', TOOLS / 'velora-connectivityd/src/bluez/client.rs', TOOLS / 'velora-connectivityd/src/bluez/obex.rs']
+        sources = [TOOLS / 'velora-connectivityd/src/nm/reasons.rs', TOOLS / 'velora-connectivityd/src/bluez/client.rs', TOOLS / 'velora-connectivityd/src/bluez/obex.rs', TOOLS / 'velora-connectivityd/src/nm/wifi.rs']
         messages = set()
         for path in sources:
             text = path.read_text().split('#[cfg(test)]')[0]

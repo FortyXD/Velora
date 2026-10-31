@@ -130,7 +130,7 @@ ColumnLayout {
 
     NetworkRevealer {
         id: passwordDetails
-        expanded: root.network.askingPassword
+        expanded: root.network.askingPassword || root.connecting
         onExpandRequested: root.network.askingPassword = true
         Layout.leftMargin: 50
         Layout.rightMargin: 12
@@ -141,7 +141,7 @@ ColumnLayout {
             Layout.fillWidth: true
             sourceComponent: PasswordForm {
                 errorText: root.network.errorText
-                busy: root.connecting
+                busy: root.connecting && !Network.awaitingPassword
                 onAccepted: password => Network.changePassword(root.network, password)
                 onCanceled: Network.cancelPasswordPrompt()
             }

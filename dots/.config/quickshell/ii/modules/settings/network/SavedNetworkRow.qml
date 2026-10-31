@@ -19,7 +19,7 @@ ColumnLayout {
     readonly property bool connecting: (Network.connectionPending && Network.wifiConnectSsid === root.name) || (root.profile?.activeState ?? 0) === 1
     readonly property bool inRange: root.profile?.inRange ?? false
     readonly property bool rejected: Network.credentialErrorSsid === root.name
-    readonly property bool asking: (root.accessPoint?.askingPassword ?? false) || root.changingPassword
+    readonly property bool asking: (root.accessPoint?.askingPassword ?? false) || root.changingPassword || root.connecting
     readonly property bool hasPassword: ["wep", "wpa-psk", "sae"].includes(root.profile?.securityType ?? "")
     property bool expanded: false
     property bool changingPassword: false
@@ -98,7 +98,7 @@ ColumnLayout {
                 text: ""
                 iconSize: 18
                 color: Appearance.colors.colSubtext
-                busy: root.connecting
+                busy: root.connecting && !Network.awaitingPassword
             }
 
             RippleButton {

@@ -7,7 +7,7 @@ use serde_json::Value;
 
 /// Raised on any change the shell has to know about. It checks this in the first message, so a shell
 /// updated without its daemon says so instead of misreading what it gets.
-pub const PROTOCOL_VERSION: u32 = 1;
+pub const PROTOCOL_VERSION: u32 = 2;
 
 #[derive(Debug, Deserialize)]
 pub struct Request {
@@ -123,6 +123,6 @@ mod tests {
     #[test]
     fn hello_states_the_version() {
         let line = Outgoing::Hello { protocol: PROTOCOL_VERSION, agents: true }.to_line();
-        assert_eq!(serde_json::from_str::<Value>(&line).unwrap(), json!({ "type": "hello", "protocol": 1, "agents": true }));
+        assert_eq!(serde_json::from_str::<Value>(&line).unwrap(), json!({ "type": "hello", "protocol": 2, "agents": true }));
     }
 }

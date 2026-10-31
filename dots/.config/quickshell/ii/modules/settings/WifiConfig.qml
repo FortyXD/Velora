@@ -26,7 +26,10 @@ ContentPage {
         page.changingPassword = false;
         currentPassword.clear();
     }
-    onPageShownChanged: if (!page.pageShown) page.currentExpanded = false
+    onPageShownChanged: if (!page.pageShown) {
+        page.currentExpanded = false;
+        Network.cancelPasswordPrompt();
+    }
 
     // Which saved networks to list, by UUID. A row reads its own details, so this only changes when the
     // list does, not with every signal level, and open rows stay open.
@@ -65,6 +68,7 @@ ContentPage {
     property bool hotspotStarting: false
     property bool changingPassword: false
     property bool joiningHidden: false
+    property string hiddenSecurity: "wpa-psk"
 
     function signalWord(strength) {
         return strength > 70 ? Translation.tr("Strong signal") : strength > 40 ? Translation.tr("Good signal") : Translation.tr("Weak signal");
@@ -77,6 +81,13 @@ ContentPage {
         running: page.pageShown && Network.wifiEnabled
         triggeredOnStart: true
         onTriggered: Network.rescanWifi()
+    }
+
+    NoticeBox {
+        visible: Network.connectionWarning.length > 0
+        Layout.fillWidth: true
+        materialIcon: "warning"
+        text: Network.connectionWarning
     }
 
     NoticeBox {
@@ -266,12 +277,15 @@ ContentPage {
                     sourceComponent: PasswordForm {
                         acceptText: Translation.tr("Save")
                         placeholderText: Translation.tr("New password")
-                        busy: Network.connectionPending
+                        busy: Network.connectionPending && !Network.awaitingPassword
+                        errorText: Network.wifiConnectSsid === page.current?.ssid || Network.passwordPromptSsid === page.current?.ssid ? Network.wifiErrorMessage : ""
                         onAccepted: password => {
                             Network.changePassword(page.current, password);
+                        }
+                        onCanceled: {
+                            Network.cancelPasswordPrompt();
                             page.changingPassword = false;
                         }
-                        onCanceled: page.changingPassword = false
                     }
                 }
             }
@@ -462,18 +476,31 @@ ContentPage {
                 placeholderText: Translation.tr("Network name")
                 wrapMode: TextEdit.NoWrap
             }
+            ConfigComboRow {
+                text: Translation.tr("Security")
+                options: [
+                    { value: "wpa-psk", displayName: "WPA/WPA2" },
+                    { value: "sae", displayName: "WPA3" },
+                    { value: "none", displayName: Translation.tr("Open network") }
+                ]
+                currentValue: page.hiddenSecurity
+                onSelected: value => page.hiddenSecurity = value
+            }
             Loader {
                 active: hiddenNetworkDetails.visible
                 Layout.fillWidth: true
                 sourceComponent: PasswordForm {
                     focusOnShow: false
-                    allowEmpty: true
+                    allowEmpty: page.hiddenSecurity === "none"
                     acceptText: Translation.tr("Join")
                     placeholderText: Translation.tr("Password, if it has one")
-                    busy: Network.connectionPending
-                    errorText: Network.wifiConnectSsid === "" && hiddenName.value.length > 0 ? Network.wifiErrorMessage : ""
-                    onAccepted: password => Network.connectToHiddenNetwork(hiddenName.value.trim(), password)
-                    onCanceled: page.joiningHidden = false
+                    busy: Network.connectionPending && !Network.awaitingPassword
+                    errorText: Network.passwordPromptSsid === hiddenName.value && hiddenName.value.length > 0 ? Network.wifiErrorMessage : ""
+                    onAccepted: password => Network.connectToHiddenNetwork(hiddenName.value, password, page.hiddenSecurity)
+                    onCanceled: {
+                        Network.cancelPasswordPrompt();
+                        page.joiningHidden = false;
+                    }
                 }
             }
         }

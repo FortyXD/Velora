@@ -7,3 +7,4 @@ pub mod client;
 pub mod share;
 pub mod form;
 pub mod agent;
+pub mod wifi;

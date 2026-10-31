@@ -3,6 +3,7 @@ import qs.services
 import qs.services.network
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.settings.network
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -10,6 +11,7 @@ import Quickshell
 WindowDialog {
     id: root
     backgroundHeight: 600
+    onShowChanged: if (!show) Network.cancelPasswordPrompt()
     readonly property WifiAccessPoint passwordNetwork: Network.wifiNetworks.find(network => network.ssid === Network.passwordPromptSsid) ?? null
     readonly property WifiAccessPoint credentialErrorNetwork: Network.wifiNetworks.find(network => network.ssid === Network.credentialErrorSsid) ?? null
 
@@ -96,47 +98,21 @@ WindowDialog {
                         Layout.fillWidth: true
                         wifiNetwork: networkEntry.modelData
                     }
-                    ColumnLayout {
-                        visible: networkEntry.modelData?.askingPassword ?? false
-                        Layout.fillWidth: true
+                    NetworkRevealer {
+                        id: credentialForm
+                        expanded: root.show && ((networkEntry.modelData?.askingPassword ?? false) || (Network.connectionPending && Network.wifiConnectSsid === networkEntry.modelData?.ssid))
                         Layout.leftMargin: Appearance.rounding.large + 30
                         Layout.rightMargin: Appearance.rounding.large
-                        Layout.bottomMargin: 10
-                        spacing: 6
-                        onVisibleChanged: {
-                            passwordField.text = "";
-                            if (visible) passwordField.forceActiveFocus();
-                        }
-                        MaterialTextField {
-                            id: passwordField
+                        bottomPadding: 10
+                        Loader {
+                            active: credentialForm.visible
                             Layout.fillWidth: true
-                            enabled: !Network.connectionPending
-                            placeholderText: Translation.tr("Password for %1").arg(networkEntry.modelData?.ssid ?? "")
-                            echoMode: TextInput.Password
-                            inputMethodHints: Qt.ImhSensitiveData
-                            onAccepted: if (text.length > 0) Network.changePassword(networkEntry.modelData, text)
-                            Keys.onEscapePressed: Network.cancelPasswordPrompt()
-                        }
-                        StyledText {
-                            Layout.fillWidth: true
-                            visible: text.length > 0
-                            wrapMode: Text.Wrap
-                            text: networkEntry.modelData?.errorText ?? ""
-                            font.pixelSize: Appearance.font.pixelSize.smaller
-                            color: Appearance.colors.colError
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Item { Layout.fillWidth: true }
-                            DialogButton {
-                                buttonText: Translation.tr("Cancel")
-                                enabled: !Network.connectionPending
-                                onClicked: Network.cancelPasswordPrompt()
-                            }
-                            DialogButton {
-                                buttonText: Translation.tr("Connect")
-                                enabled: passwordField.text.length > 0 && !Network.connectionPending
-                                onClicked: Network.changePassword(networkEntry.modelData, passwordField.text)
+                            sourceComponent: PasswordForm {
+                                placeholderText: Translation.tr("Password for %1").arg(networkEntry.modelData?.ssid ?? "")
+                                errorText: networkEntry.modelData?.errorText ?? ""
+                                busy: Network.connectionPending && !Network.awaitingPassword
+                                onAccepted: password => Network.changePassword(networkEntry.modelData, password)
+                                onCanceled: Network.cancelPasswordPrompt()
                             }
                         }
                     }
