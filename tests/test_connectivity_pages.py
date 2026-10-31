@@ -308,7 +308,7 @@ class SettingsPagesTests(unittest.TestCase):
             # Programs that act on this computer are stood in for
             tools = root / 'tools'
             tools.mkdir()
-            for name in ('rfkill', 'hyprctl', 'notify-send', 'wl-copy', 'nmcli', 'systemctl', 'qrencode'):
+            for name in ('rfkill', 'hyprctl', 'notify-send', 'wl-copy', 'nmcli', 'systemctl', 'qrencode', 'ddcutil'):
                 (tools / name).write_text('#!/bin/sh\nexit 0\n')
                 (tools / name).chmod(0o755)
             runtime = root / 'runtime'
