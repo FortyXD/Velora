@@ -21,7 +21,19 @@ impl Sandbox {
     fn tool(&self, name: &str, stdout: &str, code: i32) {
         let path = self.root.join("bin").join(name);
         let log = self.root.join("log");
-        fs::write(&path, format!("#!/bin/sh\nprintf '%s' '{name}' >> '{log}'\nfor a in \"$@\"; do printf ' [%s]' \"$a\" >> '{log}'; done\nif [ ! -t 0 ]; then in=$(cat); [ -n \"$in\" ] && printf ' stdin=%s' \"$in\" >> '{log}'; fi\nprintf '\\n' >> '{log}'\nprintf '%s' '{stdout}'\nexit {code}\n", log = log.display())).unwrap();
+        // Thumbnail workers invoke these concurrently. Append each record with one write so their
+        // arguments cannot interleave and make a correct invocation look malformed.
+        fs::write(&path, format!(r#"#!/bin/sh
+tool_record='{name}'
+for tool_argument in "$@"; do tool_record="$tool_record [$tool_argument]"; done
+if [ ! -t 0 ]; then
+    tool_input=$(cat)
+    if [ -n "$tool_input" ]; then tool_record="$tool_record stdin=$tool_input"; fi
+fi
+printf '%s\n' "$tool_record" >> '{log}'
+printf '%s' '{stdout}'
+exit {code}
+"#, log = log.display())).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
     }
 
