@@ -808,6 +808,7 @@ Singleton {
 
             property JsonObject screenSnip: JsonObject {
                 property string savePath: "" // only copy to clipboard when empty
+                property bool showCursor: false
             }
 
             property JsonObject sounds: JsonObject {
