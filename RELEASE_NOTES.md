@@ -6,6 +6,7 @@ Velora is an independently maintained fork of Illogical Impulse, built for Arch 
 
 ## Highlights
 
+- **Wi-Fi, VPN and Bluetooth settings without leaving Velora.** See every saved network with its password and protocol, edit any connection, add OpenVPN and WireGuard VPNs, and manage Bluetooth devices, including PIN pairing and file transfer. This needs the new `velora-connectivityd` service, built by the installer with Rust.
 - **Guided first run.** Set language and keyboard layouts, networking, displays, window behavior, appearance and optional apps in the new assistant. A desktop tour introduces the shell. Reopen setup with Shift+Super+Alt+/.
 - **Windows and apps.** Choose tiled or free windows, with snapping, minimizing, restoring, snap layouts and a window menu. Use Alt+Tab for window previews, add a taskbar to the bar, or open the application library with Super+Shift+Space. Configure touchpad gestures with visual hints.
 - **Smooth wallpapers and themes.** Each wallpaper keeps its own geometry during crossfades. Presets prepare wallpapers and colors before transitioning. A native helper handles palettes, theme staging and desktop widget placement. Wallpaper scaling stays correct when displays or fractional scaling change.

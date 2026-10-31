@@ -76,7 +76,6 @@ Item {
                 Network.cancelPasswordPrompt();
                 return;
             }
-            Network.update();
             Network.rescanWifi();
         }
     }

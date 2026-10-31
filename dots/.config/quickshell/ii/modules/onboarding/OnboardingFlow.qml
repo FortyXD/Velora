@@ -477,16 +477,22 @@ QtObject {
         }
     }
 
-    // Offline at the start: the network step is shown
-    property Process connectivity: Process {
-        running: true
-        command: ["nmcli", "-t", "networking", "connectivity"]
-        stdout: StdioCollector {
-            onStreamFinished: root.online = !["none", "limited", "portal"].includes(text.trim()) || text.trim() === ""
+    // Offline at the start: the network step is shown. Judged once, so the steps don't shift while connecting.
+    property bool connectivityJudged: false
+    function judgeConnectivity(): void {
+        if (root.connectivityJudged || !Network.available) return;
+        root.connectivityJudged = true;
+        root.online = !["none", "limited", "portal"].includes(Network.connectivity);
+    }
+    property Connections networkWatcher: Connections {
+        target: Network
+        function onAvailableChanged() {
+            root.judgeConnectivity();
         }
     }
 
     Component.onCompleted: {
+        root.judgeConnectivity();
         if (!root.dryRun) root.backup.running = true;
         root.componentsProc.running = true;
     }

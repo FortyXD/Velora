@@ -33,6 +33,10 @@ class VeloraError(Exception):
     pass
 
 
+class NoUpstream(VeloraError):
+    """The checked-out branch follows no remote."""
+
+
 def run(command, *, cwd=None, capture=False, dry=False, env=None, timeout=None):
     command = [str(arg) for arg in command]
     if dry:
@@ -512,6 +516,8 @@ def runtime_problems(features, *, skip_aur=False, qml_root=Path("/usr/lib/qt6/qm
             if not (qml_root / module / "qmldir").is_file():
                 problems.append(f"Missing QML module: {module}")
     if "shell" in features:
+        if not connection_service():
+            problems.append("Missing connection service: velora-connectivityd (shell)")
         python = xdg("XDG_STATE_HOME", ".local/state") / "quickshell/.venv/bin/python"
         if not python.is_file():
             problems.append(f"Missing shell Python environment: {python}")
@@ -743,35 +749,46 @@ def relink(args):
     print(f"\nConfiguration linked to {ROOT}. Backup: {backup}\nRestart Quickshell or log in again to load it.")
 
 
-def native_helper_path():
-    return Path.home() / ".local/bin/velora-helper"
+NATIVE_BINARIES = ("velora-helper", "velora-connectivityd")
+
+
+def native_helper_path(name="velora-helper"):
+    return Path.home() / ".local/bin" / name
+
+
+def connection_service():
+    """Where velora-connectivityd is, the shell's only way to NetworkManager and BlueZ."""
+    return system_tool("velora-connectivityd") or (
+        str(native_helper_path("velora-connectivityd")) if native_helper_path("velora-connectivityd").is_file() else None)
 
 
 def build_native_helper(dry=False):
-    """Builds tools/velora-helper (palettes, theme staging, widget placement) into ~/.local/bin.
-    The shell falls back to its Python scripts without it, so a failed build only warns."""
+    """Builds tools/ into ~/.local/bin: velora-helper (palettes, theme staging, widget placement) and
+    velora-connectivityd (Wi-Fi and Bluetooth). The shell has no other way to do the latter, so a failed
+    build stops the installation."""
     if package_metadata():
-        return  # The package builds it (packaging/arch/PKGBUILD.in)
+        return  # The package builds them (packaging/arch/PKGBUILD.in)
     cargo = shutil.which("cargo")
     if not cargo:
-        print("Native helper: cargo is missing; the shell keeps using its Python scripts.")
-        return
+        if dry:
+            print("Native tools: would build them once cargo is installed.")
+            return
+        raise VeloraError("Velora's native tools need Rust, and cargo is missing. Install the 'rust' package, then run 'velora deps'.")
     target = xdg("XDG_CACHE_HOME", ".cache") / "velora/cargo-target"
-    try:
-        run([cargo, "build", "--release", "--locked", "--manifest-path", ROOT / "tools/Cargo.toml"],
-            env=dict(os.environ, CARGO_TARGET_DIR=str(target)), dry=dry)
-    except VeloraError as error:
-        print(f"Native helper wasn't built; the shell keeps using its Python scripts.\n{error}")
+    run([cargo, "build", "--release", "--locked", "--manifest-path", ROOT / "tools/Cargo.toml"],
+        env=dict(os.environ, CARGO_TARGET_DIR=str(target)), dry=dry)
+    if dry:
         return
-    built = target / "release/velora-helper"
-    if dry or not built.is_file():
-        return
-    binary = native_helper_path()
-    binary.parent.mkdir(parents=True, exist_ok=True)
-    temporary = binary.with_name(".velora-helper.new")
-    shutil.copy2(built, temporary)
-    os.replace(temporary, binary)  # A running copy keeps its old file
-    print(f"Native helper: {binary}")
+    for name in NATIVE_BINARIES:
+        built = target / "release" / name
+        if not built.is_file():
+            raise VeloraError(f"The build finished without producing {name}.")
+        binary = native_helper_path(name)
+        binary.parent.mkdir(parents=True, exist_ok=True)
+        temporary = binary.with_name(f".{name}.new")
+        shutil.copy2(built, temporary)
+        os.replace(temporary, binary)  # A running copy keeps its old file
+        print(f"Native tool: {binary}")
 
 
 def components_state():
@@ -941,7 +958,10 @@ def update_status(*, fetch=True, channel=None):
                 "release_url": release.get("url", ""), "installation_type": "package", "channel": channel,
                 "checked_at": datetime.now(timezone.utc).isoformat(), "error": ""}
     branch = git("symbolic-ref", "--quiet", "--short", "HEAD")
-    remote = git("config", f"branch.{branch}.remote")
+    try:
+        remote = git("config", f"branch.{branch}.remote")
+    except VeloraError as error:
+        raise NoUpstream(f"The branch {branch} doesn't follow a remote, so there is nothing to compare it with.") from error
     if remote == ".":
         raise VeloraError("Select a branch tracking your Velora remote before updating.")
     repository = git("remote", "get-url", remote)
@@ -976,6 +996,12 @@ def update(args):
         raise VeloraError("Interactive updates must be opened in a terminal.")
     try:
         status = update_status(fetch=not args.dry_run, channel=args.channel)
+    except NoUpstream as error:
+        # A local work branch: the scheduled check has nothing to do, which isn't a failure of the service
+        if args.check:
+            print(f"Velora: {error}")
+            return
+        raise
     except VeloraError as error:
         if not args.dry_run:
             previous = read_json(state_dir() / "update.json")
@@ -1085,7 +1111,8 @@ def doctor(args):
         if not installed:
             fonts_missing.append(family)
     helper = shutil.which("velora-helper") or (str(native_helper_path()) if native_helper_path().is_file() else None)
-    print("  Native helper: " + (helper or "not built; the shell uses its Python scripts (run velora deps)"))
+    print("  Native helper: " + (helper or "not built; app shortcuts, thumbnails and other tools won't work (run velora deps)"))
+    print("  Connection service: " + (connection_service() or "not built; Wi-Fi and Bluetooth settings won't work (run velora deps)"))
     stale = stale_links()
     moved_from = preferences().get("repository")
     if moved_from and Path(moved_from) != ROOT and not package_metadata():

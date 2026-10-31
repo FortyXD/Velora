@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 
 import Quickshell
 import Quickshell.Bluetooth
-import Quickshell.Io
 import QtQuick
 
 Singleton {
@@ -50,47 +49,18 @@ Singleton {
 
     // Address of a device whose pairing failed, until another attempt starts
     property string pairingFailedAddress: ""
-    property BluetoothDevice pendingDevice: null
 
     // Pairs a new device (it is trusted, so it reconnects by itself later) and connects to it
     function pairAndConnect(device: BluetoothDevice): void {
         if (!device) return;
         root.pairingFailedAddress = "";
-        device.trusted = true;
-        if (device.paired) {
-            device.connect();
-            return;
-        }
-        root.pendingDevice = device;
-        device.pair();
+        const address = device.address;
+        BluetoothManager.pair(device.dbusPath, error => {
+            if (error && error.code !== "canceled") root.pairingFailedAddress = address;
+        });
     }
 
     function forget(device: BluetoothDevice): void {
-        if (root.pendingDevice === device) root.pendingDevice = null;
         device?.forget();
-    }
-
-    Connections {
-        target: root.pendingDevice
-        function onPairedChanged() {
-            if (!root.pendingDevice?.paired) return;
-            root.pendingDevice.connect();
-            root.pendingDevice = null;
-        }
-        function onPairingChanged() {
-            // `paired` may arrive a moment after pairing ends, so judge the result a little later
-            if (!root.pendingDevice?.pairing) pairingResultTimer.restart();
-        }
-    }
-
-    Timer {
-        id: pairingResultTimer
-        interval: 1500
-        onTriggered: {
-            const device = root.pendingDevice;
-            if (!device || device.pairing || device.paired) return;
-            root.pairingFailedAddress = device.address;
-            root.pendingDevice = null;
-        }
     }
 }

@@ -62,7 +62,7 @@ Loader {
             iconName: "colorize"
             iconFill: 1
             tooltipText: Translation.tr("Color picker")
-            onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/colors/pick-color.sh")]) // Remembers the color for the toolbox
+            onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/helper"), "pick-color"]) // Remembers the color for the toolbox
         }
     }
 

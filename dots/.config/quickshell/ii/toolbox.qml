@@ -6,7 +6,7 @@
 //@ pragma Env QT_QUICK_FLICKABLE_WHEEL_DECELERATION=10000
 
 // The Folis toolbox: file converter, video downloader, QR codes, text recognition and colors.
-// Open it with scripts/toolbox/open.sh [tab] [files…] (one window; later calls go to it over IPC).
+// Open it with `velora-helper toolbox-open [tab] [files…]` (one window; later calls go to it over IPC).
 
 import QtQuick
 import QtQuick.Controls
@@ -69,7 +69,7 @@ ApplicationWindow {
 
     Process {
         id: capsProc
-        command: ["/usr/bin/python3", "-I", Quickshell.shellPath("scripts/toolbox/folis_toolbox.py"), "caps"]
+        command: [Quickshell.shellPath("scripts/helper"), "toolbox-caps"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {

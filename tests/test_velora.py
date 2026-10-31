@@ -28,6 +28,7 @@ class IsolatedTest(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix="velora tests '")
         self.base = Path(self.temporary.name)
         self.environment = patch.dict(os.environ, {
+            "HOME": str(self.base / "home"),
             "XDG_CONFIG_HOME": str(self.base / "config"),
             "XDG_DATA_HOME": str(self.base / "data"),
             "XDG_STATE_HOME": str(self.base / "state"),
@@ -43,7 +44,87 @@ class IsolatedTest(unittest.TestCase):
         self.temporary.cleanup()
 
 
+class NativeToolsTests(IsolatedTest):
+    def fake_build(self, command, env=None, dry=False):
+        release = Path(env["CARGO_TARGET_DIR"]) / "release"
+        release.mkdir(parents=True, exist_ok=True)
+        for name in velora.NATIVE_BINARIES:
+            (release / name).write_text(name)
+
+    def test_both_tools_are_installed_where_the_shell_looks(self):
+        with patch.object(velora, "package_metadata", return_value=None), \
+                patch.object(velora.shutil, "which", return_value="/usr/bin/cargo"), \
+                patch.object(velora, "run", side_effect=self.fake_build) as run:
+            velora.build_native_helper()
+        self.assertIn("--locked", run.call_args.args[0])
+        for name in ("velora-helper", "velora-connectivityd"):
+            self.assertEqual(velora.native_helper_path(name).read_text(), name)
+            self.assertFalse(velora.native_helper_path(f".{name}.new").exists())
+
+    def test_a_failed_build_stops_the_installation(self):
+        with patch.object(velora, "package_metadata", return_value=None), \
+                patch.object(velora.shutil, "which", return_value="/usr/bin/cargo"), \
+                patch.object(velora, "run", side_effect=velora.VeloraError("cargo failed")):
+            with self.assertRaisesRegex(velora.VeloraError, "cargo failed"):
+                velora.build_native_helper()
+
+    def test_a_build_without_its_output_is_a_failure(self):
+        with patch.object(velora, "package_metadata", return_value=None), \
+                patch.object(velora.shutil, "which", return_value="/usr/bin/cargo"), \
+                patch.object(velora, "run"):
+            with self.assertRaisesRegex(velora.VeloraError, "without producing"):
+                velora.build_native_helper()
+
+    def test_missing_cargo_stops_a_real_install_but_not_a_dry_run(self):
+        with patch.object(velora, "package_metadata", return_value=None), \
+                patch.object(velora.shutil, "which", return_value=None):
+            with self.assertRaisesRegex(velora.VeloraError, "cargo is missing"):
+                velora.build_native_helper()
+            with contextlib.redirect_stdout(io.StringIO()):
+                velora.build_native_helper(dry=True)
+
+    def test_a_dry_run_installs_nothing(self):
+        with patch.object(velora, "package_metadata", return_value=None), \
+                patch.object(velora.shutil, "which", return_value="/usr/bin/cargo"), \
+                patch.object(velora, "run") as run:
+            velora.build_native_helper(dry=True)
+        self.assertTrue(run.call_args.kwargs["dry"])
+        self.assertFalse(velora.native_helper_path("velora-connectivityd").exists())
+
+    def test_the_package_builds_its_own(self):
+        with patch.object(velora, "package_metadata", return_value={"version": "1"}), \
+                patch.object(velora, "run") as run:
+            velora.build_native_helper()
+        run.assert_not_called()
+
+    def test_the_package_recipe_installs_the_connection_service(self):
+        recipe = (PROJECT / "packaging/arch/PKGBUILD.in").read_text()
+        self.assertIn('cargo-target/release/velora-connectivityd" "$pkgdir/usr/bin/velora-connectivityd"', recipe)
+
+    def test_the_fakes_stay_out_of_release_builds(self):
+        workspace = (PROJECT / "tools/Cargo.toml").read_text()
+        default_members = next(line for line in workspace.splitlines() if line.startswith("default-members"))
+        self.assertIn("velora-connectivityd", default_members)
+        self.assertNotIn("fakes", default_members)
+
+    def test_a_missing_connection_service_is_a_runtime_problem(self):
+        with patch.object(velora, "system_tool", side_effect=lambda name: None if name == "velora-connectivityd" else f"/usr/bin/{name}"):
+            problems = velora.runtime_problems({"shell": {}})
+        self.assertIn("Missing connection service: velora-connectivityd (shell)", problems)
+        velora.native_helper_path("velora-connectivityd").parent.mkdir(parents=True, exist_ok=True)
+        velora.native_helper_path("velora-connectivityd").write_text("")
+        with patch.object(velora, "system_tool", side_effect=lambda name: None if name == "velora-connectivityd" else f"/usr/bin/{name}"):
+            problems = velora.runtime_problems({"shell": {}})
+        self.assertNotIn("Missing connection service: velora-connectivityd (shell)", problems)
+
+
 class DependencyTests(IsolatedTest):
+    def setUp(self):
+        super().setUp()
+        builder = patch.object(velora, "build_native_helper")
+        builder.start()
+        self.addCleanup(builder.stop)
+
     def test_missing_packages_are_deduplicated_and_skip_aur_is_respected(self):
         features = {"a": {"repo": ["git", "kitty"], "aur": ["mpvpaper"]},
                     "b": {"repo": ["kitty", "python"], "aur": ["mpvpaper"]}}
@@ -504,6 +585,24 @@ class InstallerTests(IsolatedTest):
         self.assertFalse(os.path.lexists(timer))
         velora.restore_journal(self.journal)
         self.assertTrue(timer.is_symlink())
+
+
+class NoUpstreamTests(IsolatedTest):
+    def run_update(self, *arguments):
+        args = velora.parser().parse_args(["update", *arguments])
+        def fake_git(*command, **_):
+            if command[:1] == ("symbolic-ref",):
+                return "work"
+            raise velora.VeloraError("Command failed (1): git config branch.work.remote")
+        with patch.object(velora, "package_metadata", return_value=None), patch.object(velora, "git", side_effect=fake_git):
+            velora.update(args)
+
+    def test_the_scheduled_check_on_a_local_branch_isnt_a_failure(self):
+        self.run_update("--check", "--notify")
+
+    def test_asking_to_update_a_local_branch_says_why_not(self):
+        with self.assertRaisesRegex(velora.NoUpstream, "doesn't follow a remote"):
+            self.run_update()
 
 
 class UpdateTests(IsolatedTest):

@@ -231,14 +231,14 @@ hl.define_submap("global", function()
     bind("Super+Shift", "X", hl.dsp.global("quickshell:regionOcr"), { id = "tools.ocr", description = "Copy text from a region" })
     bind("Super+Shift", "X", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pidof slurp || grim -g "$(slurp $SLURP_ARGS)" "/tmp/ocr_image.png" && tesseract "/tmp/ocr_image.png" stdout -l $(tesseract --list-langs | awk 'NR>1{print $1}' | tr '\n' '+' | sed 's/\+$/\n/') | wl-copy && rm "/tmp/ocr_image.png"]=]), { id = "tools.ocr" })
     bind("Super+Shift", "T", hl.dsp.global("quickshell:screenTranslate"), { id = "tools.translate", description = "Translate text on screen" })
-    bind("Super+Shift", "C", exec([=[~/.config/quickshell/$qsConfig/scripts/colors/pick-color.sh]=]), { id = "tools.color_picker", description = "Pick a color" })
-    bind("Super+Shift", "I", exec([=[~/.config/quickshell/$qsConfig/scripts/toolbox/open.sh]=]), { id = "tools.toolbox", description = "Open the toolbox" })
+    bind("Super+Shift", "C", exec([=[~/.config/quickshell/$qsConfig/scripts/helper pick-color]=]), { id = "tools.color_picker", description = "Pick a color" })
+    bind("Super+Shift", "I", exec([=[~/.config/quickshell/$qsConfig/scripts/helper toolbox-open]=]), { id = "tools.toolbox", description = "Open the toolbox" })
     bind("Super+Shift+Alt", "mouse:273", exec([=[~/.config/hypr/hyprland/scripts/ai/primary-buffer-query.sh]=]), {
         description = "Summarize selected text with AI",
     })
     -- Fallbacks for when the shell isn't running
     bind("Super", "V", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pkill fuzzel || cliphist list | fuzzel --match-mode fzf --dmenu | cliphist decode | wl-copy]=]), { id = "shell.clipboard" })
-    bind("Super", "Period", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pkill fuzzel || ~/.config/hypr/hyprland/scripts/fuzzel-emoji.sh copy]=]), { id = "shell.emoji" })
+    bind("Super", "Period", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pkill fuzzel || ~/.config/quickshell/$qsConfig/scripts/helper emoji copy]=]), { id = "shell.emoji" })
 
     keymap.group("windows", "Window management", "select_window")
     -- Free windows (Settings → Desktop → Windows) snap with Super+arrows instead of moving focus
@@ -315,14 +315,14 @@ hl.define_submap("global", function()
     local number_keycodes = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }
     local keypad_keycodes = { 87, 88, 89, 83, 84, 85, 79, 80, 81, 90 }
     for workspace, keycode in ipairs(number_keycodes) do
-        bind("Super", "code:" .. keycode, exec("~/.config/hypr/hyprland/scripts/workspace_action.sh workspace " .. workspace))
-        bind("Super+Alt", "code:" .. keycode, exec("~/.config/hypr/hyprland/scripts/workspace_action.sh movetoworkspacesilent " .. workspace))
+        bind("Super", "code:" .. keycode, exec("~/.config/quickshell/$qsConfig/scripts/helper workspace workspace " .. workspace))
+        bind("Super+Alt", "code:" .. keycode, exec("~/.config/quickshell/$qsConfig/scripts/helper workspace movetoworkspacesilent " .. workspace))
     end
     for workspace, keycode in ipairs(keypad_keycodes) do
-        bind("Super", "code:" .. keycode, exec("~/.config/hypr/hyprland/scripts/workspace_action.sh workspace " .. workspace), {
+        bind("Super", "code:" .. keycode, exec("~/.config/quickshell/$qsConfig/scripts/helper workspace workspace " .. workspace), {
             dont_inhibit = true,
         })
-        bind("Super+Alt", "code:" .. keycode, exec("~/.config/hypr/hyprland/scripts/workspace_action.sh movetoworkspacesilent " .. workspace))
+        bind("Super+Alt", "code:" .. keycode, exec("~/.config/quickshell/$qsConfig/scripts/helper workspace movetoworkspacesilent " .. workspace))
     end
 
     bind("Ctrl+Super", "S", hl.dsp.workspace.toggle_special(""), { id = "workspace.scratchpad", description = "Show or hide the scratchpad" })
@@ -358,7 +358,7 @@ hl.define_submap("global", function()
 
     keymap.group("apps", "Apps", "apps")
     -- Default apps are picked in Settings > Default Apps
-    local default_app = "~/.config/hypr/hyprland/scripts/default_apps.py launch "
+    local default_app = "~/.config/quickshell/$qsConfig/scripts/helper apps launch "
     bind("Super", "Return", exec(default_app .. "terminal"), { id = "app.terminal", description = "Open a terminal" })
     bind("Super", "B", exec(default_app .. "browser"), { id = "app.browser", description = "Web browser" })
     bind("Super", "E", exec(default_app .. "files"), { id = "app.files", description = "File manager" })
@@ -405,12 +405,12 @@ hl.define_submap("global", function()
     })
 
     keymap.group("session", "Screen & session", "power_settings_new")
-    bind("Super", "Equal", exec([=[~/.config/hypr/hyprland/scripts/zoom.sh increase 0.3]=]), { id = "screen.zoom_in", repeating = true, description = "Zoom in" })
-    bind("Super", "Minus", exec([=[~/.config/hypr/hyprland/scripts/zoom.sh decrease 0.3]=]), { id = "screen.zoom_out", repeating = true, description = "Zoom out" })
+    bind("Super", "Equal", exec([=[~/.config/quickshell/$qsConfig/scripts/helper zoom increase 0.3]=]), { id = "screen.zoom_in", repeating = true, description = "Zoom in" })
+    bind("Super", "Minus", exec([=[~/.config/quickshell/$qsConfig/scripts/helper zoom decrease 0.3]=]), { id = "screen.zoom_out", repeating = true, description = "Zoom out" })
     bind("Super", "code:86", exec([=[qs -c $qsConfig ipc call zoom zoomIn]=]), { repeating = true })
     bind("Super", "code:82", exec([=[qs -c $qsConfig ipc call zoom zoomOut]=]), { repeating = true })
-    bind("Super", "code:86", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || ~/.config/hypr/hyprland/scripts/zoom.sh increase 0.1]=]), { repeating = true })
-    bind("Super", "code:82", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || ~/.config/hypr/hyprland/scripts/zoom.sh decrease 0.1]=]), { repeating = true })
+    bind("Super", "code:86", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || ~/.config/quickshell/$qsConfig/scripts/helper zoom increase 0.1]=]), { repeating = true })
+    bind("Super", "code:82", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || ~/.config/quickshell/$qsConfig/scripts/helper zoom decrease 0.1]=]), { repeating = true })
     bind("Super", "L", exec([=[loginctl lock-session]=]), { id = "session.lock", description = "Lock the screen" })
     bind("Super+Shift", "L", exec([=[systemctl suspend || loginctl suspend]=]), {
         id = "session.suspend",

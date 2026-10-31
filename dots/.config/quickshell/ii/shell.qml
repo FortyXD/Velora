@@ -25,6 +25,15 @@ ShellRoot {
     // Stuff for every panel family
     ReloadPopup {}
     ThemeTransitionOverlay {}
+    ConnectivityPromptWindow {}
+
+    // This is the process that answers password and pairing requests, and keeps the daemon's settings up to date
+    Binding {
+        target: ConnectivityBackend
+        property: "agents"
+        value: Config.options.connectivity?.agents ?? true
+    }
+    readonly property var connectivitySettings: ConnectivitySettings
 
     // `qs -c ii ipc call themeTransition test`: the wave alone, over an unchanged screen
     IpcHandler {

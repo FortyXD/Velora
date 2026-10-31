@@ -1,0 +1,15 @@
+[package]
+name = "velora-connectivity-fakes"
+version = "0.1.0"
+edition = "2021"
+description = "Stand-ins for NetworkManager, BlueZ, obexd and the Secret Service, for Velora's tests"
+license = "GPL-3.0-only"
+publish = false
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[dependencies]
+anyhow = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "process", "io-util", "io-std"] }
+zbus = { version = "6", default-features = false, features = ["tokio", "proxy", "service", "object-manager"] }

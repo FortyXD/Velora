@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Wi-Fi and Bluetooth settings now do everything KDE's do, without leaving Velora. Every saved network is listed at once with its protocol, and its password can be shown, copied or shared as a QR code. Network & VPN lists every other connection, with OpenVPN and WireGuard forms, import and export. A connection editor covers addresses, routes, DNS, security including 802.1X, proxy and every other stored setting. Airplane mode and sharing the connection over Wi-Fi are included.
+- Bluetooth lists every paired device with its type, battery and services. Devices can be renamed, trusted, blocked and sent files. Pairing with a PIN or a number to compare works, files can be received, and Bluetooth can be set to come back at login and after sleep as it was left.
+- Password prompts: VPNs that ask for a one-time code, and networks with secrets kept per user, now work outside Plasma. Secrets are found where Plasma keeps them.
+- Wi-Fi passwords no longer appear in process lists. The shell reaches NetworkManager and BlueZ through a new Rust service, `velora-connectivityd`, which becomes a required part of the installation. Building it needs Rust.
+
 ## 0.1.3 — 2026-10-30
 
 - A new first-run assistant walks through language and keyboard layouts, networking, displays, window behavior, appearance and optional applications. A desktop tour introduces the shell; the assistant can be reopened with Shift+Super+Alt+/.

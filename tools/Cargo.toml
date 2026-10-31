@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
-members = ["velora-helper"]
+members = ["velora-helper", "velora-connectivityd", "velora-connectivity-fakes"]
+default-members = ["velora-helper", "velora-connectivityd"]
 
 [profile.release]
 opt-level = 3

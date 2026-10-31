@@ -163,7 +163,7 @@ function M.bind_custom(bind)
     for index, shortcut in ipairs(state.custom) do
         local command = shortcut.command
         if shortcut.app and shortcut.app ~= "" then
-            command = "~/.config/hypr/hyprland/scripts/default_apps.py open " .. string.format("%q", shortcut.app)
+            command = "~/.config/quickshell/$qsConfig/scripts/helper apps open " .. string.format("%q", shortcut.app)
         end
         if command and command ~= "" and shortcut.key and shortcut.key ~= "" then
             bind(shortcut.mods or "", shortcut.key, h.exec(command), {

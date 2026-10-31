@@ -108,7 +108,7 @@ Singleton {
                 const value = args.trim();
                 const tab = ["converter", "downloader", "qr", "ocr", "colors"].includes(value.toLowerCase()) ? value.toLowerCase() : "";
                 const link = /^https?:\/\//i.test(value) ? value : "";
-                Quickshell.execDetached([Quickshell.shellPath("scripts/toolbox/open.sh"), link ? "downloader" : (tab || "converter"), ...(link ? [link] : [])]);
+                Quickshell.execDetached([Quickshell.shellPath("scripts/helper"), "toolbox-open", link ? "downloader" : (tab || "converter"), ...(link ? [link] : [])]);
             }
         },
         {

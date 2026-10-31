@@ -1,7 +1,7 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Bluetooth
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -9,34 +9,69 @@ import qs.modules.settings.network
 
 ContentPage {
     id: page
-    readonly property var adapter: Bluetooth.defaultAdapter
-    readonly property bool isOn: BluetoothStatus.enabled
-    // Devices that only report an address are kept apart; they are rarely what you're looking for
-    readonly property var namedNearby: BluetoothStatus.unpairedDevices.filter(device => device.name && device.name !== device.address.replace(/:/g, "-"))
-    readonly property var unnamedNearby: BluetoothStatus.unpairedDevices.filter(device => !page.namedNearby.includes(device))
+    readonly property var adapter: BluetoothManager.adapter
+    readonly property bool isOn: BluetoothManager.powered && !BluetoothManager.softBlocked
+
+    // Devices by path, in the order given. A row reads its own details, so these only change when the list
+    // does, not with every signal level.
+    property var savedKeys: []
+    property var namedKeys: []
+    property var unnamedKeys: []
     property bool showUnnamed: false
+    function updateKeys(): void {
+        const assign = (name, list) => {
+            const next = list.map(device => device.path);
+            if (JSON.stringify(next) !== JSON.stringify(page[name])) page[name] = next;
+        };
+        assign("savedKeys", BluetoothManager.saved);
+        assign("namedKeys", BluetoothManager.nearby.filter(device => device.named));
+        assign("unnamedKeys", BluetoothManager.nearby.filter(device => !device.named));
+    }
+    Component.onCompleted: page.updateKeys()
+    Connections {
+        target: BluetoothManager
+        function onSavedChanged() {
+            page.updateKeys();
+        }
+        function onNearbyChanged() {
+            page.updateKeys();
+        }
+    }
 
     // Looks for devices only while the page is on screen
     readonly property bool searching: page.pageShown && page.isOn
-    onSearchingChanged: BluetoothStatus.setDiscovering(page.searching)
-    Component.onCompleted: BluetoothStatus.setDiscovering(page.searching)
-    Component.onDestruction: BluetoothStatus.setDiscovering(false)
+    onSearchingChanged: BluetoothManager.setDiscovering(page.searching)
+    Component.onDestruction: BluetoothManager.setDiscovering(false)
+
+    NoticeBox {
+        visible: Network.snapshotError.length > 0
+        Layout.fillWidth: true
+        materialIcon: "error"
+        text: Network.snapshotError
+    }
+
+    NoticeBox {
+        visible: BluetoothManager.hardBlocked
+        Layout.fillWidth: true
+        materialIcon: "airplanemode_active"
+        text: Translation.tr("Bluetooth is turned off by a switch or key on this computer.")
+    }
 
     ConnectionHeader {
-        icon: !page.isOn ? "bluetooth_disabled" : BluetoothStatus.connected ? "bluetooth_connected" : "bluetooth"
+        icon: !page.isOn ? "bluetooth_disabled" : BluetoothManager.connected.length > 0 ? "bluetooth_connected" : "bluetooth"
         iconColor: page.heroColor
         title: Translation.tr("Bluetooth")
-        subtitle: !BluetoothStatus.available ? Translation.tr("No Bluetooth adapter found")
+        subtitle: !BluetoothManager.available ? Translation.tr("No Bluetooth adapter found")
             : !page.isOn ? Translation.tr("Off")
-            : BluetoothStatus.connectedDevices.length > 0 ? BluetoothStatus.connectedDevices.map(device => device.name).join(", ")
+            : BluetoothManager.connected.length > 0 ? BluetoothManager.connected.map(device => device.name).join(", ")
             : Translation.tr("No devices connected")
         detail: !page.isOn ? Translation.tr("Turn it on to use headphones, mice and other devices")
             : (page.adapter?.discoverable ?? false) ? Translation.tr("Visible to others as “%1”").arg(page.adapter?.name ?? "")
-            : Translation.tr("%1 paired devices").arg(BluetoothStatus.pairedDevices.length)
+            : Translation.tr("%1 paired devices").arg(BluetoothManager.saved.length)
         checked: page.isOn
-        switchEnabled: BluetoothStatus.available
+        switchEnabled: BluetoothManager.available && !BluetoothManager.hardBlocked
         switchLabel: Translation.tr("Turn Bluetooth on or off")
-        onToggled: BluetoothStatus.setEnabled(!page.isOn)
+        onToggled: BluetoothManager.setEnabled(!page.isOn)
 
         ConfigSwitch {
             visible: page.isOn
@@ -45,25 +80,26 @@ ContentPage {
             description: Translation.tr("Lets phones and other computers find this one, to pair from their side")
             autoToggle: false
             checked: page.adapter?.discoverable ?? false
-            onClicked: if (page.adapter) page.adapter.discoverable = !page.adapter.discoverable
+            onClicked: BluetoothManager.setDiscoverable(!(page.adapter?.discoverable ?? false))
         }
     }
 
     ContentSection {
         icon: "devices"
         title: Translation.tr("My devices")
-        visible: page.isOn
+        description: Translation.tr("Every device this computer has paired with. Click one for its details.")
+        visible: BluetoothManager.available
 
         Repeater {
-            model: BluetoothStatus.pairedDevices
+            model: page.savedKeys
             delegate: BluetoothDeviceRow {
                 required property var modelData
-                device: modelData
+                path: modelData
             }
         }
 
         StyledText {
-            visible: BluetoothStatus.pairedDevices.length === 0
+            visible: page.savedKeys.length === 0
             Layout.fillWidth: true
             Layout.margins: 14
             text: Translation.tr("No paired devices yet. Switch on the device you want to add, put it in pairing mode and pick it below.")
@@ -88,48 +124,41 @@ ContentPage {
             spacing: 8
             StyledText {
                 Layout.fillWidth: true
-                text: (page.adapter?.discovering ?? false) ? Translation.tr("Looking for devices…")
-                    : Translation.tr("Not looking right now")
+                text: BluetoothManager.discovering ? Translation.tr("Looking for devices…") : Translation.tr("Not looking right now")
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
             }
-            MaterialSymbol {
-                visible: page.adapter?.discovering ?? false
-                text: "progress_activity"
+            StatusIcon {
+                visible: BluetoothManager.discovering
+                text: ""
                 iconSize: 18
                 color: Appearance.colors.colSubtext
-                RotationAnimation on rotation {
-                    running: page.adapter?.discovering ?? false
-                    loops: Animation.Infinite
-                    from: 0
-                    to: 360
-                    duration: 1200
-                }
+                busy: BluetoothManager.discovering
             }
         }
 
         Repeater {
-            model: page.namedNearby
+            model: page.namedKeys
             delegate: BluetoothDeviceRow {
                 required property var modelData
-                device: modelData
+                path: modelData
             }
         }
 
         ConfigNavRow {
-            visible: page.unnamedNearby.length > 0
+            visible: page.unnamedKeys.length > 0
             buttonIcon: page.showUnnamed ? "expand_less" : "expand_more"
             title: page.showUnnamed ? Translation.tr("Hide devices without a name")
-                : Translation.tr("Devices without a name (%1)").arg(page.unnamedNearby.length)
+                : Translation.tr("Devices without a name (%1)").arg(page.unnamedKeys.length)
             trailingIcon: ""
             onClicked: page.showUnnamed = !page.showUnnamed
         }
 
         Repeater {
-            model: page.showUnnamed ? page.unnamedNearby : []
+            model: page.showUnnamed ? page.unnamedKeys : []
             delegate: BluetoothDeviceRow {
                 required property var modelData
-                device: modelData
+                path: modelData
             }
         }
     }
@@ -146,10 +175,9 @@ ContentPage {
         }
         ConfigNavRow {
             buttonIcon: "settings_bluetooth"
-            title: Translation.tr("Advanced Bluetooth settings")
-            description: Translation.tr("File transfer, audio profiles and other details")
-            trailingIcon: "open_in_new"
-            onClicked: Quickshell.execDetached(["bash", "-c", Config.options.apps.bluetooth])
+            title: Translation.tr("Bluetooth settings")
+            description: Translation.tr("This computer's name and visibility, what happens at login, and receiving files")
+            onClicked: ApplicationWindow.window?.openPage("bluetooth-options")
         }
     }
 }

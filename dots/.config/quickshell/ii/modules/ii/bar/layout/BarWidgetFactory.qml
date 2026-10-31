@@ -420,7 +420,7 @@ QtObject {
             property var host: null
             iconName: "construction"
             tooltipText: Translation.tr("Toolbox")
-            onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/toolbox/open.sh"), host?.options?.tab ?? "converter"])
+            onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/helper"), "toolbox-open", host?.options?.tab ?? "converter"])
         }
     }
 

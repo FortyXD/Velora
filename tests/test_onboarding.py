@@ -58,7 +58,7 @@ class OnboardingTests(unittest.TestCase):
             ui_singletons = {
                 'Motion': 'property bool reduced: true; property var accelerate: [0,0,1,1,1,1]; property var decelerate: [0,0,1,1,1,1]; property var emphasized: [0,0,1,1,1,1]; property var spatial: [0,0,1,1,1,1]; function ms(n) { return 0; } function travel(n) { return 0; }',
                 'Hyprland': 'signal rawEvent(var event)',
-                'Network': 'property bool wifi: true; property bool ethernet: false',
+                'Network': 'property bool wifi: true; property bool ethernet: false; property bool available: true; property string connectivity: "full"',
                 'HyprlandSettings': 'property var reloadCommand: ["hyprctl", "reload"]',
                 'Presets': 'property var presets: []; function isRemote(path) { return /^https?:/.test(path ?? ""); }',
                 'ColorUtils': 'function colorWithHueOf(color, hue) { return color; } function transparentize(color, alpha) { return color; }',

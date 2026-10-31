@@ -13,6 +13,9 @@ Velora targets Arch Linux with Hyprland's Lua configuration and the Quickshell `
 | `scripts/builds.py` | Source recipes and Velora package builds |
 | `scripts/runtime.py` | Writable configuration refresh for package installs |
 | `dependencies/arch.toml` | Official and AUR dependencies grouped by component |
+| `tools/velora-helper/` | Native helpers: palettes, theme staging, widget placement |
+| `tools/velora-connectivityd/` | The shell's link to NetworkManager and BlueZ; see below |
+| `tools/velora-connectivity-fakes/` | Stand-ins for those services, for tests; not installed |
 | `dependencies/python/` | Python dependency declarations and locked versions |
 | `dots/.config/quickshell/ii/` | Shell services, widgets, settings, assets and translations |
 | `dots/.config/hypr/` | Hyprland Lua configuration and supporting scripts |
@@ -54,3 +57,18 @@ New installer messages, diagnostics, comments, and technical documentation shoul
 ## Working with the repository
 
 Review `git diff` before publishing: linked configuration directories can contain local paths or runtime-generated changes. Commit intended local edits before using the updater. Merge upstream improvements deliberately and test them with Velora's settings and installation workflow.
+
+## Wi-Fi, VPN and Bluetooth
+
+`velora-connectivityd` talks to NetworkManager, BlueZ, obexd and the Secret Service over D-Bus, and to the shell in JSON lines over stdin and stdout (`tools/velora-connectivityd/src/protocol.rs`). `services/ConnectivityBackend.qml` keeps it running. The shell runs it with `--agents`, which answers password, pairing and file requests; the settings app runs its own copy without them.
+
+- Raise `PROTOCOL_VERSION` in `protocol.rs`, and `protocolVersion` in `ConnectivityBackend.qml`, on any change the other side has to know about. A shell updated without its daemon then says so instead of misreading it.
+- Passwords travel over stdin and D-Bus only. `secret::Secret` has no `Serialize` and a redacted `Debug`, so a log line or snapshot can't carry one by accident. Never put one on a command line.
+- Edits are applied onto the profile as NetworkManager holds it (`nm/form.rs`), so settings the form doesn't cover are kept. An update without its secrets clears them, which `settings_with_secrets` is for.
+- Strings from the daemon reach people through `Translation.tr`, so new messages need a `ru_RU` entry too; `tests/test_connectivity_qml.py` checks it.
+
+Tests run the real daemon against the stand-ins on a private bus, whose configuration starts no real services on demand. `tests/test_connectivity_pages.py` adds the real pages in the real shell runtime. To check against this computer's NetworkManager, which only reads and uses a temporary profile that can't connect by itself:
+
+```bash
+cargo test --manifest-path tools/Cargo.toml -p velora-connectivityd --test live -- --ignored --test-threads=1
+```

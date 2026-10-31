@@ -21,7 +21,7 @@ QuickToggleModel {
         interval: 300
         repeat: false
         onTriggered: {
-            Quickshell.execDetached([Quickshell.shellPath("scripts/colors/pick-color.sh")]);
+            Quickshell.execDetached([Quickshell.shellPath("scripts/helper"), "pick-color"]);
         }
     }
 
