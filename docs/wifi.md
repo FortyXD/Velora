@@ -16,7 +16,9 @@ A connection that succeeds but cannot save its password stays connected and show
 
 ## Backend and troubleshooting
 
-The shell and settings use `velora-connectivityd`, a Rust D-Bus client for NetworkManager and BlueZ. Install or update it together with the shell; this release requires JSON protocol version 2. An older daemon is reported as out of date. Passwords travel through the daemon's stdin and D-Bus, never command arguments or network snapshots.
+The shell and settings use `velora-connectivityd`, a Rust D-Bus client for NetworkManager and BlueZ. This release requires JSON protocol version 2. Installation synchronizes both native executables before linking the configuration, including with `--skip-packages`. Package installations copy the packaged executables without requiring Rust. The launchers prefer this managed pair over older copies in `PATH`.
+
+If source files are already current but the native executables are missing or stale, `velora update` repairs them. It compares fingerprints of the build inputs and installed executables; background update checks never build or repair anything. The shell retries automatically after a repair. Passwords travel through the daemon's stdin and D-Bus, never command arguments or network snapshots.
 
 Each Wi-Fi operation registers a short-lived secret agent on its own D-Bus connection. It accepts requests only from NetworkManager's current unique bus owner and for its own connection UUID and profile path. Operation and request tokens reject stale password replies. A runtime lock serializes operations between the shell and settings app.
 

@@ -1,0 +1,9 @@
+#!/bin/sh
+# Installation keeps the native pair together here, independently of the shell's inherited PATH.
+if [ -n "${VELORA_CONNECTIVITYD:-}" ]; then
+    exec "$VELORA_CONNECTIVITYD" "$@"
+elif [ -x "$HOME/.local/bin/velora-connectivityd" ]; then
+    exec "$HOME/.local/bin/velora-connectivityd" "$@"
+else
+    exec velora-connectivityd "$@"
+fi
