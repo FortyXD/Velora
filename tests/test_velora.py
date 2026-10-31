@@ -50,6 +50,7 @@ class NativeToolsTests(IsolatedTest):
         release.mkdir(parents=True, exist_ok=True)
         for name in velora.NATIVE_BINARIES:
             (release / name).write_text(name)
+            (release / name).chmod(0o755)
 
     def test_both_tools_are_installed_where_the_shell_looks(self):
         with patch.object(velora, "package_metadata", return_value=None), \
@@ -92,10 +93,95 @@ class NativeToolsTests(IsolatedTest):
         self.assertFalse(velora.native_helper_path("velora-connectivityd").exists())
 
     def test_the_package_builds_its_own(self):
+        packaged = self.base / "package-bin"
+        packaged.mkdir()
+        for name in velora.NATIVE_BINARIES:
+            (packaged / name).write_text("packaged " + name)
+            (packaged / name).chmod(0o755)
+            old = velora.native_helper_path(name)
+            old.parent.mkdir(parents=True, exist_ok=True)
+            old.write_text("old checkout binary")
         with patch.object(velora, "package_metadata", return_value={"version": "1"}), \
+                patch.object(velora, "packaged_native_path", side_effect=lambda name: packaged / name), \
                 patch.object(velora, "run") as run:
             velora.build_native_helper()
         run.assert_not_called()
+        self.assertTrue(velora.native_tools_current())
+        for name in velora.NATIVE_BINARIES:
+            self.assertEqual(velora.native_helper_path(name).read_text(), "packaged " + name)
+
+    def test_missing_modified_or_unregistered_native_tools_need_repair(self):
+        self.assertFalse(velora.native_tools_current())
+        with patch.object(velora, "package_metadata", return_value=None), \
+                patch.object(velora.shutil, "which", return_value="/usr/bin/cargo"), \
+                patch.object(velora, "run", side_effect=self.fake_build):
+            velora.build_native_helper()
+        self.assertTrue(velora.native_tools_current())
+        velora.native_helper_path("velora-connectivityd").write_text("old protocol binary")
+        self.assertFalse(velora.native_tools_current())
+        velora.native_helper_path("velora-connectivityd").unlink()
+        self.assertFalse(velora.native_tools_current())
+
+    def test_updated_sources_invalidate_the_installed_pair(self):
+        source = self.base / "source"
+        files = {"VERSION":"0.1.3", "tools/Cargo.toml":"workspace", "tools/Cargo.lock":"locked"}
+        for name in velora.NATIVE_BINARIES:
+            files[f"tools/{name}/Cargo.toml"] = "crate"
+            files[f"tools/{name}/src/main.rs"] = "old source"
+        for name, content in files.items():
+            path = source / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)
+        with patch.object(velora, "ROOT", source), \
+                patch.object(velora.shutil, "which", return_value="/usr/bin/cargo"), \
+                patch.object(velora, "run", side_effect=self.fake_build):
+            velora.build_native_helper()
+            self.assertTrue(velora.native_tools_current())
+            (source / "VERSION").write_text("0.1.4")
+            (source / "tools/velora-connectivityd/src/main.rs").write_text("protocol 2")
+            self.assertFalse(velora.native_tools_current())
+            velora.build_native_helper()
+            self.assertTrue(velora.native_tools_current())
+
+    def test_incomplete_build_keeps_both_old_binaries_and_does_not_record_success(self):
+        for name in velora.NATIVE_BINARIES:
+            binary = velora.native_helper_path(name)
+            binary.parent.mkdir(parents=True, exist_ok=True)
+            binary.write_text("old " + name)
+        def incomplete(command, env=None, **kwargs):
+            release = Path(env["CARGO_TARGET_DIR"]) / "release"
+            release.mkdir(parents=True)
+            (release / "velora-helper").write_text("new helper")
+        with patch.object(velora, "package_metadata", return_value=None), \
+                patch.object(velora.shutil, "which", return_value="/usr/bin/cargo"), \
+                patch.object(velora, "run", side_effect=incomplete), \
+                self.assertRaisesRegex(velora.VeloraError, "without producing velora-connectivityd"):
+            velora.build_native_helper()
+        for name in velora.NATIVE_BINARIES:
+            self.assertEqual(velora.native_helper_path(name).read_text(), "old " + name)
+        self.assertFalse((velora.state_dir() / "native-tools.json").exists())
+
+    def test_skip_packages_still_installs_native_tools_before_linking(self):
+        steps = []
+        args = velora.parser().parse_args(["install", "--yes", "--skip-packages"])
+        with patch.object(velora, "preflight"), patch.object(velora, "run"), \
+                patch.object(velora, "install_dependencies") as dependencies, \
+                patch.object(velora, "build_native_helper", side_effect=lambda: steps.append("native")), \
+                patch.object(velora, "install_fonts"), \
+                patch.object(velora, "verify_runtime", side_effect=lambda *args: steps.append("verify")), \
+                patch.object(velora, "link_configuration", side_effect=lambda *args: steps.append("link") or self.base):
+            velora.install(args)
+        dependencies.assert_not_called()
+        self.assertEqual(steps, ["native", "verify", "link"])
+
+    def test_native_build_failure_stops_a_fresh_install_before_linking(self):
+        args = velora.parser().parse_args(["install", "--yes", "--skip-packages"])
+        with patch.object(velora, "preflight"), patch.object(velora, "run"), \
+                patch.object(velora, "build_native_helper", side_effect=velora.VeloraError("native build failed")), \
+                patch.object(velora, "link_configuration") as link, \
+                self.assertRaisesRegex(velora.VeloraError, "native build failed"):
+            velora.install(args)
+        link.assert_not_called()
 
     def test_the_package_recipe_installs_the_connection_service(self):
         recipe = (PROJECT / "packaging/arch/PKGBUILD.in").read_text()
@@ -230,6 +316,7 @@ class DependencyTests(IsolatedTest):
         installed = set(velora.FONT_PACKAGES) - set(velora.FONT_DOWNLOADS)
         args = ["deps", "--skip-aur"]
         with patch.object(velora, "install_dependencies") as dependencies, \
+                patch.object(velora, "build_native_helper"), \
                 patch.object(velora, "preflight"), \
                 patch.object(velora, "verify_runtime"), \
                 patch.object(velora, "font_tool", side_effect=lambda name: f"/usr/bin/{name}"), \
@@ -292,6 +379,7 @@ class DependencyTests(IsolatedTest):
     def test_installer_does_not_link_configuration_after_font_failure(self):
         args = velora.parser().parse_args(["install", "--yes", "--skip-packages"])
         with patch.object(velora, "run"), patch.object(velora, "preflight"), \
+                patch.object(velora, "build_native_helper"), \
                 patch.object(velora, "install_fonts", side_effect=velora.VeloraError("Required fonts are missing")), \
                 patch.object(velora, "link_configuration") as link:
             with self.assertRaisesRegex(velora.VeloraError, "Required fonts are missing"):
@@ -485,6 +573,7 @@ class InstallerTests(IsolatedTest):
             return real_run(command, **kwargs)
 
         with patch.object(velora, "ROOT", self.repo), patch.object(velora, "run", side_effect=run), \
+             patch.object(velora, "build_native_helper"), \
              patch.object(velora, "install_fonts"), \
              patch.object(velora, "verify_runtime"), \
              patch.object(velora, "register_installation", side_effect=velora.VeloraError("registration failed")):
@@ -644,6 +733,28 @@ class UpdateTests(IsolatedTest):
         self.assertTrue(status["available"])
         self.assertEqual(status["behind"], 1)
 
+    def test_current_sources_repair_outdated_native_tools_without_reinstalling_configuration(self):
+        before = git(self.checkout, "rev-parse", "HEAD")
+        with patch.object(velora, "native_tools_current", return_value=False), \
+                patch.object(velora, "build_native_helper") as build, \
+                patch.object(velora, "link_configuration") as link:
+            velora.update(self.args())
+        build.assert_called_once_with()
+        link.assert_not_called()
+        self.assertEqual(git(self.checkout, "rev-parse", "HEAD"), before)
+
+    def test_current_sources_and_binaries_do_not_rebuild(self):
+        with patch.object(velora, "native_tools_current", return_value=True), \
+                patch.object(velora, "build_native_helper") as build:
+            velora.update(self.args())
+        build.assert_not_called()
+
+    def test_background_check_never_repairs_or_builds_native_tools(self):
+        with patch.object(velora, "native_tools_current", return_value=False), \
+                patch.object(velora, "build_native_helper") as build:
+            velora.update(self.args("--check"))
+        build.assert_not_called()
+
     def test_dirty_checkout_is_preserved(self):
         self.remote_update()
         tracked = self.checkout / "tracked.txt"
@@ -688,7 +799,7 @@ class UpdateTests(IsolatedTest):
 
     def test_update_runs_new_installer_and_reuses_component_preferences(self):
         self.remote_update()
-        velora.write_json(velora.state_dir() / "installation.json", {"without": ["toolbox"], "skip_aur": True})
+        velora.write_json(velora.state_dir() / "installation.json", {"without": ["toolbox"], "skip_aur": True, "skip_packages": True})
         real_run = velora.run
         installer_commands = []
 
@@ -702,6 +813,7 @@ class UpdateTests(IsolatedTest):
             velora.update(self.args())
         self.assertEqual((self.checkout / "tracked.txt").read_text(), "remote update\n")
         self.assertIn("--skip-aur", installer_commands[0])
+        self.assertIn("--skip-packages", installer_commands[0])
         self.assertIn("toolbox", installer_commands[0])
         self.assertTrue(velora.read_json(velora.state_dir() / "last-update.json")["complete"])
 

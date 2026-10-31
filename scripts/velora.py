@@ -6,6 +6,7 @@ import argparse
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -580,7 +581,6 @@ def install_dependencies(args, features):
         run(["uv", "venv", "--python", "3.12", str(venv)], dry=args.dry_run)
     run(["uv", "pip", "sync", "--python", str(venv / "bin/python"),
          str(ROOT / "dependencies/python/requirements.txt")], dry=args.dry_run)
-    build_native_helper(dry=args.dry_run)
     run(["sudo", "systemctl", "enable", "--now", "power-profiles-daemon"], dry=args.dry_run)
     if "shell" in features:
         configure_desktop_services(args)
@@ -758,37 +758,83 @@ def native_helper_path(name="velora-helper"):
 
 def connection_service():
     """Where velora-connectivityd is, the shell's only way to NetworkManager and BlueZ."""
-    return system_tool("velora-connectivityd") or (
-        str(native_helper_path("velora-connectivityd")) if native_helper_path("velora-connectivityd").is_file() else None)
+    binary = native_helper_path("velora-connectivityd")
+    return str(binary) if binary.is_file() else system_tool("velora-connectivityd")
+
+
+def native_source_fingerprint():
+    """Tie installed binaries to their build inputs, including the desktop release version."""
+    files = {ROOT / name for name in ("VERSION", "tools/Cargo.toml", "tools/Cargo.lock")}
+    for name in NATIVE_BINARIES:
+        crate = ROOT / "tools" / name
+        files.add(crate / "Cargo.toml")
+        files.update(path for path in crate.rglob("*") if path.is_file()
+                     and not {"target", "tests", ".git"}.intersection(path.relative_to(crate).parts))
+    digest = hashlib.sha256()
+    for path in sorted(files):
+        digest.update(path.relative_to(ROOT).as_posix().encode() + b"\0")
+        digest.update(hashlib.sha256(path.read_bytes()).digest())
+    return digest.hexdigest()
+
+
+def native_tools_current():
+    """A source checkout can be current while its installed executables are still from an older one."""
+    try:
+        saved = read_json(state_dir() / "native-tools.json")
+        return (saved.get("source") == native_source_fingerprint()
+                and all(os.access(native_helper_path(name), os.X_OK)
+                        and saved.get("binaries", {}).get(name) == hashlib.sha256(native_helper_path(name).read_bytes()).hexdigest()
+                        for name in NATIVE_BINARIES))
+    except (OSError, ValueError, AttributeError, TypeError):
+        return False
+
+
+def packaged_native_path(name):
+    return Path("/usr/bin") / name
 
 
 def build_native_helper(dry=False):
-    """Builds tools/ into ~/.local/bin: velora-helper (palettes, theme staging, widget placement) and
-    velora-connectivityd (Wi-Fi and Bluetooth). The shell has no other way to do the latter, so a failed
-    build stops the installation."""
+    """Install the native pair into ~/.local/bin, building checkout sources or copying package binaries.
+    This is required even with --skip-packages: these are Velora's own executables, not dependencies.
+    A failed build stops installation before configuration is linked."""
     if package_metadata():
-        return  # The package builds them (packaging/arch/PKGBUILD.in)
-    cargo = shutil.which("cargo")
-    if not cargo:
+        # Copy the packaged pair to the same per-user location used by checkout installs. An old
+        # checkout binary in ~/.local/bin must not shadow the upgraded /usr/bin executable.
+        built = {name: packaged_native_path(name) for name in NATIVE_BINARIES}
         if dry:
-            print("Native tools: would build them once cargo is installed.")
+            print("Native tools: would synchronize the packaged executables to ~/.local/bin.")
             return
-        raise VeloraError("Velora's native tools need Rust, and cargo is missing. Install the 'rust' package, then run 'velora deps'.")
-    target = xdg("XDG_CACHE_HOME", ".cache") / "velora/cargo-target"
-    run([cargo, "build", "--release", "--locked", "--manifest-path", ROOT / "tools/Cargo.toml"],
-        env=dict(os.environ, CARGO_TARGET_DIR=str(target)), dry=dry)
+    else:
+        cargo = shutil.which("cargo")
+        if not cargo:
+            if dry:
+                print("Native tools: would build them once cargo is installed.")
+                return
+            raise VeloraError("Velora's native tools need Rust, and cargo is missing. Install the 'rust' package, then run 'velora deps'.")
+        target = xdg("XDG_CACHE_HOME", ".cache") / "velora/cargo-target"
+        run([cargo, "build", "--release", "--locked", "--manifest-path", ROOT / "tools/Cargo.toml"],
+            env=dict(os.environ, CARGO_TARGET_DIR=str(target)), dry=dry)
+        built = {name: target / "release" / name for name in NATIVE_BINARIES}
     if dry:
         return
+    # Validate and stage both outputs before replacing either running executable.
     for name in NATIVE_BINARIES:
-        built = target / "release" / name
-        if not built.is_file():
+        if not built[name].is_file():
             raise VeloraError(f"The build finished without producing {name}.")
+    fingerprint = native_source_fingerprint()
+    hashes = {}
+    for name in NATIVE_BINARIES:
         binary = native_helper_path(name)
         binary.parent.mkdir(parents=True, exist_ok=True)
         temporary = binary.with_name(f".{name}.new")
-        shutil.copy2(built, temporary)
+        shutil.copy2(built[name], temporary)
+        hashes[name] = hashlib.sha256(temporary.read_bytes()).hexdigest()
+    for name in NATIVE_BINARIES:
+        binary = native_helper_path(name)
+        temporary = binary.with_name(f".{name}.new")
         os.replace(temporary, binary)  # A running copy keeps its old file
         print(f"Native tool: {binary}")
+    write_json(state_dir() / "native-tools.json", {"source": fingerprint, "binaries": hashes})
 
 
 def components_state():
@@ -851,6 +897,7 @@ def install(args):
             builds.build_package(ROOT, xdg("XDG_CACHE_HOME", ".cache") / "velora/packages", {}, run, dry=True, install=True)
         if not args.skip_packages:
             install_dependencies(args, features)
+        build_native_helper(dry=True)
         install_fonts(dry=True)
         verify_runtime(features, args)
         run(["bash", ROOT / "scripts/install.sh", "--dry-run", "--skip-packages", "--no-reload"])
@@ -875,6 +922,7 @@ def install(args):
     # Finish network operations before replacing any configuration files.
     if not package_metadata():
         run(["git", "submodule", "update", "--init", "--recursive"], cwd=ROOT)
+    build_native_helper()
     install_fonts()
     verify_runtime(features, args)
     backup = link_configuration(args, without)
@@ -1031,7 +1079,12 @@ def update(args):
     if status["dirty"]:
         raise VeloraError("Local changes are present. Review 'git status' and commit your work before updating. Velora will not stash or overwrite it.")
     if not status["available"]:
-        print("Already up to date. To repair an existing installation, run: velora install")
+        if native_tools_current():
+            print("Already up to date. Native tools match the installed sources.")
+        else:
+            print("Sources are up to date. Repairing the installed native tools.")
+            build_native_helper()
+            print("Native tools repaired. The connection service will restart automatically.")
         return
     if args.interactive:
         if status["installation_type"] == "checkout":
@@ -1214,6 +1267,7 @@ def main(argv=None):
             source_selection(args, features)
             preflight(args, features)
             install_dependencies(args, features)
+            build_native_helper(dry=args.dry_run)
             install_fonts(dry=args.dry_run)
             verify_runtime(features, args)
         elif args.command == "doctor":

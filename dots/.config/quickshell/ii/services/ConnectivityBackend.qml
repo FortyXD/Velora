@@ -103,8 +103,7 @@ Singleton {
     Process {
         id: daemon
         stdinEnabled: true
-        command: ["sh", "-c", 'exec "${VELORA_CONNECTIVITYD:-$(command -v velora-connectivityd || echo "$HOME/.local/bin/velora-connectivityd")}" "$@"',
-            "velora-connectivityd", ...(root.agents ? ["--agents"] : [])]
+        command: [Quickshell.shellPath("scripts/connectivity-service"), ...(root.agents ? ["--agents"] : [])]
         stdout: SplitParser {
             onRead: line => root.handleLine(line)
         }

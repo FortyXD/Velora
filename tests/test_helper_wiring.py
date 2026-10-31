@@ -85,6 +85,30 @@ class HelperWiringTests(unittest.TestCase):
 
     def test_the_launcher_is_executable(self):
         self.assertTrue(os.access(SHELL / 'scripts/helper', os.X_OK))
+        self.assertTrue(os.access(SHELL / 'scripts/connectivity-service', os.X_OK))
+
+    def test_native_pair_prefers_the_managed_binaries_over_stale_path_copies(self):
+        for launcher, name, override in [('helper','velora-helper','VELORA_HELPER'),
+                                          ('connectivity-service','velora-connectivityd','VELORA_CONNECTIVITYD')]:
+            with self.subTest(name=name), tempfile.TemporaryDirectory(prefix='velora-native-launch-') as directory:
+                root = Path(directory)
+                managed = root / 'home/.local/bin' / name
+                stale = root / 'path' / name
+                explicit = root / 'explicit'
+                for path, label in [(managed,'current'),(stale,'old'),(explicit,'override')]:
+                    path.parent.mkdir(parents=True,exist_ok=True)
+                    path.write_text(f'#!/bin/sh\nprintf "%s\\n" "{label} $*"\n')
+                    path.chmod(0o755)
+                environment = dict(os.environ,HOME=str(root / 'home'),PATH=f'{stale.parent}:/usr/bin:/bin')
+                environment.pop(override,None)
+                command = [str(SHELL / 'scripts' / launcher),'--agents']
+                result = subprocess.run(command,env=environment,capture_output=True,text=True,check=True)
+                self.assertEqual(result.stdout.strip(),'current --agents')
+                result = subprocess.run(command,env={**environment,override:str(explicit)},capture_output=True,text=True,check=True)
+                self.assertEqual(result.stdout.strip(),'override --agents')
+                managed.unlink()
+                result = subprocess.run(command,env=environment,capture_output=True,text=True,check=True)
+                self.assertEqual(result.stdout.strip(),'old --agents')
 
     def test_the_emoji_data_is_shared_with_the_launcher_page(self):
         data = PROJECT / 'dots/.config/hypr/hyprland/data/emoji.txt'
