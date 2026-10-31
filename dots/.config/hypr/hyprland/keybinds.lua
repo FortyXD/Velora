@@ -1,6 +1,7 @@
 local h = require("hyprland.helpers")
 local keymap = require("hyprland.keymap")
 local exec = h.exec
+local screenshot = [=["${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/$qsConfig/scripts/images/screenshot.sh"]=]
 
 -- Binds with an `id` can be remapped from Settings > Keyboard Shortcuts. Binds with a
 -- `description` appear in the cheat sheet (Super+/); binds without one stay hidden.
@@ -195,19 +196,19 @@ hl.define_submap("global", function()
 
     keymap.group("tools", "Screenshots & tools", "screenshot_region")
     bind("Super+Shift", "S", hl.dsp.global("quickshell:regionScreenshot"), { id = "tools.screenshot_region", description = "Screenshot of a region" })
-    bind("Super+Shift", "S", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pidof slurp || hyprshot --freeze --clipboard-only --mode region --silent]=]), { id = "tools.screenshot_region" })
-    bind("", "Print", exec([=[grim -o "$(hyprctl activeworkspace -j | jq -r '.monitor')" - | wl-copy]=]), {
+    bind("Super+Shift", "S", exec([=[qs -c $qsConfig ipc call TEST_ALIVE || pidof slurp || ]=] .. screenshot .. [=[ --select-region]=]), { id = "tools.screenshot_region" })
+    bind("", "Print", exec(screenshot .. [=[ --clipboard -o "$(hyprctl activeworkspace -j | jq -r '.monitor')"]=]), {
         id = "tools.screenshot",
         locked = true,
         description = "Screenshot of the screen to clipboard",
     })
-    bind("Ctrl", "Print", exec([=[mkdir -p $(xdg-user-dir PICTURES)/Screenshots && grim -o "$(hyprctl activeworkspace -j | jq -r '.monitor')" $(xdg-user-dir PICTURES)/Screenshots/Screenshot_"$(date '+%Y-%m-%d_%H.%M.%S')".png]=]), {
+    bind("Ctrl", "Print", exec([=[mkdir -p "$(xdg-user-dir PICTURES)/Screenshots" && ]=] .. screenshot .. [=[ -o "$(hyprctl activeworkspace -j | jq -r '.monitor')" "$(xdg-user-dir PICTURES)/Screenshots/Screenshot_$(date '+%Y-%m-%d_%H.%M.%S').png"]=]), {
         id = "tools.screenshot_file",
         locked = true,
         non_consuming = true,
         description = "Screenshot of the screen to clipboard and file",
     })
-    bind("Ctrl", "Print", exec([=[grim -o "$(hyprctl activeworkspace -j | jq -r '.monitor')" - | wl-copy]=]), {
+    bind("Ctrl", "Print", exec(screenshot .. [=[ --clipboard -o "$(hyprctl activeworkspace -j | jq -r '.monitor')"]=]), {
         id = "tools.screenshot_file",
         locked = true,
         non_consuming = true,

@@ -75,6 +75,7 @@ PanelWindow {
         screen: root.screen
         screenshotDir: root.screenshotDir
         screenshotPath: root.screenshotPath
+        includeCursor: Config.options.screenSnip.showCursor
         onExited: (exitCode, exitStatus) => {
             root.preparationDone = true;
         }

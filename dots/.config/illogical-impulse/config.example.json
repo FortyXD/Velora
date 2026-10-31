@@ -474,7 +474,8 @@
         "delay": 0
     },
     "screenSnip": {
-        "savePath": ""
+        "savePath": "",
+        "showCursor": false
     },
     "search": {
         "engineBaseUrl": "https://www.google.com/search?q=",

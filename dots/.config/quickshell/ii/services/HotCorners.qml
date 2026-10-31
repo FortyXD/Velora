@@ -5,6 +5,7 @@ import qs
 import qs.modules.common
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Hyprland
 
 /**
@@ -13,6 +14,45 @@ import Quickshell.Hyprland
  */
 Singleton {
     id: root
+
+    // Keep the guard closed across unmapping the picker and remapping the corners.
+    property bool rearmPending: false
+    property int selectionEpoch: 0
+    readonly property bool blocked: GlobalStates.regionSelectorOpen || rearmPending
+    signal selectionFinished(real x, real y, bool valid)
+
+    Connections {
+        target: GlobalStates
+        function onRegionSelectorOpenChanged() {
+            root.selectionEpoch++;
+            root.rearmPending = true;
+            root.checkCursor();
+        }
+    }
+    function checkCursor() {
+        if (GlobalStates.regionSelectorOpen || !root.rearmPending || cursorCheck.running) return;
+        cursorCheck.epoch = root.selectionEpoch;
+        cursorCheck.running = true;
+    }
+    Process {
+        id: cursorCheck
+        property int epoch: 0
+        // One bounded query per completed/cancelled selection, never background polling.
+        command: ["timeout", "1", "hyprctl", "cursorpos", "-j"]
+        stdout: StdioCollector { id: cursorOutput }
+        onExited: exitCode => {
+            if (epoch !== root.selectionEpoch || GlobalStates.regionSelectorOpen) {
+                Qt.callLater(root.checkCursor); // Ignore a reply for an older selection.
+                return;
+            }
+            let position = null;
+            try { position = JSON.parse(cursorOutput.text); } catch (e) {}
+            const valid = exitCode === 0 && position !== null
+                && Number.isFinite(position.x) && Number.isFinite(position.y);
+            root.selectionFinished(valid ? position.x : 0, valid ? position.y : 0, valid);
+            root.rearmPending = false;
+        }
+    }
 
     readonly property list<string> cornerNames: ["topLeft", "topRight", "bottomLeft", "bottomRight"]
     readonly property var actions: [
@@ -36,6 +76,7 @@ Singleton {
     }
 
     function run(action, command) {
+        if (root.blocked) return;
         switch (action) {
         case "sidebarLeft": GlobalStates.sidebarLeftOpen = !GlobalStates.sidebarLeftOpen; break;
         case "sidebarRight": GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen; break;

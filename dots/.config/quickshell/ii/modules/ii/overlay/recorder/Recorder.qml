@@ -41,7 +41,7 @@ StyledOverlayWidget {
                     name: "Screenshot"
                     onClicked: {
                         GlobalStates.overlayOpen = false;
-                        Quickshell.execDetached(["bash", "-c", "grim - | wl-copy"]);
+                        Quickshell.execDetached(["env", `VELORA_SCREENSHOT_CURSOR=${Config.options.screenSnip.showCursor}`, Quickshell.shellPath("scripts/images/screenshot.sh"), "--clipboard"]);
                     }
                 }
 

@@ -217,6 +217,7 @@ PanelWindow {
         screen: root.screen
         screenshotDir: root.screenshotDir
         screenshotPath: root.screenshotPath
+        includeCursor: Config.options.screenSnip.showCursor
         onExited: (exitCode, exitStatus) => {
             if (root.enableContentRegions) imageDetectionProcess.running = true;
             root.preparationDone = true;
