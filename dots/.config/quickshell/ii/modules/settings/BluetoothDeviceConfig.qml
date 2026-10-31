@@ -17,10 +17,11 @@ ContentPage {
     readonly property bool busy: BluetoothManager.busy[page.path] === true
     readonly property bool sendingHere: BluetoothManager.sendingTo.length > 0 && BluetoothManager.sendingTo === page.device?.address
 
-    // A background loader assigns pageShown after construction. Wait for that assignment before
-    // deciding whether a missing device should move the currently open page back to the device list.
+    // Background loading can run before pageShown is assigned. Only the device page itself may
+    // redirect to the device list; preloading it must never change another page's navigation.
     function returnToDevicesIfMissing(): void {
-        if (page.device === null && page.pageShown) ApplicationWindow.window?.openPage("bluetooth");
+        const window = ApplicationWindow.window;
+        if (page.device === null && page.pageShown && window?.currentPageData?.key === "bluetooth-device") window.openPage("bluetooth");
     }
     onDeviceChanged: Qt.callLater(page.returnToDevicesIfMissing)
     onPageShownChanged: Qt.callLater(page.returnToDevicesIfMissing)
