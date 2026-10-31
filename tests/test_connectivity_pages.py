@@ -327,7 +327,7 @@ class SettingsPagesTests(unittest.TestCase):
                                'DBUS_SYSTEM_BUS_ADDRESS': address, 'DBUS_SESSION_BUS_ADDRESS': address,
                                'PATH': f"{tools}:{inherited.get('PATH', '/usr/bin')}",
                                'VELORA_CONNECTIVITYD': str(self.daemon), 'VELORA_NM_VPN_DIRS': '/nonexistent',
-                               'QT_QPA_PLATFORM': 'offscreen', 'QT_QUICK_BACKEND': 'software', 'FONTCONFIG_FILE': '/etc/fonts/fonts.conf'}
+                               'QT_QPA_PLATFORM': 'offscreen', 'QT_QPA_PLATFORMTHEME': 'generic', 'QT_QUICK_BACKEND': 'software', 'FONTCONFIG_FILE': '/etc/fonts/fonts.conf'}
                 if settings_page is not None:
                     environment.update(QS_SETTINGS_PAGE=settings_page, QS_SETTINGS_SECTION='', QS_SETTINGS_SEARCH='')
                 fakes = subprocess.Popen([str(self.fakes)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, env=environment)
@@ -352,8 +352,11 @@ class SettingsPagesTests(unittest.TestCase):
                 if fakes:
                     fakes.kill()
                     fakes.wait()
+                    fakes.stdin.close()
+                    fakes.stdout.close()
                 bus.kill()
                 bus.wait()
+                bus.stdout.close()
         return output
 
     def assert_clean(self, output):
@@ -373,6 +376,7 @@ class SettingsPagesTests(unittest.TestCase):
         probe = r'''
     Timer {
         property int settled: 0
+        property int stage: 0
         interval: 100
         repeat: true
         running: true
@@ -380,8 +384,19 @@ class SettingsPagesTests(unittest.TestCase):
             const devicePage = root.pageItemAt(root.pageIndex("bluetooth-device"));
             if (!devicePage || !ConnectivityBackend.ready) return;
             if (++settled < 3) return;
-            const stayed = root.currentPageData.key === "wifi" && !devicePage.pageShown;
-            console.log(stayed ? "DRIVER_PASS" : "DRIVER_FAIL unexpected page: " + root.currentPageData.key);
+            if (stage === 0) {
+                const stayed = root.currentPageData.key === "wifi" && !devicePage.pageShown;
+                if (!stayed) {
+                    console.log("DRIVER_FAIL unexpected page: " + root.currentPageData.key);
+                    Qt.quit();
+                    return;
+                }
+                stage = 1;
+                settled = 0;
+                root.openPage("bluetooth-device");
+                return;
+            }
+            console.log(root.currentPageData.key === "bluetooth" ? "DRIVER_PASS" : "DRIVER_FAIL missing-device page did not return to Bluetooth");
             Qt.quit();
         }
     }
