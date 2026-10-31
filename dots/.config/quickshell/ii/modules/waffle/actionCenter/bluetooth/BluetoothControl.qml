@@ -107,7 +107,7 @@ Item {
                 text: Translation.tr("More Bluetooth settings")
                 onClicked: {
                     Quickshell.execDetached(["qs", "-p", Quickshell.shellPath(""), "ipc", "call", "sidebarLeft", "toggle"]);
-                    Quickshell.execDetached(["bash", "-c", Config.options.apps.bluetooth]);
+                    ConnectivityBackend.openSettings("bluetooth");
                 }
             }
             WBorderlessButton {

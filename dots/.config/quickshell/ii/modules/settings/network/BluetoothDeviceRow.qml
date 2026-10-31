@@ -1,28 +1,36 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell.Bluetooth
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 
 /**
- * A Bluetooth device in the settings list. Paired ones connect or disconnect with the button and open
- * their options (reconnect by itself, forget) on click; new ones pair and connect on click.
+ * A Bluetooth device in the settings list: its kind, name and state. A saved one connects or disconnects with the
+ * button and opens its page on click; a new one pairs and connects on click.
  */
 ColumnLayout {
     id: root
-    required property BluetoothDevice device
-    property bool expanded: false
-    readonly property bool busy: root.device.pairing || root.device.state === BluetoothDeviceState.Connecting
-        || root.device.state === BluetoothDeviceState.Disconnecting
-    readonly property bool failed: BluetoothStatus.pairingFailedAddress === root.device.address
-    readonly property string displayName: root.device.name || root.device.deviceName || Translation.tr("Unknown device")
+    required property string path
+    readonly property var device: BluetoothManager.deviceByPath[root.path] ?? null
+    readonly property bool saved: root.device?.paired ?? false
+    readonly property bool busy: BluetoothManager.busy[root.path] === true
+    readonly property string errorText: BluetoothManager.errors[root.path] ?? ""
+    readonly property string statusText: root.busy ? (root.saved ? Translation.tr("Connecting…") : Translation.tr("Pairing…"))
+        : root.device?.blocked ? Translation.tr("Blocked")
+        : root.device?.connected ? Translation.tr("Connected")
+        : root.saved ? Translation.tr("Not connected")
+        : Translation.tr("Click to pair")
+    readonly property string batteryText: (root.device?.battery ?? null) !== null ? Translation.tr("Battery %1%").arg(root.device.battery) : ""
+
+    function primaryAction(): void {
+        if (root.saved) BluetoothManager.showDevice(root.path);
+        else if (!root.busy) BluetoothManager.pair(root.path, null);
+    }
 
     Layout.fillWidth: true
     spacing: 0
 
     RippleButton {
-        id: rowButton
         Layout.fillWidth: true
         implicitHeight: 56
         leftPadding: 12
@@ -30,27 +38,23 @@ ColumnLayout {
         buttonRadius: Appearance.rounding.small
         colBackgroundHover: Appearance.colors.colLayer2Hover
         colRipple: Appearance.colors.colLayer2Active
-        onClicked: {
-            if (root.device.paired) root.expanded = !root.expanded;
-            else if (!root.busy) BluetoothStatus.pairAndConnect(root.device);
-        }
+        onClicked: root.primaryAction()
 
         contentItem: RowLayout {
             spacing: 12
 
             ConfigIconTile {
-                icon: Icons.getBluetoothDeviceMaterialSymbol(root.device.icon || "")
-                active: root.device.connected
+                icon: BluetoothManager.typeSymbol(root.device?.deviceType ?? "")
+                active: root.device?.connected ?? false
                 iconSize: 22
             }
-
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
                 spacing: 1
                 StyledText {
                     Layout.fillWidth: true
-                    text: root.displayName
+                    text: root.device?.fullName ?? ""
                     textFormat: Text.PlainText
                     elide: Text.ElideRight
                     font.pixelSize: Appearance.font.pixelSize.small
@@ -60,79 +64,33 @@ ColumnLayout {
                     Layout.fillWidth: true
                     elide: Text.ElideRight
                     font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: root.failed ? Appearance.colors.colError : Appearance.colors.colSubtext
-                    text: root.device.pairing ? Translation.tr("Pairing…")
-                        : root.device.state === BluetoothDeviceState.Connecting ? Translation.tr("Connecting…")
-                        : root.device.state === BluetoothDeviceState.Disconnecting ? Translation.tr("Disconnecting…")
-                        : root.failed ? Translation.tr("Couldn't pair. Put the device in pairing mode and try again.")
-                        : root.device.connected ? (root.device.batteryAvailable
-                            ? Translation.tr("Connected · %1% battery").arg(Math.round(root.device.battery * 100))
-                            : Translation.tr("Connected"))
-                        : root.device.paired ? Translation.tr("Not connected")
-                        : Translation.tr("Click to pair")
+                    color: root.errorText.length > 0 ? Appearance.colors.colError : Appearance.colors.colSubtext
+                    text: root.errorText || [root.statusText, BluetoothManager.typeLabel(root.device?.deviceType ?? ""), root.batteryText].filter(part => part.length > 0).join(" · ")
                 }
             }
-
-            MaterialSymbol {
+            StatusIcon {
                 visible: root.busy
-                text: "progress_activity"
+                text: ""
                 iconSize: 18
                 color: Appearance.colors.colSubtext
-                RotationAnimation on rotation {
-                    running: root.busy
-                    loops: Animation.Infinite
-                    from: 0
-                    to: 360
-                    duration: 900
-                }
+                busy: root.busy
             }
-
             DialogButton {
-                visible: root.device.paired && !root.busy
-                buttonText: root.device.connected ? Translation.tr("Disconnect") : Translation.tr("Connect")
-                onClicked: {
-                    if (root.device.connected) root.device.disconnect();
-                    else root.device.connect();
-                }
+                visible: root.saved && !root.busy && !(root.device?.blocked ?? false)
+                buttonText: root.device?.connected ? Translation.tr("Disconnect") : Translation.tr("Connect")
+                onClicked: root.device.connected ? BluetoothManager.disconnectDevice(root.path) : BluetoothManager.connectDevice(root.path)
             }
-
+            DialogButton {
+                visible: !root.saved && root.busy
+                buttonText: Translation.tr("Cancel")
+                onClicked: BluetoothManager.cancelPairing(root.path)
+            }
             MaterialSymbol {
-                visible: root.device.paired
-                text: "keyboard_arrow_down"
+                visible: root.saved
+                text: "chevron_right"
                 iconSize: 20
                 color: Appearance.colors.colSubtext
-                rotation: root.expanded ? 180 : 0
-                Behavior on rotation {
-                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-                }
             }
-        }
-    }
-
-    // Options of a paired device
-    RowLayout {
-        visible: root.expanded && root.device.paired
-        Layout.fillWidth: true
-        Layout.leftMargin: 50
-        Layout.rightMargin: 8
-        Layout.bottomMargin: 8
-        spacing: 8
-
-        StyledSwitch {
-            checkable: false
-            checked: root.device.trusted
-            onClicked: root.device.trusted = !root.device.trusted
-        }
-        StyledText {
-            Layout.fillWidth: true
-            text: Translation.tr("Connect by itself when it's nearby")
-            wrapMode: Text.Wrap
-            font.pixelSize: Appearance.font.pixelSize.smaller
-            color: Appearance.colors.colOnLayer2
-        }
-        ForgetButton {
-            label: Translation.tr("Forget this device")
-            onConfirmed: BluetoothStatus.forget(root.device)
         }
     }
 }

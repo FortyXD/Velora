@@ -117,7 +117,7 @@ ContentPage {
 
     Process {
         id: pickProc
-        command: ["bash", Quickshell.shellPath("scripts/colors/pick-color.sh")]
+        command: [Quickshell.shellPath("scripts/helper"), "pick-color"]
         stdout: StdioCollector {
             onStreamFinished: page.setColor(text)
         }

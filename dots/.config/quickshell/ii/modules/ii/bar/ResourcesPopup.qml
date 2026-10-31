@@ -70,7 +70,7 @@ StyledPopup {
     }
 
     property Process appsProcess: Process {
-        command: [FileUtils.trimFileProtocol(`${Directories.scriptPath}/system/top-apps.sh`)]
+        command: [Quickshell.shellPath("scripts/helper"), "top-apps"]
         stdout: StdioCollector {
             onStreamFinished: root.parseApps(this.text)
         }

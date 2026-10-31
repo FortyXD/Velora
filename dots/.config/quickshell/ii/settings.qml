@@ -37,10 +37,34 @@ ApplicationWindow {
             component: "modules/settings/WifiConfig.qml"
         },
         {
+            key: "connections", group: "connections", color: "#0A84FF", icon: "lan", hero: false,
+            name: Translation.tr("Network & VPN"),
+            description: Translation.tr("VPN, cable and every other saved connection"),
+            component: "modules/settings/ConnectionsConfig.qml"
+        },
+        {
+            key: "connection-editor", group: "connections", parentKey: "connections", color: "#0A84FF", icon: "edit", hidden: true, hero: false,
+            name: Translation.tr("Edit connection"),
+            description: Translation.tr("Addresses, security, VPN and everything else about one connection"),
+            component: "modules/settings/ConnectionEditorConfig.qml"
+        },
+        {
             key: "bluetooth", group: "connections", color: "#0A84FF", icon: "bluetooth", hero: false,
             name: Translation.tr("Bluetooth"),
             description: Translation.tr("Headphones, mice and other devices: pair, connect and forget"),
             component: "modules/settings/BluetoothConfig.qml"
+        },
+        {
+            key: "bluetooth-device", group: "connections", parentKey: "bluetooth", color: "#0A84FF", icon: "bluetooth", hidden: true, hero: false,
+            name: Translation.tr("Bluetooth device"),
+            description: Translation.tr("Everything about one device"),
+            component: "modules/settings/BluetoothDeviceConfig.qml"
+        },
+        {
+            key: "bluetooth-options", group: "connections", parentKey: "bluetooth", color: "#0A84FF", icon: "settings_bluetooth", hidden: true, hero: false,
+            name: Translation.tr("Bluetooth settings"),
+            description: Translation.tr("This computer's name and visibility, what happens at login, and receiving files"),
+            component: "modules/settings/BluetoothOptionsConfig.qml"
         },
         {
             key: "general", group: "basics", color: "#8E8E93", icon: "settings",
@@ -247,6 +271,19 @@ ApplicationWindow {
         if (!root.canGoForward) return;
         root.historyIndex++;
         root.showPage(root.history[root.historyIndex]);
+    }
+
+    Connections {
+        target: Network
+        function onOpenEditor() {
+            root.openPage("connection-editor");
+        }
+    }
+    Connections {
+        target: BluetoothManager
+        function onOpenDevicePage() {
+            root.openPage("bluetooth-device");
+        }
     }
 
     // Opens a page and reveals a section by stable objectName or its displayed title.

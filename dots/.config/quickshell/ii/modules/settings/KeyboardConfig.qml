@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Io
 import qs.services
 import qs.modules.common
@@ -116,7 +117,7 @@ ContentPage {
         id: keysProc
         function load() {
             keysProc.running = false;
-            keysProc.command = ["python3", `${FileUtils.trimFileProtocol(Directories.scriptPath)}/keyboard/layout_keys.py`, root.previewLayout, root.previewVariant];
+            keysProc.command = [Quickshell.shellPath("scripts/helper"), "layout-keys", root.previewLayout, root.previewVariant];
             keysProc.running = true;
         }
         stdout: StdioCollector {

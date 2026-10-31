@@ -40,7 +40,7 @@ Scope {
             environment: ({
                 "UNLOCK_PASSWORD": lockContext.currentText
             }),
-            command: ["bash", "-c", Quickshell.shellPath("scripts/keyring/unlock.sh")]
+            command: [Quickshell.shellPath("scripts/helper"), "keyring", "unlock"]
         })
     }
 

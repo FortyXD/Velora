@@ -104,6 +104,7 @@ repo = [
     "bluedevil",
     "bluez",
     "bluez-utils",
+    "bluez-obex", # Sending and receiving files in the Bluetooth settings
     "gnome-keyring",
     "networkmanager",
     "plasma-nm",
@@ -134,7 +135,7 @@ repo = [
     "xdg-utils",
     "pacman-contrib",
     "matugen",
-    "rust", # Builds tools/velora-helper; rustup also satisfies it
+    "rust", # Builds tools/, which the shell can't reach Wi-Fi and Bluetooth without; rustup also satisfies it
     "qt6-shadertools", # qsb, for the shaders in assets/shaders
     "kdialog",
     "fontconfig",

@@ -4,7 +4,7 @@ import qs.modules.common.widgets
 import qs.modules.common.functions
 
 /**
- * A drawn keyboard with what each key types in a layout (keys from scripts/keyboard/layout_keys.py).
+ * A drawn keyboard with what each key types in a layout (keys from `velora-helper layout-keys`).
  * Keys whose keycode is in `pressedCodes` light up; `keyColors` tints keys by name (e.g. those with a
  * shortcut) and `keyHints` puts a small word on them. Keys can be hovered and clicked (keyClicked).
  */

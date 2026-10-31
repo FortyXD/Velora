@@ -8,6 +8,7 @@ import qs.modules.onboarding
 import qs.modules.settings.keyboard
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Io
 
 /**
@@ -77,7 +78,7 @@ PageScaffold {
     readonly property string shownLayout: root.layouts[Math.min(root.shownIndex, root.layouts.length - 1)] ?? "us"
     readonly property string shownVariant: root.variants[Math.min(root.shownIndex, root.variants.length - 1)] ?? ""
 
-    // What each key types in it (scripts/keyboard/layout_keys.py, as in Settings → Keyboard)
+    // What each key types in it (`velora-helper layout-keys`, as in Settings → Keyboard)
     property var keys: ({})
     property var keyCache: ({})
     property var loadingKeys: ({})
@@ -99,7 +100,7 @@ PageScaffold {
         if (root.keyCache[key] || root.loadingKeys[key]) return;
         root.loadingKeys[key] = true;
         keyJob.createObject(root, { "keyId": key,
-            "command": ["python3", `${FileUtils.trimFileProtocol(Directories.scriptPath)}/keyboard/layout_keys.py`, layout, variant] });
+            "command": [Quickshell.shellPath("scripts/helper"), "layout-keys", layout, variant] });
     }
     Component {
         id: keyJob

@@ -10,6 +10,11 @@ publish = false
 anyhow = "1"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif", "bmp", "tiff"] }
 fast_image_resize = { version = "6", features = ["image"] }
+libc = "0.2"
 material-colors = "0.5"
+md-5 = "0.10"
+png = "0.18"
+roxmltree = "0.20"
+serde = "1"
 serde_json = { version = "1", features = ["preserve_order"] }
 toml = "0.8"

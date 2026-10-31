@@ -18,6 +18,21 @@ Item {
         name: "OnboardingFlow"
         when: windowShown
 
+        function test_network_step_follows_the_connectivity_seen_at_the_start() {
+            flow.connectivityJudged = false;
+            flow.online = true;
+            Network.connectivity = "none";
+            flow.judgeConnectivity();
+            compare(flow.online, false);
+            // Judged once: connecting during the assistant doesn't shift its steps
+            Network.connectivity = "full";
+            flow.judgeConnectivity();
+            compare(flow.online, false);
+            flow.connectivityJudged = false;
+            flow.judgeConnectivity();
+            compare(flow.online, true);
+        }
+
         function init() {
             Quickshell.commands = [];
             flow.online = true;

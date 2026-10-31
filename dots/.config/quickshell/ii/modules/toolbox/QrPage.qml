@@ -245,8 +245,7 @@ ContentPage {
                 DialogButton {
                     visible: page.wifi !== null
                     buttonText: Translation.tr("Connect")
-                    onClicked: Quickshell.execDetached(["nmcli", "device", "wifi", "connect", page.wifi.S,
-                        ...(page.wifi.P ? ["password", page.wifi.P] : [])])
+                    onClicked: Network.joinNetwork(page.wifi.S, page.wifi.P ?? "")
                 }
             }
         }

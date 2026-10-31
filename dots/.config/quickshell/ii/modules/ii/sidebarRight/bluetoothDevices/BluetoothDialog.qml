@@ -60,8 +60,15 @@ WindowDialog {
         DialogButton {
             buttonText: Translation.tr("Details")
             onClicked: {
-                Quickshell.execDetached(["bash", "-c", `${Config.options.apps.bluetooth}`]);
+                ConnectivityBackend.openSettings("bluetooth");
                 GlobalStates.closeSidebars();
+            }
+            altAction: () => {
+                Quickshell.execDetached(["bash", "-c", Config.options.apps.bluetooth]);
+                GlobalStates.closeSidebars();
+            }
+            StyledToolTip {
+                text: Translation.tr("Left-click for Velora settings; right-click for KDE settings")
             }
         }
 

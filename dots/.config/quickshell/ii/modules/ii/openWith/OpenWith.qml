@@ -10,13 +10,13 @@ import qs.modules.common.functions
 
 /**
  * "How do you want to open this file?" — shown the first time a file type without an app is opened.
- * Files of such types open with folis-open-with.desktop, which runs `default_apps.py open-with`;
+ * Files of such types open with folis-open-with.desktop, which runs `velora-helper apps open-with`;
  * that asks here through IPC with the file, its type and the apps that can open it.
  */
 Scope {
     id: root
 
-    readonly property string scriptPath: FileUtils.trimFileProtocol(`${Directories.config}/hypr/hyprland/scripts/default_apps.py`)
+    readonly property string helper: Quickshell.shellPath("scripts/helper")
     property var queue: []
     readonly property var request: root.queue.length > 0 ? root.queue[0] : null
 
@@ -24,8 +24,8 @@ Scope {
         const request = root.request;
         if (!request) return;
         if (app) {
-            if (remember) Quickshell.execDetached([root.scriptPath, "set-mime", app.id, ...request.types]);
-            Quickshell.execDetached([root.scriptPath, "open", app.id, ...request.uris]);
+            if (remember) Quickshell.execDetached([root.helper, "apps", "set-mime", app.id, ...request.types]);
+            Quickshell.execDetached([root.helper, "apps", "open", app.id, ...request.uris]);
         }
         root.queue = root.queue.slice(1);
     }
@@ -45,7 +45,7 @@ Scope {
     // Installs the chooser and hands it every file type that has no app yet (also ones from new apps)
     Process {
         running: true
-        command: [root.scriptPath, "sync"]
+        command: [root.helper, "apps", "sync"]
     }
 
     Loader {

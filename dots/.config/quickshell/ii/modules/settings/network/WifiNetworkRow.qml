@@ -69,14 +69,27 @@ ColumnLayout {
             }
 
             StyledText {
+                id: bandLabel
+                objectName: "wifiFrequencyBand"
                 visible: rowButton.width > 420
+                Layout.preferredWidth: bandMetrics.width
+                Layout.minimumWidth: bandMetrics.width
+                Layout.maximumWidth: bandMetrics.width
+                horizontalAlignment: Text.AlignRight
                 text: Network.frequencyBand(root.network.frequency)
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
+
+                TextMetrics {
+                    id: bandMetrics
+                    font: bandLabel.font
+                    text: "2.4 GHz"
+                }
             }
 
             StatusIcon {
-                visible: root.connecting || (root.network.isSecure && !root.network.known)
+                // Reserve the same column for open, saved, secured and connecting networks.
+                opacity: root.connecting || (root.network.isSecure && !root.network.known) ? 1 : 0
                 text: root.connecting ? "" : "lock"
                 iconSize: 18
                 color: Appearance.colors.colSubtext
@@ -87,9 +100,8 @@ ColumnLayout {
                 id: forgetButton
                 // Keeps its place on every row so the columns line up; shown on hover only, so a list of
                 // saved networks doesn't turn into a column of bins
-                visible: !root.connecting
-                enabled: root.saved
-                opacity: root.saved && (rowButton.hovered || forgetButton.asking) ? 1 : 0
+                enabled: root.saved && !root.connecting
+                opacity: !root.connecting && root.saved && (rowButton.hovered || forgetButton.asking) ? 1 : 0
                 onConfirmed: Network.forgetWifiNetwork(root.network.savedUuid)
             }
         }
@@ -116,18 +128,23 @@ ColumnLayout {
         }
     }
 
-    Loader {
-        active: root.network.askingPassword
-        visible: active
-        Layout.fillWidth: true
+    NetworkRevealer {
+        id: passwordDetails
+        expanded: root.network.askingPassword
+        onExpandRequested: root.network.askingPassword = true
         Layout.leftMargin: 50
         Layout.rightMargin: 12
-        Layout.bottomMargin: 12
-        sourceComponent: PasswordForm {
-            errorText: root.network.errorText
-            busy: root.connecting
-            onAccepted: password => Network.changePassword(root.network, password)
-            onCanceled: Network.cancelPasswordPrompt()
+        bottomPadding: 12
+
+        Loader {
+            active: passwordDetails.visible
+            Layout.fillWidth: true
+            sourceComponent: PasswordForm {
+                errorText: root.network.errorText
+                busy: root.connecting
+                onAccepted: password => Network.changePassword(root.network, password)
+                onCanceled: Network.cancelPasswordPrompt()
+            }
         }
     }
 }

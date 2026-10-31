@@ -196,14 +196,14 @@ Exec=/usr/bin/python3 "$data_home/folis/dolphin-create-archive.py" tar.gz %F
 EOF
 
 # Toolbox: "Convert to" runs in the background and notifies; the rest opens the toolbox window
-toolbox="$config_home/quickshell/ii/scripts/toolbox"
+helper="$config_home/quickshell/ii/scripts/helper"
 quick_convert_menu() { # file mime-types target:Name:Name[ru]...
   local file=$1 mimes=$2 actions="" entry key name name_ru body=""
   shift 2
   for entry in "$@"; do
     IFS=: read -r key name name_ru <<<"$entry"
     actions+="$key;"
-    body+=$'\n'"[Desktop Action $key]"$'\n'"Name=$name"$'\n'"Name[ru]=$name_ru"$'\n'"Icon=document-export"$'\n'"Exec=\"$toolbox/quick.sh\" $key %F"$'\n'
+    body+=$'\n'"[Desktop Action $key]"$'\n'"Name=$name"$'\n'"Name[ru]=$name_ru"$'\n'"Icon=document-export"$'\n'"Exec=\"$helper\" toolbox-quick $key %F"$'\n'
   done
   install_generated "$service_menus/$file" <<EOF
 [Desktop Entry]
@@ -237,7 +237,7 @@ Actions=convert;
 Name=Convert…
 Name[ru]=Конвертировать…
 Icon=transform-move
-Exec="$toolbox/open.sh" converter %F
+Exec="$helper" toolbox-open converter %F
 EOF
 
 install_generated "$service_menus/folis-toolbox-text.desktop" <<EOF
@@ -255,7 +255,7 @@ Actions=ocr;
 Name=Recognize text
 Name[ru]=Распознать текст
 Icon=edit-select-text
-Exec="$toolbox/open.sh" ocr %f
+Exec="$helper" toolbox-open ocr %f
 EOF
 
 install_generated "$service_menus/folis-toolbox-qr.desktop" <<EOF
@@ -273,7 +273,7 @@ Actions=qr;
 Name=Scan QR code
 Name[ru]=Сканировать QR-код
 Icon=view-barcode-qr
-Exec="$toolbox/open.sh" qr %f
+Exec="$helper" toolbox-open qr %f
 EOF
 
 if $desktop_integration && command -v xdg-mime >/dev/null 2>&1 && [[ -f /usr/share/applications/org.kde.dolphin.desktop ]]; then
@@ -292,12 +292,12 @@ fi
 
 # Base default apps, archives opening in Dolphin, and the "Open with" chooser for every file type
 # that has no app yet. The shell runs this again on start, for types that new apps bring.
-default_apps="$config_home/hypr/hyprland/scripts/default_apps.py"
-if $desktop_integration && [[ -x $default_apps ]]; then
+if $desktop_integration; then
   if $dry_run; then
     printf 'Would set the base default apps and ask which app to use for other file types.\n'
   else
-    "$default_apps" sync
+    # Without the helper yet (it is built by velora deps), the shell does this when it starts
+    "$config_home/quickshell/ii/scripts/helper" apps sync 2>/dev/null || true
   fi
 fi
 

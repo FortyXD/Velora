@@ -232,7 +232,7 @@ PanelWindow {
     // The detector works on the grim image, which is in physical pixels: convert sizes there and back
     Process {
         id: imageDetectionProcess
-        command: ["bash", "-c", `${Directories.scriptPath}/images/find-regions-venv.sh `
+        command: ["bash", "-c", `${Directories.scriptPath}/helper find-regions `
             + `--hyprctl `
             + `--image '${StringUtils.shellSingleQuoteEscape(root.screenshotPath)}' `
             + `--min-width ${Math.round(200 * root.monitorScale)} `

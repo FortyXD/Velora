@@ -129,7 +129,7 @@ Singleton {
             isDdc = !!match;
             busNum = match?.busNum ?? "";
             backlightDevice = "";
-            initProc.command = isDdc ? ["ddcutil", "-b", busNum, "getvcp", "10", "--brief"] : ["python3", Quickshell.shellPath("scripts/hardware/backlight.py"), screen.name];
+            initProc.command = isDdc ? ["ddcutil", "-b", busNum, "getvcp", "10", "--brief"] : [Quickshell.shellPath("scripts/helper"), "backlight", screen.name];
             initProc.running = true;
         }
 

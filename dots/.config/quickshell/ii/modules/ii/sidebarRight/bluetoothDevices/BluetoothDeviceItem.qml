@@ -93,9 +93,9 @@ DialogListItem {
                 buttonText: p ? Translation.tr("Forget") : Translation.tr("Always connect")
                 onClicked: {
                     if (root.device?.paired) {
-                        root.device?.forget();
+                        BluetoothStatus.forget(root.device);
                     } else {
-                        root.device?.pair();
+                        BluetoothStatus.pairAndConnect(root.device);
                     }
                 }
             }

@@ -57,10 +57,10 @@ Rectangle {
                 if (ScreenRecorder.active) ScreenRecorder.stop();
                 else root.afterClosing(() => ScreenRecorder.toggle());
                 break;
-            case "colorPicker": root.afterClosing(() => Quickshell.execDetached([Quickshell.shellPath("scripts/colors/pick-color.sh")])); break;
+            case "colorPicker": root.afterClosing(() => Quickshell.execDetached([Quickshell.shellPath("scripts/helper"), "pick-color"])); break;
             case "songRec": SongRec.toggleRunning(); break;
-            case "qr": root.afterClosing(() => Quickshell.execDetached([Quickshell.shellPath("scripts/toolbox/open.sh"), "qr"])); break;
-            case "converter": root.afterClosing(() => Quickshell.execDetached([Quickshell.shellPath("scripts/toolbox/open.sh"), "converter"])); break;
+            case "qr": root.afterClosing(() => Quickshell.execDetached([Quickshell.shellPath("scripts/helper"), "toolbox-open", "qr"])); break;
+            case "converter": root.afterClosing(() => Quickshell.execDetached([Quickshell.shellPath("scripts/helper"), "toolbox-open", "converter"])); break;
             case "keyboard": root.afterClosing(() => GlobalStates.oskOpen = !GlobalStates.oskOpen); break;
         }
     }

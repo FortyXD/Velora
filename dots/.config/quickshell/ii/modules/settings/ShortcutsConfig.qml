@@ -22,7 +22,7 @@ ContentPage {
     property var layoutKeys: ({})
     Process { // Key labels of the US layout, which Hyprland matches shortcut keys against
         running: true
-        command: ["python3", `${FileUtils.trimFileProtocol(Directories.scriptPath)}/keyboard/layout_keys.py`, "us"]
+        command: [Quickshell.shellPath("scripts/helper"), "layout-keys", "us"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {

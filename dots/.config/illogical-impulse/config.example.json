@@ -53,6 +53,12 @@
             }
         }
     },
+    "connectivity": {
+        "agents": true,
+        "bluetoothOnLogin": "remember",
+        "bluetoothReceivePolicy": "ask",
+        "bluetoothReceiveFolder": ""
+    },
     "apps": {
         "bluetooth": "kcmshell6 kcm_bluetooth",
         "changePassword": "kitty -1 --hold=yes fish -i -c 'passwd'",

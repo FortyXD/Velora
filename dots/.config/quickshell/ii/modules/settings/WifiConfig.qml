@@ -10,23 +10,65 @@ import qs.modules.settings.network
 ContentPage {
     id: page
     readonly property var current: Network.active
-    readonly property var nearby: Network.friendlyWifiNetworks.filter(network => !network.active)
-    // Search, then two groups: networks you joined before, and the rest (new, or saved but never joined)
+    // Keep the rows when a scan changes signal levels without changing their order.
+    property var nearby: []
+    function updateNearby(): void {
+        const networks = Network.wifiNetworks.filter(network => !network.active).sort((a, b) =>
+            Number(b.known) - Number(a.known) || b.strength - a.strength || a.ssid.localeCompare(b.ssid));
+        if (networks.length !== page.nearby.length || networks.some((network, index) => network !== page.nearby[index])) page.nearby = networks;
+    }
     property string query: ""
     readonly property var matching: page.query.trim().length === 0 ? page.nearby
         : page.nearby.filter(network => network.ssid.toLowerCase().includes(page.query.trim().toLowerCase()))
-    readonly property var knownNearby: page.matching.filter(network => network.known)
-    readonly property var otherNearby: page.matching.filter(network => !network.known)
-    property bool showAllSaved: false
-    property bool showAllNearby: false // The strongest few first: two dozen rows took over half a second to build
+    property bool currentExpanded: false
+    onCurrentChanged: page.currentExpanded = false
+    onCurrentExpandedChanged: if (!page.currentExpanded) {
+        page.changingPassword = false;
+        currentPassword.clear();
+    }
+    onPageShownChanged: if (!page.pageShown) page.currentExpanded = false
+
+    // Which saved networks to list, by UUID. A row reads its own details, so this only changes when the
+    // list does, not with every signal level, and open rows stay open.
+    property string savedQuery: ""
+    property var savedKeys: []
+    function updateSavedKeys(): void {
+        const needle = page.savedQuery.trim().toLowerCase();
+        const keys = Network.savedNetworks.filter(profile => needle.length === 0 || profile.ssid.toLowerCase().includes(needle) || profile.id.toLowerCase().includes(needle)).map(profile => profile.uuid);
+        if (keys.length !== page.savedKeys.length || keys.some((key, index) => key !== page.savedKeys[index])) page.savedKeys = keys;
+    }
+    onSavedQueryChanged: page.updateSavedKeys()
+    Connections {
+        target: Network
+        function onWifiNetworksChanged() {
+            page.updateNearby();
+        }
+        function onStateChanged() {
+            Qt.callLater(page.updateNearby);
+        }
+        function onSavedNetworksChanged() {
+            page.updateSavedKeys();
+        }
+    }
+    Component.onCompleted: {
+        page.updateNearby();
+        page.updateSavedKeys();
+    }
+
+    readonly property var details: Network.state.wifiDetails ?? null
+    readonly property var ethernetDevice: Network.state.ethernetDetails
+        ?? (Network.state.devices ?? []).find(device => device.deviceType === 1) ?? null
+    readonly property var currentSaved: page.current ? (Network.profileByUuid[page.current.savedUuid] ?? null) : null
+
+    // Sharing the connection
+    property string hotspotError: ""
+    property bool hotspotStarting: false
     property bool changingPassword: false
     property bool joiningHidden: false
 
     function signalWord(strength) {
         return strength > 70 ? Translation.tr("Strong signal") : strength > 40 ? Translation.tr("Good signal") : Translation.tr("Weak signal");
     }
-
-    Component.onCompleted: Network.trackDetails = true
 
     // A fresh list as soon as the page is shown, then every half a minute while it stays open
     Timer {
@@ -35,6 +77,31 @@ ContentPage {
         running: page.pageShown && Network.wifiEnabled
         triggeredOnStart: true
         onTriggered: Network.rescanWifi()
+    }
+
+    NoticeBox {
+        visible: Network.snapshotError.length > 0
+        Layout.fillWidth: true
+        materialIcon: "error"
+        text: Network.snapshotError
+    }
+
+    NoticeBox {
+        visible: Network.available && !Network.wifiHardwareEnabled
+        Layout.fillWidth: true
+        materialIcon: "airplanemode_active"
+        text: Translation.tr("Wi-Fi is turned off by a switch or key on this computer.")
+    }
+
+    NoticeBox {
+        visible: Network.connectivity === "portal"
+        Layout.fillWidth: true
+        materialIcon: "login"
+        text: Translation.tr("This network wants you to sign in before it gives you internet access.")
+        DialogButton {
+            buttonText: Translation.tr("Open sign-in page")
+            onClicked: Network.openPublicWifiPortal()
+        }
     }
 
     ConnectionHeader {
@@ -52,6 +119,15 @@ ContentPage {
         checked: Network.wifiEnabled
         switchLabel: Translation.tr("Turn Wi-Fi on or off")
         onToggled: Network.enableWifi(!Network.wifiEnabled)
+
+        ConfigSwitch {
+            buttonIcon: "airplanemode_active"
+            text: Translation.tr("Airplane mode")
+            description: Translation.tr("Turns off Wi-Fi, mobile data and Bluetooth, and brings back only what was on")
+            autoToggle: false
+            checked: Network.airplaneMode
+            onClicked: Network.setAirplaneMode(!Network.airplaneMode)
+        }
     }
 
     ContentSection {
@@ -59,69 +135,145 @@ ContentPage {
         title: Translation.tr("This network")
         visible: page.current !== null
 
-        InfoRow {
-            buttonIcon: "language"
-            title: Translation.tr("IP address")
-            valueText: (Network.wifiDetails.ip ?? "").split("/")[0]
-        }
-        InfoRow {
-            buttonIcon: "router"
-            title: Translation.tr("Router")
-            valueText: Network.wifiDetails.gateway ?? ""
-        }
-        InfoRow {
-            buttonIcon: "dns"
-            title: Translation.tr("DNS servers")
-            valueText: (Network.wifiDetails.dns ?? []).join(", ")
-        }
-        InfoRow {
+        ConfigNavRow {
+            objectName: "currentNetworkSummary"
             buttonIcon: page.current ? Network.strengthSymbol(page.current.strength) : "wifi"
-            title: Translation.tr("Signal")
-            valueText: page.current ? `${page.current.strength}% · ${Network.frequencyBand(page.current.frequency)}` : ""
-        }
-        InfoRow {
-            buttonIcon: "encrypted"
-            title: Translation.tr("Security")
-            valueText: page.current ? (page.current.security || Translation.tr("None")) : ""
+            title: page.current?.ssid ?? ""
+            description: Translation.tr("Connected")
+            valueText: page.current ? `${page.current.strength}% · ${page.signalWord(page.current.strength)}` : ""
+            trailingIcon: "expand_more"
+            trailingIconRotation: page.currentExpanded ? 180 : 0
+            onClicked: page.currentExpanded = !page.currentExpanded
         }
 
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.margins: 8
-            spacing: 6
-            DialogButton {
-                buttonText: Translation.tr("Disconnect")
-                onClicked: Network.disconnectWifiNetwork()
+        NetworkRevealer {
+            objectName: "currentNetworkDetails"
+            expanded: page.currentExpanded
+            animationsEnabled: page.pageShown
+            onExpandRequested: page.currentExpanded = true
+            spacing: 0
+
+            InfoRow {
+                buttonIcon: "language"
+                title: Translation.tr("IP address")
+                valueText: (Network.wifiDetails.ip ?? "").split("/")[0]
             }
-            DialogButton {
-                visible: (page.current?.isSecure ?? false) && (page.current?.savedUuid ?? "").length > 0
-                buttonText: Translation.tr("Change password")
-                onClicked: page.changingPassword = !page.changingPassword
+            InfoRow {
+                buttonIcon: "router"
+                title: Translation.tr("Router")
+                valueText: Network.wifiDetails.gateway ?? ""
             }
-            Item {
+            InfoRow {
+                buttonIcon: "dns"
+                title: Translation.tr("DNS servers")
+                valueText: (Network.wifiDetails.dns ?? []).join(", ")
+            }
+            InfoRow {
+                buttonIcon: page.current ? Network.strengthSymbol(page.current.strength) : "wifi"
+                title: Translation.tr("Signal")
+                valueText: page.current ? `${page.current.strength}% · ${Network.frequencyBand(page.current.frequency)}` : ""
+            }
+            InfoRow {
+                buttonIcon: "encrypted"
+                title: Translation.tr("Security")
+                valueText: page.current ? (page.current.security || Translation.tr("None")) : ""
+            }
+            InfoRow {
+                buttonIcon: "speed"
+                title: Translation.tr("Link speed")
+                valueText: (page.details?.speed ?? 0) > 0 ? Translation.tr("%1 Mbit/s").arg(page.details.speed) : ""
+            }
+            InfoRow {
+                buttonIcon: "tag"
+                title: Translation.tr("Channel")
+                valueText: (page.current?.lastIpcObject.channel ?? 0) > 0 ? `${page.current.lastIpcObject.channel}` : ""
+            }
+            InfoRow {
+                buttonIcon: "router"
+                title: Translation.tr("Access point (BSSID)")
+                valueText: page.current?.bssid ?? ""
+            }
+            InfoRow {
+                buttonIcon: "memory"
+                title: Translation.tr("This computer's address (MAC)")
+                valueText: page.details?.hwAddress ?? ""
+            }
+            InfoRow {
+                buttonIcon: "language"
+                title: Translation.tr("IPv6 address")
+                valueText: (page.details?.ip6.addresses ?? []).join(", ")
+            }
+            InfoRow {
+                buttonIcon: "dns"
+                title: Translation.tr("IPv6 DNS servers")
+                valueText: (page.details?.ip6.dns ?? []).join(", ")
+            }
+
+            RowLayout {
                 Layout.fillWidth: true
-            }
-            ForgetButton {
-                visible: (page.current?.savedUuid ?? "").length > 0
-                label: Translation.tr("Forget this network")
-                onConfirmed: Network.forgetWifiNetwork(page.current.savedUuid)
-            }
-        }
-
-        Loader {
-            active: page.changingPassword && page.current !== null
-            visible: active
-            Layout.fillWidth: true
-            Layout.margins: 12
-            sourceComponent: PasswordForm {
-                acceptText: Translation.tr("Save")
-                placeholderText: Translation.tr("New password")
-                busy: Network.connectionPending
-                onAccepted: password => {
-                    Network.changePassword(page.current, password);
-                    page.changingPassword = false;
+                Layout.margins: 8
+                spacing: 6
+                DialogButton {
+                    buttonText: Translation.tr("Disconnect")
+                    onClicked: Network.disconnectWifiNetwork()
                 }
-                onCanceled: page.changingPassword = false
+                DialogButton {
+                    visible: (page.current?.isSecure ?? false) && (page.current?.savedUuid ?? "").length > 0
+                    buttonText: Translation.tr("Change password")
+                    onClicked: page.changingPassword = !page.changingPassword
+                }
+                DialogButton {
+                    visible: (page.current?.savedUuid ?? "").length > 0
+                    buttonText: Translation.tr("Edit")
+                    onClicked: Network.editProfile(page.current.savedUuid)
+                }
+                Item {
+                    Layout.fillWidth: true
+                }
+                ForgetButton {
+                    visible: (page.current?.savedUuid ?? "").length > 0
+                    label: Translation.tr("Forget this network")
+                    onConfirmed: Network.forgetWifiNetwork(page.current.savedUuid)
+                }
+            }
+
+            SavedPasswordBox {
+                id: currentPassword
+                visible: page.current !== null && ["wep", "wpa-psk", "sae"].includes(page.currentSaved?.securityType ?? "")
+                uuid: page.current?.savedUuid ?? ""
+                Layout.fillWidth: true
+                Layout.margins: 12
+                Connections {
+                    target: page
+                    function onPageShownChanged() {
+                        if (!page.pageShown) currentPassword.clear();
+                    }
+                }
+            }
+
+            NetworkRevealer {
+                id: currentPasswordDetails
+                expanded: page.changingPassword && page.current !== null
+                animationsEnabled: page.pageShown
+                onExpandRequested: page.changingPassword = true
+                Layout.leftMargin: 12
+                Layout.rightMargin: 12
+                bottomPadding: 12
+
+                Loader {
+                    active: currentPasswordDetails.visible
+                    Layout.fillWidth: true
+                    sourceComponent: PasswordForm {
+                        acceptText: Translation.tr("Save")
+                        placeholderText: Translation.tr("New password")
+                        busy: Network.connectionPending
+                        onAccepted: password => {
+                            Network.changePassword(page.current, password);
+                            page.changingPassword = false;
+                        }
+                        onCanceled: page.changingPassword = false
+                    }
+                }
             }
         }
     }
@@ -129,7 +281,16 @@ ContentPage {
     ContentSection {
         icon: "cable"
         title: Translation.tr("Ethernet")
-        visible: Network.ethernet
+        visible: page.ethernetDevice !== null
+
+        ConfigNavRow {
+            buttonIcon: "lan"
+            tileColor: page.heroColor
+            title: page.ethernetDevice?.interface || Translation.tr("Ethernet")
+            valueText: Translation.tr("Enabled")
+            description: Network.ethernet ? Translation.tr("Connected") : Translation.tr("Not connected")
+            onClicked: ApplicationWindow.window?.openPage("connections")
+        }
 
         InfoRow {
             buttonIcon: "lan"
@@ -190,56 +351,20 @@ ContentPage {
             }
         }
 
-        TextField {
-            id: networkSearch
+        SearchField {
             visible: Network.wifiEnabled && page.nearby.length > 6
-            Layout.fillWidth: true
-            Layout.leftMargin: 8
-            Layout.rightMargin: 8
             placeholderText: Translation.tr("Find a network")
-            placeholderTextColor: Appearance.colors.colSubtext
-            color: Appearance.colors.colOnLayer2
-            leftPadding: 14
-            topPadding: 9
-            bottomPadding: 9
-            font.pixelSize: Appearance.font.pixelSize.small
             onTextChanged: page.query = text
-            background: Rectangle {
-                implicitHeight: 38
-                radius: Appearance.rounding.full
-                color: Appearance.colors.colLayer3
-                border.width: networkSearch.activeFocus ? 2 : 0
-                border.color: Appearance.colors.colPrimary
-            }
         }
 
         ContentSubsection {
-            visible: Network.wifiEnabled && page.knownNearby.length > 0
-            title: Translation.tr("Your networks")
+            visible: Network.wifiEnabled && page.matching.length > 0
             Repeater {
-                model: page.knownNearby
+                model: page.matching
                 delegate: WifiNetworkRow {
                     required property var modelData
                     network: modelData
                 }
-            }
-        }
-        ContentSubsection {
-            visible: Network.wifiEnabled && page.otherNearby.length > 0
-            title: Translation.tr("Other networks")
-            Repeater {
-                model: page.showAllNearby || page.query.length > 0 ? page.otherNearby : page.otherNearby.slice(0, 8)
-                delegate: WifiNetworkRow {
-                    required property var modelData
-                    network: modelData
-                }
-            }
-            ConfigNavRow {
-                visible: page.otherNearby.length > 8 && page.query.length === 0
-                buttonIcon: page.showAllNearby ? "expand_less" : "expand_more"
-                title: page.showAllNearby ? Translation.tr("Show fewer") : Translation.tr("Show all %1").arg(page.otherNearby.length)
-                trailingIcon: ""
-                onClicked: page.showAllNearby = !page.showAllNearby
             }
         }
         StyledText {
@@ -254,44 +379,57 @@ ContentPage {
     }
 
     ContentSection {
-        icon: "bookmark"
-        title: Translation.tr("Saved networks")
-        description: Translation.tr("Networks this computer remembers that are out of range right now.")
-        visible: Network.savedOutOfRange.length > 0
+        id: hotspotSection
+        icon: "wifi_tethering"
+        title: Translation.tr("Share this connection")
+        description: Translation.tr("Turns this computer into a Wi-Fi hotspot. On most computers that disconnects it from the Wi-Fi network it's using now.")
+        visible: Network.canShareConnection
 
-        Repeater {
-            model: page.showAllSaved ? Network.savedOutOfRange : Network.savedOutOfRange.slice(0, 5)
-            delegate: RowLayout {
-                id: savedRow
-                required property var modelData
-                Layout.fillWidth: true
-                Layout.preferredHeight: 46
-                Layout.leftMargin: 12
-                Layout.rightMargin: 8
-                spacing: 12
-                ConfigIconTile {
-                    icon: "wifi"
+        ConfigTextRow {
+            id: hotspotName
+            visible: !Network.hotspotActive
+            label: Translation.tr("Hotspot name")
+            placeholderText: "Velora"
+            wrapMode: TextEdit.NoWrap
+        }
+        Loader {
+            active: !Network.hotspotActive
+            visible: active
+            Layout.fillWidth: true
+            Layout.margins: 12
+            sourceComponent: PasswordForm {
+                focusOnShow: false
+                allowEmpty: true
+                acceptText: Translation.tr("Start sharing")
+                placeholderText: Translation.tr("Password, or none for an open hotspot")
+                busy: page.hotspotStarting
+                errorText: page.hotspotError
+                onAccepted: password => {
+                    page.hotspotError = "";
+                    page.hotspotStarting = true;
+                    Network.startHotspot(hotspotName.value.trim() || "Velora", password, error => {
+                        page.hotspotStarting = false;
+                        if (error) page.hotspotError = Translation.tr(error.message);
+                    });
                 }
-                StyledText {
-                    Layout.fillWidth: true
-                    text: savedRow.modelData.ssid
-                    textFormat: Text.PlainText
-                    elide: Text.ElideRight
-                    font.pixelSize: Appearance.font.pixelSize.small
-                    color: Appearance.colors.colOnLayer2
-                }
-                ForgetButton {
-                    onConfirmed: Network.forgetWifiNetwork(savedRow.modelData.uuid)
-                }
+                onCanceled: page.hotspotError = ""
             }
         }
-
-        ConfigNavRow {
-            visible: Network.savedOutOfRange.length > 5
-            buttonIcon: page.showAllSaved ? "expand_less" : "expand_more"
-            title: page.showAllSaved ? Translation.tr("Show fewer") : Translation.tr("Show all %1").arg(Network.savedOutOfRange.length)
-            trailingIcon: ""
-            onClicked: page.showAllSaved = !page.showAllSaved
+        RowLayout {
+            visible: Network.hotspotActive
+            Layout.fillWidth: true
+            Layout.margins: 12
+            spacing: 8
+            StyledText {
+                Layout.fillWidth: true
+                text: Translation.tr("Sharing this computer's connection over Wi-Fi")
+                font.pixelSize: Appearance.font.pixelSize.small
+                color: Appearance.colors.colOnLayer2
+            }
+            DialogButton {
+                buttonText: Translation.tr("Stop sharing")
+                onClicked: Network.stopHotspot()
+            }
         }
     }
 
@@ -303,14 +441,19 @@ ContentPage {
             buttonIcon: "visibility_off"
             title: Translation.tr("Join a hidden network")
             description: Translation.tr("For networks that don't show their name")
-            trailingIcon: page.joiningHidden ? "expand_less" : "expand_more"
+            trailingIcon: "expand_more"
+            trailingIconRotation: page.joiningHidden ? 180 : 0
             enabled: Network.wifiEnabled
             onClicked: page.joiningHidden = !page.joiningHidden
         }
-        ColumnLayout {
-            visible: page.joiningHidden
-            Layout.fillWidth: true
-            Layout.margins: 12
+        NetworkRevealer {
+            id: hiddenNetworkDetails
+            expanded: page.joiningHidden
+            animationsEnabled: page.pageShown
+            onExpandRequested: page.joiningHidden = true
+            Layout.leftMargin: 12
+            Layout.rightMargin: 12
+            bottomPadding: 12
             spacing: 8
             ConfigTextRow {
                 id: hiddenName
@@ -320,7 +463,7 @@ ContentPage {
                 wrapMode: TextEdit.NoWrap
             }
             Loader {
-                active: page.joiningHidden
+                active: hiddenNetworkDetails.visible
                 Layout.fillWidth: true
                 sourceComponent: PasswordForm {
                     focusOnShow: false
@@ -336,10 +479,62 @@ ContentPage {
         }
         ConfigNavRow {
             buttonIcon: "tune"
-            title: Translation.tr("Advanced connection settings")
-            description: Translation.tr("VPN, proxy, fixed addresses and everything else about your connections")
-            trailingIcon: "open_in_new"
-            onClicked: Quickshell.execDetached(["bash", "-c", Network.ethernet ? Config.options.apps.networkEthernet : Config.options.apps.network])
+            title: Translation.tr("All connections")
+            description: Translation.tr("VPN, cable, fixed addresses, proxy and everything else about your connections")
+            onClicked: ApplicationWindow.window?.openPage("connections")
+        }
+    }
+
+    ContentSection {
+        id: savedSection
+        icon: "bookmark"
+        title: Translation.tr("Saved passwords")
+        description: Translation.tr("Passwords and settings for the Wi-Fi networks this computer remembers.")
+        visible: Network.savedNetworks.length > 0
+
+        SearchField {
+            visible: Network.savedNetworks.length > 6
+            placeholderText: Translation.tr("Find a saved network")
+            onTextChanged: page.savedQuery = text
+        }
+
+        Repeater {
+            model: page.savedKeys
+            delegate: SavedNetworkRow {
+                required property var modelData
+                uuid: modelData
+                pageShown: page.pageShown
+            }
+        }
+
+        StyledText {
+            visible: page.savedKeys.length === 0
+            Layout.fillWidth: true
+            Layout.margins: 10
+            horizontalAlignment: Text.AlignHCenter
+            text: Translation.tr("No saved network called “%1”").arg(page.savedQuery.trim())
+            font.pixelSize: Appearance.font.pixelSize.small
+            color: Appearance.colors.colSubtext
+        }
+    }
+
+    component SearchField: TextField {
+        id: searchField
+        Layout.fillWidth: true
+        Layout.leftMargin: 8
+        Layout.rightMargin: 8
+        placeholderTextColor: Appearance.colors.colSubtext
+        color: Appearance.colors.colOnLayer2
+        leftPadding: 14
+        topPadding: 9
+        bottomPadding: 9
+        font.pixelSize: Appearance.font.pixelSize.small
+        background: Rectangle {
+            implicitHeight: 38
+            radius: Appearance.rounding.full
+            color: Appearance.colors.colLayer3
+            border.width: searchField.activeFocus ? 2 : 0
+            border.color: Appearance.colors.colPrimary
         }
     }
 }

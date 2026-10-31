@@ -15,7 +15,7 @@ import qs.modules.common.functions
 ContentPage {
     id: page
 
-    property var caps: ({}) // Installed tools, from `folis_toolbox.py caps`
+    property var caps: ({}) // Installed tools, from `velora-helper toolbox-caps`
     property list<var> files: [] // { path, name, kind, size, duration, status, percent, output, message }
     property bool running: job.running
     property string outDir: "" // Empty: next to each file
@@ -85,7 +85,7 @@ ContentPage {
         const clean = paths.map(path => decodeURIComponent(FileUtils.trimFileProtocol(`${path}`)).trim())
             .filter(path => path.length > 0 && !page.files.some(file => file.path === path));
         if (clean.length === 0) return;
-        detectProc.command = ["/usr/bin/python3", "-I", job.script, "detect", ...clean];
+        detectProc.command = [Quickshell.shellPath("scripts/helper"), "toolbox-detect", ...clean];
         detectProc.running = true;
     }
 

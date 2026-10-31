@@ -1,0 +1,5 @@
+#!/bin/sh
+# Runs velora-helper wherever it's installed: the shell's PATH needn't include ~/.local/bin.
+VELORA_SHELL_DIR="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+export VELORA_SHELL_DIR
+exec "${VELORA_HELPER:-$(command -v velora-helper || echo "$HOME/.local/bin/velora-helper")}" "$@"

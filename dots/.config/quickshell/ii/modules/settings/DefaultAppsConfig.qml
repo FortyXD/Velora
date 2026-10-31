@@ -14,7 +14,7 @@ import qs.modules.common.widgets
 ContentPage {
     id: root
 
-    readonly property string scriptPath: FileUtils.trimFileProtocol(`${Directories.config}/hypr/hyprland/scripts/default_apps.py`)
+    readonly property string helper: Quickshell.shellPath("scripts/helper")
     property var roles: ({}) // role id -> { current: { app } | { command, name } | { ask }, candidates, allowsCommand, allowsAsk }
     property var apps: []    // Every app, for "Other apps"
     property var webmailServices: []
@@ -72,7 +72,7 @@ ContentPage {
             listProc.running = true;
             return;
         }
-        actionProc.command = [root.scriptPath, ...root.queue[0]];
+        actionProc.command = [root.helper, "apps", ...root.queue[0]];
         root.queue = root.queue.slice(1);
         actionProc.running = true;
     }
@@ -100,7 +100,7 @@ ContentPage {
     Process {
         id: listProc
         running: true
-        command: [root.scriptPath, "list", Translation.languageCode]
+        command: [root.helper, "apps", "list", Translation.languageCode]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -214,27 +214,6 @@ ContentPage {
                 { bin: "pavucontrol", name: "PulseAudio Volume Control", command: "pavucontrol" },
                 { bin: "pwvucontrol", name: "pwvucontrol", command: "pwvucontrol" },
                 { bin: "kcmshell6", name: Translation.tr("KDE sound settings"), command: "kcmshell6 kcm_pulseaudio" }
-            ]
-        }
-        AppCommandRow {
-            appKey: "network"
-            icon: "wifi"
-            text: Translation.tr("Network settings")
-            presets: [
-                { bin: "kcmshell6", name: Translation.tr("KDE network settings"), command: "kcmshell6 kcm_networkmanagement" },
-                { bin: "nm-connection-editor", name: Translation.tr("Network Connections"), command: "nm-connection-editor" },
-                { bin: "gnome-control-center", name: Translation.tr("GNOME Wi-Fi settings"), command: "XDG_CURRENT_DESKTOP=gnome gnome-control-center wifi" }
-            ]
-        }
-        AppCommandRow {
-            appKey: "bluetooth"
-            icon: "bluetooth"
-            text: Translation.tr("Bluetooth settings")
-            presets: [
-                { bin: "kcmshell6", name: Translation.tr("KDE Bluetooth settings"), command: "kcmshell6 kcm_bluetooth" },
-                { bin: "blueman-manager", name: "Blueman", command: "blueman-manager" },
-                { bin: "overskride", name: "Overskride", command: "overskride" },
-                { bin: "gnome-control-center", name: Translation.tr("GNOME Bluetooth settings"), command: "XDG_CURRENT_DESKTOP=gnome gnome-control-center bluetooth" }
             ]
         }
         AppCommandRow {

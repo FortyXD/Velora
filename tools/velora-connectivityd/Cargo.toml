@@ -1,0 +1,23 @@
+[package]
+name = "velora-connectivityd"
+version = "0.1.0"
+edition = "2021"
+description = "NetworkManager and BlueZ backend for the Velora shell"
+license = "GPL-3.0-only"
+publish = false
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[dependencies]
+anyhow = "1"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tokio = { version = "1", features = ["rt", "macros", "io-std", "io-util", "sync", "time", "process", "fs"] }
+zbus = { version = "6", default-features = false, features = ["tokio", "proxy", "service", "object-manager"] }
+zeroize = "1"
+
+[dev-dependencies]
+proptest = "1"
+velora-connectivity-fakes = { path = "../velora-connectivity-fakes" }

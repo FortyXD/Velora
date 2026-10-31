@@ -171,8 +171,15 @@ WindowDialog {
         DialogButton {
             buttonText: Translation.tr("Details")
             onClicked: {
-                Quickshell.execDetached(["bash", "-c", `${Network.ethernet ? Config.options.apps.networkEthernet : Config.options.apps.network}`]);
+                ConnectivityBackend.openSettings("wifi");
                 GlobalStates.closeSidebars();
+            }
+            altAction: () => {
+                Quickshell.execDetached(["bash", "-c", Config.options.apps.network]);
+                GlobalStates.closeSidebars();
+            }
+            StyledToolTip {
+                text: Translation.tr("Left-click for Velora settings; right-click for KDE settings")
             }
         }
         Item { Layout.fillWidth: true }

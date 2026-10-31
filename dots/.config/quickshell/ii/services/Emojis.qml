@@ -12,8 +12,7 @@ import Quickshell.Io
  */
 Singleton {
     id: root
-    property string emojiScriptPath: `${Directories.config}/hypr/hyprland/scripts/fuzzel-emoji.sh`
-	property string lineBeforeData: "### DATA ###"
+    property string emojiFilePath: `${Directories.config}/hypr/hyprland/data/emoji.txt`
     property list<var> list
     readonly property var preparedEntries: list.map(a => ({
         name: Fuzzy.prepare(`${a}`),
@@ -43,19 +42,13 @@ Singleton {
     }
 
     function updateEmojis(fileContent) {
-        const lines = fileContent.split("\n")
-        const dataIndex = lines.indexOf(root.lineBeforeData)
-        if (dataIndex === -1) {
-            console.warn("No data section found in emoji script file.")
-            return
-        }
-        const emojis = lines.slice(dataIndex + 1).filter(line => line.trim() !== "")
+        const emojis = fileContent.split("\n").filter(line => line.trim() !== "")
         root.list = emojis.map(line => line.trim())
     }
 
     FileView { 
         id: emojiFileView
-        path: Qt.resolvedUrl(root.emojiScriptPath)
+        path: Qt.resolvedUrl(root.emojiFilePath)
         onLoadedChanged: {
             const fileContent = emojiFileView.text()
             root.updateEmojis(fileContent)

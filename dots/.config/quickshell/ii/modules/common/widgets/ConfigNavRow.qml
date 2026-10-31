@@ -13,6 +13,7 @@ RippleButton {
     property string description: ""
     property string valueText: ""
     property string trailingIcon: "chevron_right"
+    property real trailingIconRotation: 0
     property color tileColor: "transparent" // See ConfigIconTile
 
     readonly property bool settingsSearchable: true
@@ -62,6 +63,10 @@ RippleButton {
         }
         MaterialSymbol {
             text: root.trailingIcon
+            rotation: root.trailingIconRotation
+            Behavior on rotation {
+                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+            }
             iconSize: 20
             color: Appearance.colors.colSubtext
             transform: Translate {
