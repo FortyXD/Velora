@@ -28,8 +28,10 @@ jobs:
     container: archlinux:latest
     steps:
       - name: Install what the tests need
-        run: pacman -Syu --noconfirm --needed git rust cargo-llvm-cov llvm dbus qt6-declarative qt6-5compat qt6-svg quickshell python ttf-dejavu
+        run: pacman -Syu --noconfirm --needed git rust cargo-llvm-cov llvm dbus qt6-declarative qt6-5compat qt6-svg qt6-multimedia qt6-positioning quickshell python ttf-dejavu
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Test the daemon, with at least 90% of its lines covered
         env:
           LLVM_COV: /usr/bin/llvm-cov
