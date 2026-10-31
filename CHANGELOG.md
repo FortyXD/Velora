@@ -1,11 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.1.4 — 2026-10-31
 
-- Wi-Fi and Bluetooth settings now do everything KDE's do, without leaving Velora. Every saved network is listed at once with its protocol, and its password can be shown, copied or shared as a QR code. Network & VPN lists every other connection, with OpenVPN and WireGuard forms, import and export. A connection editor covers addresses, routes, DNS, security including 802.1X, proxy and every other stored setting. Airplane mode and sharing the connection over Wi-Fi are included.
+- Wi-Fi, VPN and Bluetooth can be managed inside Velora. Every saved network is listed with its protocol, and its password can be shown, copied or shared as a QR code. Network & VPN lists other connections, with OpenVPN and WireGuard forms, import and export. A connection editor covers addresses, routes, DNS, security including 802.1X, proxy and stored settings. Airplane mode and sharing the connection over Wi-Fi are included.
 - Bluetooth lists every paired device with its type, battery and services. Devices can be renamed, trusted, blocked and sent files. Pairing with a PIN or a number to compare works, files can be received, and Bluetooth can be set to come back at login and after sleep as it was left.
 - Password prompts: VPNs that ask for a one-time code, and networks with secrets kept per user, now work outside Plasma. Secrets are found where Plasma keeps them.
 - Wi-Fi passwords no longer appear in process lists. The shell reaches NetworkManager and BlueZ through a new Rust service, `velora-connectivityd`, which becomes a required part of the installation. Building it needs Rust.
+- The current Wi-Fi connection has animated expandable details. Ethernet appears whenever an adapter exists, including when disconnected. Available saved networks lead the nearby list, other networks follow by signal, and saved passwords have a separate section. GHz labels keep their position on open networks.
+- Wi-Fi password retries stay inside the network row. New credentials are persisted after a successful activation; failed replacements keep the saved profile and password. Stopping the wait never disconnects a connection. Hidden networks support WPA/WPA2, WPA3 and open security. Ported PR #6 to the Rust backend; thanks to Nikita (@impala-tape).
+- Left-clicking sidebar Details opens the corresponding Velora Wi-Fi or Bluetooth settings; right-clicking opens the configured external settings. Loading Bluetooth pages in the background no longer redirects Wi-Fi settings.
+- Screenshot settings can include the cursor. Capture entry points share failure-safe clipboard and cursor handling, and finishing region selection does not trigger hot corners until the pointer leaves their trigger area. Thanks to Nikita (@impala-tape), PR #7.
+- Shell operations for apps, files, clipboard, system tools, recording status and other helpers now use the native Rust helper instead of separate Python and shell scripts.
 
 ## 0.1.3 — 2026-10-30
 
