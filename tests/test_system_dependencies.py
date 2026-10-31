@@ -56,6 +56,7 @@ class RuntimeTests(IsolatedTest):
     def test_runtime_failure_prevents_configuration_linking(self):
         args = velora.parser().parse_args(["install", "--yes", "--skip-packages"])
         with patch.object(velora, "preflight"), patch.object(velora, "run"), \
+                patch.object(velora, "build_native_helper"), \
                 patch.object(velora, "install_fonts"), \
                 patch.object(velora, "runtime_problems", return_value=["Missing QML module: QtMultimedia"]), \
                 patch.object(velora, "link_configuration") as link:
