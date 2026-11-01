@@ -7,8 +7,8 @@
     "credits": {
         "title": "Liquid",
         "author": "Velora",
-        "license": "Drawn by the shell",
-        "page": ""
+        "license": "GPL-3.0",
+        "page": "https://github.com/FortyXD/Velora/tree/main/dots/.config/quickshell/ii/assets/shaders"
     },
     "bar": {
         "config": {

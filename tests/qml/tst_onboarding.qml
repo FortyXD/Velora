@@ -55,7 +55,7 @@ Item {
             HyprlandMonitors.ready = false;
             flow.displayChecked = false;
             flow.index = 0;
-            flow.choices = { "look": "velora", "windows": "tiling", "wallpaper": "autumn", "components": [], "apps": [] };
+            flow.choices = { "look": "velora", "windows": "tiling", "wallpaper": "mountain-night", "components": [], "apps": [] };
             finished.clear();
         }
         function lastState() {
@@ -79,15 +79,15 @@ Item {
         function test_autumn_is_first_and_checked_even_when_palette_is_preserved() {
             const picture = id => ({ id:id, kind:"builtin", name:id, wallpaperPreview:"file:///unused-"+id,
                 wallpaperAnimations:{wallpaper:"https://example.invalid/"+id+".jpg"} });
-            Presets.presets = [picture("pastel"), picture("autumn"), picture("synthwave")];
+            Presets.presets = [picture("mountain-pastel"), picture("mountain-night"), picture("mountain-neon")];
             flow.preservePalette = true;
             const page = createTemporaryObject(appearanceComponent, scene, {flow:flow});
-            compare(page.pictures.map(picture => picture.id), ["autumn", "pastel", "synthwave"]);
-            compare(Presets.presets.map(picture => picture.id), ["pastel", "autumn", "synthwave"]);
-            const autumn = findChild(page, "wallpaper-autumn");
+            compare(page.pictures.map(picture => picture.id), ["mountain-night", "mountain-pastel", "mountain-neon"]);
+            compare(Presets.presets.map(picture => picture.id), ["mountain-pastel", "mountain-night", "mountain-neon"]);
+            const autumn = findChild(page, "wallpaper-mountain-night");
             verify(autumn !== null);
             verify(autumn.selected);
-            verify(!findChild(page, "wallpaper-pastel").selected);
+            verify(!findChild(page, "wallpaper-mountain-pastel").selected);
             compare(flow.applying, "");
             autumn.clicked();
             verify(!flow.preservePalette);
@@ -180,9 +180,9 @@ Item {
             flow.applyLook("vertical");
             compare(flow.choices.look, "vertical");
             compare(flow.applying, "look");
-            compare(flow.applyingId, "autumn");
+            compare(flow.applyingId, "mountain-night");
             const request = findChild(flow, "presetApply-" + flow.applyRequest);
-            compare(request.command.slice(5, 8), ["presets", "applyForOnboarding", "autumn"]);
+            compare(request.command.slice(5, 8), ["presets", "applyForOnboarding", "mountain-night"]);
             flow.applyWindows("floating");
             compare(Quickshell.commands[0].slice(-3), ["windowMode", "set", "floating"]);
         }
@@ -342,7 +342,7 @@ Item {
             flow.stateFile.loadFailed();
             verify(flow.initializingTheme);
             verify(!flow.ready);
-            compare(flow.applyingId, "autumn");
+            compare(flow.applyingId, "mountain-night");
             flow.applyDone();
             verify(flow.ready);
             verify(MaterialThemeLoader.reloads > 0);
@@ -350,14 +350,14 @@ Item {
 
         function test_repeat_keeps_the_users_palette() {
             flow.loaded = false;
-            flow.stateFile.content = JSON.stringify({ completed: true, choices: { wallpaper: "pastel" } });
+            flow.stateFile.content = JSON.stringify({ completed: true, choices: { wallpaper: "mountain-pastel" } });
             flow.stateFile.loaded();
             verify(flow.preservePalette);
             verify(flow.ready);
             compare(flow.applying, "");
             flow.applyLook("horizon");
             verify(flow.preservePalette);
-            flow.applyWallpaper("autumn");
+            flow.applyWallpaper("mountain-night");
             verify(!flow.preservePalette);
         }
 

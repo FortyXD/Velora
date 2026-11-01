@@ -18,22 +18,22 @@ QT_TEST_RUNNER = shutil.which('qmltestrunner6') or next(
 
 class DefaultWallpaperTests(unittest.TestCase):
     def test_bundled_preset_paths_resolve_inside_the_shell(self):
-        preset_path = SHELL / 'defaults/presets/autumn.json'
+        preset_path = SHELL / 'defaults/presets/mountain-night.json'
         preset = json.loads(preset_path.read_text())
-        image = SHELL / 'assets/images/autumn.jpg'
+        image = SHELL / 'assets/images/mountain-night.png'
         for value in (preset['wallpaperPreview'], preset['wallpaperAnimations']['wallpaper']):
             self.assertEqual((preset_path.parent / value).resolve(), image)
         self.assertGreater(image.stat().st_size, 100_000)
-        self.assertEqual(image.read_bytes()[:3], b'\xff\xd8\xff')
-        self.assertEqual(preset['credits']['author'], 'JoeyJazz')
-        self.assertNotEqual(preset['credits']['license'], 'Wallhaven')
+        self.assertEqual(image.read_bytes()[:8], b'\x89PNG\r\n\x1a\n')
+        self.assertEqual(preset['credits']['author'], 'Andy Betts')
+        self.assertEqual(preset['credits']['license'], 'CC-BY-SA-4.0')
 
     def test_fresh_install_links_the_local_asset_and_repeat_keeps_the_users_choice(self):
         fixture = test_velora.InstallerTests('test_install_and_repeat_preserve_existing_shell_settings')
         fixture.setUp()
         self.addCleanup(fixture.tearDown)
-        for relative in ('dots/.config/quickshell/ii/assets/images/autumn.jpg',
-                         'dots/.config/quickshell/ii/defaults/presets/autumn.json',
+        for relative in ('dots/.config/quickshell/ii/assets/images/mountain-night.png',
+                         'dots/.config/quickshell/ii/defaults/presets/mountain-night.json',
                          'dots/.config/illogical-impulse/config.example.json'):
             destination = fixture.repo / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -41,10 +41,10 @@ class DefaultWallpaperTests(unittest.TestCase):
         result = fixture.link()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         linked_shell = Path(fixture.env['XDG_CONFIG_HOME']) / 'quickshell/ii'
-        preset_path = linked_shell / 'defaults/presets/autumn.json'
+        preset_path = linked_shell / 'defaults/presets/mountain-night.json'
         preset = json.loads(preset_path.read_text())
         wallpaper = preset_path.parent / preset['wallpaperAnimations']['wallpaper']
-        self.assertEqual(wallpaper.read_bytes(), (SHELL / 'assets/images/autumn.jpg').read_bytes())
+        self.assertEqual(wallpaper.read_bytes(), (SHELL / 'assets/images/mountain-night.png').read_bytes())
         config_path = Path(fixture.env['XDG_CONFIG_HOME']) / 'illogical-impulse/config.json'
         config = json.loads(config_path.read_text())
         config['background']['wallpaperPath'] = '/pictures/personal.jpg'
@@ -101,8 +101,8 @@ class DefaultWallpaperTests(unittest.TestCase):
                         compare(Config.ready, false);
                         compare(Config.options.background.wallpaperPath, Directories.defaultWallpaper);
                         tryCompare(picture, "status", Image.Ready);
-                        compare(picture.sourceSize.width, 2560);
-                        compare(picture.sourceSize.height, 1440);
+                        compare(picture.sourceSize.width, 5120);
+                        compare(picture.sourceSize.height, 2880);
                     }
                     function test_b_missing_config_is_ready_with_the_local_default() {
                         const config = findChild(Config, "configFileView");
@@ -119,6 +119,22 @@ class DefaultWallpaperTests(unittest.TestCase):
                         Config.options.background.wallpaperPath = "/pictures/my own choice.jpg";
                         config.loaded();
                         compare(Config.options.background.wallpaperPath, "/pictures/my own choice.jpg");
+                    }
+                    function test_c_retired_bundled_images_migrate_but_personal_names_are_preserved() {
+                        const config = findChild(Config, "configFileView");
+                        for (const path of [
+                            "/home/user/.config/quickshell/ii/assets/images/autumn.jpg",
+                            "file:///home/user/Velora/dots/.config/quickshell/ii/defaults/presets/../../assets/images/autumn.jpg",
+                            "/home/user/.config/quickshell/ii/assets/images/default_wallpaper.png"
+                        ]) {
+                            Config.options.background.wallpaperPath = path;
+                            config.loaded();
+                            compare(Config.options.background.wallpaperPath, Directories.defaultWallpaper);
+                        }
+                        Config.options.background.wallpaperPath = "/pictures/autumn.jpg";
+                        config.loaded();
+                        compare(Config.options.background.wallpaperPath, "/pictures/autumn.jpg");
+                        Config.options.background.wallpaperPath = "/pictures/my own choice.jpg";
                     }
                     function test_d_first_run_waits_for_config_and_preserves_existing_wallpaper() {
                         const first = findChild(FirstRunExperience, "firstRunFile");

@@ -70,7 +70,7 @@ The required dependencies include Qt's KDE platform integration, Breeze icons an
 
 The installer preserves an existing `illogical-impulse/config.json` and seeds a missing one from the tracked example. Linked configuration files take effect from the checkout. Keep that directory after installation. If you move or rename it, run `./velora relink` from the new place.
 
-A new desktop starts with the bundled **Autumn tree** wallpaper. Its image and preset preview are available locally before the setup assistant opens, so choosing Autumn does not require a wallpaper download. Existing nonempty wallpaper choices are preserved. Artwork attribution is included beside the image in `assets/images/autumn.NOTICE.md`.
+A new desktop starts with the bundled **Mountain · Night** wallpaper by Andy Betts (CC BY-SA 4.0). Its image and preset preview work offline. Personal wallpaper choices are preserved; retired bundled wallpaper paths migrate to Mountain. See `assets/images/mountain-night.NOTICE.md` for attribution.
 
 The package managers are still interactive when `--yes` is passed. The option accepts Velora's component and installation plan; it does not pass `--noconfirm` to package managers.
 

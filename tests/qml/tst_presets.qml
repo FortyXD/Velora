@@ -82,7 +82,7 @@ Item {
         }
 
         function test_autumn_uses_its_scheme_while_preparing() {
-            const autumn = preset("autumn", "");
+            const autumn = preset("mountain-night", "");
             autumn.theme = { config: {appearance: {palette: {type:"scheme-content"}}}, mode:"dark", accent:"#FF6D00" };
             const args = Presets.themeArgs(autumn, ["theme"], "");
             compare(args[args.indexOf("--type") + 1], "scheme-content");
@@ -91,14 +91,14 @@ Item {
         }
 
         function test_bundled_autumn_is_previewed_and_applied_without_a_download() {
-            const autumn = BundledAutumn.preset;
-            const image = "/shell/defaults/presets/../../assets/images/autumn.jpg";
+            const autumn = BundledMountain.preset;
+            const image = "/shell/defaults/presets/../../assets/images/mountain-night.png";
             compare(Presets.wallpaperFile(autumn), image);
             compare(Presets.previewOf(autumn), "file://" + image);
             verify(!Presets.isRemote(autumn.wallpaperAnimations.wallpaper));
             Presets.presets = [autumn];
             download().running = false;
-            Presets.apply("autumn", ["theme", "wallpaperAnimations"]);
+            Presets.apply("mountain-night", ["theme", "wallpaperAnimations"]);
             finishProcess(backup(), 0);
             verify(!download().running);
             const prepare = findChild(Presets, "themePrepareJob");

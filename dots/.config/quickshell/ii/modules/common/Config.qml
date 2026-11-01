@@ -15,9 +15,12 @@ Singleton {
     property bool blockWrites: false
 
     // A fresh or example config can have an empty path. The bundled picture is available before
-    // setup starts or a palette is generated, while an existing choice is left untouched.
+    // setup starts or a palette is generated. Migrate retired bundled assets while preserving
+    // personal pictures, including personal files with the same filename.
     function ensureWallpaperDefault() {
-        if (!root.options.background.wallpaperPath)
+        const path = root.options.background.wallpaperPath;
+        const retiredBundledImage = /\/quickshell\/ii\/(?:defaults\/presets\/\.\.\/\.\.\/)?assets\/images\/(?:autumn\.jpg|default_wallpaper\.png)$/.test(path ?? "");
+        if (!path || retiredBundledImage)
             root.options.background.wallpaperPath = Directories.defaultWallpaper;
     }
 

@@ -1,85 +1,35 @@
 <h1 align="center">
-  
+  <img src=".github/assets/velora-banner.svg" alt="Velora — A desktop shaped around you" width="1200">
 </h1>
 
 <p align="center"><strong>Your desktop. Every detail.</strong><br>Hyprland + Quickshell · Arch Linux</p>
 
-<p align="center">
-  <a href="#installation"><strong>Install Velora →</strong></a> ·
-  <a href="#pick-a-mood">Looks</a> ·
-  <a href="#make-it-yours">Customize</a> ·
-  <a href="#all-your-settings">Settings</a> ·
-  <a href="#documentation">Docs</a>
-</p>
-
-<a href=".github/assets/demos/styles.gif"></a>
-
-<p align="center">Autumn Tree → Pastel Sky → Aurora. A whole new desktop in one preset.</p>
+<p align="center"><a href="#installation"><strong>Install Velora →</strong></a> · <a href="#pick-a-mood">Looks</a> · <a href="#documentation">Docs</a></p>
 
 ## Pick a mood
 
-<table>
-  <tr>
-    <td width="33%" align="center"><a href=".github/assets/demos/autumn-tree.png"></a><br><strong>Autumn Tree · the default</strong></td>
-    <td width="33%" align="center"><a href=".github/assets/demos/pastel-sky.png"></a><br><strong>Pastel Sky</strong></td>
-    <td width="33%" align="center"><a href=".github/assets/demos/aurora-style.png"></a><br><strong>Aurora</strong></td>
-  </tr>
-</table>
+The default wallpaper is **Mountain · Night** by Andy Betts, licensed under
+[CC BY-SA 4.0](licenses/CC-BY-SA-4.0.txt). Night, Pastel and Neon presets pair it
+with different layouts and palettes. Aurora, Candy and Lime Grid provide live
+shader backgrounds; Monochrome offers an attributed photograph.
 
-<a href=".github/assets/demos/preset-gallery.gif"></a>
-
-<p align="center">More looks. Mix their parts. Save your own.</p>
+[Wallpaper credits](dots/.config/quickshell/ii/assets/images/mountain-night.NOTICE.md).
+The screenshot gallery is being refreshed with these wallpapers.
 
 ## Make it yours
 
-<a href=".github/assets/demos/bar.gif"></a>
-
-<p align="center">Add it. Move it. Change the shape. Put it on another edge.</p>
-
-<table>
-  <tr>
-    <td width="50%"><a href=".github/assets/demos/widgets.gif"></a><br><strong>Widgets that work for you</strong></td>
-    <td width="50%"><a href=".github/assets/demos/lock.gif"></a><br><strong>Your lock screen, too</strong></td>
-  </tr>
-</table>
-
-## A little life behind your windows
-
-<a href=".github/assets/demos/live-wallpapers.gif"></a>
-
-<table>
-  <tr>
-    <td width="50%" align="center"><a href=".github/assets/demos/candy.png"></a><br><strong>Candy</strong></td>
-    <td width="50%" align="center"><a href=".github/assets/demos/lime-grid.png"></a><br><strong>Lime Grid</strong></td>
-  </tr>
-</table>
-
-<p align="center">Live shaders · video wallpapers · your own pictures · daily wallpapers</p>
-
-## More than a pretty desktop
-
-<a href=".github/assets/demos/workflow.gif"></a>
-
-<p align="center">Apps, workspaces, quick controls and notifications. Right where you need them.</p>
+Move and customize the bar, arrange desktop widgets, edit the lock screen, and
+save your own presets. Choose local pictures, live shaders or your own videos.
 
 ## All your settings
 
-<a href=".github/assets/demos/settings-style.gif"></a>
-
-<table>
-  <tr>
-    <td width="50%"><a href=".github/assets/demos/settings-device.gif"></a><br><strong>Displays, input, shortcuts, sound & battery</strong></td>
-    <td width="50%"><a href=".github/assets/demos/settings-system.gif"></a><br><strong>Connections, apps, tools & everything else</strong></td>
-  </tr>
-</table>
+Configure displays, input, sound, connections, apps, notifications and search
+from one settings window. Open apps, workspaces and quick controls from the shell.
 
 ## Easy on your battery
 
-<a href=".github/assets/demos/energy.gif"></a>
-
-Pause live wallpapers, reduce effects and slow background polling. **Automatically on battery, or whenever you choose.**
-
-<p align="center"><a href="#installation"><strong>Make it yours. Install Velora ↓</strong></a><br><sub><a href="docs/screenshots.md">Real session recordings · stills · artwork credits</a></sub></p>
+Pause live wallpapers, reduce effects and slow background polling.
+**Automatically on battery, or whenever you choose.**
 
 ## Installation
 
@@ -109,13 +59,11 @@ Log out and select **Hyprland** in your login screen. Without a login manager, s
 
 ### Your first two minutes
 
-<a href=".github/assets/demos/onboarding.gif"></a>
 
 1. **Make it comfortable.** Choose your language and check your display.
 2. **Make it yours.** Pick a layout and wallpaper, then choose free or tiled windows. Extras are optional.
 3. **Try the guided tour.** Practice opening apps, switching workspaces and using quick controls on your own desktop.
 
-<a href=".github/assets/demos/tour.gif"></a>
 
 Reopen setup with **Super+Shift+Alt+/** or from **Settings → About**. **Super+I** opens Settings; **Super+Shift+Escape** closes the setup assistant.
 
