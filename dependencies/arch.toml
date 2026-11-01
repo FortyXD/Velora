@@ -142,6 +142,7 @@ repo = [
     "ttf-jetbrains-mono-nerd",
     "ttf-hack-nerd", # Kitty's configured family
     "noto-fonts", # Waffle's Noto Sans and fallback glyphs for translated UI
+    "noto-fonts-cjk", # Japanese and Korean greetings in the first-run setup
     "noto-fonts-emoji",
     "kio-extras",
     "kvantum",

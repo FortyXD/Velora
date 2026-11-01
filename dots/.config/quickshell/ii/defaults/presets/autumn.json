@@ -4,11 +4,11 @@
     "icon": "eco",
     "order": 23,
     "description": "A painted autumn sunset, a vertical bar of islands on the left, warm orange",
-    "wallpaperPreview": "https://th.wallhaven.cc/lg/lm/lm5w9r.jpg",
+    "wallpaperPreview": "../../assets/images/autumn.jpg",
     "credits": {
         "title": "Before the leaves have fallen",
         "author": "JoeyJazz",
-        "license": "Wallhaven",
+        "license": "Artist copyright; see source",
         "page": "https://www.deviantart.com/joeyjazz/art/Before-the-leaves-have-fallen-854162011"
     },
     "bar": {
@@ -206,6 +206,6 @@
             "misc:animate_manual_resizes": false,
             "misc:animate_mouse_windowdragging": false
         },
-        "wallpaper": "https://w.wallhaven.cc/full/lm/wallhaven-lm5w9r.jpg"
+        "wallpaper": "../../assets/images/autumn.jpg"
     }
 }

@@ -28,6 +28,26 @@ The desktop and shell components are required. The installer offers optional app
 
 Choices are saved in `$XDG_STATE_HOME/velora/installation.json` and reused by updates. Excluding a component omits its dependency installation; shared shell code and configuration templates remain available. It does not uninstall packages you already have.
 
+## Optional graphical login
+
+The guided installer asks whether you want a graphical login screen. It lists installed login managers and detects the enabled `display-manager.service` and active services. If a manager is already configured, it offers to reuse that manager. Otherwise, after you opt in, **GDM (GNOME)** is the suggested default; SDDM is also available. Press Enter at the initial question to keep your current login setup.
+
+```bash
+./velora install --login-manager existing   # Reuse the detected manager
+./velora install --login-manager gdm        # Install/configure GNOME's login manager
+./velora install --login-manager sddm       # Use SDDM instead
+./velora install --login-manager skip       # Keep the current setup
+./velora install --dry-run --login-manager gdm
+```
+
+An unattended `--yes` installation does not add a login manager unless you explicitly select one or previously saved an opt-in choice. The choice is saved with your installation preferences and reused by updates. `--skip-packages` skips login-manager package and service changes, including when a choice is saved.
+
+For GDM and SDDM, Velora installs a missing package, verifies the Hyprland package's Wayland session entry, enables the service for the next boot, and selects `graphical.target` if necessary. It does not start, stop or restart login services during installation. After reboot, select **Hyprland** from the login screen's session menu. Existing themes, authentication settings and default sessions are preserved.
+
+Velora also detects LightDM, greetd, Ly, Plasma Login Manager, COSMIC Greeter, LXDM, XDM and a custom configured display-manager service. Existing configured managers can be retained; greetd and other managers that need a separate greeter must already have their service configured. An already running manager selected for reuse is enabled for the next boot if necessary. A package name alone does not prove that a working greeter exists. If several inactive managers are installed, choose the intended one explicitly. Velora refuses to replace another active/enabled manager; change that system setup deliberately before requesting a different one.
+
+These system package/service changes are outside configuration-file rollback. To return to a different login setup, use that manager's documented system administration procedure. Hyprland's [current compatibility notes](https://wiki.hypr.land/getting-started/master-tutorial/) describe a possible first-launch crash with GDM; SDDM is an alternative if that affects your system. The supplied package session entries are used as-is; Velora does not modify a greeter theme to launch the desktop.
+
 ## What the installer does
 
 1. Validate tools, repository files, and the component selection.
@@ -35,11 +55,12 @@ Choices are saved in `$XDG_STATE_HOME/velora/installation.json` and reused by up
 3. Install missing official packages with `pacman -Syu --needed`, including `bluez` and `bluez-utils` for the shell's Bluetooth controls. Using `-Syu` avoids refreshing Arch's databases without a full system upgrade. A package counts as installed when another package provides it, such as `curl-git` for `curl`. If an adapter is detected, enable and start `bluetooth.service`; otherwise leave its service state unchanged. Discovery and pairing are not enabled automatically.
 4. Install missing AUR packages with yay or paru. If needed, build yay from `https://aur.archlinux.org/yay.git` using makepkg. Use `--skip-aur` to omit this step.
 5. Create the shell's Python 3.12 environment with uv and synchronize the committed lockfile.
-6. Refresh the font cache and verify every default font family. Missing Google Sans Flex, Material Symbols Rounded, Space Grotesk and Readex Pro are downloaded from Google's font repositories into `$XDG_DATA_HOME/fonts/velora-*` (by default `~/.local/share/fonts/`), together with their licenses. This also runs with `--skip-aur`. JetBrains Mono Nerd Font, Hack Nerd Font, Noto Sans and Noto Color Emoji are required official packages. The installer checks the downloaded font's family before copying it, refreshes the cache again, and stops before changing configuration if a required family is still missing.
+6. Refresh the font cache and verify every default font family. Missing Google Sans Flex, Material Symbols Rounded, Space Grotesk and Readex Pro are downloaded from Google's font repositories into `$XDG_DATA_HOME/fonts/velora-*` (by default `~/.local/share/fonts/`), together with their licenses. This also runs with `--skip-aur`. JetBrains Mono Nerd Font, Hack Nerd Font, Noto Sans, Noto Sans CJK and Noto Color Emoji are required official packages. The Japanese and Korean CJK families provide the welcome screen's multilingual greetings. The installer checks the downloaded font's family before copying it, refreshes the cache again, and stops before changing configuration if a required family is still missing.
 7. Check runtime commands for the selected components, the Qt/QML modules imported by both shell styles, and the locked Python environment's real imports. This includes GTK and the `GnomeDesktop 4.0` API used for wallpaper thumbnails. A failure stops installation before configuration linking.
 8. Initialize Git submodules, back up existing configuration targets, create links, and install Dolphin integrations.
 9. Register `~/.local/bin/velora`, the Update Velora launcher, and the user update timer.
 10. Reload a running Hyprland session unless `--no-reload` is set.
+11. If you opted into graphical login, verify its Hyprland session entry and configure the selected manager for the next boot.
 
 The installer enables the PipeWire and PulseAudio-compatible sockets, WirePlumber, and the user `ydotool` service. User services are enabled for the next login even when the current terminal has no user service manager. The virtual keyboard uses `/etc/modules-load.d/velora-uinput.conf`, `/etc/udev/rules.d/70-velora-uinput.rules`, and a user service override under `~/.config/systemd/user/ydotool.service.d/velora.conf`. Logind grants the active local session access to `/dev/uinput`; the daemon's socket is private to that user at `$XDG_RUNTIME_DIR/ydotool.sock`. Log in again after repairing an existing installation so the desktop inherits that socket path.
 
@@ -48,6 +69,8 @@ NetworkManager is enabled and started when another network manager is not active
 The required dependencies include Qt's KDE platform integration, Breeze icons and a fallback cursor theme. Bibata is used when installed; otherwise the desktop uses Breeze cursors. Kando, local AI models, MicroTeX math rendering, WARP, EasyEffects and vendor GPU switchers are optional integrations with separately installed software. Optional application shortcuts use the applications you choose to install.
 
 The installer preserves an existing `illogical-impulse/config.json` and seeds a missing one from the tracked example. Linked configuration files take effect from the checkout. Keep that directory after installation. If you move or rename it, run `./velora relink` from the new place.
+
+A new desktop starts with the bundled **Autumn tree** wallpaper. Its image and preset preview are available locally before the setup assistant opens, so choosing Autumn does not require a wallpaper download. Existing nonempty wallpaper choices are preserved. Artwork attribution is included beside the image in `assets/images/autumn.NOTICE.md`.
 
 The package managers are still interactive when `--yes` is passed. The option accepts Velora's component and installation plan; it does not pass `--noconfirm` to package managers.
 

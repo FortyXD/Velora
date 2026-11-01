@@ -25,6 +25,7 @@ import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import builds
+import login_manager
 from runtime import sync_runtime
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -140,12 +141,14 @@ def configure_updates(args):
         enabled = args.automatic_checks == "on"
         units = xdg("XDG_CONFIG_HOME", ".config") / "systemd/user"
         service = units / "velora-update.service"
+        timer = units / "velora-update.timer"
         service_text, timer_text = update_units()
-        if enabled and (not service.exists() or service.read_text() != service_text):
+        if enabled and (not service.exists() or service.read_text() != service_text
+                        or not timer.exists() or timer.read_text() != timer_text):
             # A checkout used without 'velora install' gets its timer here instead; a moved one gets its new path
             units.mkdir(parents=True, exist_ok=True)
             service.write_text(service_text)
-            (units / "velora-update.timer").write_text(timer_text)
+            timer.write_text(timer_text)
         if service.exists():
             run(["systemctl", "--user", "daemon-reload"])
             run(["systemctl", "--user", "enable" if enabled else "disable", "--now", "velora-update.timer"])
@@ -303,6 +306,8 @@ FONT_PACKAGES = {
     "JetBrains Mono NF": "ttf-jetbrains-mono-nerd",
     "Hack Nerd Font": "ttf-hack-nerd",
     "Noto Sans": "noto-fonts",
+    "Noto Sans CJK JP": "noto-fonts-cjk",
+    "Noto Sans CJK KR": "noto-fonts-cjk",
     "Noto Color Emoji": "noto-fonts-emoji",
 }
 
@@ -674,6 +679,7 @@ def register_installation(journal, args, without):
         "skip_packages": args.skip_packages, "no_updates": args.no_updates,
         "build_from_source": getattr(args, "source_packages", []),
         "installation_type": "package" if package_metadata() else "checkout",
+        "login_manager": getattr(args, "login_manager_choice", preferences().get("login_manager", "skip")),
     }, indent=2) + "\n")
     if shutil.which("systemctl"):
         try:
@@ -823,17 +829,25 @@ def build_native_helper(dry=False):
             raise VeloraError(f"The build finished without producing {name}.")
     fingerprint = native_source_fingerprint()
     hashes = {}
-    for name in NATIVE_BINARIES:
-        binary = native_helper_path(name)
-        binary.parent.mkdir(parents=True, exist_ok=True)
-        temporary = binary.with_name(f".{name}.new")
-        shutil.copy2(built[name], temporary)
-        hashes[name] = hashlib.sha256(temporary.read_bytes()).hexdigest()
-    for name in NATIVE_BINARIES:
-        binary = native_helper_path(name)
-        temporary = binary.with_name(f".{name}.new")
-        os.replace(temporary, binary)  # A running copy keeps its old file
-        print(f"Native tool: {binary}")
+    staged = {}
+    try:
+        for name in NATIVE_BINARIES:
+            binary = native_helper_path(name)
+            binary.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(prefix=f".{name}-", dir=binary.parent, delete=False) as output:
+                temporary = Path(output.name)
+                staged[name] = temporary
+                with built[name].open("rb") as source:
+                    shutil.copyfileobj(source, output)
+            shutil.copystat(built[name], temporary)
+            hashes[name] = hashlib.sha256(temporary.read_bytes()).hexdigest()
+        for name, temporary in staged.items():
+            binary = native_helper_path(name)
+            os.replace(temporary, binary)  # A running copy keeps its old file
+            print(f"Native tool: {binary}")
+    finally:
+        for temporary in staged.values():
+            temporary.unlink(missing_ok=True)
     write_json(state_dir() / "native-tools.json", {"source": fingerprint, "binaries": hashes})
 
 
@@ -877,6 +891,12 @@ def install(args):
     if args.build_package is None and sys.stdin.isatty() and not args.yes and not args.dry_run and not package_metadata():
         args.build_package = input("Build and install Velora as an Arch package? [y/N] ").strip().lower() in ("y", "yes")
     preflight(args, features)
+    login_inventory = login_manager.inspect()
+    if sys.stdin.isatty() and not args.yes and not args.dry_run:
+        login_manager.describe("skip", login_inventory)
+    args.login_manager_choice = login_manager.choose(
+        args.login_manager, preferences().get("login_manager"), login_inventory,
+        interactive=sys.stdin.isatty() and not args.yes and not args.dry_run)
     print("\nInstallation plan", flush=True)
     print("  Components: " + ", ".join(features))
     print(f"  Configuration: {xdg('XDG_CONFIG_HOME', '.config')}")
@@ -892,6 +912,7 @@ def install(args):
     if not args.skip_packages and not args.skip_aur and not (shutil.which("yay") or shutil.which("paru")):
         print("  AUR helper: build yay from AUR if needed (use --skip-aur to omit AUR packages)")
     print("  Update checks: " + ("disabled" if args.no_updates else "every six hours; install on request"))
+    login_manager.describe(args.login_manager_choice, login_inventory, skip_packages=args.skip_packages)
     if args.dry_run:
         if args.build_package:
             builds.build_package(ROOT, xdg("XDG_CACHE_HOME", ".cache") / "velora/packages", {}, run, dry=True, install=True)
@@ -900,6 +921,7 @@ def install(args):
         build_native_helper(dry=True)
         install_fonts(dry=True)
         verify_runtime(features, args)
+        login_manager.configure(args.login_manager_choice, run, dry=True, skip_packages=args.skip_packages, inventory=login_inventory)
         run(["bash", ROOT / "scripts/install.sh", "--dry-run", "--skip-packages", "--no-reload"])
         print("Would register the velora command, update launcher and user timer. No files changed.")
         return
@@ -919,13 +941,14 @@ def install(args):
         return
     if not args.skip_packages:
         install_dependencies(args, features)
-    # Finish network operations before replacing any configuration files.
+    # Prepare the desktop runtime before replacing any configuration files.
     if not package_metadata():
         run(["git", "submodule", "update", "--init", "--recursive"], cwd=ROOT)
     build_native_helper()
     install_fonts()
     verify_runtime(features, args)
     backup = link_configuration(args, without)
+    login_manager.configure(args.login_manager_choice, run, skip_packages=args.skip_packages)
     print(f"\nVelora installed. Backup: {backup}\nRestore with: velora restore {backup.name}")
     print("Log in to Hyprland: the setup assistant starts on its own (later: Shift+Super+Alt+/).")
     print("Open Settings with Super+I. Update Velora from Settings > General > Software Update, or run: velora update")
@@ -936,6 +959,9 @@ def install(args):
 def install_command(binary, args, without):
     command = [binary, "install", "--yes", "--without", ",".join(without),
                "--build-from-source", ",".join(getattr(args, "source_packages", []))]
+    choice = getattr(args, "login_manager_choice", getattr(args, "login_manager", None))
+    if choice is not None:
+        command += ["--login-manager", choice]
     for attribute, flag in (("skip_aur", "--skip-aur"), ("skip_packages", "--skip-packages"),
                             ("no_updates", "--no-updates"), ("no_reload", "--no-reload")):
         if getattr(args, attribute, False):
@@ -1165,6 +1191,7 @@ def doctor(args):
             fonts_missing.append(family)
     helper = shutil.which("velora-helper") or (str(native_helper_path()) if native_helper_path().is_file() else None)
     print("  Native helper: " + (helper or "not built; app shortcuts, thumbnails and other tools won't work (run velora deps)"))
+    failed |= helper is None
     print("  Connection service: " + (connection_service() or "not built; Wi-Fi and Bluetooth settings won't work (run velora deps)"))
     stale = stale_links()
     moved_from = preferences().get("repository")
@@ -1196,6 +1223,8 @@ def parser():
                          help="Use repository/AUR packages instead of saved source builds")
         sub.add_argument("--rebuild", action="store_true", help="Rebuild selected source packages even when their recipes are unchanged")
         if name == "install":
+            sub.add_argument("--login-manager", choices=login_manager.CHOICES, default=None,
+                             help="Optional graphical login: reuse existing, install gdm (GNOME) or sddm, or skip; unattended installs default to skip")
             sub.add_argument("--build-package", action="store_true", default=None,
                              help="Build Velora as an Arch package and install it automatically")
         if name == "deps":

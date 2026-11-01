@@ -305,10 +305,11 @@ class DependencyTests(IsolatedTest):
         example = json.loads((PROJECT / "dots/.config/illogical-impulse/config.example.json").read_text())
         required = set(velora.FONT_PACKAGES)
         self.assertTrue(set(example["appearance"]["fonts"].values()) <= required)
-        self.assertTrue({"Material Symbols Rounded", "Hack Nerd Font", "Noto Sans", "Noto Color Emoji"} <= required)
+        self.assertTrue({"Material Symbols Rounded", "Hack Nerd Font", "Noto Sans", "Noto Color Emoji",
+                         "Noto Sans CJK JP", "Noto Sans CJK KR"} <= required)
         shell = velora.manifest()["shell"]
         self.assertTrue(shell["required"])
-        self.assertTrue({"fontconfig", "ttf-jetbrains-mono-nerd", "ttf-hack-nerd", "noto-fonts", "noto-fonts-emoji"} <= set(shell["repo"]))
+        self.assertTrue({"fontconfig", "ttf-jetbrains-mono-nerd", "ttf-hack-nerd", "noto-fonts", "noto-fonts-cjk", "noto-fonts-emoji"} <= set(shell["repo"]))
         downloadable_packages = {velora.FONT_PACKAGES[family] for family in velora.FONT_DOWNLOADS}
         self.assertFalse(downloadable_packages & set(shell["aur"]))
 

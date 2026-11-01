@@ -119,6 +119,7 @@ Official dependencies come from pacman. AUR packages use **yay** or **paru**; if
 | `--skip-aur` | Omit AUR packages. |
 | `--no-reload` | Keep the current Hyprland session running without a reload. |
 | `--no-updates` | Disable scheduled update checks. |
+| `--login-manager gdm` | Opt into GNOME's graphical login screen; `existing`, `sddm` and `skip` are also available. |
 | `--yes` | Accept the installer plan; pacman and AUR helpers still prompt normally. |
 
 Checkout installations link configuration into the repository, so keep the checkout in place. Package installations include Velora's actual source and maintenance tools and keep writable configuration under `~/.local/share/velora/runtime/`, preserving local edits when refreshing templates.

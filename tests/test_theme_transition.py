@@ -1,4 +1,5 @@
 """Exercise the real theme transition's capture acknowledgements and preset readiness."""
+import json
 import os
 from pathlib import Path
 import shutil
@@ -28,6 +29,10 @@ class ThemeTransitionTests(unittest.TestCase):
                 source = source.replace('target: "presets"', 'objectName: "presetsIpc"\n        target: "presets"')
                 (root / f'{name}.qml').write_text(source)
             stubs = {
+                'BundledAutumn': 'property var preset: (' + json.dumps({
+                    **json.loads((SHELL / 'defaults/presets/autumn.json').read_text()),
+                    'id': 'autumn', 'kind': 'builtin',
+                }) + ')',
                 'Appearance': 'property var m3colors: ({darkmode:true})',
                 'Config': 'property int readWriteDelay:1; property var patches:[]; property QtObject options: QtObject { property QtObject appearance: QtObject { property QtObject palette: QtObject { property string accentColor:"#abcdef" } } property QtObject background: QtObject { property string wallpaperPath:"/pictures/old.jpg"; property QtObject daily: QtObject { property bool enable:false; property string source:"" }; property QtObject shaderWallpaper: QtObject { property string name:"" } } } function applyPatch(patch) { patches=patches.concat([patch]); }',
                 'Directories': 'property string shellConfig:"/config"; property string state:"/state"; property string pictures:"/pictures"; property string videos:"/videos"; property string shellConfigPath:"/config/config.json"; property string wallpaperSwitchScriptPath:"/switchwall"',
