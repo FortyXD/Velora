@@ -20,6 +20,9 @@ import time
 ACTIVE = {"selecting", "countdown", "starting", "recording", "stopping"}
 STARTUP_TIMEOUT = 15
 STOP_GRACE = 2
+# Closing the encoder and flushing a container can take longer than terminating
+# a selector, especially under load. Keep the owner alive to verify that result.
+FINALIZE_GRACE = 15
 DEFAULTS = dict(mode="region", audio="system", systemSource="", microphoneSource="", fps=30,
                 quality="balanced", format="mp4", delay=0)
 
@@ -350,16 +353,22 @@ class Recorder:
                 return has_output or (self.initialized.is_set() if owned else
                                       self.state.get("encoderInitialized") or self.state.get("startedAt"))
 
-            def send_and_wait(sig):
+            def send_and_wait(sig, finalizing=False):
                 if not alive():
                     return True
                 signal.pidfd_send_signal(descriptor, sig)
-                deadline = time.monotonic() + STOP_GRACE
-                while alive() and time.monotonic() < deadline:
+                started = time.monotonic()
+                while alive():
+                    # Initialization may be published while handling Stop. Once
+                    # output exists, allow it to finish without escalating signals.
+                    grace = FINALIZE_GRACE if finalizing and initialized() else STOP_GRACE
+                    if time.monotonic() - started >= grace:
+                        break
                     time.sleep(.025)
                 return not alive()
 
-            if send_and_wait(signal.SIGINT if kind == "recorder" else signal.SIGTERM):
+            if send_and_wait(signal.SIGINT if kind == "recorder" else signal.SIGTERM,
+                             finalizing=kind == "recorder"):
                 return
             if kind == "recorder" and initialized():
                 raise ValueError("Recorder is still finalizing/not responding; file and ownership retained. Press Stop to retry")
@@ -469,7 +478,10 @@ class Recorder:
                 source = audio_source(options)
             if self.cancel.is_set():
                 return
-            command = ["wf-recorder", "-y", "--pixel-format", "yuv420p", "-c", "libx264",
+            # Fixed-rate capture needs frames even on an idle desktop. Damage-driven
+            # wf-recorder can otherwise wait in Wayland dispatch after SIGINT despite
+            # its writer having finalized; continuous frames let that loop exit.
+            command = ["wf-recorder", "-y", "--no-damage", "--pixel-format", "yuv420p", "-c", "libx264",
                        "-p", "preset=veryfast", "-p", "crf=" + str(dict(high=18, balanced=23, small=28)[options["quality"]]),
                        "-r", str(options["fps"]), "-F", "pad=ceil(iw/2)*2:ceil(ih/2)*2", "-f", filename]
             command += ["-o", output] if output else ["--geometry", region]

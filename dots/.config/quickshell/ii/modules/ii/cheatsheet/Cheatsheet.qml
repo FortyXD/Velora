@@ -160,8 +160,11 @@ Scope { // Scope
                             Persistent.states.cheatsheet.tabIndex = currentIndex;
                         }
 
-                        implicitWidth: Math.max.apply(null, contentChildren.map(child => child.implicitWidth || 0))
-                        implicitHeight: Math.max.apply(null, contentChildren.map(child => child.implicitHeight || 0))
+                        // The fixed-size Elements page must not expand the whole panel offscreen.
+                        implicitWidth: Math.min(cheatsheetBackground.maxPageWidth,
+                            Math.max.apply(null, contentChildren.map(child => child.implicitWidth || 0)))
+                        implicitHeight: Math.min(cheatsheetBackground.maxPageHeight,
+                            Math.max.apply(null, contentChildren.map(child => child.implicitHeight || 0)))
 
                         clip: true
                         layer.enabled: true
