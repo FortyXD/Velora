@@ -1,4 +1,6 @@
 <h1 align="center">
+
+> Rebuilt on 2026-11-01 with reviewed wallpaper assets. Unverified artwork, videos and previews were removed; the default and three layouts now use Andy Betts’s Mountain (CC BY-SA 4.0). See [wallpaper sources and licenses](https://github.com/FortyXD/Velora/blob/v0.1.3/licenses/wallpapers.md).
   
 </h1>
 

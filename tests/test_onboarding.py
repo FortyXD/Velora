@@ -137,15 +137,15 @@ class OnboardingTests(unittest.TestCase):
 
     def test_the_three_looks_come_from_presets(self):
         flow = (ONBOARDING / 'OnboardingFlow.qml').read_text()
-        for look, preset_id, vertical, bottom in (('velora', 'synthwave', False, False), ('horizon', 'pastel', False, True),
-                                                  ('vertical', 'autumn', True, False)):
+        for look, preset_id, vertical, bottom in (('velora', 'mountain-neon', False, False), ('horizon', 'mountain-pastel', False, True),
+                                                  ('vertical', 'mountain-night', True, False)):
             self.assertIn(f'"{look}": "{preset_id}"', flow)
             bar = json.loads((SHELL / f'defaults/presets/{preset_id}.json').read_text())['bar']['config']['bar']
             self.assertEqual((bar['vertical'], bar['bottom']), (vertical, bottom), preset_id)
         # Everything of the preset but its picture, and windows tiled unless chosen otherwise
         self.assertIn('"bar,theme,dockWidgets,motion"', flow)
         self.assertIn('"windows": "tiling"', flow)
-        self.assertIn('"wallpaper": "autumn"', flow)
+        self.assertIn('"wallpaper": "mountain-night"', flow)
 
 
 if __name__ == '__main__':
