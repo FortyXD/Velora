@@ -1,5 +1,7 @@
 # Velora 0.1.4
 
+> Rebuilt on 2026-11-01 with reviewed wallpaper assets. Unverified artwork, videos and previews were removed; the default and three layouts now use Andy Betts’s Mountain (CC BY-SA 4.0). See [wallpaper sources and licenses](https://github.com/FortyXD/Velora/blob/v0.1.4/licenses/wallpapers.md).
+
 Wi-Fi, VPN and Bluetooth settings inside Velora, safer password retries, and cursor controls for screenshots.
 
 Velora is an independently maintained fork of Illogical Impulse for Arch Linux, Hyprland and Quickshell.

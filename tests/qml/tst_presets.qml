@@ -82,7 +82,7 @@ Item {
         }
 
         function test_autumn_uses_its_scheme_while_preparing() {
-            const autumn = preset("autumn", "");
+            const autumn = preset("mountain-night", "");
             autumn.theme = { config: {appearance: {palette: {type:"scheme-content"}}}, mode:"dark", accent:"#FF6D00" };
             const args = Presets.themeArgs(autumn, ["theme"], "");
             compare(args[args.indexOf("--type") + 1], "scheme-content");

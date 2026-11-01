@@ -15,7 +15,7 @@ Singleton {
     id: root
     property string firstRunFilePath: `${Directories.state}/user/first_run.txt`
     property string firstRunFileContent: "This file is just here to confirm you've been greeted :>"
-    property string defaultWallpaperPath: FileUtils.trimFileProtocol(`${Directories.assetsPath}/images/default_wallpaper.png`)
+    property string defaultWallpaperPath: FileUtils.trimFileProtocol(`${Directories.assetsPath}/images/mountain-night.png`)
     readonly property string onboardingPath: FileUtils.trimFileProtocol(Quickshell.shellPath("onboarding.qml"))
     readonly property string onboardingStatePath: `${FileUtils.trimFileProtocol(Directories.home)}/.local/state/velora/onboarding.json`
     readonly property string announcedPath: `${FileUtils.trimFileProtocol(Directories.home)}/.local/state/velora/onboarding-announced`

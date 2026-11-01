@@ -64,7 +64,7 @@ QtObject {
         "look": "velora",
         "windows": "tiling",
         "theme": "", // Light or dark once picked; until then the wallpaper's own
-        "wallpaper": "autumn",
+        "wallpaper": "mountain-night",
         "components": [],
         "apps": [],
     })
@@ -146,11 +146,11 @@ QtObject {
 
     // The three looks are presets for the bar, the dock and motion. Their colors aren't their own: every
     // look takes the theme of the chosen wallpaper (Autumn tree at first), so they differ only in layout
-    readonly property var lookPresets: ({ "velora": "synthwave", "horizon": "pastel", "vertical": "autumn" })
+    readonly property var lookPresets: ({ "velora": "mountain-neon", "horizon": "mountain-pastel", "vertical": "mountain-night" })
     function applyLook(look) {
         root.choose("look", look);
         root.appliedLook = look;
-        root.applyPreset("look", root.lookPresets[look] ?? "synthwave",
+        root.applyPreset("look", root.lookPresets[look] ?? "mountain-neon",
             root.preservePalette ? "bar,dockWidgets,motion" : "bar,theme,dockWidgets,motion", root.choices.wallpaper, root.choices.theme);
     }
     function applyWindows(mode) {
@@ -447,7 +447,7 @@ QtObject {
     }
 
     function prepareInitialTheme() {
-        if (root.initializingTheme && root.backupReady && root.applying === "") root.applyPreset("theme", "autumn", "theme");
+        if (root.initializingTheme && root.backupReady && root.applying === "") root.applyPreset("theme", "mountain-night", "theme");
     }
 
     property FileView stateFile: FileView {
