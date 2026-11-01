@@ -10,9 +10,7 @@ ApiStrategy {
     property string buffer: ""
     
     function buildEndpoint(model: AiModel): string {
-        const result = model.endpoint + `?key=\$\{${root.apiKeyEnvVarName}\}`
-        // console.log("[AI] Endpoint: " + result);
-        return result;
+        return model.endpoint;
     }
 
     function buildRequestData(model: AiModel, messages, systemPrompt: string, temperature: real, tools: list<var>, filePath: string) {
@@ -79,8 +77,7 @@ ApiStrategy {
     }
 
     function buildAuthorizationHeader(apiKeyEnvVarName: string): string {
-        // Gemini doesn't use Authorization header, key is in URL
-        return "";
+        return `-H @<(printf 'x-goog-api-key: %s\\n' "\$\{${apiKeyEnvVarName}\}")`;
     }
 
     function parseResponseLine(line, message) {
@@ -207,14 +204,16 @@ ApiStrategy {
         content += `IMAGE_PATH='${CF.StringUtils.shellSingleQuoteEscape(trimmedFilePath)}'\n`;
         content += `${fileMimeTypeVarName}=$(file -b --mime-type "$IMAGE_PATH")\n`;
         content += 'NUM_BYTES=$(wc -c < "${IMAGE_PATH}")\n';
-        content += 'tmp_header_file="/tmp/quickshell/ai/upload-header.tmp"\n';
-        content += 'tmp_file_info_file="/tmp/quickshell/ai/file-info.json.tmp"\n';
+        content += 'upload_tmp=$(mktemp -d) || exit 1\n';
+        content += 'trap \'rm -rf -- "$upload_tmp"\' EXIT\n';
+        content += 'tmp_header_file="$upload_tmp/upload-header"\n';
+        content += 'tmp_file_info_file="$upload_tmp/file-info.json"\n';
 
         // Initial resumable request defining metadata.
         // The upload url is in the response headers dump them to a file.
         content += 'curl "https://generativelanguage.googleapis.com/upload/v1beta/files"'
-            + ` -H "x-goog-api-key: \$${apiKeyEnvVarName}"`
-            + ' -D $tmp_header_file'
+            + " " + buildAuthorizationHeader(apiKeyEnvVarName)
+            + ' -D "$tmp_header_file"'
             + ' -H "X-Goog-Upload-Protocol: resumable"'
             + ' -H "X-Goog-Upload-Command: start"'
             + ' -H "X-Goog-Upload-Header-Content-Length: ${NUM_BYTES}"'
@@ -229,7 +228,7 @@ ApiStrategy {
 
         // Upload the actual file
         content += 'curl "${upload_url}"'
-            + ` -H "x-goog-api-key: \$${apiKeyEnvVarName}"`
+            + " " + buildAuthorizationHeader(apiKeyEnvVarName)
             + ' -H "Content-Length: ${NUM_BYTES}"'
             + ' -H "X-Goog-Upload-Offset: 0"'
             + ' -H "X-Goog-Upload-Command: upload, finalize"'

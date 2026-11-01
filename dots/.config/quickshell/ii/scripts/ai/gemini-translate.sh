@@ -47,16 +47,17 @@ payload=$(jq -n \
 
 # Get API key
 API_KEY=$(secret-tool lookup 'application' 'illogical-impulse' | jq -r '.apiKeys.gemini')
+case "$API_KEY" in *$'\r'*|*$'\n'*) echo "Invalid API key" >&2; exit 1;; esac
 
 # Notify start
 notify-send "Translation started" "Will take 2 minutes, and you'll be notified when it's done, so feel free to do something else in the meantime." -a "$NOTIFICATION_APP_NAME"
 
 # Make the request
 response=$(curl "https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent" \
--H "x-goog-api-key: $API_KEY" \
+-H @<(printf 'x-goog-api-key: %s\n' "$API_KEY") \
 -H 'Content-Type: application/json' \
 -X POST \
--d "$payload" 2> /dev/null)
+--data-binary @<(printf '%s' "$payload") 2> /dev/null)
 # echo "$response" | jq
 
 # Write the result

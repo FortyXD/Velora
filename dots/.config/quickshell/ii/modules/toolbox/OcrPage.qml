@@ -15,7 +15,7 @@ ContentPage {
     id: page
 
     property var caps: ({})
-    readonly property string workDir: "/tmp/quickshell/toolbox"
+    readonly property string workDir: `${Directories.temporary}/toolbox`
     property string file: ""
     property string language: "eng+rus"
     property string result: ""

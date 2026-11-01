@@ -220,6 +220,7 @@ Singleton {
         const wallpaper = preset?.wallpaperAnimations?.wallpaper ?? "";
         if (!wallpaper || wallpaper.startsWith("daily:") || wallpaper.startsWith("shader:") || root.isRemote(wallpaper)) return "";
         if (wallpaper.startsWith("/")) return wallpaper;
+        if (preset.kind === "builtin") return `${root.builtinDir}/${wallpaper}`;
         return preset.dir ? `${preset.dir}/${wallpaper}` : "";
     }
 

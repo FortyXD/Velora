@@ -90,6 +90,25 @@ Item {
             compare(args[args.indexOf("--mode") + 1], "dark");
         }
 
+        function test_bundled_autumn_is_previewed_and_applied_without_a_download() {
+            const autumn = BundledAutumn.preset;
+            const image = "/shell/defaults/presets/../../assets/images/autumn.jpg";
+            compare(Presets.wallpaperFile(autumn), image);
+            compare(Presets.previewOf(autumn), "file://" + image);
+            verify(!Presets.isRemote(autumn.wallpaperAnimations.wallpaper));
+            Presets.presets = [autumn];
+            download().running = false;
+            Presets.apply("autumn", ["theme", "wallpaperAnimations"]);
+            finishProcess(backup(), 0);
+            verify(!download().running);
+            const prepare = findChild(Presets, "themePrepareJob");
+            verify(prepare.command.includes(image));
+            finishPrepare(image);
+            compare(Config.patches[0].background.wallpaperPath, image);
+            finishProcess(findChild(Presets, "themeCommitJob"), 0);
+            tryCompare(Presets, "applying", false);
+        }
+
         function test_changing_mode_on_repeat_keeps_the_current_accent() {
             Presets.presets = [preset("layout", "")];
             Presets.apply("layout", ["theme"], "current", "light");

@@ -166,7 +166,7 @@ pub fn quick(argv: Vec<String>) -> Result<ExitCode> {
                 .status();
         }
     }
-    Ok(ExitCode::SUCCESS)
+    Ok(if output.status.success() && errors.is_empty() { ExitCode::SUCCESS } else { ExitCode::FAILURE })
 }
 
 #[cfg(test)]

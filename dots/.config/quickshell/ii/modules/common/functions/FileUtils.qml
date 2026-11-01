@@ -26,6 +26,15 @@ Singleton {
         return trimmed.split(/[\\/]/).pop();
     }
 
+    // Remote filenames are one component, even when the URL encodes separators.
+    function fileNameForUrl(url) {
+        const source = String(url ?? "");
+        let name = source.split(/[?#]/)[0].split("/").pop();
+        try { name = decodeURIComponent(name); } catch (error) { /* Keep malformed escapes literal. */ }
+        name = name.replace(/[\\/\x00-\x1f\x7f]/g, "_");
+        return name && name !== "." && name !== ".." ? name : Qt.md5(source) + ".image";
+    }
+
     /**
      * Extracts the folder name from a directory path
      * @param {string} str
