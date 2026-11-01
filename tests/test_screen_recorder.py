@@ -79,8 +79,12 @@ elif name=='wf-recorder':
         if not os.environ.get('FAKE_BUFFERED'): path.write_bytes(b'header')
     if os.environ.get('FAKE_CHILD_READY'): pathlib.Path(os.environ['FAKE_CHILD_READY']).touch()
     while not done: time.sleep(.02)
-    time.sleep(.25)
+    time.sleep(float(os.environ.get('FAKE_FINALIZE_DELAY', '.25')))
     path.write_bytes(b'header-finalized')
+    # Model wf-recorder's idle-output Wayland dispatch: its writer has finished,
+    # but the main thread still waits for a frame when damage capture is enabled.
+    if os.environ.get('FAKE_DAMAGE_WAIT') and '--no-damage' not in args:
+        while True: time.sleep(.02)
 '''
 
 
@@ -550,7 +554,8 @@ class RecorderTests(unittest.TestCase):
         self.assertEqual(len(self.get_calls("wf-recorder")), 2)
 
     def test_initialized_buffered_encoder_is_retained_not_killed(self):
-        process = self.driver("r.STOP_GRACE=.15\n", {**self.env, "FAKE_BUFFERED": "1", "FAKE_STUBBORN": "1"})
+        process = self.driver("r.STOP_GRACE=.15\nr.FINALIZE_GRACE=.15\n",
+                              {**self.env, "FAKE_BUFFERED": "1", "FAKE_STUBBORN": "1"})
         state = self.wait_state("recording")
         self.assertTrue(state["encoderInitialized"])
         self.assertEqual(Path(state["file"]).stat().st_size, 0)
@@ -563,6 +568,40 @@ class RecorderTests(unittest.TestCase):
         self.assertTrue(Path(state["file"]).exists())
         os.kill(state["childPid"], signal.SIGKILL)  # test fixture cleanup only
         self.wait_dead(state["childPid"])
+
+    def test_healthy_slow_finalization_saves_without_a_false_stop_error(self):
+        process = self.start(env={**self.env, "FAKE_FINALIZE_DELAY": "2.5"})
+        state = self.wait_state("recording")
+        try:
+            started = time.monotonic()
+            self.assertEqual(self.call("stop").returncode, 0)
+            self.assertEqual(process.wait(timeout=8), 0)
+            self.assertGreater(time.monotonic() - started, 2)
+            final = self.wait_state("idle")
+            self.assertEqual(final["error"], "")
+            self.assertIsNone(final["childPid"])
+            self.assertEqual(Path(final["file"]).read_bytes(), b"header-finalized")
+            self.assertTrue(any("Recording saved" in call for call in self.get_calls("notify-send")))
+            self.assertFalse(any("Recording failed" in call for call in self.get_calls("notify-send")))
+        finally:
+            self.wait_dead(state["childPid"])
+
+    def test_idle_output_stops_without_waiting_for_compositor_damage(self):
+        process = self.driver("r.STOP_GRACE=.15\nr.FINALIZE_GRACE=.6\n",
+                              {**self.env, "FAKE_DAMAGE_WAIT": "1"})
+        state = self.wait_state("recording")
+        try:
+            self.assertEqual(self.call("stop").returncode, 0)
+            self.assertEqual(process.wait(timeout=5), 0)
+            final = self.wait_state("idle")
+            self.assertEqual(final["error"], "")
+            self.assertIsNone(final["childPid"])
+            self.assertEqual(Path(final["file"]).read_bytes(), b"header-finalized")
+            self.assertTrue(any("Recording saved" in call for call in self.get_calls("notify-send")))
+        finally:
+            if recorder.identity(state["childPid"]) == state["childIdentity"]:
+                os.kill(state["childPid"], signal.SIGKILL)  # Only clean up this test's fake encoder.
+                self.wait_dead(state["childPid"])
 
     def test_unload_failure_retains_ownership_for_next_stop(self):
         failure = self.root / "unload-fails"
