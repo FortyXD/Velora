@@ -194,14 +194,13 @@ Item {
 
             Rectangle {
                 id: edgePicker
-                anchors {
-                    right: root.vertical ? undefined : parent.right
-                    rightMargin: 14
-                    horizontalCenter: root.vertical ? parent.horizontalCenter : undefined
-                    verticalCenter: root.vertical ? undefined : parent.verticalCenter
-                    bottom: root.vertical ? parent.bottom : undefined
-                    bottomMargin: 14
-                }
+                objectName: "barEdgePicker"
+                // Conditional center/edge anchors can overlap while the orientation
+                // changes and stretch this control. Position its intrinsic size directly.
+                width: implicitWidth
+                height: implicitHeight
+                x: root.vertical ? (parent.width - width) / 2 : parent.width - width - 14
+                y: root.vertical ? parent.height - height - 14 : (parent.height - height) / 2
                 implicitWidth: edgeGrid.implicitWidth + 8
                 implicitHeight: edgeGrid.implicitHeight + 8
                 radius: Appearance.rounding.full

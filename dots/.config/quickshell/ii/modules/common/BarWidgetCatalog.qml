@@ -79,7 +79,7 @@ Singleton {
             "activeWindow": {
                 "name": Translation.tr("Active window"),
                 "description": Translation.tr("Icon, app and title of the focused window"),
-                "icon": "web_asset", "category": "system", "elastic": true, "fillHeight": true, "vertical": false,
+                "icon": "web_asset", "category": "system", "elastic": true, "minLength": 120, "fillHeight": true, "vertical": false,
                 "defaults": { "hideAt": 1 }
             },
             "workspaces": {

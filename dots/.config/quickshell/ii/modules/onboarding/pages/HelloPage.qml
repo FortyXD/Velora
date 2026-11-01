@@ -21,7 +21,7 @@ Item {
     property alias startButton: start
     signal started()
 
-    readonly property var words: ["Привет", "Hello", "Hola", "Bonjour", "Hallo", "Ciao", "Olá", "Merhaba", "Cześć", "Привіт", "こんにちは", "안녕하세요"]
+    readonly property var words: ["Hello", "Ciao", "Hola", "Привет", "Bonjour", "Hallo", "Olá", "Merhaba", "Cześć", "Привіт", "こんにちは", "안녕하세요"]
     property int wordIndex: 0
     property bool intro: true // Until the V is drawn
 

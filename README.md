@@ -2,74 +2,100 @@
   
 </h1>
 
-<p align="center">
-  A customizable desktop for <strong>Arch Linux</strong>, powered by <strong>Hyprland</strong> and <strong>Quickshell</strong>.
-</p>
+<p align="center"><strong>Your desktop. Every detail.</strong><br>Hyprland + Quickshell · Arch Linux</p>
 
 <p align="center">
-  <a href="#installation"><strong>Install Velora</strong></a> ·
-  <a href="#screenshots">Screenshots</a> ·
-  <a href="#features">Features</a> ·
-  <a href="#updates">Updates</a> ·
-  <a href="#documentation">Documentation</a>
+  <a href="#installation"><strong>Install Velora →</strong></a> ·
+  <a href="#pick-a-mood">Looks</a> ·
+  <a href="#make-it-yours">Customize</a> ·
+  <a href="#all-your-settings">Settings</a> ·
+  <a href="#documentation">Docs</a>
 </p>
 
-Arrange your bar, build a desktop layout, save complete looks, and manage everyday controls through one settings app. Velora brings visual editors, desktop tools, and a guided installation and update workflow into a desktop you can make your own.
+<a href=".github/assets/demos/styles.gif"></a>
 
-Velora is an independently maintained fork of [Illogical Impulse by end-4](https://github.com/end-4/dots-hyprland), with its own development direction. Upstream credits and licenses are preserved.
+<p align="center">Autumn Tree → Pastel Sky → Aurora. A whole new desktop in one preset.</p>
 
-## Screenshots
-
-[](.github/assets/screenshots/appearance.png)
-
-<p align="center"><em>Appearance settings — preview your colors, windows, and bar together.</em></p>
+## Pick a mood
 
 <table>
   <tr>
-    <td width="50%">
-      <a href=".github/assets/screenshots/bar.png"></a>
-      <br><strong>Build your bar</strong><br>Arrange widgets, groups, and actions visually.
-    </td>
-    <td width="50%">
-      <a href=".github/assets/screenshots/widgets.png"></a>
-      <br><strong>Choose your widgets</strong><br>Put useful information on your desktop.
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <a href=".github/assets/screenshots/lock.png"></a>
-      <br><strong>Design your lock screen</strong><br>Position the clock, greeting, and other elements.
-    </td>
-    <td width="50%">
-      <a href=".github/assets/screenshots/desktop.png"></a>
-      <br><strong>Shape your workspace</strong><br>Choose your window layout and spacing.
-    </td>
+    <td width="33%" align="center"><a href=".github/assets/demos/autumn-tree.png"></a><br><strong>Autumn Tree · the default</strong></td>
+    <td width="33%" align="center"><a href=".github/assets/demos/pastel-sky.png"></a><br><strong>Pastel Sky</strong></td>
+    <td width="33%" align="center"><a href=".github/assets/demos/aurora-style.png"></a><br><strong>Aurora</strong></td>
   </tr>
 </table>
 
-Screenshots show the actual settings app with an English demo profile and a custom accent palette. Embedded desktop and lock screen miniatures are the app's live previews. Click any image to open it at full size. [Screenshot notes](docs/screenshots.md).
+<a href=".github/assets/demos/preset-gallery.gif"></a>
 
-## Features
+<p align="center">More looks. Mix their parts. Save your own.</p>
 
-| Make it yours | What you can do |
-| --- | --- |
-| **Bar and desktop** | Drag bar widgets into five placement zones, group them into pills, assign actions, and arrange clocks, weather, media, and productivity widgets. |
-| **Appearance and presets** | Change colors, transparency, spacing, outlines, dock, and animations. Save complete looks, select which parts to apply, and undo a preset change. |
-| **Lock screen and wallpapers** | Edit the lock screen with a live preview. Use local images, online collections, daily wallpapers, videos through mpvpaper, or animated shader backgrounds. |
-| **Sidebars** | Reorder, hide, and configure every part of the right sidebar by dragging it in a live picture; arrange quick toggles, widget tabs, and the left sidebar's tabs. |
-| **Everyday controls** | Manage devices and per-app audio, test your microphone, set per-app notification rules, customize quick settings, and configure keyboard shortcuts and hot corners. Weather finds your place by GPS, a city, or your IP address and keeps a forecast. |
-| **Focus and battery** | Use countdown, stopwatch, and Pomodoro timers. Reduce animations, blur, wallpaper playback, and polling manually or automatically on battery. |
-| **Built-in tools** | Convert media and documents, download videos with yt-dlp, work with QR codes, extract text with OCR, and pick colors. Use Dolphin context menus for file actions. Office conversion uses LibreOffice when installed. |
+## Make it yours
 
-Application search, workspace previews, clipboard history, and media controls stay close at hand. The Illogical Impulse foundation's assistant and translation features are also available.
+<a href=".github/assets/demos/bar.gif"></a>
+
+<p align="center">Add it. Move it. Change the shape. Put it on another edge.</p>
+
+<table>
+  <tr>
+    <td width="50%"><a href=".github/assets/demos/widgets.gif"></a><br><strong>Widgets that work for you</strong></td>
+    <td width="50%"><a href=".github/assets/demos/lock.gif"></a><br><strong>Your lock screen, too</strong></td>
+  </tr>
+</table>
+
+## A little life behind your windows
+
+<a href=".github/assets/demos/live-wallpapers.gif"></a>
+
+<table>
+  <tr>
+    <td width="50%" align="center"><a href=".github/assets/demos/candy.png"></a><br><strong>Candy</strong></td>
+    <td width="50%" align="center"><a href=".github/assets/demos/lime-grid.png"></a><br><strong>Lime Grid</strong></td>
+  </tr>
+</table>
+
+<p align="center">Live shaders · video wallpapers · your own pictures · daily wallpapers</p>
+
+## More than a pretty desktop
+
+<a href=".github/assets/demos/workflow.gif"></a>
+
+<p align="center">Apps, workspaces, quick controls and notifications. Right where you need them.</p>
+
+## All your settings
+
+<a href=".github/assets/demos/settings-style.gif"></a>
+
+<table>
+  <tr>
+    <td width="50%"><a href=".github/assets/demos/settings-device.gif"></a><br><strong>Displays, input, shortcuts, sound & battery</strong></td>
+    <td width="50%"><a href=".github/assets/demos/settings-system.gif"></a><br><strong>Connections, apps, tools & everything else</strong></td>
+  </tr>
+</table>
+
+## Easy on your battery
+
+<a href=".github/assets/demos/energy.gif"></a>
+
+Pause live wallpapers, reduce effects and slow background polling. **Automatically on battery, or whenever you choose.**
+
+<p align="center"><a href="#installation"><strong>Make it yours. Install Velora ↓</strong></a><br><sub><a href="docs/screenshots.md">Real session recordings · stills · artwork credits</a></sub></p>
 
 ## Installation
 
 **Arch Linux is the only supported distribution.** Start with working graphics drivers, a normal user account, network access, and sudo configured. Velora uses Hyprland's Lua configuration format.
 
+### 1. Install Git and Python
+
 ```bash
 sudo pacman -Syu --needed git python
+```
 
+### 2. Download and install Velora
+
+Run these commands as your normal user. The installer requests sudo when needed.
+
+```bash
 git clone --recurse-submodules https://github.com/FortyXD/Velora.git ~/Velora
 cd ~/Velora
 ./velora install
@@ -77,7 +103,33 @@ cd ~/Velora
 
 The installer lets you choose optional components and review its plan. It installs dependencies, prepares a locked Python environment, and backs up configuration files before linking them. Existing shell settings are preserved; a failed linking attempt restores the files it changed.
 
-**After installation:** open **Settings → Displays** and check monitor resolution and scale. Also review your keyboard layout and wallpaper path. The included configuration contains the maintainer's display defaults.
+### 3. Start your desktop
+
+Log out and select **Hyprland** in your login screen. Without a login manager, start `start-hyprland` from a TTY. Follow the setup assistant, then open **Settings → Displays** to check resolution and scale. Review your keyboard layout and wallpaper path, too; the included configuration contains the maintainer's display defaults.
+
+### Your first two minutes
+
+<a href=".github/assets/demos/onboarding.gif"></a>
+
+1. **Make it comfortable.** Choose your language and check your display.
+2. **Make it yours.** Pick a layout and wallpaper, then choose free or tiled windows. Extras are optional.
+3. **Try the guided tour.** Practice opening apps, switching workspaces and using quick controls on your own desktop.
+
+<a href=".github/assets/demos/tour.gif"></a>
+
+Reopen setup with **Super+Shift+Alt+/** or from **Settings → About**. **Super+I** opens Settings; **Super+Shift+Escape** closes the setup assistant.
+
+### Optional components
+
+Choose these in the installer, or review your choices later with `./velora components`.
+
+| Component | What it adds |
+| --- | --- |
+| **Applications** | Dolphin, terminals and everyday desktop utilities. |
+| **Live wallpapers** | Video wallpaper playback through mpvpaper. |
+| **Toolbox** | Media conversion, downloads and document tools. |
+
+Hyprland, Quickshell, required shell services, fonts and the Python environment are handled by the installer. You do not need to install the full dependency list by hand. [All components and requirements →](docs/installation.md)
 
 ### Build from source
 
@@ -184,7 +236,7 @@ If `velora` is not on your PATH yet, use `./velora` from the checkout or `~/.loc
 | [Updates](docs/updates.md) | GitHub channels, dependency management, automatic checks, and local edits. |
 | [Development](docs/development.md) | Repository structure and working on Velora. |
 | [Release process](docs/release.md) | Validation, packaging, and release preparation. |
-| [Screenshot notes](docs/screenshots.md) | Gallery contents and capturing updated screenshots. |
+| [Gallery and recording](docs/screenshots.md) | Still images, GIF capture, demo profiles and artwork credits. |
 | [Third-party licensing](licenses/README.md) | Component licenses and attribution. |
 
 <details>
@@ -212,6 +264,6 @@ Report bugs or request features in [Velora issues](https://github.com/FortyXD/Ve
 
 ## Credits and license
 
-Velora builds on the work of **end-4 and the Illogical Impulse contributors**, **outfoxxed and Quickshell contributors**, and **Hyprland contributors**. Additional acknowledgements are retained in [NOTICE](NOTICE), with component-specific attribution in [licenses/README.md](licenses/README.md).
+Velora is an independently maintained fork of [Illogical Impulse](https://github.com/end-4/dots-hyprland), with its own development direction. It builds on the work of **end-4 and the Illogical Impulse contributors**, **outfoxxed and Quickshell contributors**, and **Hyprland contributors**. Additional acknowledgements are retained in [NOTICE](NOTICE), with component-specific attribution in [licenses/README.md](licenses/README.md).
 
 Velora is distributed under the **GNU General Public License, version 3**. See [LICENSE](LICENSE). Third-party code and assets retain their respective licenses and attribution.
