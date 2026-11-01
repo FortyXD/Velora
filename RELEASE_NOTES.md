@@ -1,5 +1,7 @@
 # Velora 0.1.1
 
+> Rebuilt on 2026-11-01 with reviewed wallpaper assets. Unverified artwork, videos and previews were removed; the default and three layouts now use Andy Betts’s Mountain (CC BY-SA 4.0). See [wallpaper sources and licenses](https://github.com/FortyXD/Velora/blob/v0.1.1/licenses/wallpapers.md).
+
 Build either sidebar from the parts you use, arrange them in a live preview, and keep your desktop settings through updates.
 
 Velora is an independently maintained fork of Illogical Impulse, built for Arch Linux with Hyprland and Quickshell.
@@ -8,7 +10,7 @@ Velora is an independently maintained fork of Illogical Impulse, built for Arch 
 
 - **Sidebars made from parts.** Place media, weather, clipboard history, notes, system graphs, quick tools, notifications, sliders and other parts in either sidebar. Move parts between sidebars, group them into tabs, and undo layout changes. Existing sidebar layouts are preserved.
 - **Editors that keep the layout in view.** The Sidebars page shows a preview beside the selected part's settings. The Bar and Lock Screen pages keep their previews visible while their settings scroll.
-- **Nine new moving wallpaper looks.** Illustrated and anime scenes replace the three nature videos. Downloaded videos play in preset previews, and applying another look cancels an older download's pending wallpaper change.
+- **Moving wallpaper playback.** Downloaded videos play in preset previews, and applying another look cancels an older download's pending wallpaper change. The nine illustrated video presets from the original release have been withdrawn from this rebuild because their redistribution permissions could not be verified.
 - **Updates preserve generated settings.** Wallpaper colors and files written by Settings are no longer tracked by Git. New installations use default templates, and updates preserve local copies.
 - **Repair a moved checkout.** Run `./velora relink` after moving or renaming the checkout. `velora doctor` reports missing or stale links, and the update timer follows the new location.
 - **Playback and saving fixes.** Qt video playback uses VA-API to avoid waking a hybrid laptop's NVIDIA GPU. Failed settings saves show a notification, and Hyprland reloads are skipped when its configuration is unavailable.
