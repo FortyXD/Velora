@@ -1,20 +1,22 @@
-# Velora 0.1.4
+# Velora 0.1.5
 
-Wi-Fi, VPN and Bluetooth settings inside Velora, safer password retries, and cursor controls for screenshots.
+Optional graphical login setup, an offline first desktop, and fixes for desktop security, installation and screen recording.
 
 Velora is an independently maintained fork of Illogical Impulse for Arch Linux, Hyprland and Quickshell.
 
 ## Highlights
 
-- **Reliable upgrades from 0.1.3.** Installation updates both native executables before linking the shell, including with `--skip-packages`. Package installs synchronize old user copies as well. If sources are already current, `velora update` detects and repairs missing or stale native binaries automatically. Background checks do not build anything.
-- **Connectivity settings.** Manage Wi-Fi, saved passwords, connection profiles, OpenVPN and WireGuard, or pair and manage Bluetooth devices without leaving Velora. Bluetooth includes PIN and confirmation prompts, battery information and file transfer.
-- **A clearer network list.** Expand the current Wi-Fi connection for its details. Ethernet appears whenever an adapter exists. Available saved networks come first, followed by nearby networks ordered by signal. Saved passwords have a separate section, and open networks keep their GHz labels aligned.
-- **Safer Wi-Fi passwords.** Retry a rejected password inside the row. New profiles are saved after activation succeeds; failed replacements preserve existing credentials and UUIDs. Stop waiting closes the prompt without disconnecting the network. Hidden networks offer WPA/WPA2, WPA3 and open security. An unsuccessful save leaves the connection active and shows a warning.
-- **Details goes to the right page.** Left-click opens Velora's corresponding Wi-Fi or Bluetooth settings; right-click opens the configured external settings, KDE by default. Background Bluetooth loading no longer changes the Wi-Fi page.
-- **Screenshot cursor controls.** Choose whether screenshots include the pointer. Capture failures preserve the clipboard, and region selection no longer accidentally activates hot corners. See [the capture guide](https://github.com/FortyXD/Velora/blob/v0.1.4/docs/screen-capture.md).
-- **Native shell helpers.** The installer builds the Rust connectivity daemon and helper. Passwords travel through stdin and D-Bus, rather than process arguments. App, file, clipboard and system operations also use the native helper.
+- **Graphical login setup.** The installer detects existing login managers and offers to reuse them. If none exists and you opt in, GDM is the default; SDDM is also available. Services are enabled for the next boot without interrupting the current session. Unattended installation does not opt in automatically. Select Hyprland in the greeter's session menu.
+- **Autumn from the first start.** The Autumn tree wallpaper and preset preview are bundled locally and work without an internet connection. Existing wallpaper choices are retained. Japanese and Korean greeting fonts are included.
+- **Safer desktop operations.** Remote image URLs and names, AI LaTeX content, and preset keys are handled as data. Sensitive requests use private temporary storage and avoid credentials in process arguments. VPN exports are private, received Bluetooth files do not overwrite existing destinations, and installation rejects unsafe filesystem links.
+- **Recording and layout fixes.** Recording stops on idle screens and waits for healthy encoders to finish. The cheatsheet fits smaller displays, including portrait layouts, and the default shadow configuration no longer produces a Hyprland error.
+- **Reliable installation and maintenance.** Source packages retain Rust build inputs, omit Cargo caches, repair update timers and detect missing helpers. Native helper failures reach the caller. Affected Python dependency pins are updated.
 
-Thanks to Nikita (@impala-tape) for [Wi-Fi password handling (#6)](https://github.com/FortyXD/Velora/pull/6), adapted to Velora's native backend, and [screenshot and hot-corner improvements (#7)](https://github.com/FortyXD/Velora/pull/7).
+## Validation
+
+The audit recorded 255 unique Python test methods, 339 Rust tests including three real NetworkManager cases, and 12 dependency compatibility checks with passing evidence. One live BlueZ test remained blocked by missing Bluetooth hardware in the test guest.
+
+A dedicated Arch VM passed clean and repeated installation, GDM authentication, first startup with internet routes removed, six desktop smoke checks, configuration rollback, logout/relogin and menu shutdown. Fifteen interface views were visually inspected. Physical suspend/resume, Bluetooth transfers and every external provider have not been certified by these tests.
 
 ## Install or update
 
@@ -31,8 +33,10 @@ Existing users can update through Settings → General → Software Update, or r
 velora update --interactive --channel release
 ```
 
-Update the shell and `velora-connectivityd` together: this release requires connectivity protocol version 2. See [the Wi-Fi guide](https://github.com/FortyXD/Velora/blob/v0.1.4/docs/wifi.md) for password handling and troubleshooting.
+For explicit graphical login setup, use `./velora install --login-manager gdm` or `--login-manager existing`. See the [installation guide](https://github.com/FortyXD/Velora/blob/v0.1.5/docs/installation.md).
 
-The release includes an x86_64 Arch package and SHA-256 checksums. Install it with `sudo pacman -U ./velora-*.pkg.tar.zst`, then run `velora install` as your regular user. Other supported architectures can build with `./velora install --build-package --build-from-source`.
+After upgrading Qt, Quickshell, Hyprland or the graphics driver, restart the desktop session or reboot so running processes use the updated components. Quickshell 0.3.2 includes upstream session-lock fixes; this release does not claim to fix every suspend or driver failure.
 
-Configuration backups can be listed and restored with `velora restore`. Velora uses GPLv3; upstream credits and third-party notices are included.
+The release provides an x86_64 Arch package with SHA-256 checksums. Install it with `sudo pacman -U ./velora-*.pkg.tar.zst`, then run `velora install` as your regular user. Configuration backups can be listed and restored with `velora restore`.
+
+Velora uses GPLv3; third-party assets retain their own rights. Autumn is JoeyJazz's *Before the leaves have fallen*, with a separate [artwork notice](https://github.com/FortyXD/Velora/blob/v0.1.5/dots/.config/quickshell/ii/assets/images/autumn.NOTICE.md); no open redistribution license has been verified for that artwork.
