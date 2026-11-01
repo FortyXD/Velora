@@ -57,10 +57,8 @@ Singleton {
             return;
         }
         tokenProc.runSequence([(() => { // prep token fetcher
-                tokenProc.environment.SERVICE_KEY_CONTENT = JSON.stringify(root.keyContent);
-                tokenProc.command = [ //
-                    "bash", "-c" //
-                    , `${tokenForKeyScriptPath} "$SERVICE_KEY_CONTENT"`];
+                tokenProc.stdinEnabled = true;
+                tokenProc.command = [root.tokenForKeyScriptPath];
             }), //
             [], // run token fetcher
             ((out) => {
@@ -72,7 +70,7 @@ Singleton {
                     root.tokenError = false;
                 } catch(e) {
                     root.tokenError = true;
-                    print("[GoogleCloud] Failed to parse token response: " + e + "\n" + out)
+                    print("[GoogleCloud] Failed to parse token response: " + e)
                 }
                 root.tokenReady = true;
             }
@@ -111,5 +109,9 @@ Singleton {
 
     MultiTurnProcess {
         id: tokenProc
+        onStarted: {
+            tokenProc.write(JSON.stringify(root.keyContent));
+            tokenProc.stdinEnabled = false;
+        }
     }
 }

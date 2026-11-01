@@ -14,6 +14,13 @@ Singleton {
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
 
+    // A fresh or example config can have an empty path. The bundled picture is available before
+    // setup starts or a palette is generated, while an existing choice is left untouched.
+    function ensureWallpaperDefault() {
+        if (!root.options.background.wallpaperPath)
+            root.options.background.wallpaperPath = Directories.defaultWallpaper;
+    }
+
     // A write that fails (the settings folder became a dangling link after the checkout was moved) would go
     // unnoticed: the settings app shows the new value, but neither the file nor the shell ever get it
     property real saveFailureNoticeTime: 0
@@ -107,11 +114,16 @@ Singleton {
         blockWrites: root.blockWrites
         onFileChanged: fileReloadTimer.restart()
         onAdapterUpdated: fileWriteTimer.restart()
-        onLoaded: root.ready = true
+        onLoaded: {
+            root.ensureWallpaperDefault();
+            root.ready = true;
+        }
         onSaveFailed: error => root.reportSaveFailure()
         onLoadFailed: error => {
             if (error == FileViewError.FileNotFound) {
+                root.ensureWallpaperDefault();
                 writeAdapter();
+                root.ready = true;
             }
         }
 
@@ -333,7 +345,7 @@ Singleton {
                         property real y: 480
                     }
                 }
-                property string wallpaperPath: ""
+                property string wallpaperPath: Directories.defaultWallpaper
                 property string thumbnailPath: ""
                 property bool hideWhenFullscreen: true
                 property JsonObject parallax: JsonObject {

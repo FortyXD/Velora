@@ -336,7 +336,6 @@ Singleton {
         }
     }
 
-    property string requestScriptFilePath: "/tmp/quickshell/ai/request.sh"
     property string pendingFilePath: ""
 
     Component.onCompleted: {
@@ -596,15 +595,20 @@ Singleton {
         root.tokenCount.total = -1;
     }
 
-    FileView {
-        id: requesterScriptFile
-    }
-
     Process {
         id: requester
-        property list<string> baseCommand: ["bash"]
+        command: ["bash", "-s"]
+        property string pendingScript: ""
         property AiMessageData message
         property ApiStrategy currentStrategy
+
+        // The request contains private chat data. Pass it directly to bash rather
+        // than writing an executable script at a shared, predictable /tmp path.
+        onStarted: {
+            requester.write(requester.pendingScript);
+            requester.pendingScript = "";
+            requester.stdinEnabled = false;
+        }
 
         function markDone() {
             requester.message.done = true;
@@ -630,7 +634,8 @@ Singleton {
             requester.currentStrategy.reset(); // Reset strategy state
 
             /* Put API key in environment variable */
-            if (model.requires_key) requester.environment[`${root.apiKeyEnvVarName}`] = root.apiKeys ? (root.apiKeys[model.key_id] ?? "") : ""
+            requester.environment[`${root.apiKeyEnvVarName}`] = model.requires_key && root.apiKeys
+                ? (root.apiKeys[model.key_id] ?? "") : "";
 
             /* Build endpoint, request data */
             const endpoint = root.currentApiStrategy.buildEndpoint(model);
@@ -669,7 +674,8 @@ Singleton {
             const authHeader = requester.currentStrategy.buildAuthorizationHeader(root.apiKeyEnvVarName);
             
             /* Script shebang */
-            const scriptShebang = "#!/usr/bin/env bash\n";
+            const scriptShebang = "#!/usr/bin/env bash\nset -e\numask 077\n"
+                + 'case "${API_KEY:-}" in *$\'\\r\'*|*$\'\\n\'*) echo "Invalid API key" >&2; exit 1;; esac\n';
 
             /* Create extra setup when there's an attached file */
             let scriptFileSetupContent = ""
@@ -684,15 +690,13 @@ Singleton {
             scriptRequestContent += `curl --no-buffer "${endpoint}"`
                 + ` ${headerString}`
                 + (authHeader ? ` ${authHeader}` : "")
-                + ` --data '${CF.StringUtils.shellSingleQuoteEscape(JSON.stringify(data))}'`
+                + ` --data-binary @<(printf '%s' '${CF.StringUtils.shellSingleQuoteEscape(JSON.stringify(data))}')`
                 + "\n"
             
             /* Send the request */
             const scriptContent = requester.currentStrategy.finalizeScriptContent(scriptShebang + scriptFileSetupContent + scriptRequestContent)
-            const shellScriptPath = CF.FileUtils.trimFileProtocol(root.requestScriptFilePath)
-            requesterScriptFile.path = Qt.resolvedUrl(shellScriptPath)
-            requesterScriptFile.setText(scriptContent)
-            requester.command = baseCommand.concat([shellScriptPath]);
+            requester.pendingScript = scriptContent;
+            requester.stdinEnabled = true;
             requester.running = true
         }
 

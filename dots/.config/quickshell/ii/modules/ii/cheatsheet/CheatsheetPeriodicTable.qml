@@ -13,6 +13,8 @@ Item {
         id: mainLayout
         anchors.centerIn: parent
         spacing: root.spacing
+        // Keep the complete table visible when the logical display is smaller than its natural size.
+        scale: Math.min(1, root.width / Math.max(1, implicitWidth), root.height / Math.max(1, implicitHeight))
 
         Repeater { // Main table rows
             model: root.elements

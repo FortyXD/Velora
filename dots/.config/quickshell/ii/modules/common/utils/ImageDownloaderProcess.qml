@@ -12,18 +12,18 @@ Process {
     required property string sourceUrl;
     property string downloadUserAgent: Config.options?.networking.userAgent ?? ""
     
-    function processFilePath() {
-        return StringUtils.shellSingleQuoteEscape(FileUtils.trimFileProtocol(filePath));
-    }
-
     running: true
     // Download to a temp file and move it into place only when complete: a stalled transfer
     // must not leave a broken file in the cache (an existing file is never downloaded again)
-    command: ["bash", "-c", 
-        `mkdir -p $(dirname '${processFilePath()}'); [ -f '${processFilePath()}' ] || `
-        + `{ curl -sSL --fail --connect-timeout 8 --speed-limit 1024 --speed-time 10 --max-time 60 '${sourceUrl}' -o '${processFilePath()}.part' `
-        + `&& mv -f '${processFilePath()}.part' '${processFilePath()}' || { rm -f '${processFilePath()}.part'; false; }; } `
-        + `&& file '${processFilePath()}'`
+    // URLs from image providers and paths are data, never shell source. Each download
+    // owns its temporary file so parallel requests cannot publish each other's bytes.
+    command: ["bash", "-c",
+        'set -eu; mkdir -p -- "$(dirname -- "$1")"; if [ ! -f "$1" ]; then '
+        + 'tmp=$(mktemp -- "$1.part.XXXXXX"); trap \'rm -f -- "$tmp"\' EXIT; '
+        + 'curl -sSL --fail --connect-timeout 8 --speed-limit 1024 --speed-time 10 --max-time 60 '
+        + '--proto "=http,https,file" --proto-redir "=http,https" --user-agent "$3" -o "$tmp" -- "$2"; '
+        + 'mv -fT -- "$tmp" "$1"; fi; file -- "$1"',
+        "image-download", FileUtils.trimFileProtocol(filePath), sourceUrl, downloadUserAgent
     ]
     stdout: StdioCollector {
         id: imageSizeOutputCollector

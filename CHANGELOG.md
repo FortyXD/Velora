@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.5 — 2026-11-01
+
+- The installer can detect and reuse a graphical login manager or offer to install one. Setup is optional; GDM is the default choice when none exists, with SDDM also available. Enabling a manager takes effect on the next boot without restarting the current session.
+- Autumn tree is included locally for the first desktop and its preset preview, including offline startup. Existing wallpaper choices are preserved, and CJK fonts cover the welcome screen's Japanese and Korean text.
+- Hardened remote-image handling, AI-rendered LaTeX, preset configuration serialization, private temporary files and credential transport. VPN exports use private files, Bluetooth receives preserve existing destinations, and runtime/native installation paths reject unsafe symlinks.
+- Updated affected Python dependencies and verified the locked environment's compatibility.
+- Screen recording stops correctly on an idle desktop and allows healthy encoders time to finalize their output. The cheatsheet fits smaller and portrait displays, and the default Hyprland shadow setting is valid.
+- Package source snapshots retain native build inputs without Cargo build caches. Update setup repairs missing or stale timers, native helpers report command failures, and diagnostics fail when the required helper is missing.
+
 ## 0.1.4 — 2026-10-31
 
 - Installation and updates synchronize both native executables even with `--skip-packages`. Re-running `velora update` repairs missing or stale binaries when sources are already current. Package installs replace old per-user checkout binaries, and shell launchers consistently prefer the managed pair. This prevents an outdated connection service after upgrading from 0.1.3.

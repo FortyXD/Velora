@@ -11,6 +11,10 @@ import tempfile
 
 def copy_source(source, destination, root):
     """Copy source files without developer metadata or machine-specific symlinks."""
+    # An extracted source tree may have been built before it is packaged again.
+    # Match the workspace cache exactly; source fixtures may also be named target.
+    if source == root / "tools/target":
+        return
     if source.is_symlink():
         resolved = source.resolve()
         if not resolved.is_relative_to(root.resolve()):
@@ -44,7 +48,7 @@ def prepare_package(root, directory, metadata, run):
                 copy_source(source, snapshot / relative, root)
     else:
         for name in ("velora", "install.sh", "setup", "diagnose", "VERSION", "README.md", "LICENSE", "NOTICE",
-                     "scripts", "dependencies", "packaging", "docs", "licenses", "dots", "home", "dots-extra"):
+                     "scripts", "tools", "dependencies", "packaging", "docs", "licenses", "dots", "home", "dots-extra"):
             source = root / name
             if source.exists():
                 copy_source(source, snapshot / name, root)

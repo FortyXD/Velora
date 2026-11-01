@@ -28,7 +28,7 @@ ApiStrategy {
     }
 
     function buildAuthorizationHeader(apiKeyEnvVarName: string): string {
-        return `-H "Authorization: Bearer \$\{${apiKeyEnvVarName}\}"`;
+        return `-H @<(printf 'Authorization: Bearer %s\\n' "\$\{${apiKeyEnvVarName}\}")`;
     }
 
     function parseResponseLine(line, message) {

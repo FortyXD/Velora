@@ -56,8 +56,7 @@ fn unlock() -> Result<ExitCode> {
     let _ = Command::new("killall").args(["-q", "-u", &user, "gnome-keyring-daemon"]).status();
     let mut daemon = Command::new("gnome-keyring-daemon").args(["--daemonize", "--login"]).stdin(Stdio::piped()).stdout(Stdio::null()).spawn()?;
     daemon.stdin.take().expect("stdin is piped").write_all(password.as_bytes())?;
-    daemon.wait()?;
-    Ok(ExitCode::SUCCESS)
+    Ok(if daemon.wait()?.success() { ExitCode::SUCCESS } else { ExitCode::FAILURE })
 }
 
 pub fn run(argv: Vec<String>) -> Result<ExitCode> {

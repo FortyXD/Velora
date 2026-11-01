@@ -63,13 +63,44 @@ pub fn safe_file_name(name: &str) -> String {
 /// A path in `folder` that doesn't exist yet: `photo.jpg`, then `photo (1).jpg`.
 pub fn unique_path(folder: &Path, name: &str) -> PathBuf {
     let candidate = folder.join(name);
-    if !candidate.exists() {
+    if candidate.symlink_metadata().is_err() {
         return candidate;
     }
     let path = Path::new(name);
     let stem = path.file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or_else(|| name.to_string());
     let extension = path.extension().map(|extension| format!(".{}", extension.to_string_lossy())).unwrap_or_default();
-    (1..).map(|number| folder.join(format!("{stem} ({number}){extension}"))).find(|candidate| !candidate.exists()).expect("some number is free")
+    (1..).map(|number| folder.join(format!("{stem} ({number}){extension}"))).find(|candidate| candidate.symlink_metadata().is_err()).expect("some number is free")
+}
+
+/// Publish a completed transfer without replacing an entry that was created after choosing its
+/// name. Hard-linking avoids copying on the same filesystem; a private staged copy handles others.
+fn move_received_file(source: &Path, folder: &Path, name: &str) -> std::io::Result<PathBuf> {
+    std::fs::create_dir_all(folder)?;
+    loop {
+        let target = unique_path(folder, name);
+        match std::fs::hard_link(source, &target) {
+            Ok(()) => {
+                std::fs::remove_file(source)?;
+                return Ok(target);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(_) => break,
+        }
+    }
+    let mut staged = tempfile::NamedTempFile::new_in(folder)?;
+    std::io::copy(&mut std::fs::File::open(source)?, &mut staged)?;
+    staged.as_file().sync_all()?;
+    loop {
+        let target = unique_path(folder, name);
+        match staged.persist_noclobber(&target) {
+            Ok(_) => {
+                std::fs::remove_file(source)?;
+                return Ok(target);
+            }
+            Err(error) if error.error.kind() == std::io::ErrorKind::AlreadyExists => staged = error.file,
+            Err(error) => return Err(error.error),
+        }
+    }
 }
 
 fn cache_directory() -> PathBuf {
@@ -202,10 +233,11 @@ pub async fn follow_incoming(session: Connection, shared: Arc<ObexShared>, out: 
             continue;
         }
         let folder = shared.settings.lock().expect("no panics while holding this lock").folder.clone();
-        let _ = std::fs::create_dir_all(&folder);
-        let target = unique_path(&folder, &incoming.name);
-        let moved = std::fs::rename(&incoming.temporary, &target).or_else(|_| std::fs::copy(&incoming.temporary, &target).and_then(|_| std::fs::remove_file(&incoming.temporary)));
-        shared.accepted_at.lock().expect("no panics while holding this lock").insert(incoming.device, Instant::now());
+        let moved = move_received_file(&incoming.temporary, &folder, &incoming.name);
+        let target = moved.as_ref().ok();
+        if moved.is_ok() {
+            shared.accepted_at.lock().expect("no panics while holding this lock").insert(incoming.device, Instant::now());
+        }
         let _ = out.send(Outgoing::Event { name: "fileReceived", data: &json!({ "ok": moved.is_ok(), "name": incoming.name, "path": target }) }.to_line());
     }
     Ok(())
@@ -296,6 +328,29 @@ mod tests {
         std::fs::write(folder.join("noext"), "").unwrap();
         assert_eq!(unique_path(&folder, "noext"), folder.join("noext (1)"));
         std::fs::remove_dir_all(&folder).unwrap();
+    }
+
+    #[test]
+    fn simultaneous_receives_keep_both_files() {
+        let root = tempfile::tempdir().unwrap();
+        let folder = root.path().join("received");
+        let barrier = std::sync::Barrier::new(2);
+        std::thread::scope(|scope| {
+            let moves: Vec<_> = (0..2).map(|index| {
+                let source = root.path().join(format!("incoming-{index}"));
+                std::fs::write(&source, format!("contents-{index}")).unwrap();
+                let (folder, barrier) = (&folder, &barrier);
+                scope.spawn(move || {
+                    barrier.wait();
+                    move_received_file(&source, folder, "same.txt").unwrap()
+                })
+            }).collect();
+            let paths: Vec<_> = moves.into_iter().map(|task| task.join().unwrap()).collect();
+            assert_ne!(paths[0], paths[1]);
+            for (index, path) in paths.iter().enumerate() {
+                assert_eq!(std::fs::read_to_string(path).unwrap(), format!("contents-{index}"));
+            }
+        });
     }
 
     #[test]

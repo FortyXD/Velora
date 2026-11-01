@@ -192,23 +192,25 @@ Singleton {
     function luaValue(value) {
         if (typeof value === "boolean") return value ? "true" : "false";
         if (typeof value === "number") return Number.isInteger(value) ? value.toString() : value.toFixed(3);
-        return `"${value.toString().replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+        return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+            .replace(/[\x00-\x1f\x7f]/g, character => "\\" + character.charCodeAt(0).toString().padStart(3, "0"))}"`;
     }
 
     function luaKey(key) {
-        return /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ? key : `["${key}"]`;
+        return /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ? key : `[${root.luaValue(key)}]`;
     }
 
     // hl.config({...}) for the Hyprland options in `map`, or "" when there are none
     function configLua(map) {
         // "decoration:blur:size" -> { decoration = { blur = { size = ... } } }
-        let tree = {};
+        let tree = Object.create(null);
         for (const key of Object.keys(map).sort()) {
             if (key.startsWith("shell:")) continue;
             const path = key.split(":");
             let node = tree;
             for (let i = 0; i < path.length - 1; i++) {
-                node[path[i]] = node[path[i]] ?? {};
+                if (node[path[i]] === null || typeof node[path[i]] !== "object")
+                    node[path[i]] = Object.create(null);
                 node = node[path[i]];
             }
             node[path[path.length - 1]] = map[key];
@@ -217,6 +219,8 @@ Singleton {
             let lines = [];
             for (const name of Object.keys(node)) {
                 const value = node[name];
+                if (value === null || value === undefined) continue;
+                if (typeof value === "number" && !Number.isFinite(value)) continue;
                 if (typeof value === "object") {
                     lines.push(`${indent}${root.luaKey(name)} = {`);
                     lines.push(...write(value, indent + "    "));

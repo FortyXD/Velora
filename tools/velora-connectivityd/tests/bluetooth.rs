@@ -447,6 +447,26 @@ async fn a_taken_name_gets_a_number_and_a_devious_one_stays_in_the_folder() {
 }
 
 #[tokio::test]
+async fn a_dangling_link_is_not_replaced_by_an_incoming_file() {
+    use std::os::unix::fs::symlink;
+    let (_bus, _bluez, obex, mut daemon, home) = setup_files("dangling-link").await;
+    // Point this at a second filesystem to exercise the private-copy fallback as well.
+    let receiving_root = std::env::var_os("VELORA_TEST_RECEIVE_ROOT").map(|root| tempfile::tempdir_in(root).unwrap());
+    let folder = receiving_root.as_ref().map_or(home.path.as_path(), |root| root.path()).join("Received");
+    daemon.call("bluetooth.configure", json!({ "onLogin": "remember", "receivePolicy": "always", "receiveFolder": folder })).await;
+    std::fs::create_dir_all(&folder).unwrap();
+    let outside = home.path.join("outside.txt");
+    symlink(&outside, folder.join("a.txt")).unwrap();
+    obex.incoming(PHONE, "a.txt", b"new", false).await.unwrap();
+    let done = daemon.wait_message("the result", |message| message["name"] == "fileReceived").await;
+    assert_eq!(done["data"]["ok"], true);
+    assert_eq!(done["data"]["path"], folder.join("a (1).txt").display().to_string());
+    assert!(std::fs::symlink_metadata(folder.join("a.txt")).unwrap().file_type().is_symlink());
+    assert!(!outside.exists());
+    assert_eq!(std::fs::read(folder.join("a (1).txt")).unwrap(), b"new");
+}
+
+#[tokio::test]
 async fn a_failed_transfer_leaves_nothing_behind() {
     let (_bus, _bluez, obex, mut daemon, home) = setup_files("failed").await;
     let folder = home.path.join("Received");

@@ -19,6 +19,7 @@ The following components carry their own notices:
 | Rounded polygon shapes submodule | [end-4/rounded-polygon-qmljs](https://github.com/end-4/rounded-polygon-qmljs) | Apache-2.0; submodule `LICENSE` |
 | Ollama model detection script | strikeoncmputrz/LLM_Scripts | Apache-2.0; `dots/.config/hypr/hyprland/scripts/ai/license_show-loaded-ollama-models.txt` |
 | Modified Fluent-style start, search and task view icons | Joshua Oghenekaro Okwe | CC BY 4.0; [asset notice](../dots/.config/quickshell/ii/assets/icons/fluent/README.md) |
+| Autumn tree wallpaper | JoeyJazz, *Before the leaves have fallen* | Artist copyright, separate from GPL; [asset notice](../dots/.config/quickshell/ii/assets/images/autumn.NOTICE.md) |
 
 [LGPL-3.0.txt](LGPL-3.0.txt) is retained from upstream. Its presence does not
 change the license of the project as a whole.
