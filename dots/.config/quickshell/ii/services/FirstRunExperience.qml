@@ -2,6 +2,7 @@ pragma Singleton
 
 import qs.modules.common
 import qs.modules.common.functions
+import QtQuick
 import Quickshell
 import Quickshell.Io
 
@@ -15,13 +16,19 @@ Singleton {
     id: root
     property string firstRunFilePath: `${Directories.state}/user/first_run.txt`
     property string firstRunFileContent: "This file is just here to confirm you've been greeted :>"
-    property string defaultWallpaperPath: FileUtils.trimFileProtocol(`${Directories.assetsPath}/images/default_wallpaper.png`)
+    property string defaultWallpaperPath: Directories.defaultWallpaper
     readonly property string onboardingPath: FileUtils.trimFileProtocol(Quickshell.shellPath("onboarding.qml"))
     readonly property string onboardingStatePath: `${FileUtils.trimFileProtocol(Directories.home)}/.local/state/velora/onboarding.json`
     readonly property string announcedPath: `${FileUtils.trimFileProtocol(Directories.home)}/.local/state/velora/onboarding-announced`
 
     function load() {
+        if (!Config.ready) return;
         onboardingState.reload();
+    }
+
+    Connections {
+        target: Config
+        function onReadyChanged() { if (Config.ready) root.load(); }
     }
 
     function openOnboarding() {
@@ -30,11 +37,15 @@ Singleton {
 
     // Not finished: greeted before (an existing desktop) gets told about it once; a new one gets it
     function decide(finished) {
-        if (finished) return;
+        if (finished || !Config.ready) return;
         if (!firstRunFile.loaded) {
             firstRunFile.setText(root.firstRunFileContent);
-            // A wallpaper and its colors to start from; the assistant offers others
-            initialWallpaper.running = true;
+            // Generate colors for the bundled picture, preserving an existing user's wallpaper
+            // even if their greeting marker is missing.
+            if (Config.options.background.wallpaperPath === root.defaultWallpaperPath)
+                initialWallpaper.running = true;
+            else
+                root.openOnboarding();
             return;
         }
         announce.running = true;
@@ -52,6 +63,7 @@ Singleton {
         path: root.onboardingStatePath
         printErrors: false
         onLoaded: {
+            if (!Config.ready) return;
             let state = {};
             try {
                 state = JSON.parse(onboardingState.text());
