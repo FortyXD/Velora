@@ -1,83 +1,73 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
 
-import qs.modules.common.functions
 import qs.modules.common
 import QtQuick
 import Quickshell
+import Quickshell.Io
 
-/**
- * Renders LaTeX snippets with MicroTeX.
- * For every request:
- *   1. Hash it
- *   2. Check if the hash is already processed
- *   3. If not, render it with MicroTeX and mark as processed
- */
+/** Renders LaTeX snippets with MicroTeX, caching successful renders by expression. */
 Singleton {
     id: root
-    
-    readonly property var renderPadding: 4 // This is to prevent cutoff in the rendered images
 
+    readonly property int renderPadding: 4
     property list<string> processedHashes: []
     property var processedExpressions: ({})
     property var renderedImagePaths: ({})
+    property var pendingHashes: ({})
     property string microtexBinaryDir: "/opt/MicroTeX"
     property string microtexBinaryName: "LaTeX"
     property string latexOutputPath: Directories.latexOutput
 
     signal renderFinished(string hash, string imagePath)
 
-    /**
-    * Requests rendering of a LaTeX expression.
-    * Returns the [hash, isNew]
-    */
     function requestRender(expression) {
-        // 1. Hash it and initialize necessary variables
-        const hash = Qt.md5(expression)
-        const imagePath = `${latexOutputPath}/${hash}.svg`
-        
-        // 2. Check if the hash is already processed
+        const hash = Qt.md5(expression);
+        const imagePath = `${latexOutputPath}/${hash}.svg`;
         if (processedHashes.includes(hash)) {
-            // console.log("Already processed: " + hash)
-            renderFinished(hash, imagePath)
-            return [hash, false]
-        } else {
-            root.processedHashes.push(hash)
-            root.processedExpressions[hash] = expression
-            // console.log("Rendering expression: " + expression)
+            renderFinished(hash, imagePath);
+            return [hash, false];
         }
+        if (root.pendingHashes[hash]) return [hash, false];
+        root.pendingHashes[hash] = true;
+        root.processedExpressions[hash] = expression;
 
-        // 3. If not, render it with MicroTeX and mark as processed
-        // console.log(`[LatexRenderer] Rendering expression: ${expression} with hash: ${hash}`)
-        // console.log(`                to file: ${imagePath}`)
-        // console.log(`                with command: cd ${microtexBinaryDir} && ./${microtexBinaryName} -headless -input=${StringUtils.shellSingleQuoteEscape(expression)} -output=${imagePath} -textsize=${Appearance.font.pixelSize.normal} -padding=${renderPadding} -background=${Appearance.m3colors.m3tertiary} -foreground=${Appearance.m3colors.m3onTertiary} -maxwidth=0.85`)
-        const processQml = `
-            import Quickshell.Io
-            Process {
-                id: microtexProcess${hash}
-                running: true
-                command: [ "bash", "-c", 
-                    "cd ${root.microtexBinaryDir} && ./${root.microtexBinaryName} -headless '-input=${StringUtils.shellSingleQuoteEscape(StringUtils.escapeBackslashes(expression))}' "
-                    + "'-output=${imagePath}' " 
-                    + "'-textsize=${Appearance.font.pixelSize.normal}' "
-                    + "'-padding=${renderPadding}' "
-                    // + "'-background=${Appearance.m3colors.m3tertiary}' "
-                    + "'-foreground=${Appearance.colors.colOnLayer1}' "
-                    + "-maxwidth=0.85 "
-                ]
-                // stdout: SplitParser {
-                //     onRead: data => { console.log("MicroTeX: " + data) }
-                // }
-                onExited: (exitCode, exitStatus) => {
-                    // console.log("[LatexRenderer] MicroTeX process exited with code: " + exitCode + ", status: " + exitStatus)
-                    renderedImagePaths["${hash}"] = "${imagePath}"
-                    root.renderFinished("${hash}", "${imagePath}")
-                    microtexProcess${hash}.destroy()
+        // Expressions can come from an AI response. Keep them out of QML and shell
+        // source entirely: a static component passes the expression as one argument.
+        renderProcess.createObject(root, { hash, expression, imagePath });
+        return [hash, true];
+    }
+
+    Component {
+        id: renderProcess
+        Process {
+            id: job
+            required property string hash
+            required property string expression
+            required property string imagePath
+            property bool didStart: false
+            property bool finished: false
+            running: true
+            workingDirectory: root.microtexBinaryDir
+            command: [root.microtexBinaryDir + "/" + root.microtexBinaryName, "-headless",
+                "-input=" + job.expression, "-output=" + job.imagePath,
+                "-textsize=" + Appearance.font.pixelSize.normal, "-padding=" + root.renderPadding,
+                "-foreground=" + Appearance.colors.colOnLayer1, "-maxwidth=0.85"]
+            onStarted: job.didStart = true
+            // FailedToStart has no exited signal in Quickshell.
+            onRunningChanged: if (!running && !job.didStart) job.finish(1, 1)
+            onExited: (exitCode, exitStatus) => job.finish(exitCode, exitStatus)
+            function finish(exitCode, exitStatus) {
+                if (job.finished) return;
+                job.finished = true;
+                delete root.pendingHashes[job.hash];
+                if (exitCode === 0 && exitStatus === 0) {
+                    root.processedHashes.push(job.hash);
+                    root.renderedImagePaths[job.hash] = job.imagePath;
+                    root.renderFinished(job.hash, job.imagePath);
                 }
+                job.destroy();
             }
-        `
-        // console.log("MicroTeX: " + processQml)
-        Qt.createQmlObject(processQml, root, `MicroTeXProcess_${hash}`)
-        return [hash, true]
+        }
     }
 }

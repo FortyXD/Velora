@@ -98,14 +98,14 @@ pub fn workspace(argv: Vec<String>) -> Result<ExitCode> {
             // Hyprland creates a previously unused workspace on the focused monitor. Focus the monitor under the
             // pointer first, so Win+number follows the mouse instead of stale keyboard focus from the other display.
             if let Some((monitor, _)) = &under {
-                Command::new("hyprctl").args(["dispatch", &format!(r#"hl.dsp.focus({{ monitor = "{monitor}" }})"#)]).stdout(Stdio::null()).status()?;
+                Command::new("hyprctl").args(["dispatch", &format!("hl.dsp.focus({{ monitor = {} }})", lua_string(monitor))]).stdout(Stdio::null()).status()?;
             }
             let destination = workspace_target(target, current);
-            Command::new("hyprctl").args(["dispatch", &format!(r#"hl.dsp.focus({{ workspace = "{destination}" }})"#)]).status()?;
+            Command::new("hyprctl").args(["dispatch", &format!("hl.dsp.focus({{ workspace = {} }})", lua_string(&destination))]).status()?;
         }
         "movetoworkspacesilent" => {
             let destination = workspace_target(target, active_workspace()?);
-            Command::new("hyprctl").args(["dispatch", &format!(r#"hl.dsp.window.move({{ workspace = "{destination}", follow = false }})"#)]).status()?;
+            Command::new("hyprctl").args(["dispatch", &format!("hl.dsp.window.move({{ workspace = {}, follow = false }})", lua_string(&destination))]).status()?;
         }
         other => {
             eprintln!("Unsupported dispatcher for Lua config: {other}");
@@ -119,9 +119,35 @@ pub fn workspace(argv: Vec<String>) -> Result<ExitCode> {
 // Port of scripts/hyprland/hyprconfigurator.py: edits the Lua overrides the shell keeps for Hyprland.
 // Subkeys use a colon for nesting: `decoration:blur:size` is hl.config({decoration={blur={size=...}}}).
 
+fn lua_string(value: &str) -> String {
+    let mut quoted = String::from("\"");
+    for character in value.chars() {
+        match character {
+            '\\' => quoted.push_str("\\\\"),
+            '"' => quoted.push_str("\\\""),
+            '\n' => quoted.push_str("\\n"),
+            '\r' => quoted.push_str("\\r"),
+            '\t' => quoted.push_str("\\t"),
+            control if control.is_ascii_control() => quoted.push_str(&format!("\\{:03}", control as u32)),
+            other => quoted.push(other),
+        }
+    }
+    quoted.push('"');
+    quoted
+}
+
+fn valid_config_key(key: &str) -> bool {
+    const KEYWORDS: [&str; 22] = ["and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto", "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while"];
+    key.split(':').all(|part| {
+        !KEYWORDS.contains(&part)
+            && part.as_bytes().first().is_some_and(|first| first.is_ascii_alphabetic() || *first == b'_')
+            && part.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+    })
+}
+
 fn format_value(value: &str) -> String {
-    let number = value.trim().parse::<f64>().is_ok();
-    if value == "true" || value == "false" || number { value.to_string() } else { format!("\"{value}\"") }
+    let number = value.trim().parse::<f64>().is_ok_and(f64::is_finite);
+    if value == "true" || value == "false" || number { value.trim().to_string() } else { lua_string(value) }
 }
 
 fn config_line(key: &str, value: &str) -> String {
@@ -160,12 +186,14 @@ pub fn config(argv: Vec<String>) -> Result<()> {
             "--file" => file = next()?,
             "--reset" => {
                 let key = next()?;
+                if !valid_config_key(&key) { bail!("invalid configuration key: {key}"); }
                 if !reset.contains(&key) {
                     reset.push(key);
                 }
             }
             "--set" => {
                 let (key, value) = (next()?, next()?);
+                if !valid_config_key(&key) { bail!("invalid configuration key: {key}"); }
                 if value == "[[EMPTY]]" {
                     if !reset.contains(&key) {
                         reset.push(key);
@@ -213,10 +241,7 @@ pub fn config(argv: Vec<String>) -> Result<()> {
             lines.push(config_line(key, value));
         }
     }
-    if let Err(error) = replace_file(&path, &lines.concat()) {
-        println!("Error saving file: {error}");
-        return Ok(());
-    }
+    replace_file(&path, &lines.concat()).with_context(|| format!("can't save {}", path.display()))?;
     for key in &reset {
         println!("Removed '{key}' from '{}'", path.display());
     }
@@ -300,6 +325,9 @@ mod tests {
         assert_eq!(config_line("decoration:blur:size", "8"), "hl.config({decoration={blur={size=8}}})\n");
         assert_eq!(config_line("a", "true"), "hl.config({a=true})\n");
         assert_eq!(config_line("a:b", "some text"), "hl.config({a={b=\"some text\"}})\n");
+        assert_eq!(lua_string("\0"), "\"\\000\"");
+        assert_eq!(format_value("NaN"), "\"NaN\"");
+        assert_eq!(format_value("inf"), "\"inf\"");
     }
 
     #[test]
@@ -310,5 +338,20 @@ mod tests {
         assert!(!sets_key("hl.config({ab=1})\n", "a"));
         assert!(!sets_key("hl.config({a={b=1}})\n", "a:c"));
         assert!(!sets_key("-- hl.config({a=1})\n", "a"));
+    }
+
+    #[test]
+    fn a_failed_config_replacement_propagates_the_error() {
+        let root = std::env::temp_dir().join(format!("velora-hypr-write-error-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        let path = root.join("main.lua");
+        fs::write(&path, "-- keep the old configuration\n").unwrap();
+        // A directory where a temporary file should go makes the final write fail, even as root.
+        fs::create_dir(root.join(format!(".hypr-config-{}", std::process::id()))).unwrap();
+        let result = config(vec!["--file".into(), path.display().to_string(), "--set".into(), "a".into(), "1".into()]);
+        let preserved = fs::read_to_string(&path).unwrap();
+        fs::remove_dir_all(root).unwrap();
+        assert!(result.is_err());
+        assert_eq!(preserved, "-- keep the old configuration\n");
     }
 }

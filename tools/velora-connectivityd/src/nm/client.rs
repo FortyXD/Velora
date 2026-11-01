@@ -8,12 +8,12 @@ use crate::values::{self, Interfaces, Objects, Props, Settings};
 use futures_util::StreamExt;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
+use std::io::Write;
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::process::Stdio;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::sync::Notify;
 use zbus::message::Type as MessageType;
@@ -604,19 +604,12 @@ impl NmClient {
         if settings.contains_key("wireguard") {
             let secrets = self.settings_with_secrets(&path).await?;
             let text = Zeroizing::new(form::wireguard_config(&settings, &secrets)?);
-            let mut file = tokio::fs::OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .mode(0o600)
-                .open(target)
-                .await
-                .map_err(|_| ApiError::new(ErrorCode::Failed, "The file couldn't be written"))?;
-            file.write_all(text.as_bytes()).await.map_err(|_| ApiError::new(ErrorCode::Failed, "The file couldn't be written"))?;
-            return Ok(());
+            return write_private_export(Path::new(target), text.as_bytes());
         }
         let output = Command::new("nmcli")
-            .args(["connection", "export", "uuid", uuid, target])
+            // With no filename, nmcli sends the plugin's export to stdout. Keeping that in
+            // memory avoids exposing its secrets before a later chmod can run.
+            .args(["connection", "export", "uuid", uuid])
             .env("LC_ALL", "C")
             .env("LANG", "C")
             .stdin(Stdio::null())
@@ -627,10 +620,23 @@ impl NmClient {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(ApiError::new(ErrorCode::Failed, stderr.lines().next().unwrap_or("The connection couldn't be exported").trim_start_matches("Error: ")));
         }
-        // Permissions are set after the fact only if the plugin wrote the file with its own
-        let _ = tokio::fs::set_permissions(target, std::os::unix::fs::PermissionsExt::from_mode(0o600)).await;
-        Ok(())
+        let contents = Zeroizing::new(output.stdout);
+        write_private_export(Path::new(target), &contents)
     }
+}
+
+/// Replace the selected directory entry atomically with a fresh mode-0600 file. An existing
+/// file's permissions, hard links, or symlink target must never expose the exported secrets.
+fn write_private_export(target: &Path, contents: &[u8]) -> Result<(), ApiError> {
+    let write = || -> std::io::Result<()> {
+        let parent = target.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."));
+        let mut staged = tempfile::NamedTempFile::new_in(parent)?;
+        staged.write_all(contents)?;
+        staged.as_file().sync_all()?;
+        staged.persist(target).map_err(|error| error.error)?;
+        Ok(())
+    };
+    write().map_err(|_| ApiError::new(ErrorCode::Failed, "The file couldn't be written"))
 }
 
 fn vpn_file_kind(path: &str, text: &str) -> &'static str {

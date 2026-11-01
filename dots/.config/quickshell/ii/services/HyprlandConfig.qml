@@ -16,39 +16,32 @@ Singleton {
     
     signal reloaded()
 
-    readonly property string configuratorScriptPath: `${Quickshell.shellPath("scripts/helper")} hypr-config`
+    readonly property string configuratorScriptPath: Quickshell.shellPath("scripts/helper")
     readonly property string shellOverridesPath: FileUtils.trimFileProtocol(`${Directories.config}/hypr/hyprland/shellOverrides/main.lua`)
 
     function set(key: string, value: var) {
-        Quickshell.execDetached(["bash", "-c", //
-            `${root.configuratorScriptPath} --file ${root.shellOverridesPath} --set "${key}" "${value}"` //
-        ])
+        Quickshell.execDetached([root.configuratorScriptPath, "hypr-config", "--file", root.shellOverridesPath,
+            "--set", key, String(value)]);
     }
     
     function setMany(entries: var) {
-        let args = ""
+        let args = [];
         for (let key in entries) {
-            args += `--set "${key}" "${entries[key]}" `
+            args.push("--set", key, String(entries[key]));
         }
-        Quickshell.execDetached(["bash", "-c", //
-            `${root.configuratorScriptPath} --file ${root.shellOverridesPath} ${args}` //
-        ])
+        Quickshell.execDetached([root.configuratorScriptPath, "hypr-config", "--file", root.shellOverridesPath, ...args]);
     }
     
     function reset(key: string) {
-        Quickshell.execDetached(["bash", "-c", //
-            `${root.configuratorScriptPath} --file ${root.shellOverridesPath} --reset "${key}"` //
-        ])
+        Quickshell.execDetached([root.configuratorScriptPath, "hypr-config", "--file", root.shellOverridesPath, "--reset", key]);
     }
     
     function resetMany(keys: list<string>) {
-        let args = ""
+        let args = [];
         for (let i = 0; i < keys.length; i++) {
-            args += `--reset "${keys[i]}" `
+            args.push("--reset", keys[i]);
         }
-        Quickshell.execDetached(["bash", "-c", //
-            `${root.configuratorScriptPath} --file ${root.shellOverridesPath} ${args}` //
-        ])
+        Quickshell.execDetached([root.configuratorScriptPath, "hypr-config", "--file", root.shellOverridesPath, ...args]);
     }
 
     Connections {

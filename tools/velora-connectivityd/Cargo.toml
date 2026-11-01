@@ -14,6 +14,7 @@ anyhow = "1"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
+tempfile = "3"
 tokio = { version = "1", features = ["rt", "macros", "io-std", "io-util", "sync", "time", "process", "fs"] }
 zbus = { version = "6", default-features = false, features = ["tokio", "proxy", "service", "object-manager"] }
 zeroize = "1"

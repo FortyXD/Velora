@@ -1053,6 +1053,7 @@ dependencies = [
  "proptest",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "velora-connectivity-fakes",
  "zbus",

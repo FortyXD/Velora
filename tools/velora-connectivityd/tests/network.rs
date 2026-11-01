@@ -462,6 +462,10 @@ async fn exporting_wireguard_writes_a_private_file() {
     assert_eq!(reply["ok"], true, "{reply}");
     let uuid = reply["result"]["uuid"].as_str().unwrap().to_string();
     let target = std::env::temp_dir().join(format!("velora-export-{}.conf", std::process::id()));
+    // A save dialog may select an existing, broadly readable file. Its old permissions must
+    // never make the newly exported private key readable to other users.
+    std::fs::write(&target, "previous export").unwrap();
+    std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o644)).unwrap();
     let reply = daemon.call("network.exportVpn", json!({ "uuid": uuid, "path": target })).await;
     assert_eq!(reply["ok"], true, "{reply}");
     let text = std::fs::read_to_string(&target).unwrap();
@@ -469,4 +473,31 @@ async fn exporting_wireguard_writes_a_private_file() {
     assert!(text.contains(&format!("PublicKey = {peer}")));
     assert_eq!(std::fs::metadata(&target).unwrap().permissions().mode() & 0o777, 0o600);
     std::fs::remove_file(&target).unwrap();
+}
+
+#[tokio::test]
+async fn exporting_a_plugin_vpn_replaces_a_symlink_without_touching_its_target() {
+    use std::os::unix::fs::{symlink, PermissionsExt};
+    let bus = TestBus::start().unwrap();
+    let _nm = FakeNm::start(&bus).await.unwrap();
+    let tools = common::FakeTools::new(&[]).with_output("nmcli", "private VPN configuration", 0);
+    let mut daemon = Daemon::start_with_tools(&bus, &tools).await;
+    let reply = daemon.call("network.addProfile", json!({ "connectionType": "vpn", "vpnService": "org.freedesktop.NetworkManager.openvpn", "changes": {
+        "connection.id": "test VPN", "vpn.service-type": "org.freedesktop.NetworkManager.openvpn"
+    } })).await;
+    assert_eq!(reply["ok"], true, "{reply}");
+    let uuid = reply["result"]["uuid"].as_str().unwrap();
+    let original = tools.directory.join("original");
+    let target = tools.directory.join("export.ovpn");
+    std::fs::write(&original, "keep this file").unwrap();
+    std::fs::set_permissions(&original, std::fs::Permissions::from_mode(0o644)).unwrap();
+    symlink(&original, &target).unwrap();
+    let reply = daemon.call("network.exportVpn", json!({ "uuid": uuid, "path": target })).await;
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(std::fs::read_to_string(&original).unwrap(), "keep this file");
+    assert_eq!(std::fs::metadata(&original).unwrap().permissions().mode() & 0o777, 0o644);
+    assert!(!std::fs::symlink_metadata(&target).unwrap().file_type().is_symlink());
+    assert_eq!(std::fs::read_to_string(&target).unwrap(), "private VPN configuration\n");
+    assert_eq!(std::fs::metadata(&target).unwrap().permissions().mode() & 0o777, 0o600);
+    assert_eq!(tools.args("nmcli"), format!("connection\nexport\nuuid\n{uuid}\n"));
 }

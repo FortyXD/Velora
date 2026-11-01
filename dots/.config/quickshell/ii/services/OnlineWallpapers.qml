@@ -113,12 +113,17 @@ Singleton {
         const req = provider.request(ctx);
         requestProc.ctx = ctx;
         requestProc.providerId = provider.id;
-        let command = ["curl", "-sS", "-L", "--compressed", "--connect-timeout", "8", "--max-time", "25",
-            "-A", root.userAgent, "-w", "\n%{http_code}"];
-        for (const header of req.headers) command.push("-H", header);
-        command.push("--", req.url);
+        let requestConfig;
+        try {
+            requestConfig = CurlUtils.config(req.url, req.headers);
+        } catch (error) {
+            root.error = Translation.tr("Invalid API key");
+            root.hasMore = false;
+            return;
+        }
         requestProc.running = false;
-        requestProc.command = command;
+        requestProc.requestConfig = requestConfig;
+        requestProc.stdinEnabled = true;
         requestProc.running = true;
     }
 
@@ -156,6 +161,14 @@ Singleton {
         id: requestProc
         property var ctx: null
         property string providerId: ""
+        property string requestConfig: ""
+        command: ["curl", "-sS", "-L", "--compressed", "--connect-timeout", "8", "--max-time", "25",
+            "-A", root.userAgent, "-w", "\n%{http_code}", "--config", "-"]
+        onStarted: {
+            requestProc.write(requestProc.requestConfig);
+            requestProc.requestConfig = "";
+            requestProc.stdinEnabled = false;
+        }
         stdout: StdioCollector {
             id: requestOutput
         }
@@ -216,7 +229,13 @@ Singleton {
     function download(item, apply = false) {
         const providerName = root.providerList.find(provider => provider.id === item.provider)?.name ?? item.provider;
         if (item.downloadPing) {
-            Quickshell.execDetached(["curl", "-sS", "--max-time", "10", "-H", `Authorization: Client-ID ${root.keyFor(item.provider)}`, "--", item.downloadPing]);
+            try {
+                downloadPing.createObject(root, { requestConfig: CurlUtils.config(item.downloadPing,
+                    [`Authorization: Client-ID ${root.keyFor(item.provider)}`]) });
+            } catch (error) {
+                root.error = Translation.tr("Invalid API key");
+                return;
+            }
         }
         const meta = JSON.stringify({
             "source": providerName, "page": item.pageUrl, "url": item.full, "title": item.title,
@@ -224,6 +243,26 @@ Singleton {
         });
         Quickshell.execDetached([root.downloadScript, item.full, root.destinationFor(item), ...(apply ? ["--apply"] : []),
             "--meta", meta, "--title", providerName]);
+    }
+
+    Component {
+        id: downloadPing
+        Process {
+            id: ping
+            required property string requestConfig
+            property bool didStart: false
+            command: ["curl", "-sS", "--max-time", "10", "--config", "-"]
+            running: true
+            stdinEnabled: true
+            onStarted: {
+                ping.didStart = true;
+                ping.write(ping.requestConfig);
+                ping.requestConfig = "";
+                ping.stdinEnabled = false;
+            }
+            onRunningChanged: if (!running && !ping.didStart) ping.destroy()
+            onExited: ping.destroy()
+        }
     }
 
     IpcHandler {

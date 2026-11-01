@@ -219,6 +219,16 @@ fn an_open_keyring_isnt_touched() {
     assert!(!sandbox.log().contains("killall"));
 }
 
+#[test]
+fn a_failed_keyring_daemon_is_reported_as_a_failure() {
+    let sandbox = Sandbox::new("keyring-failed");
+    sandbox.tool("busctl", "b true", 0);
+    sandbox.tool("killall", "", 0);
+    sandbox.tool("gnome-keyring-daemon", "", 1);
+    let output = sandbox.command(&["keyring", "unlock"]).env("UNLOCK_PASSWORD", "test-only").env("USER", "me").output().unwrap();
+    assert_eq!(output.status.code(), Some(1));
+}
+
 // ---- picking a color ----
 
 #[test]
@@ -352,6 +362,16 @@ fn a_quick_conversion_without_files_does_nothing() {
     let sandbox = Sandbox::new("quick-empty");
     assert_eq!(sandbox.run(&["toolbox-quick", "png"]).status.code(), Some(1));
     assert_eq!(sandbox.run(&["toolbox-quick"]).status.code(), Some(1));
+}
+
+#[test]
+fn a_failed_quick_conversion_returns_failure() {
+    let sandbox = Sandbox::new("quick-failed");
+    sandbox.tool("notify-send", "", 0);
+    let backend = sandbox.root.join("shell/scripts/toolbox/folis_toolbox.py");
+    fs::create_dir_all(backend.parent().unwrap()).unwrap();
+    fs::write(&backend, "import sys\nprint('{\"event\":\"error\",\"message\":\"conversion failed\"}')\nsys.exit(2)\n").unwrap();
+    assert_eq!(sandbox.run(&["toolbox-quick", "png", "test.jpg"]).status.code(), Some(1));
 }
 
 // ---- layouts and processes ----
@@ -682,6 +702,24 @@ fn hyprland_overrides_change_only_the_keys_asked_for() {
 }
 
 // ---- screen recorder status ----
+
+#[test]
+fn a_hypr_config_string_is_escaped_before_it_becomes_lua() {
+    let sandbox = Sandbox::new("hypr-config-escaped");
+    let file = sandbox.root.join("config.lua");
+    let output = sandbox.run(&["hypr-config", "--file", file.to_str().unwrap(), "--set", "decoration:screen_shader", "path/with\"quotes\\and\nnewline"]);
+    assert!(output.status.success());
+    assert_eq!(fs::read_to_string(file).unwrap(), "hl.config({decoration={screen_shader=\"path/with\\\"quotes\\\\and\\nnewline\"}})\n");
+}
+
+#[test]
+fn a_hypr_config_key_must_be_a_configuration_name() {
+    let sandbox = Sandbox::new("hypr-config-invalid-key");
+    let file = sandbox.root.join("config.lua");
+    let output = sandbox.run(&["hypr-config", "--file", file.to_str().unwrap(), "--set", "decoration:size=1}}); os.execute(\"test\"); --", "1"]);
+    assert!(!output.status.success());
+    assert!(!file.exists());
+}
 
 fn recorder_status(sandbox: &Sandbox) -> serde_json::Value {
     let output = sandbox.command(&["recorder-status"]).env("VELORA_RECORDER_RUNTIME", sandbox.root.join("run")).output().unwrap();

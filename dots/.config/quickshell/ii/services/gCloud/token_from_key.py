@@ -31,8 +31,8 @@ def get_token(json_str):
         sys.exit(1)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        sys.stderr.write("Usage: python3 get_token.py '<json_string>'\n")
+    if len(sys.argv) != 1:
+        sys.stderr.write("Usage: token_from_key.py < service-account.json\n")
         sys.exit(1)
     
-    get_token(sys.argv[1])
+    get_token(sys.stdin.read())
