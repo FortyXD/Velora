@@ -20,7 +20,7 @@ PageScaffold {
     // Pictures from the presets, not videos or animated ones
     readonly property var pictures: Presets.presets.filter(preset => preset.kind === "builtin" && Presets.isRemote(preset.wallpaperAnimations?.wallpaper)
         && !FileUtils.isVideoPath((preset.wallpaperAnimations?.wallpaper ?? "").split("?")[0]) && (preset.wallpaperPreview ?? "").length > 0)
-        .sort((a, b) => Number(b.id === "autumn") - Number(a.id === "autumn"))
+        .sort((a, b) => Number(b.id === "mountain-night") - Number(a.id === "mountain-night"))
     // Autumn tree, unless another was picked: on the desktop as soon as the step opens
     Component.onCompleted: {
         if (!root.flow.preservePalette && root.flow.appliedWallpaper !== root.flow.choices.wallpaper) root.flow.applyWallpaper(root.flow.choices.wallpaper);

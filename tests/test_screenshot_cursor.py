@@ -280,7 +280,7 @@ ShellRoot {
         root = self.root / 'qml'
         write(root / 'modules/common/Directories.qml', 'pragma Singleton\nimport Quickshell\nSingleton { property string shellConfigPath: '
               + json.dumps(str(self.config)) + '; property string defaultWallpaper: '
-              + json.dumps(str(SHELL / 'assets/images/autumn.jpg')) + ' }')
+              + json.dumps(str(SHELL / 'assets/images/mountain-night.png')) + ' }')
         shutil.copy2(SHELL / 'modules/common/Config.qml', root / 'modules/common/Config.qml')
         write(root / 'modules/common/Appearance.qml', 'pragma Singleton\nimport Quickshell\nSingleton { property var font: ({pixelSize:{smaller:12}}) }')
         write(root / 'modules/common/functions/FileUtils.qml', 'pragma Singleton\nimport Quickshell\nSingleton {}')

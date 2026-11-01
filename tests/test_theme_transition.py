@@ -30,8 +30,8 @@ class ThemeTransitionTests(unittest.TestCase):
                 (root / f'{name}.qml').write_text(source)
             stubs = {
                 'BundledAutumn': 'property var preset: (' + json.dumps({
-                    **json.loads((SHELL / 'defaults/presets/autumn.json').read_text()),
-                    'id': 'autumn', 'kind': 'builtin',
+                    **json.loads((SHELL / 'defaults/presets/mountain-night.json').read_text()),
+                    'id': 'mountain-night', 'kind': 'builtin',
                 }) + ')',
                 'Appearance': 'property var m3colors: ({darkmode:true})',
                 'Config': 'property int readWriteDelay:1; property var patches:[]; property QtObject options: QtObject { property QtObject appearance: QtObject { property QtObject palette: QtObject { property string accentColor:"#abcdef" } } property QtObject background: QtObject { property string wallpaperPath:"/pictures/old.jpg"; property QtObject daily: QtObject { property bool enable:false; property string source:"" }; property QtObject shaderWallpaper: QtObject { property string name:"" } } } function applyPatch(patch) { patches=patches.concat([patch]); }',
