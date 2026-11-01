@@ -8,9 +8,13 @@
     "wallpaperPreviewVideo": "https://upload.wikimedia.org/wikipedia/commons/transcoded/c/c8/Flight_through_Orion_Nebula_in_visible_light_%28Hubblecast_106b_excerpt%29.webm/Flight_through_Orion_Nebula_in_visible_light_%28Hubblecast_106b_excerpt%29.webm.480p.vp9.webm",
     "credits": {
         "title": "Flight through the Orion Nebula in visible light",
-        "author": "NASA, ESA, F. Summers, G. Bacon et al. (STScI)",
+        "author": "NASA, ESA, and F. Summers, G. Bacon, Z. Levay, J. DePasquale, L. Hustak, L. Frattare, M. Robberto (STScI), R. Hurt (Caltech/IPAC)",
         "license": "CC BY 4.0",
-        "page": "https://commons.wikimedia.org/wiki/File:Flight_through_Orion_Nebula_in_visible_light_(Hubblecast_106b_excerpt).webm"
+        "page": "https://commons.wikimedia.org/wiki/File:Flight_through_Orion_Nebula_in_visible_light_(Hubblecast_106b_excerpt).webm",
+        "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+        "acknowledgement": "R. Gendler",
+        "source": "https://esahubble.org/videos/hubblecast106b/",
+        "changes": "Wikimedia excerpt: first 20 seconds, audio removed, re-encoded as WebM. Velora makes no additional visual edits."
     },
     "bar": {
         "config": {

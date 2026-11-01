@@ -1,5 +1,7 @@
 # Velora 0.1.0
 
+> Rebuilt on 2026-11-01 with reviewed wallpaper assets. Unverified artwork, videos and previews were removed; the default and three layouts now use Andy Betts’s Mountain (CC BY-SA 4.0). See [wallpaper sources and licenses](https://github.com/FortyXD/Velora/blob/v0.1.0/licenses/wallpapers.md).
+
 A desktop shaped around you, built for Arch Linux with Hyprland and Quickshell.
 
 Velora is an independently maintained fork of Illogical Impulse. This first release brings visual layout editors, complete appearance presets, expanded system controls, wallpaper services, an integrated Toolbox, and dedicated installation and update tooling.

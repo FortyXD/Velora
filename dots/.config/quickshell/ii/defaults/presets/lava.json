@@ -8,9 +8,10 @@
     "wallpaperPreviewVideo": "https://upload.wikimedia.org/wikipedia/commons/transcoded/5/53/007_Volcano_eruption_of_Litli-Hr%C3%BAtur_in_Iceland_in_2023_Video_by_Giles_Laurent.webm/007_Volcano_eruption_of_Litli-Hr%C3%BAtur_in_Iceland_in_2023_Video_by_Giles_Laurent.webm.480p.vp9.webm",
     "credits": {
         "title": "Volcano eruption of Litli-Hrútur in Iceland (2023)",
-        "author": "Giles Laurent",
+        "author": "© Giles Laurent, gileslaurent.com",
         "license": "CC BY-SA 4.0",
-        "page": "https://commons.wikimedia.org/wiki/File:007_Volcano_eruption_of_Litli-Hr%C3%BAtur_in_Iceland_in_2023_Video_by_Giles_Laurent.webm"
+        "page": "https://commons.wikimedia.org/wiki/File:007_Volcano_eruption_of_Litli-Hr%C3%BAtur_in_Iceland_in_2023_Video_by_Giles_Laurent.webm",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
     },
     "bar": {
         "config": {
