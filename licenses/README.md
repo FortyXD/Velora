@@ -19,8 +19,9 @@ The following components carry their own notices:
 | Rounded polygon shapes submodule | [end-4/rounded-polygon-qmljs](https://github.com/end-4/rounded-polygon-qmljs) | Apache-2.0; submodule `LICENSE` |
 | Ollama model detection script | strikeoncmputrz/LLM_Scripts | Apache-2.0; `dots/.config/hypr/hyprland/scripts/ai/license_show-loaded-ollama-models.txt` |
 | Modified Fluent-style start, search and task view icons | Joshua Oghenekaro Okwe | CC BY 4.0; [asset notice](../dots/.config/quickshell/ii/assets/icons/fluent/README.md) |
+| Autumn wallpaper | Josef Bartoň (JoeyJazz) | Artist permission for Velora; **no commercial use of the artwork by third parties**. [Copyright notice](../dots/.config/quickshell/ii/assets/images/autumn.NOTICE.md) |
+| Komona Sunset wallpaper | David Revoy | CC BY 4.0; [asset notice](../dots/.config/quickshell/ii/assets/images/komona-sunset.NOTICE.md) and [license](CC-BY-4.0.txt) |
 | Mountain wallpaper (dark variant) | Andy Betts; KDE Plasma wallpapers | CC BY-SA 4.0; [asset notice](../dots/.config/quickshell/ii/assets/images/mountain-night.NOTICE.md) and [license](CC-BY-SA-4.0.txt) |
-| Monochrome wallpaper | W.carter; *Forested hills in Lysekil in fog — B&W* | CC BY-SA 4.0; [wallpaper sources and terms](wallpapers.md) |
 
 The complete current wallpaper inventory and its distribution terms are recorded
 in [Wallpaper sources and distribution terms](wallpapers.md).

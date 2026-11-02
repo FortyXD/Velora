@@ -1,29 +1,28 @@
 # Wallpaper sources and distribution terms
 
-Reviewed on 2026-11-01. This inventory covers the wallpapers offered by the
-current Velora presets and the wallpaper media added in Velora's development
-history after the upstream fork. It is not an audit of upstream's earlier history
-or of pictures independently selected by users from online providers.
+Velora includes exactly three wallpaper choices, all available offline.
+Autumn is the default. Artwork rights are separate from Velora's GPL license.
 
-| Wallpaper | Source and author | Distribution terms | Use in Velora |
+| Wallpaper | Author | Terms | Local notice |
 | --- | --- | --- | --- |
-| Mountain, dark variant | Andy Betts; [KDE metadata](https://raw.githubusercontent.com/KDE/plasma-workspace-wallpapers/master/Mountain/metadata.json) | CC BY-SA 4.0 | Unmodified local original; default and Night/Pastel/Neon layouts. [Asset notice](../dots/.config/quickshell/ii/assets/images/mountain-night.NOTICE.md). |
-| Forested hills in Lysekil in fog — B&W | W.carter; [author's Wikimedia Commons file](https://commons.wikimedia.org/wiki/File:Forested_hills_in_Lysekil_in_fog_-_B%26W.jpg) | CC BY-SA 4.0 | Monochrome downloads Wikimedia's 3840-pixel rendition and uses a 960-pixel preview. Velora adds no visual edits. The author identifies the image as a retouched black-and-white photograph. |
-| Aurora, Liquid, Neon Grid and Dunes | Velora contributors; [shader source](../dots/.config/quickshell/ii/assets/shaders/) | GPLv3, as project code | Procedural backgrounds rendered from local shader code, without downloaded artwork or image textures. |
+| **Autumn** — *Before the leaves have fallen* | Josef Bartoň (JoeyJazz) | Artist permission for use in Velora. **All rights reserved; commercial use of the artwork by third parties is not permitted.** | [Copyright and permission](../dots/.config/quickshell/ii/assets/images/autumn.NOTICE.md) |
+| **Komona Sunset** | David Revoy | CC BY 4.0 | [Source and attribution](../dots/.config/quickshell/ii/assets/images/komona-sunset.NOTICE.md) |
+| **Mountain**, dark variant | Andy Betts | CC BY-SA 4.0 | [Source and attribution](../dots/.config/quickshell/ii/assets/images/mountain-night.NOTICE.md) |
 
-For the two CC BY-SA works, retain the work's title, author, source, and
-[CC BY-SA 4.0 license link](https://creativecommons.org/licenses/by-sa/4.0/).
-The full license is included as [CC-BY-SA-4.0.txt](CC-BY-SA-4.0.txt). Identify
-adaptations and distribute them under the same license. These images are licensed
-separately from Velora's source code.
+The original images are bundled without visual modifications. Preset cards,
+screenshots and GIF recordings may scale or crop them to the desktop viewport;
+GIF encoding also reduces the color palette. Keep the associated artwork
+attribution and terms when sharing those previews.
 
-The previous eight static-art presets, nine video-art presets and their previews
-were withdrawn pending confirmation of redistribution rights. A provider name or
-an artist credit alone is not a redistribution license. The daily Bing preset was
-also withdrawn because it cannot identify and verify each changing picture in
-advance. Daily wallpaper downloads remain an optional user-controlled feature,
-disabled by default; online search results are not part of this reviewed set.
+For Komona Sunset, retain the author, source and [CC BY 4.0 license](CC-BY-4.0.txt)
+and identify adaptations. For Mountain, retain the author, source and
+[CC BY-SA 4.0 license](CC-BY-SA-4.0.txt), identify adaptations and share adaptations
+of that artwork under the same license.
 
-Previous screenshots and recordings were withdrawn so they do not redistribute
-the unverified artwork. Replacement captures must use the reviewed set above and
-include its attribution.
+**Autumn is not covered by either Creative Commons license or Velora's GPL.**
+Its copyright and noncommercial restriction remain with the artwork wherever it
+appears, including screenshots and recordings. Contact Josef Bartoň for separate
+permission for other uses.
+
+Pictures independently selected by users from local files or online providers
+remain subject to their own terms. They are not part of this bundled collection.

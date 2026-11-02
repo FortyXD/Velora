@@ -295,6 +295,15 @@ ContentPage {
                     }
                 }
 
+                StyledText {
+                    Layout.fillWidth: true
+                    visible: !!card.preset.credits?.restrictions
+                    wrapMode: Text.Wrap
+                    text: card.preset.credits?.restrictions ? (card.preset.credits.copyright ?? "") + "\n" + Translation.tr(card.preset.credits.restrictions) : ""
+                    font.pixelSize: Appearance.font.pixelSize.smallest
+                    color: Appearance.colors.colSubtext
+                }
+
                 ColumnLayout { // What to take from the preset
                     visible: card.expanded
                     Layout.fillWidth: true

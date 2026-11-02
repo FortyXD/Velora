@@ -1,5 +1,3 @@
-> Artwork maintenance: previous binary releases are withdrawn. The current branch uses Mountain by Andy Betts (CC BY-SA 4.0); wallpaper presets and screenshots without verified redistribution rights have been removed.
-
 # Velora 0.1.5
 
 Optional graphical login setup, an offline first desktop, and fixes for desktop security, installation and screen recording.

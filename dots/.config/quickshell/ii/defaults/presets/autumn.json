@@ -1,23 +1,26 @@
 {
     "version": 1,
-    "name": "Mountain · Pastel",
-    "icon": "cloud",
-    "order": 22,
-    "description": "Night mountains with a bottom bar and a pastel palette",
-    "wallpaperPreview": "../../assets/images/mountain-night.png",
+    "name": "Autumn",
+    "icon": "eco",
+    "order": 20,
+    "description": "A painted autumn sunset, a vertical bar of islands on the left, warm orange",
+    "wallpaperPreview": "../../assets/images/autumn.jpg",
     "credits": {
-        "title": "Mountain (dark variant)",
-        "author": "Andy Betts",
-        "license": "CC-BY-SA-4.0",
-        "page": "https://github.com/KDE/plasma-workspace-wallpapers/tree/master/Mountain",
-        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        "title": "Before the leaves have fallen",
+        "author": "Josef Bartoň (JoeyJazz)",
+        "license": "Artist permission · noncommercial artwork",
+        "page": "https://www.deviantart.com/joeyjazz/art/Before-the-leaves-have-fallen-854162011",
+        "copyright": "© Josef Bartoň (JoeyJazz). All rights reserved.",
+        "restrictions": "Commercial use of this artwork by third parties is not permitted.",
+        "licenseUrl": "https://github.com/FortyXD/Velora/blob/main/dots/.config/quickshell/ii/assets/images/autumn.NOTICE.md"
     },
     "bar": {
         "config": {
             "bar": {
-                "layout": {
+                "layout": null,
+                "verticalLayout": {
                     "version": 1,
-                    "balanceCenter": true,
+                    "balanceCenter": false,
                     "actions": {
                         "start": {
                             "click": "sidebarLeft",
@@ -34,6 +37,10 @@
                     "zones": {
                         "start": [
                             {
+                                "uid": "lsb",
+                                "type": "leftSidebarButton"
+                            },
+                            {
                                 "uid": "ws",
                                 "type": "workspaces",
                                 "pill": true
@@ -42,58 +49,49 @@
                         "centerStart": [],
                         "center": [
                             {
-                                "uid": "start",
-                                "type": "launcher"
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true
                             },
                             {
-                                "uid": "tasks",
-                                "type": "taskbar"
+                                "uid": "bat",
+                                "type": "battery",
+                                "pill": true
                             }
                         ],
                         "centerEnd": [],
                         "end": [
                             {
                                 "uid": "tray",
-                                "type": "sysTray",
-                                "hideAt": 1
+                                "type": "sysTray"
                             },
                             {
                                 "uid": "st",
                                 "type": "statusIndicators"
                             },
                             {
-                                "uid": "bat",
-                                "type": "battery",
-                                "pill": true
-                            },
-                            {
-                                "uid": "clk",
-                                "type": "clock",
-                                "pill": true,
-                                "options": {
-                                    "showDate": true
-                                }
+                                "uid": "pwr",
+                                "type": "session"
                             }
                         ]
                     }
                 },
-                "verticalLayout": null,
                 "style": {
-                    "thickness": 44,
+                    "thickness": -1,
                     "backgroundOpacity": -1,
-                    "islands": false,
+                    "islands": true,
                     "pillStyle": "filled",
                     "edgePadding": -1,
-                    "floatMargin": 12,
-                    "radius": 24,
+                    "floatMargin": -1,
+                    "radius": 16,
                     "textShadow": false,
                     "glass": false
                 },
-                "cornerStyle": 1,
+                "cornerStyle": 0,
                 "showBackground": true,
                 "borderless": false,
-                "bottom": true,
-                "vertical": false,
+                "bottom": false,
+                "vertical": true,
                 "floatStyleShadow": true,
                 "weather": {
                     "enable": false
@@ -106,17 +104,17 @@
             "appearance": {
                 "transparency": {
                     "enable": true,
-                    "automatic": true,
-                    "backgroundTransparency": 0.11,
-                    "contentTransparency": 0.57
+                    "automatic": false,
+                    "backgroundTransparency": 0.22,
+                    "contentTransparency": 0.55
                 },
                 "palette": {
-                    "type": "scheme-tonal-spot"
+                    "type": "scheme-content"
                 }
             }
         },
         "hyprland": {
-            "decoration:rounding": 22,
+            "decoration:rounding": 16,
             "decoration:blur:enabled": true,
             "decoration:blur:passes": 3,
             "decoration:blur:size": 10,
@@ -124,13 +122,23 @@
             "decoration:dim_inactive": true,
             "general:border_size": 1
         },
-        "mode": "light",
-        "accent": "#B388FF"
+        "mode": "dark",
+        "accent": "#FF6D00",
+        "previewPalette": {
+            "surface_container_low": "#261812",
+            "surface_container_high": "#362720",
+            "on_surface": "#f7ddd2",
+            "primary": "#ffb692",
+            "on_primary": "#562000",
+            "primary_container": "#ff6d00",
+            "on_primary_container": "#170400",
+            "tertiary": "#dac93c"
+        }
     },
     "dockWidgets": {
         "config": {
             "dock": {
-                "enable": false,
+                "enable": true,
                 "hoverToReveal": true,
                 "magnification": true,
                 "monochromeIcons": true
@@ -144,12 +152,12 @@
                         "styleLocked": "cookie",
                         "cookie": {
                             "aiStyling": false,
-                            "sides": 8,
-                            "dialNumberStyle": "dots",
-                            "hourHandStyle": "hollow",
-                            "minuteHandStyle": "thin",
-                            "secondHandStyle": "line",
-                            "dateStyle": "rect",
+                            "sides": 12,
+                            "dialNumberStyle": "numbers",
+                            "hourHandStyle": "classic",
+                            "minuteHandStyle": "classic",
+                            "secondHandStyle": "classic",
+                            "dateStyle": "border",
                             "timeIndicators": true,
                             "hourMarks": false,
                             "dateInClock": true,
@@ -172,7 +180,8 @@
                     },
                     "cardStyle": "tonal",
                     "weather": {
-                        "enable": false
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
                     },
                     "systemMonitor": {
                         "enable": false
@@ -181,8 +190,7 @@
                         "enable": false
                     },
                     "calendar": {
-                        "enable": true,
-                        "placementStrategy": "leastBusy"
+                        "enable": false
                     },
                     "countdown": {
                         "enable": false
@@ -198,24 +206,19 @@
         }
     },
     "wallpaperAnimations": {
-        "animationProfile": "smooth",
+        "animationProfile": "material",
         "config": {
             "appearance": {
-                "animationSpeed": 0.9
+                "animationSpeed": 1
             }
         },
         "hyprland": {
-            "general:gaps_in": 6,
-            "general:gaps_out": 14,
+            "general:gaps_in": 5,
+            "general:gaps_out": 10,
             "animations:enabled": true,
             "misc:animate_manual_resizes": false,
             "misc:animate_mouse_windowdragging": false
         },
-        "wallpaper": "../../assets/images/mountain-night.png"
-    },
-    "windows": {
-        "hyprland": {
-            "shell:windowMode": "floating"
-        }
+        "wallpaper": "../../assets/images/autumn.jpg"
     }
 }

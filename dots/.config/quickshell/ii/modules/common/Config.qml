@@ -19,7 +19,7 @@ Singleton {
     // personal pictures, including personal files with the same filename.
     function ensureWallpaperDefault() {
         const path = root.options.background.wallpaperPath;
-        const retiredBundledImage = /\/quickshell\/ii\/(?:defaults\/presets\/\.\.\/\.\.\/)?assets\/images\/(?:autumn\.jpg|default_wallpaper\.png)$/.test(path ?? "");
+        const retiredBundledImage = /\/quickshell\/ii\/(?:defaults\/presets\/\.\.\/\.\.\/)?assets\/images\/default_wallpaper\.png$/.test(path ?? "");
         if (!path || retiredBundledImage)
             root.options.background.wallpaperPath = Directories.defaultWallpaper;
     }

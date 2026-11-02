@@ -18,9 +18,11 @@ PageScaffold {
     subtitle: Translation.tr("Colors come from the wallpaper.")
 
     // Pictures from the presets, not videos or animated ones
-    readonly property var pictures: Presets.presets.filter(preset => preset.kind === "builtin" && Presets.isRemote(preset.wallpaperAnimations?.wallpaper)
+    readonly property var pictures: Presets.presets.filter(preset => preset.kind === "builtin"
+        && (Presets.isRemote(preset.wallpaperAnimations?.wallpaper) || Presets.wallpaperFile(preset).length > 0)
         && !FileUtils.isVideoPath((preset.wallpaperAnimations?.wallpaper ?? "").split("?")[0]) && (preset.wallpaperPreview ?? "").length > 0)
-        .sort((a, b) => Number(b.id === "mountain-night") - Number(a.id === "mountain-night"))
+        .sort((a, b) => Number(b.id === "autumn") - Number(a.id === "autumn"))
+    readonly property var selectedCredits: root.pictures.find(preset => preset.id === root.flow.choices.wallpaper)?.credits
     // Autumn tree, unless another was picked: on the desktop as soon as the step opens
     Component.onCompleted: {
         if (!root.flow.preservePalette && root.flow.appliedWallpaper !== root.flow.choices.wallpaper) root.flow.applyWallpaper(root.flow.choices.wallpaper);
@@ -115,7 +117,7 @@ PageScaffold {
                     Image {
                         id: preview
                         anchors.fill: parent
-                        source: tile.modelData.wallpaperPreview
+                        source: Presets.previewOf(tile.modelData)
                         fillMode: Image.PreserveAspectCrop
                         sourceSize.width: 336
                         asynchronous: true
@@ -159,6 +161,30 @@ PageScaffold {
 
     Reveal {
         order: 4
+        visible: !!root.selectedCredits
+        ColumnLayout {
+            width: parent.width
+            spacing: 4
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                text: root.selectedCredits ? Translation.tr("By %1 · %2").arg(root.selectedCredits.author).arg(root.selectedCredits.license) : ""
+                font.pixelSize: Appearance.font.pixelSize.small
+                color: Appearance.colors.colSubtext
+            }
+            StyledText {
+                Layout.fillWidth: true
+                visible: !!root.selectedCredits?.restrictions
+                wrapMode: Text.Wrap
+                text: root.selectedCredits?.restrictions ? (root.selectedCredits.copyright ?? "") + "\n" + Translation.tr(root.selectedCredits.restrictions) : ""
+                font.pixelSize: Appearance.font.pixelSize.small
+                color: Appearance.colors.colSubtext
+            }
+        }
+    }
+
+    Reveal {
+        order: 5
         visible: root.pictures.length === 0
         StyledText {
             width: parent.width

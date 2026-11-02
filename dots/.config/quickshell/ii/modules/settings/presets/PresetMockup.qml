@@ -28,25 +28,33 @@ Item {
     readonly property var dock: root.preset?.dockWidgets?.config?.dock ?? Config.options.dock
     readonly property bool weatherOn: root.bar.weather?.enable ?? Config.options.bar.weather.enable
 
-    // Colors: from the preset's accent and mode, or the current theme when it has none
+    // Bundled looks carry colors generated from their accent, mode and palette scheme.
+    // Other presets retain the accent-based approximation or the current theme.
+    readonly property var previewPalette: root.preset?.theme?.previewPalette ?? ({})
     readonly property bool dark: (root.preset?.theme?.mode ?? (Appearance.m3colors.darkmode ? "dark" : "light")) !== "light"
     readonly property string accent: root.preset?.theme?.accent ?? ""
     readonly property bool mono: root.preset?.theme?.config?.appearance?.palette?.type === "scheme-monochrome"
     readonly property bool ownColors: root.mono || /^#[0-9a-f]{6}$/i.test(root.accent)
     readonly property bool currentTheme: !root.ownColors && root.dark === Appearance.m3colors.darkmode
-    readonly property color colSurface: root.mono ? (root.dark ? "#141414" : "#f7f7f7")
+    readonly property color colSurface: root.previewPalette.surface_container_low ?? (root.mono ? (root.dark ? "#141414" : "#f7f7f7")
         : root.ownColors ? ColorUtils.mix(root.accent, root.dark ? "#121212" : "#fcfcfc", 0.07)
-        : root.currentTheme ? Appearance.m3colors.m3surfaceContainerLow : (root.dark ? "#1b1b1f" : "#f6f5f9")
-    readonly property color colPill: root.mono ? (root.dark ? "#2a2a2a" : "#e4e4e4")
+        : root.currentTheme ? Appearance.m3colors.m3surfaceContainerLow : (root.dark ? "#1b1b1f" : "#f6f5f9"))
+    readonly property color colPill: root.previewPalette.surface_container_high ?? (root.mono ? (root.dark ? "#2a2a2a" : "#e4e4e4")
         : root.ownColors ? ColorUtils.mix(root.accent, root.dark ? "#2a2a2a" : "#ebebeb", 0.14)
-        : root.currentTheme ? Appearance.m3colors.m3surfaceContainerHigh : (root.dark ? "#2b2a30" : "#e8e6ee")
-    readonly property color colOn: root.mono ? (root.dark ? "#eeeeee" : "#202020")
+        : root.currentTheme ? Appearance.m3colors.m3surfaceContainerHigh : (root.dark ? "#2b2a30" : "#e8e6ee"))
+    readonly property color colOn: root.previewPalette.on_surface ?? (root.mono ? (root.dark ? "#eeeeee" : "#202020")
         : root.ownColors ? ColorUtils.mix(root.accent, root.dark ? "#f2f2f2" : "#161616", 0.12)
-        : root.currentTheme ? Appearance.m3colors.m3onSurface : (root.dark ? "#e6e1e9" : "#1c1b1f")
-    readonly property color colPrimary: root.mono ? (root.dark ? "#ffffff" : "#000000")
+        : root.currentTheme ? Appearance.m3colors.m3onSurface : (root.dark ? "#e6e1e9" : "#1c1b1f"))
+    readonly property color colPrimary: root.previewPalette.primary ?? (root.mono ? (root.dark ? "#ffffff" : "#000000")
         : root.ownColors ? ColorUtils.mix(root.accent, root.dark ? "#ffffff" : "#000000", root.dark ? 0.7 : 0.82)
-        : root.currentTheme ? Appearance.m3colors.m3primary : (root.dark ? "#cfbcff" : "#6750a4")
-    readonly property color colOnPrimary: root.dark ? ColorUtils.mix(root.colPrimary, "#000000", 0.25) : "#ffffff"
+        : root.currentTheme ? Appearance.m3colors.m3primary : (root.dark ? "#cfbcff" : "#6750a4"))
+    readonly property color colOnPrimary: root.previewPalette.on_primary ?? (root.dark ? ColorUtils.mix(root.colPrimary, "#000000", 0.25) : "#ffffff")
+    readonly property color colPrimaryContainer: root.previewPalette.primary_container
+        ?? (root.currentTheme ? Appearance.m3colors.m3primaryContainer : ColorUtils.mix(root.colPrimary, root.colSurface, 0.32))
+    readonly property color colOnPrimaryContainer: root.previewPalette.on_primary_container
+        ?? (root.currentTheme ? Appearance.m3colors.m3onPrimaryContainer : root.colOn)
+    readonly property color colTertiary: root.previewPalette.tertiary
+        ?? (root.currentTheme ? Appearance.m3colors.m3tertiary : root.colOn)
 
     // Bar geometry
     readonly property real t: (root.barStyle.thickness > 0 ? root.barStyle.thickness : 40) * root.bu
@@ -423,7 +431,7 @@ Item {
         readonly property string cardStyle: root.widgets?.cardStyle ?? "tonal"
         radius: 18 * root.u
         color: cardStyle === "transparent" ? "transparent"
-            : ColorUtils.applyAlpha(cardStyle === "surface" ? root.colSurface : root.colPill, 0.88)
+            : ColorUtils.applyAlpha(cardStyle === "surface" ? root.colSurface : root.colPrimaryContainer, 0.88)
     }
     Component {
         id: cookieClock
@@ -442,7 +450,7 @@ Item {
                     : cookie.sides <= 8 ? MaterialShape.Shape.Cookie7Sided
                     : cookie.sides <= 10 ? MaterialShape.Shape.Cookie9Sided
                     : MaterialShape.Shape.Cookie12Sided
-                color: ColorUtils.mix(root.colPrimary, root.colSurface, 0.32)
+                color: root.colPrimaryContainer
             }
             Repeater { // Marks at 12, 3, 6 and 9
                 model: 4
@@ -472,7 +480,7 @@ Item {
                 width: 10 * root.u
                 height: 88 * root.u
                 radius: width / 2
-                color: root.colOn
+                color: root.colTertiary
                 transform: Rotation { origin.x: 5 * root.u; origin.y: 88 * root.u - 5 * root.u; angle: 60 }
             }
             Rectangle {
@@ -493,7 +501,7 @@ Item {
             lineHeight: 0.8
             font.pixelSize: (digitalConfig.font?.size ?? 90) * root.u * 1.1
             font.weight: digitalConfig.font?.weight ?? 350
-            color: "white"
+            color: root.colPrimaryContainer
             style: Text.Raised
             styleColor: "#40000000"
         }
@@ -560,13 +568,13 @@ Item {
                     text: "partly_cloudy_day"
                     iconSize: 56 * root.u
                     fill: 1
-                    color: root.colPrimary
+                    color: root.colOnPrimaryContainer
                 }
                 StyledText {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "5°"
                     font.pixelSize: 52 * root.u
-                    color: root.colOn
+                    color: root.colPrimary
                 }
             }
         }

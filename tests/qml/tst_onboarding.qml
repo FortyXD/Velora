@@ -55,7 +55,7 @@ Item {
             HyprlandMonitors.ready = false;
             flow.displayChecked = false;
             flow.index = 0;
-            flow.choices = { "look": "velora", "windows": "tiling", "wallpaper": "mountain-night", "components": [], "apps": [] };
+            flow.choices = { "look": "velora", "windows": "tiling", "wallpaper": "autumn", "components": [], "apps": [] };
             finished.clear();
         }
         function lastState() {
@@ -79,19 +79,32 @@ Item {
         function test_autumn_is_first_and_checked_even_when_palette_is_preserved() {
             const picture = id => ({ id:id, kind:"builtin", name:id, wallpaperPreview:"file:///unused-"+id,
                 wallpaperAnimations:{wallpaper:"https://example.invalid/"+id+".jpg"} });
-            Presets.presets = [picture("mountain-pastel"), picture("mountain-night"), picture("mountain-neon")];
+            Presets.presets = [picture("komona-sunset"), picture("autumn"), picture("mountain-night")];
             flow.preservePalette = true;
             const page = createTemporaryObject(appearanceComponent, scene, {flow:flow});
-            compare(page.pictures.map(picture => picture.id), ["mountain-night", "mountain-pastel", "mountain-neon"]);
-            compare(Presets.presets.map(picture => picture.id), ["mountain-pastel", "mountain-night", "mountain-neon"]);
-            const autumn = findChild(page, "wallpaper-mountain-night");
+            compare(page.pictures.map(picture => picture.id), ["autumn", "komona-sunset", "mountain-night"]);
+            compare(Presets.presets.map(picture => picture.id), ["komona-sunset", "autumn", "mountain-night"]);
+            const autumn = findChild(page, "wallpaper-autumn");
             verify(autumn !== null);
             verify(autumn.selected);
-            verify(!findChild(page, "wallpaper-mountain-pastel").selected);
+            verify(!findChild(page, "wallpaper-komona-sunset").selected);
             compare(flow.applying, "");
             autumn.clicked();
             verify(!flow.preservePalette);
             compare(flow.applying, "wallpaper");
+        }
+
+        function test_all_three_bundled_pictures_load_offline_and_show_artwork_terms() {
+            Presets.presets = Presets.bundled;
+            flow.preservePalette = true;
+            const page = createTemporaryObject(appearanceComponent, scene, {flow:flow});
+            compare(page.pictures.map(picture => picture.id), ["autumn", "komona-sunset", "mountain-night"]);
+            for (const id of ["autumn", "komona-sunset", "mountain-night"])
+                tryCompare(findChild(page, "preview-" + id), "status", Image.Ready);
+            compare(page.selectedCredits.author, "Josef Bartoň (JoeyJazz)");
+            verify(page.selectedCredits.restrictions.includes("Commercial use"));
+            findChild(page, "wallpaper-komona-sunset").clicked();
+            compare(flow.applyingId, "komona-sunset");
         }
 
         function screen() {
@@ -180,9 +193,9 @@ Item {
             flow.applyLook("vertical");
             compare(flow.choices.look, "vertical");
             compare(flow.applying, "look");
-            compare(flow.applyingId, "mountain-night");
+            compare(flow.applyingId, "autumn");
             const request = findChild(flow, "presetApply-" + flow.applyRequest);
-            compare(request.command.slice(5, 8), ["presets", "applyForOnboarding", "mountain-night"]);
+            compare(request.command.slice(5, 8), ["presets", "applyForOnboarding", "autumn"]);
             flow.applyWindows("floating");
             compare(Quickshell.commands[0].slice(-3), ["windowMode", "set", "floating"]);
         }
@@ -342,7 +355,7 @@ Item {
             flow.stateFile.loadFailed();
             verify(flow.initializingTheme);
             verify(!flow.ready);
-            compare(flow.applyingId, "mountain-night");
+            compare(flow.applyingId, "autumn");
             flow.applyDone();
             verify(flow.ready);
             verify(MaterialThemeLoader.reloads > 0);
@@ -350,14 +363,14 @@ Item {
 
         function test_repeat_keeps_the_users_palette() {
             flow.loaded = false;
-            flow.stateFile.content = JSON.stringify({ completed: true, choices: { wallpaper: "mountain-pastel" } });
+            flow.stateFile.content = JSON.stringify({ completed: true, choices: { wallpaper: "komona-sunset" } });
             flow.stateFile.loaded();
             verify(flow.preservePalette);
             verify(flow.ready);
             compare(flow.applying, "");
             flow.applyLook("horizon");
             verify(flow.preservePalette);
-            flow.applyWallpaper("mountain-night");
+            flow.applyWallpaper("autumn");
             verify(!flow.preservePalette);
         }
 

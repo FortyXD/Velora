@@ -1,16 +1,16 @@
 {
     "version": 1,
-    "name": "Mountain · Neon",
-    "icon": "graphic_eq",
-    "order": 20,
-    "description": "Night mountains with a top bar and neon accents",
-    "wallpaperPreview": "../../assets/images/mountain-night.png",
+    "name": "Komona Sunset",
+    "icon": "cloud",
+    "order": 21,
+    "description": "A floating island at sunset, a rounded bottom bar and soft peach accents",
+    "wallpaperPreview": "../../assets/images/komona-sunset.jpg",
     "credits": {
-        "title": "Mountain (dark variant)",
-        "author": "Andy Betts",
-        "license": "CC-BY-SA-4.0",
-        "page": "https://github.com/KDE/plasma-workspace-wallpapers/tree/master/Mountain",
-        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        "title": "Komona sunset",
+        "author": "David Revoy",
+        "license": "CC-BY-4.0",
+        "page": "https://www.peppercarrot.com/en/viewer/wallpapers__2018-06-03_Komona-sunset_by-David-Revoy.html",
+        "licenseUrl": "https://creativecommons.org/licenses/by/4.0/"
     },
     "bar": {
         "config": {
@@ -20,11 +20,11 @@
                     "balanceCenter": true,
                     "actions": {
                         "start": {
-                            "click": "overview",
-                            "scroll": "workspaces"
+                            "click": "sidebarLeft",
+                            "scroll": "brightness"
                         },
-                        "center": {
-                            "click": "mediaPlayPause"
+                        "centerEnd": {
+                            "click": "sidebarRight"
                         },
                         "end": {
                             "click": "sidebarRight",
@@ -34,10 +34,6 @@
                     "zones": {
                         "start": [
                             {
-                                "uid": "search",
-                                "type": "launcher"
-                            },
-                            {
                                 "uid": "ws",
                                 "type": "workspaces",
                                 "pill": true
@@ -46,9 +42,12 @@
                         "centerStart": [],
                         "center": [
                             {
-                                "uid": "med",
-                                "type": "media",
-                                "pill": true
+                                "uid": "start",
+                                "type": "launcher"
+                            },
+                            {
+                                "uid": "tasks",
+                                "type": "taskbar"
                             }
                         ],
                         "centerEnd": [],
@@ -59,19 +58,20 @@
                                 "hideAt": 1
                             },
                             {
-                                "uid": "prv",
-                                "type": "privacy"
-                            },
-                            {
                                 "uid": "st",
                                 "type": "statusIndicators"
+                            },
+                            {
+                                "uid": "bat",
+                                "type": "battery",
+                                "pill": true
                             },
                             {
                                 "uid": "clk",
                                 "type": "clock",
                                 "pill": true,
                                 "options": {
-                                    "showDate": false
+                                    "showDate": true
                                 }
                             }
                         ]
@@ -79,20 +79,20 @@
                 },
                 "verticalLayout": null,
                 "style": {
-                    "thickness": -1,
+                    "thickness": 44,
                     "backgroundOpacity": -1,
-                    "islands": true,
+                    "islands": false,
                     "pillStyle": "filled",
                     "edgePadding": -1,
-                    "floatMargin": 6,
-                    "radius": 18,
+                    "floatMargin": 12,
+                    "radius": 24,
                     "textShadow": false,
-                    "glass": true
+                    "glass": false
                 },
-                "cornerStyle": 0,
+                "cornerStyle": 1,
                 "showBackground": true,
                 "borderless": false,
-                "bottom": false,
+                "bottom": true,
                 "vertical": false,
                 "floatStyleShadow": true,
                 "weather": {
@@ -106,31 +106,41 @@
             "appearance": {
                 "transparency": {
                     "enable": true,
-                    "automatic": false,
-                    "backgroundTransparency": 0.22,
-                    "contentTransparency": 0.55
+                    "automatic": true,
+                    "backgroundTransparency": 0.11,
+                    "contentTransparency": 0.57
                 },
                 "palette": {
-                    "type": "scheme-fidelity"
+                    "type": "scheme-tonal-spot"
                 }
             }
         },
         "hyprland": {
-            "decoration:rounding": 18,
+            "decoration:rounding": 22,
             "decoration:blur:enabled": true,
             "decoration:blur:passes": 3,
-            "decoration:blur:size": 8,
+            "decoration:blur:size": 10,
             "decoration:shadow:enabled": true,
             "decoration:dim_inactive": true,
             "general:border_size": 1
         },
-        "mode": "dark",
-        "accent": "#FF3D9A"
+        "mode": "light",
+        "accent": "#F3AF82",
+        "previewPalette": {
+            "surface_container_low": "#fff1ea",
+            "surface_container_high": "#f6e5dc",
+            "on_surface": "#221a15",
+            "primary": "#8b5023",
+            "on_primary": "#ffffff",
+            "primary_container": "#ffdcc7",
+            "on_primary_container": "#311300",
+            "tertiary": "#606134"
+        }
     },
     "dockWidgets": {
         "config": {
             "dock": {
-                "enable": true,
+                "enable": false,
                 "hoverToReveal": true,
                 "magnification": true,
                 "monochromeIcons": true
@@ -140,16 +150,16 @@
                     "clock": {
                         "enable": true,
                         "placementStrategy": "leastBusy",
-                        "style": "digital",
-                        "styleLocked": "digital",
+                        "style": "cookie",
+                        "styleLocked": "cookie",
                         "cookie": {
                             "aiStyling": false,
-                            "sides": 14,
-                            "dialNumberStyle": "full",
-                            "hourHandStyle": "fill",
-                            "minuteHandStyle": "medium",
-                            "secondHandStyle": "dot",
-                            "dateStyle": "bubble",
+                            "sides": 8,
+                            "dialNumberStyle": "dots",
+                            "hourHandStyle": "hollow",
+                            "minuteHandStyle": "thin",
+                            "secondHandStyle": "line",
+                            "dateStyle": "rect",
                             "timeIndicators": true,
                             "hourMarks": false,
                             "dateInClock": true,
@@ -163,10 +173,10 @@
                             "vertical": false,
                             "font": {
                                 "family": "Google Sans Flex",
-                                "weight": 700,
+                                "weight": 350,
                                 "width": 100,
-                                "size": 110,
-                                "roundness": 100
+                                "size": 90,
+                                "roundness": 0
                             }
                         }
                     },
@@ -178,11 +188,11 @@
                         "enable": false
                     },
                     "media": {
-                        "enable": true,
-                        "placementStrategy": "leastBusy"
+                        "enable": false
                     },
                     "calendar": {
-                        "enable": false
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
                     },
                     "countdown": {
                         "enable": false
@@ -201,16 +211,21 @@
         "animationProfile": "smooth",
         "config": {
             "appearance": {
-                "animationSpeed": 1
+                "animationSpeed": 0.9
             }
         },
         "hyprland": {
             "general:gaps_in": 6,
-            "general:gaps_out": 12,
+            "general:gaps_out": 14,
             "animations:enabled": true,
             "misc:animate_manual_resizes": false,
             "misc:animate_mouse_windowdragging": false
         },
-        "wallpaper": "../../assets/images/mountain-night.png"
+        "wallpaper": "../../assets/images/komona-sunset.jpg"
+    },
+    "windows": {
+        "hyprland": {
+            "shell:windowMode": "floating"
+        }
     }
 }

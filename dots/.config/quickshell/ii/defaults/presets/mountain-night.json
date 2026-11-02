@@ -1,9 +1,9 @@
 {
     "version": 1,
-    "name": "Mountain · Night",
-    "icon": "eco",
-    "order": 23,
-    "description": "Night mountains, a vertical bar on the left and warm orange accents",
+    "name": "Mountain",
+    "icon": "graphic_eq",
+    "order": 22,
+    "description": "Quiet night mountains, a top bar and cool blue accents",
     "wallpaperPreview": "../../assets/images/mountain-night.png",
     "credits": {
         "title": "Mountain (dark variant)",
@@ -15,17 +15,16 @@
     "bar": {
         "config": {
             "bar": {
-                "layout": null,
-                "verticalLayout": {
+                "layout": {
                     "version": 1,
-                    "balanceCenter": false,
+                    "balanceCenter": true,
                     "actions": {
                         "start": {
-                            "click": "sidebarLeft",
-                            "scroll": "brightness"
+                            "click": "overview",
+                            "scroll": "workspaces"
                         },
-                        "centerEnd": {
-                            "click": "sidebarRight"
+                        "center": {
+                            "click": "mediaPlayPause"
                         },
                         "end": {
                             "click": "sidebarRight",
@@ -35,8 +34,8 @@
                     "zones": {
                         "start": [
                             {
-                                "uid": "lsb",
-                                "type": "leftSidebarButton"
+                                "uid": "search",
+                                "type": "launcher"
                             },
                             {
                                 "uid": "ws",
@@ -47,13 +46,8 @@
                         "centerStart": [],
                         "center": [
                             {
-                                "uid": "clk",
-                                "type": "clock",
-                                "pill": true
-                            },
-                            {
-                                "uid": "bat",
-                                "type": "battery",
+                                "uid": "med",
+                                "type": "media",
                                 "pill": true
                             }
                         ],
@@ -61,35 +55,45 @@
                         "end": [
                             {
                                 "uid": "tray",
-                                "type": "sysTray"
+                                "type": "sysTray",
+                                "hideAt": 1
+                            },
+                            {
+                                "uid": "prv",
+                                "type": "privacy"
                             },
                             {
                                 "uid": "st",
                                 "type": "statusIndicators"
                             },
                             {
-                                "uid": "pwr",
-                                "type": "session"
+                                "uid": "clk",
+                                "type": "clock",
+                                "pill": true,
+                                "options": {
+                                    "showDate": false
+                                }
                             }
                         ]
                     }
                 },
+                "verticalLayout": null,
                 "style": {
                     "thickness": -1,
                     "backgroundOpacity": -1,
                     "islands": true,
                     "pillStyle": "filled",
                     "edgePadding": -1,
-                    "floatMargin": -1,
-                    "radius": 16,
+                    "floatMargin": 6,
+                    "radius": 18,
                     "textShadow": false,
-                    "glass": false
+                    "glass": true
                 },
                 "cornerStyle": 0,
                 "showBackground": true,
                 "borderless": false,
                 "bottom": false,
-                "vertical": true,
+                "vertical": false,
                 "floatStyleShadow": true,
                 "weather": {
                     "enable": false
@@ -107,21 +111,31 @@
                     "contentTransparency": 0.55
                 },
                 "palette": {
-                    "type": "scheme-content"
+                    "type": "scheme-fidelity"
                 }
             }
         },
         "hyprland": {
-            "decoration:rounding": 16,
+            "decoration:rounding": 18,
             "decoration:blur:enabled": true,
             "decoration:blur:passes": 3,
-            "decoration:blur:size": 10,
+            "decoration:blur:size": 8,
             "decoration:shadow:enabled": true,
             "decoration:dim_inactive": true,
             "general:border_size": 1
         },
         "mode": "dark",
-        "accent": "#FF6D00"
+        "accent": "#A7B7D8",
+        "previewPalette": {
+            "surface_container_low": "#1b1b1e",
+            "surface_container_high": "#292a2c",
+            "on_surface": "#e4e2e4",
+            "primary": "#c2d3f5",
+            "on_primary": "#21314b",
+            "primary_container": "#a7b7d8",
+            "on_primary_container": "#1a2b45",
+            "tertiary": "#f0cc99"
+        }
     },
     "dockWidgets": {
         "config": {
@@ -136,16 +150,16 @@
                     "clock": {
                         "enable": true,
                         "placementStrategy": "leastBusy",
-                        "style": "cookie",
-                        "styleLocked": "cookie",
+                        "style": "digital",
+                        "styleLocked": "digital",
                         "cookie": {
                             "aiStyling": false,
-                            "sides": 12,
-                            "dialNumberStyle": "numbers",
-                            "hourHandStyle": "classic",
-                            "minuteHandStyle": "classic",
-                            "secondHandStyle": "classic",
-                            "dateStyle": "border",
+                            "sides": 14,
+                            "dialNumberStyle": "full",
+                            "hourHandStyle": "fill",
+                            "minuteHandStyle": "medium",
+                            "secondHandStyle": "dot",
+                            "dateStyle": "bubble",
                             "timeIndicators": true,
                             "hourMarks": false,
                             "dateInClock": true,
@@ -159,23 +173,23 @@
                             "vertical": false,
                             "font": {
                                 "family": "Google Sans Flex",
-                                "weight": 350,
+                                "weight": 700,
                                 "width": 100,
-                                "size": 90,
-                                "roundness": 0
+                                "size": 110,
+                                "roundness": 100
                             }
                         }
                     },
                     "cardStyle": "tonal",
                     "weather": {
-                        "enable": true,
-                        "placementStrategy": "leastBusy"
+                        "enable": false
                     },
                     "systemMonitor": {
                         "enable": false
                     },
                     "media": {
-                        "enable": false
+                        "enable": true,
+                        "placementStrategy": "leastBusy"
                     },
                     "calendar": {
                         "enable": false
@@ -194,15 +208,15 @@
         }
     },
     "wallpaperAnimations": {
-        "animationProfile": "material",
+        "animationProfile": "smooth",
         "config": {
             "appearance": {
                 "animationSpeed": 1
             }
         },
         "hyprland": {
-            "general:gaps_in": 5,
-            "general:gaps_out": 10,
+            "general:gaps_in": 6,
+            "general:gaps_out": 12,
             "animations:enabled": true,
             "misc:animate_manual_resizes": false,
             "misc:animate_mouse_windowdragging": false

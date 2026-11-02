@@ -60,7 +60,13 @@ class OnboardingTests(unittest.TestCase):
                 'Hyprland': 'signal rawEvent(var event)',
                 'Network': 'property bool wifi: true; property bool ethernet: false; property bool available: true; property string connectivity: "full"',
                 'HyprlandSettings': 'property var reloadCommand: ["hyprctl", "reload"]',
-                'Presets': 'property var presets: []; function isRemote(path) { return /^https?:/.test(path ?? ""); }',
+                'Presets': 'property var presets: []; property var bundled: (' + json.dumps([
+                    {**json.loads((SHELL / f'defaults/presets/{name}.json').read_text()), 'id': name, 'kind': 'builtin'}
+                    for name in ('komona-sunset', 'autumn', 'mountain-night')
+                ]) + '); property string builtinDir: ' + json.dumps(str(SHELL / 'defaults/presets')) + '; '
+                    'function isRemote(path) { return /^https?:/.test(path ?? ""); } '
+                    'function wallpaperFile(preset) { const path=preset.wallpaperAnimations?.wallpaper ?? ""; return path.startsWith("../../") ? builtinDir+"/"+path : ""; } '
+                    'function previewOf(preset) { return isRemote(preset.wallpaperPreview) ? preset.wallpaperPreview : "file://"+builtinDir+"/"+preset.wallpaperPreview; }',
                 'ColorUtils': 'function colorWithHueOf(color, hue) { return color; } function transparentize(color, alpha) { return color; }',
             }
             for name, body in ui_singletons.items():
@@ -113,6 +119,7 @@ class OnboardingTests(unittest.TestCase):
                 source = '\n'.join(line for line in (ONBOARDING / path).read_text().splitlines()
                                    if not line.startswith('import qs'))
                 source = source.replace('id: tile\n', 'id: tile\n                    objectName: "wallpaper-" + modelData.id\n')
+                source = source.replace('id: preview\n', 'id: preview\n                        objectName: "preview-" + tile.modelData.id\n')
                 (root / f'{name}.qml').write_text(source)
             with (root / 'qmldir').open('a') as file:
                 file.write(''.join(f'singleton {name} 1.0 {name}.qml\n' for name in ui_singletons))
@@ -137,15 +144,15 @@ class OnboardingTests(unittest.TestCase):
 
     def test_the_three_looks_come_from_presets(self):
         flow = (ONBOARDING / 'OnboardingFlow.qml').read_text()
-        for look, preset_id, vertical, bottom in (('velora', 'mountain-neon', False, False), ('horizon', 'mountain-pastel', False, True),
-                                                  ('vertical', 'mountain-night', True, False)):
+        for look, preset_id, vertical, bottom in (('velora', 'mountain-night', False, False), ('horizon', 'komona-sunset', False, True),
+                                                  ('vertical', 'autumn', True, False)):
             self.assertIn(f'"{look}": "{preset_id}"', flow)
             bar = json.loads((SHELL / f'defaults/presets/{preset_id}.json').read_text())['bar']['config']['bar']
             self.assertEqual((bar['vertical'], bar['bottom']), (vertical, bottom), preset_id)
         # Everything of the preset but its picture, and windows tiled unless chosen otherwise
         self.assertIn('"bar,theme,dockWidgets,motion"', flow)
         self.assertIn('"windows": "tiling"', flow)
-        self.assertIn('"wallpaper": "mountain-night"', flow)
+        self.assertIn('"wallpaper": "autumn"', flow)
 
 
 if __name__ == '__main__':
