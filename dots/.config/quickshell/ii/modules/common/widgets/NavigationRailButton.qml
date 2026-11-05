@@ -19,6 +19,7 @@ TabButton {
     property real baseSize: 56
     property real baseHighlightHeight: 32
     property real highlightCollapsedTopMargin: 8
+    readonly property real highlightVerticalOffset: root.expanded ? 0 : -(itemText.implicitHeight + 2) / 2
     padding: 0
 
     // The navigation item’s target area always spans the full width of the
@@ -97,6 +98,13 @@ TabButton {
             anchors {
                 left: parent.left
                 verticalCenter: parent.verticalCenter
+                // Collapsed: center the icon + caption as a group, not just
+                // the icon (which otherwise pushes the caption below the hitbox).
+                verticalCenterOffset: root.highlightVerticalOffset
+                alignWhenCentered: false
+            }
+            Behavior on anchors.verticalCenterOffset {
+                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
             }
             MaterialSymbol {
                 id: navRailButtonIcon
