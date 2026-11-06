@@ -65,6 +65,7 @@ ShellRoot {
         OnlineWallpapers.load()
         WallpaperOfTheDay.load()
         PowerSaving.load()
+        PowerAnalytics.load()
         LiveWallpaper.load()
         Audio.load()
         HotCorners.load()
