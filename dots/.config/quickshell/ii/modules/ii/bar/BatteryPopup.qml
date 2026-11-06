@@ -20,6 +20,7 @@ StyledPopup {
 
         StyledPopupValueRow {
             visible: {
+                if (!Battery.energyRateAvailable) return false;
                 let timeValue = Battery.isCharging ? Battery.timeToFull : Battery.timeToEmpty;
                 let power = Battery.energyRate;
                 return !(Battery.chargeState == 4 || timeValue <= 0 || power <= 0.01);
@@ -43,7 +44,7 @@ StyledPopup {
         }
 
         StyledPopupValueRow {
-            visible:  !(Battery.chargeState != 4 && Battery.energyRate == 0)
+            visible: !Battery.energyRateAvailable || !(Battery.chargeState != 4 && Battery.energyRate == 0)
             icon: "bolt"
             label: {
                 if (Battery.chargeState == 4) {
@@ -55,6 +56,7 @@ StyledPopup {
                 }
             }
             value: {
+                if (!Battery.energyRateAvailable) return "—";
                 if (Battery.chargeState == 4) {
                     return "";
                 } else {
