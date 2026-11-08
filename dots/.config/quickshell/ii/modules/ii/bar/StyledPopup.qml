@@ -22,10 +22,22 @@ LazyLoader {
     property bool popupHovered: false
 
     readonly property bool animate: Config.options.bar.microAnimations
-    readonly property bool targetHovered: !!(hoverTarget && hoverTarget.containsMouse) && !GlobalStates.barEditing
+    property PopupHoverTarget targetPresence: PopupHoverTarget {
+        target: root.hoverTarget
+        enabled: root.hoverControlled && !GlobalStates.barEditing
+    }
+    readonly property bool targetHovered: targetPresence.containsMouse
     readonly property bool pointerInside: targetHovered || popupHovered
     property bool wanted: false
+    onHoverControlledChanged: {
+        openTimer.stop();
+        closeTimer.stop();
+        lingeringTimer.stop();
+        wanted = false;
+        lingering = false;
+    }
     onPointerInsideChanged: {
+        if (!hoverControlled) return;
         if (pointerInside) {
             closeTimer.stop();
             if (wanted) return;
@@ -41,11 +53,11 @@ LazyLoader {
     }
     property Timer openTimer: Timer {
         interval: root.openDelay
-        onTriggered: root.wanted = root.pointerInside
+        onTriggered: if (root.hoverControlled) root.wanted = root.pointerInside
     }
     property Timer closeTimer: Timer {
         interval: 280
-        onTriggered: root.wanted = root.pointerInside
+        onTriggered: if (root.hoverControlled) root.wanted = root.pointerInside
     }
 
     // Stays loaded for the length of the exit animation

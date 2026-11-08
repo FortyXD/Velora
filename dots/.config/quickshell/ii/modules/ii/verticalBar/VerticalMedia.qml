@@ -68,7 +68,7 @@ MouseArea {
 
     Bar.StyledPopup {
         hoverTarget: root
-        active: GlobalStates.mediaControlsOpen ? false : root.containsMouse
+        active: !GlobalStates.mediaControlsOpen && (wanted || lingering)
 
         Column {
             anchors.centerIn: parent
