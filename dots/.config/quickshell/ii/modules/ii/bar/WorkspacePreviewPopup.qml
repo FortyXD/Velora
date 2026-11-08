@@ -1,4 +1,5 @@
 pragma ComponentBehavior: Bound
+import qs
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
@@ -25,7 +26,13 @@ import Qt5Compat.GraphicalEffects
  */
 StyledPopup {
     id: root
-    interactive: true
+    property bool panelHovered: false
+    readonly property bool leavePanel: Config.options.bar.workspaces.hidePreviewOnLeave
+    hoverEnabled: Config.options.bar.workspaces.showPreviews && !GlobalStates.barEditing
+        && workspaceId > 0 && windows.length > 0
+    interactive: !leavePanel
+    keepOpen: leavePanel && panelHovered
+    closeImmediately: leavePanel && !panelHovered
     openDelay: 220
 
     property int workspaceId: 0
@@ -34,7 +41,7 @@ StyledPopup {
     // the grace time, so picking a window has to be done on purpose.
     property real awaySpeed: 0
     readonly property real flickSpeed: Config.options.bar.workspaces.flickSpeed // pixels per second, perpendicular to the bar
-    hideInstantly: Config.options.bar.workspaces.hidePreviewOnFlick && awaySpeed >= flickSpeed
+    hideInstantly: !leavePanel && Config.options.bar.workspaces.hidePreviewOnFlick && awaySpeed >= flickSpeed
     readonly property var windows: HyprlandData.windowList.filter(win => win.workspace.id === workspaceId)
     readonly property var monitorData: HyprlandData.monitors.find(mon => mon.id === windows[0]?.monitor) ?? HyprlandData.monitors[0]
     readonly property bool rotated: (monitorData?.transform ?? 0) % 2 === 1
@@ -250,7 +257,8 @@ StyledPopup {
             elide: Text.ElideRight
             font.pixelSize: Appearance.popup.captionSize
             color: Appearance.popup.colSubtext
-            text: root.hoveredTitle.length > 0 ? root.hoveredTitle : Translation.tr("Click a window to open it")
+            text: root.leavePanel ? Translation.tr("Move off the panel to close")
+                : root.hoveredTitle.length > 0 ? root.hoveredTitle : Translation.tr("Click a window to open it")
         }
     }
 }

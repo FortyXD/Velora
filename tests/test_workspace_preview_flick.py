@@ -150,7 +150,7 @@ class WorkspacePreviewFlickTests(unittest.TestCase):
         self.assertIn('awaySpeed: root.previewAwaySpeed', workspaces)
         # The miniature asks for the instant close; the shared popup runs the policy.
         self.assertIn('property real awaySpeed: 0', popup)
-        self.assertIn('hideInstantly: Config.options.bar.workspaces.hidePreviewOnFlick'
+        self.assertIn('hideInstantly: !leavePanel && Config.options.bar.workspaces.hidePreviewOnFlick'
                       ' && awaySpeed >= flickSpeed', popup)
         self.assertIn('readonly property real flickSpeed: Config.options.bar.workspaces.flickSpeed', popup)
         self.assertIn('PopupHoverPolicy.next(wanted, dismissed, pointerInside, hideInstantly', styled)

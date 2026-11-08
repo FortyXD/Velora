@@ -57,6 +57,7 @@ Scope {
                         }
                     }
                 }
+                readonly property bool panelHovered: panelPointer.hovered
                 property bool superShow: false
                 readonly property bool editingHere: GlobalStates.barEditing && GlobalStates.barEditScreen === barRoot.screen?.name
                 property bool mustShow: hoverRegion.containsMouse || superShow || editingHere
@@ -116,6 +117,10 @@ Scope {
 
                     BarContent {
                         id: barContent
+                        HoverHandler {
+                            id: panelPointer
+                            blocking: false
+                        }
                         editing: barRoot.editingHere
                         controller: editController
                         

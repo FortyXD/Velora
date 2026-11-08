@@ -25,15 +25,43 @@ LazyLoader {
     property bool hideInstantly: false
     property bool dismissed: false
     property bool popupHovered: false
+    property bool hoverEnabled: true
+    property bool keepOpen: false // Retain an open popup over the panel, never open it there
+    property bool closeImmediately: false // Bypass the grace period AND exit animation
 
     readonly property bool animate: Config.options.bar.microAnimations
     readonly property bool targetHovered: !!(hoverTarget && hoverTarget.containsMouse) && !GlobalStates.barEditing
-    readonly property bool pointerInside: targetHovered || popupHovered
+    readonly property bool pointerInside: targetHovered || (interactive && popupHovered)
     property bool wanted: false
-    onTargetHoveredChanged: if (targetHovered) root.dismissed = false
-    onPointerInsideChanged: {
+    onTargetHoveredChanged: {
+        if (targetHovered) root.dismissed = false;
+        if (targetHovered) updateHover();
+    }
+    onPointerInsideChanged: updateHover()
+    // Mode bindings settle together before reconciling retention/interaction. Closing
+    // at a real panel boundary (or disabling) is still synchronous, never deferred.
+    onKeepOpenChanged: Qt.callLater(updateHover)
+    onHoverEnabledChanged: updateHover()
+    onCloseImmediatelyChanged: {
+        if (closeImmediately) updateHover();
+        else Qt.callLater(updateHover);
+    }
+    onInteractiveChanged: Qt.callLater(updateHover)
+
+    function updateHover() {
+        if (!hoverControlled) return;
+        if (!hoverEnabled || closeImmediately) {
+            openTimer.stop();
+            closeTimer.stop();
+            lingeringTimer.stop();
+            wanted = false;
+            lingering = false;
+            popupHovered = false;
+            dismissed = false;
+            return;
+        }
         const next = PopupHoverPolicy.next(wanted, dismissed, pointerInside, hideInstantly,
-            interactive, openDelay > 0);
+            interactive, openDelay > 0, hoverEnabled, keepOpen);
         dismissed = next.dismissed;
         if (next.stopOpen) openTimer.stop();
         if (next.stopClose) closeTimer.stop();
@@ -43,18 +71,20 @@ LazyLoader {
     }
     property Timer openTimer: Timer {
         interval: root.openDelay
-        onTriggered: root.wanted = PopupHoverPolicy.timerWanted(root.pointerInside, root.dismissed)
+        onTriggered: if (root.hoverControlled) root.wanted = root.hoverEnabled && !root.closeImmediately
+            && PopupHoverPolicy.timerWanted(root.pointerInside, root.dismissed)
     }
     property Timer closeTimer: Timer {
         interval: root.closeDelay
-        onTriggered: root.wanted = PopupHoverPolicy.timerWanted(root.pointerInside, root.dismissed)
+        onTriggered: if (root.hoverControlled) root.wanted = root.hoverEnabled && !root.closeImmediately
+            && PopupHoverPolicy.timerWanted(root.pointerInside || root.keepOpen, root.dismissed)
     }
 
     // Stays loaded for the length of the exit animation
     property bool lingering: false
     onWantedChanged: {
         if (wanted) lingeringTimer.stop();
-        else if (animate && hoverControlled) {
+        else if (animate && hoverControlled && hoverEnabled && !closeImmediately) {
             lingering = true;
             lingeringTimer.restart();
         }

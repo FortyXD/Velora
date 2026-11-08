@@ -23,10 +23,13 @@ ColumnLayout {
         delegate: Loader {
             id: optionLoader
             required property var modelData
+            objectName: "bar-option-" + modelData.key
             // List values (json choices) are handled as JSON text, so they compare by content
             readonly property var value: modelData.json ? JSON.stringify(BarWidgetCatalog.optionValue(root.item, modelData) ?? null)
                 : BarWidgetCatalog.optionValue(root.item, modelData)
             Layout.fillWidth: true
+            visible: BarWidgetCatalog.optionVisible(root.item, modelData)
+            active: visible
             sourceComponent: {
                 switch (modelData.kind) {
                 case "switch": return switchOption;
@@ -44,8 +47,9 @@ ColumnLayout {
             Component {
                 id: switchOption
                 ConfigSwitch {
-                    buttonIcon: "toggle_on"
+                    buttonIcon: optionLoader.modelData.icon ?? "toggle_on"
                     text: optionLoader.modelData.label
+                    description: optionLoader.modelData.description ?? ""
                     autoToggle: false
                     checked: !!optionLoader.value
                     onClicked: optionLoader.set(!optionLoader.value)
@@ -55,8 +59,9 @@ ColumnLayout {
             Component {
                 id: spinOption
                 ConfigSpinBox {
-                    icon: "tune"
+                    icon: optionLoader.modelData.icon ?? "tune"
                     text: optionLoader.modelData.label
+                    description: optionLoader.modelData.description ?? ""
                     from: optionLoader.modelData.from ?? 0
                     to: optionLoader.modelData.to ?? 100
                     stepSize: 1
@@ -68,8 +73,9 @@ ColumnLayout {
             Component {
                 id: choiceOption
                 ConfigComboRow {
-                    icon: "list"
+                    icon: optionLoader.modelData.icon ?? "list"
                     text: optionLoader.modelData.label
+                    description: optionLoader.modelData.description ?? ""
                     currentValue: optionLoader.value
                     options: (optionLoader.modelData.choices ?? []).map(choice => ({
                         "value": optionLoader.modelData.json ? JSON.stringify(choice.value) : choice.value,

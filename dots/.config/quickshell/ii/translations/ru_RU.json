@@ -3185,5 +3185,14 @@
   "A floating island at sunset, a rounded bottom bar and soft peach accents": "Парящий остров на закате, закруглённая нижняя панель и мягкие персиковые акценты",
   "Quiet night mountains, a top bar and cool blue accents": "Спокойные ночные горы, верхняя панель и холодные синие акценты",
   "Hide the workspace preview when the pointer flicks away": "Скрывать превью рабочего стола, если резко увести курсор",
-  "How fast the pointer must move to hide it (px/s)": "Скорость ухода курсора, при которой превью скрыть (px/с)"
+  "How fast the pointer must move to hide it (px/s)": "Скорость ухода курсора, при которой превью скрыть (px/с)",
+    "Show workspace previews": "Превью рабочих столов",
+  "Hover over a workspace with windows to see its preview. Workspace buttons still work when this is off.": "Показывать миниатюру при наведении на рабочий стол с окнами. При выключении кнопки переключения остаются доступными.",
+  "Preview behavior": "Поведение превью",
+  "The preview stays open anywhere on the panel and closes immediately when you leave it. You cannot enter the preview.": "Превью остаётся открытым, пока курсор на панели, и сразу исчезает за её границей. Перейти курсором внутрь превью нельзя.",
+  "Move into the preview to select a window. A short delay lets you cross the gap.": "Можно перейти курсором в превью и выбрать окно. Небольшая задержка даёт время пересечь зазор.",
+  "Interactive": "С выбором окна",
+  "Panel only": "До ухода с панели",
+  "Lower values close the preview with a gentler movement.": "Чем ниже значение, тем менее резкое движение скроет превью.",
+  "Move off the panel to close": "Уведите курсор с панели, чтобы скрыть"
 }
