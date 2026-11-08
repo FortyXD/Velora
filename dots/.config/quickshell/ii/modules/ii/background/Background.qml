@@ -216,7 +216,9 @@ Variants {
                     onPreloadReady: path => WallpaperTransition.reportPreloaded(bgRoot.modelData.name, path)
                 }
 
-                property int workspaceIndex: (bgRoot.monitor.activeWorkspace?.id ?? 1) - 1
+                // A placeholder screen (no outputs at all) or an output Hyprland has not added
+                // yet has no monitor: reading activeWorkspace on null threw a TypeError per frame.
+                property int workspaceIndex: (bgRoot.monitor?.activeWorkspace?.id ?? 1) - 1
                 property real middleFraction: 0.5
                 property real fraction: {
                     // 0 - start of the picture
