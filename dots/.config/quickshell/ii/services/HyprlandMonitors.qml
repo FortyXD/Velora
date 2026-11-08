@@ -21,10 +21,20 @@ Singleton {
     readonly property string luaPath: FileUtils.trimFileProtocol(`${Directories.config}/hypr/custom/monitors.lua`)
     readonly property int confirmSeconds: 15
 
-    property var monitors: []          // hyprctl monitors all -j
+    property var monitors: []          // hyprctl monitors all -j, as reported
+    // Hyprland's virtual output appears when no real screen is enabled. It is not a display:
+    // counting it as one hid that the built-in panel was off, and the picture went nowhere
+    // after unplugging the external monitor.
+    readonly property string virtualOutput: "FALLBACK"
+    readonly property var displays: monitors.filter(monitor => monitor.name !== root.virtualOutput)
     property var overrides: ({})       // output name -> { mode, position, scale, transform, vrr?, mirror?, disabled? }
     property var previousOverrides: null
     property int secondsLeft: 0
+    // Only the shell watches outputs; the settings window is a reader. Without this the
+    // singleton existed just while settings were open, so unplugging the only lit screen
+    // with settings closed left every output disabled and the picture gone.
+    property bool watching: false
+    property bool fallbackWritten: false
     readonly property bool confirming: root.previousOverrides !== null
     property bool ready: false
 
@@ -32,9 +42,22 @@ Singleton {
         monitorsProc.running = false;
         monitorsProc.running = true;
     }
+    function watch() {
+        root.watching = true;
+        root.refresh();
+    }
 
+    // Write the presence decision out: the safe built-in configuration while nothing else is
+    // lit, the saved intent again as soon as an external display comes back.
+    function syncFallback() {
+        if (!root.watching || root.fallbackActive === root.fallbackWritten) return;
+        root.fallbackWritten = root.fallbackActive;
+        root.write();
+    }
+
+    // Lookups are for the user-facing list: the virtual output cannot be configured.
     function monitorByName(name) {
-        return root.monitors.find(monitor => monitor.name === name) ?? null;
+        return root.displays.find(monitor => monitor.name === name) ?? null;
     }
 
     // "2880x1800@120.00Hz" -> { width: 2880, height: 1800, rate: "120.00" }
@@ -44,6 +67,37 @@ Singleton {
     }
     function modes(monitor) {
         return (monitor?.availableModes ?? []).map(text => root.parseMode(text)).filter(mode => mode !== null);
+    }
+
+    // Hyprland reports the *scaled* size of an enabled output, so the mode has to be found
+    // back among the available ones: same panel, same refresh rate. Rebuilding the mode from
+    // the reported size instead would divide by the scale twice and invent a mode that is not
+    // in the list (1512x1008 for a 2520x1680@1.6667 display).
+    function modeText(monitor) {
+        const available = monitor?.availableModes ?? [];
+        if (!monitor || available.length === 0) return "preferred";
+        const scale = Number(monitor.scale) > 0 ? Number(monitor.scale) : 1;
+        const rotated = (monitor.transform ?? 0) % 2 === 1;
+        const factor = monitor.disabled ? 1 : scale; // a disabled output reports its mode size
+        const wantWidth = Number(monitor.width) * factor;
+        const wantHeight = Number(monitor.height) * factor;
+        const rate = Number(monitor.refreshRate);
+        // Normalized the way the settings page writes it: the raw list carries a trailing
+        // "Hz", which Hyprland's monitor mode parser does not accept.
+        const name = mode => `${mode.width}x${mode.height}` + (mode.rate ? `@${mode.rate}` : "");
+        const parsed = available.map(text => ({ text: text, mode: root.parseMode(text) }))
+            .filter(item => item.mode !== null);
+        const sameRate = item => !(rate > 0) || Math.abs(parseFloat(item.mode.rate) - rate) < 0.6;
+        const exact = parsed.find(item => {
+            const width = rotated ? item.mode.height : item.mode.width;
+            const height = rotated ? item.mode.width : item.mode.height;
+            return Math.abs(width - wantWidth) <= 2 && Math.abs(height - wantHeight) <= 2 && sameRate(item);
+        });
+        if (exact) return name(exact.mode);
+        const byRate = parsed.filter(sameRate)
+            .sort((a, b) => b.mode.width * b.mode.height - a.mode.width * a.mode.height);
+        const fallback = byRate[0] ?? parsed[0];
+        return fallback ? name(fallback.mode) : "preferred";
     }
 
     // What the output uses now: the saved choice, otherwise what Hyprland reports
@@ -57,13 +111,45 @@ Singleton {
                      scale: 1, transform: 0, disabled: !!monitor.disabled, mirror: "" };
         }
         return {
-            mode: `${monitor.width}x${monitor.height}@${Number(monitor.refreshRate).toFixed(2)}`,
+            mode: root.modeText(monitor),
             position: `${monitor.x}x${monitor.y}`,
             scale: Math.round(monitor.scale * 1000000) / 1000000,
             transform: monitor.transform ?? 0,
             disabled: !!monitor.disabled,
             mirror: monitor.mirrorOf && monitor.mirrorOf !== "none" ? monitor.mirrorOf : ""
         };
+    }
+
+    readonly property var builtin: root.displays.find(monitor => /^(eDP|LVDS|DSI)/.test(monitor.name)) ?? null
+
+    // The laptop panel, on with the settings app never invented for it: the panel's own
+    // preferred mode at 0,0, keeping only the scale the user chose for it.
+    function safeSpec(monitor) {
+        const saved = root.overrides[monitor.name] ?? {};
+        const scale = Number(saved.scale) > 0 ? Number(saved.scale) : (Number(monitor.scale) > 0 ? Number(monitor.scale) : 1);
+        return { mode: "preferred", position: "0x0", scale: scale, transform: 0, disabled: false, mirror: "" };
+    }
+
+    // True when every connected output is switched off by the saved choices, which is what
+    // unplugging the only enabled screen while the built-in is disabled would leave behind.
+    // What Hyprland lights right now, ignoring its virtual output. An unplugged screen is
+    // either gone or still listed as disabled, so "is anything lit" has to be read from the
+    // live state; asking the saved intent instead would keep saying "the external is on".
+    readonly property var litOutputs: root.displays.filter(monitor => !monitor.disabled)
+    // Outputs that are lit and that the user actually asked for: while there is none, the
+    // built-in panel must come on. The panel itself never counts, or switching it on would
+    // clear the fallback and switch it off again in a loop.
+    readonly property var litWanted: litOutputs.filter(monitor => !root.spec(monitor).disabled
+        && !(root.builtin && monitor.name === root.builtin.name && root.fallbackWritten))
+    readonly property bool nothingLit: root.ready && litWanted.length === 0
+    readonly property bool fallbackActive: root.nothingLit && root.builtin !== null
+
+    // What the settings page should show and the lua should write: the saved choice, or the
+    // safe built-in configuration while nothing else is lit.
+    function effectiveSpec(monitor) {
+        if (root.fallbackActive && monitor && root.builtin && monitor.name === root.builtin.name)
+            return root.safeSpec(monitor);
+        return root.spec(monitor);
     }
 
     // Size on the desktop, in logical pixels
@@ -146,8 +232,10 @@ Singleton {
             "-- put manual monitor rules in monitors.lua instead.",
             ""
         ];
-        for (const name of Object.keys(root.overrides).sort()) {
-            const spec = root.overrides[name];
+        const specs = Object.assign({}, root.overrides);
+        if (root.fallbackActive && root.builtin) specs[root.builtin.name] = root.safeSpec(root.builtin);
+        for (const name of Object.keys(specs).sort()) {
+            const spec = specs[name];
             lines.push("hl.monitor({");
             lines.push(`    output = ${root.luaString(name)},`);
             if (spec.disabled) {
@@ -205,6 +293,29 @@ Singleton {
         path: root.luaPath
     }
 
+    // Same pattern as the other services: lets the user (and the tests) see what the
+    // shell actually knows about the outputs, instead of guessing from a black screen.
+    IpcHandler {
+        target: "monitors"
+        function status(): string {
+            return JSON.stringify({
+                watching: root.watching,
+                ready: root.ready,
+                outputs: root.monitors.map(monitor => ({
+                    name: monitor.name, disabled: !!monitor.disabled,
+                    width: monitor.width, height: monitor.height, scale: monitor.scale
+                })),
+                intent: Object.keys(root.overrides).map(name => ({
+                    name: name, disabled: !!root.overrides[name].disabled
+                })),
+                nothingLit: root.nothingLit,
+                builtin: root.builtin?.name ?? null,
+                fallbackActive: root.fallbackActive,
+                fallbackWritten: root.fallbackWritten
+            });
+        }
+    }
+
     Process {
         id: monitorsProc
         running: true
@@ -215,6 +326,7 @@ Singleton {
                 try {
                     root.monitors = JSON.parse(monitorsCollector.text);
                     root.ready = true;
+                    root.syncFallback();
                 } catch (e) {
                     console.warn("[HyprlandMonitors] Couldn't read monitors:", e);
                 }

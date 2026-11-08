@@ -13,13 +13,13 @@ import qs.modules.common.functions
 ContentPage {
     id: root
 
-    readonly property var monitors: HyprlandMonitors.monitors
+    readonly property var monitors: HyprlandMonitors.displays
     property string selectedName: ""
     readonly property var selected: HyprlandMonitors.monitorByName(root.selectedName) ?? root.monitors.find(m => m.focused) ?? root.monitors[0] ?? null
-    readonly property var selectedSpec: HyprlandMonitors.spec(root.selected)
+    readonly property var selectedSpec: HyprlandMonitors.effectiveSpec(root.selected)
     readonly property var selectedMode: HyprlandMonitors.parseMode(root.selectedSpec?.mode)
     readonly property var selectedModes: HyprlandMonitors.modes(root.selected)
-    readonly property int enabledCount: root.monitors.filter(m => !HyprlandMonitors.spec(m).disabled).length
+    readonly property int enabledCount: root.monitors.filter(m => !HyprlandMonitors.effectiveSpec(m).disabled).length
 
     function isBuiltIn(monitor) {
         return monitor.name.startsWith("eDP") || monitor.name.startsWith("LVDS") || monitor.name.startsWith("DSI");
@@ -138,17 +138,17 @@ ContentPage {
 
             // Every output that shows something, in desktop coordinates
             readonly property var boxes: root.monitors.map(monitor => {
-                const spec = HyprlandMonitors.spec(monitor);
+                const spec = HyprlandMonitors.effectiveSpec(monitor);
                 const size = HyprlandMonitors.logicalSize(spec);
                 const position = HyprlandMonitors.position(spec);
                 return { name: monitor.name, monitor: monitor, disabled: !!spec.disabled, mirrored: !!spec.mirror,
                          x: position.x, y: position.y, width: size.width, height: size.height };
             }).filter(box => !box.disabled && !box.mirrored)
-            readonly property real minX: Math.min(...boxes.map(b => b.x), 0)
-            readonly property real minY: Math.min(...boxes.map(b => b.y), 0)
-            readonly property real maxX: Math.max(...boxes.map(b => b.x + b.width), 1)
-            readonly property real maxY: Math.max(...boxes.map(b => b.y + b.height), 1)
-            readonly property real zoom: Math.min((width - 24) / (maxX - minX), (height - 24) / (maxY - minY))
+            readonly property real minX: boxes.length > 0 ? Math.min(...boxes.map(b => b.x)) : 0
+            readonly property real minY: boxes.length > 0 ? Math.min(...boxes.map(b => b.y)) : 0
+            readonly property real maxX: boxes.length > 0 ? Math.max(...boxes.map(b => b.x + b.width)) : 1
+            readonly property real maxY: boxes.length > 0 ? Math.max(...boxes.map(b => b.y + b.height)) : 1
+            readonly property real zoom: Math.min((width - 24) / Math.max(1, maxX - minX), (height - 24) / Math.max(1, maxY - minY))
             readonly property real offsetX: (width - (maxX - minX) * zoom) / 2
             readonly property real offsetY: (height - (maxY - minY) * zoom) / 2
 
@@ -158,16 +158,25 @@ ContentPage {
                 color: Appearance.colors.colLayer1
             }
 
-            // Put a dropped display next to the closest edge of another one, then start the desktop at 0,0
+            function overlapsAny(box, others) {
+                return others.some(other => Math.min(box.x + box.width, other.x + other.width) - Math.max(box.x, other.x) > 0
+                    && Math.min(box.y + box.height, other.y + other.height) - Math.max(box.y, other.y) > 0);
+            }
+
+            // Snap to an edge only when the drop is close to one; otherwise keep the spot the
+            // pointer was released on, so the picture matches the desk instead of guessing.
+            // The old 60 was desktop pixels: at this zoom that is a few pointer pixels, and the
+            // display jumped to the nearest edge however far away the drop was.
             function drop(name, x, y) {
                 const moving = boxes.find(b => b.name === name);
                 const others = boxes.filter(b => b.name !== name);
-                if (!moving || others.length === 0) return;
-                let best = null;
+                if (!moving) return;
+                const tolerance = Math.max(12, 12 / arrangement.zoom); // in desktop pixels
+                let nearest = null;
                 for (const other of others) {
                     const clampY = value => Math.max(other.y - moving.height + 1, Math.min(other.y + other.height - 1, value));
                     const clampX = value => Math.max(other.x - moving.width + 1, Math.min(other.x + other.width - 1, value));
-                    const snap = (value, edges) => edges.reduce((current, edge) => Math.abs(edge - value) < 60 ? edge : current, value);
+                    const snap = (value, edges) => edges.reduce((current, edge) => Math.abs(edge - value) < tolerance ? edge : current, value);
                     const candidates = [
                         { x: other.x + other.width, y: snap(clampY(y), [other.y, other.y + other.height - moving.height]) },
                         { x: other.x - moving.width, y: snap(clampY(y), [other.y, other.y + other.height - moving.height]) },
@@ -176,16 +185,21 @@ ContentPage {
                     ];
                     for (const candidate of candidates) {
                         const distance = Math.hypot(candidate.x - x, candidate.y - y);
-                        if (!best || distance < best.distance) best = Object.assign({ distance: distance }, candidate);
+                        if (!nearest || distance < nearest.distance) nearest = Object.assign({ distance: distance }, candidate);
                     }
                 }
-                let placed = boxes.map(b => b.name === name ? Object.assign({}, b, { x: Math.round(best.x), y: Math.round(best.y) }) : b);
+                let target = nearest && nearest.distance <= tolerance
+                    ? { x: Math.round(nearest.x), y: Math.round(nearest.y) }
+                    : { x: Math.round(x), y: Math.round(y) };
+                if (others.length > 0 && arrangement.overlapsAny(Object.assign({}, moving, target), others) && nearest)
+                    target = { x: Math.round(nearest.x), y: Math.round(nearest.y) }; // never stack two displays
+                let placed = boxes.map(b => b.name === name ? Object.assign({}, b, target) : b);
                 const left = Math.min(...placed.map(b => b.x));
                 const top = Math.min(...placed.map(b => b.y));
                 let positions = {};
                 for (const box of placed) {
                     const position = `${box.x - left}x${box.y - top}`;
-                    if (position !== HyprlandMonitors.spec(box.monitor).position) positions[box.name] = position;
+                    if (position !== HyprlandMonitors.effectiveSpec(box.monitor).position) positions[box.name] = position;
                 }
                 if (Object.keys(positions).length > 0) HyprlandMonitors.arrange(positions);
             }
@@ -339,7 +353,7 @@ ContentPage {
             currentValue: root.selectedSpec?.mirror ?? ""
             options: [
                 { displayName: Translation.tr("Nothing, extend the desktop"), value: "" },
-                ...root.monitors.filter(m => m.name !== root.selected?.name && !HyprlandMonitors.spec(m).mirror)
+                ...root.monitors.filter(m => m.name !== root.selected?.name && !HyprlandMonitors.effectiveSpec(m).mirror)
                     .map(m => ({ displayName: root.displayName(m), value: m.name, description: m.name }))
             ]
             onSelected: value => HyprlandMonitors.change(root.selected.name, { mirror: value })
