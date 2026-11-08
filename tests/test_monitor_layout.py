@@ -153,7 +153,7 @@ class MonitorLayoutTests(unittest.TestCase):
         self.assertNotIn('HyprlandMonitors.spec(', page)
         self.assertIn('HyprlandMonitors.effectiveSpec(', page)
         self.assertIn('boxes.length > 0 ? Math.min(...boxes.map(b => b.x)) : 0', page)
-        self.assertIn('const tolerance = Math.max(12, 12 / arrangement.zoom);', page)
+        self.assertIn('DisplaySnapping.suggest(', page)   # snapping rules are shared, not inline
         self.assertIn('overlapsAny', page)
 
     def test_hotplug_guards_exist(self):

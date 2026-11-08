@@ -6,9 +6,34 @@ Velora keeps monitor choices in `~/.config/hypr/custom/monitors.json` (one entry
 another file, because `monitors.lua` is overwritten.
 
 Settings → Displays edits those choices. The arrangement canvas draws the outputs in the
-**logical** desktop coordinates Hyprland uses, fitted to the widget, and a drop is only snapped
-to a neighbouring edge when it lands close to one; otherwise it keeps the place it was released
-on. Overlapping two outputs is refused. Positions are normalised so the layout always starts at
+**logical** desktop coordinates Hyprland uses, fitted to the widget.
+
+### Snapping
+
+Dragging a display magnetises each axis **independently** to the nearest of:
+
+- the neighbour's near edge and far edge (flush, from either side),
+- the neighbour's middle, so a shorter display can be centred on a taller one,
+- the edges and middle of the drawn area itself.
+
+That is at least three targets per side, and the axes stay independent so a display can still
+slide along a longer neighbour. The rules live in `modules/common/functions/DisplaySnapping.qml`
+and follow what the established tools do: arandr snaps per axis to the neighbour's edges and
+centre and uses a tolerance in *widget* pixels (five) so the feel does not depend on the canvas
+zoom; Windows is often criticised for offering only the top and bottom edges, which makes
+unequal displays impossible to line up in the middle; KDE has long-standing requests
+(348241, 355119) to switch snapping off and to place displays by single pixels. All three
+complaints are answered here:
+
+- the live position is previewed while dragging, with a guide line at the edge it will touch;
+- **Alt** drops the display exactly where the pointer released it (tolerance 0);
+- **arrow keys** nudge the selected display by 1 px, **Shift+arrow** by 10 px, applied with a
+  short debounce so a burst of keys costs one reload instead of thirty.
+
+Overlapping two displays is refused: if the snapped position would stack them, the closest
+position that still touches a neighbour is used, and if nothing fits the move is ignored
+instead of teleporting a display somewhere unexpected. Positions are normalised so the layout
+always starts at `0x0`. Positions are normalised so the layout always starts at
 `0x0`.
 
 `hyprctl monitors all` reports an **enabled** output in scaled pixels and a **disabled** one in
