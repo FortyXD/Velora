@@ -3183,5 +3183,7 @@
   "Mountain": "Горы",
   "Commercial use of this artwork by third parties is not permitted.": "Коммерческое использование этой работы третьими лицами запрещено.",
   "A floating island at sunset, a rounded bottom bar and soft peach accents": "Парящий остров на закате, закруглённая нижняя панель и мягкие персиковые акценты",
-  "Quiet night mountains, a top bar and cool blue accents": "Спокойные ночные горы, верхняя панель и холодные синие акценты"
+  "Quiet night mountains, a top bar and cool blue accents": "Спокойные ночные горы, верхняя панель и холодные синие акценты",
+  "Hide the workspace preview when the pointer flicks away": "Скрывать превью рабочего стола, если резко увести курсор",
+  "How fast the pointer must move to hide it (px/s)": "Скорость ухода курсора, при которой превью скрыть (px/с)"
 }

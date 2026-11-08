@@ -419,6 +419,8 @@ Singleton {
                     property int shown: 10
                     property bool showAppIcons: true
                     property bool alwaysShowNumbers: false
+                    property bool hidePreviewOnFlick: true // Close the workspace preview at once when the pointer is flicked away from the bar
+                    property int flickSpeed: 200 // Pixels per second away from the bar that counts as a flick
                     property int showNumberDelay: 300 // milliseconds
                     property list<string> numberMap: ["1", "2"] // Characters to show instead of numbers on workspace indicator
                     property bool useNerdFont: false

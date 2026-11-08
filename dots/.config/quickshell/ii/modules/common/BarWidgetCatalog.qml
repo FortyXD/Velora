@@ -92,6 +92,7 @@ Singleton {
                     { "key": "showAppIcons", "kind": "switch", "label": Translation.tr("App icons"), "scope": "path:bar.workspaces.showAppIcons" },
                     { "key": "monochromeIcons", "kind": "switch", "label": Translation.tr("Tint app icons"), "scope": "path:bar.workspaces.monochromeIcons" },
                     { "key": "alwaysShowNumbers", "kind": "switch", "label": Translation.tr("Always show numbers"), "scope": "path:bar.workspaces.alwaysShowNumbers" },
+                    { "key": "hidePreviewOnFlick", "kind": "switch", "label": Translation.tr("Hide the workspace preview when the pointer flicks away"), "scope": "path:bar.workspaces.hidePreviewOnFlick" },
                     { "key": "numberMap", "kind": "choice", "label": Translation.tr("Number style"), "scope": "path:bar.workspaces.numberMap", "json": true,
                       "choices": [
                           { "value": [], "name": Translation.tr("Normal") },

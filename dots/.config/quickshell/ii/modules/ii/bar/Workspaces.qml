@@ -84,6 +84,7 @@ Item {
     // Live preview of the hovered workspace, for workspaces that have windows
     property int hoveredWorkspace: 0
     property int previewWorkspace: 0 // Kept while the pointer travels from the button to the preview
+    property real previewAwaySpeed: 0 // Pixels per second away from the bar when the pointer left the workspaces
     onHoveredWorkspaceChanged: {
         if (hoveredWorkspace > 0 && HyprlandData.windowList.some(win => win.workspace.id === hoveredWorkspace))
             previewWorkspace = hoveredWorkspace;
@@ -93,9 +94,37 @@ Item {
         readonly property bool containsMouse: root.hoveredWorkspace > 0 && root.hoveredWorkspace === root.previewWorkspace
         anchors.fill: parent
     }
+    HoverHandler { // Only measures, so the buttons keep their own hover and the preview anchor keeps its clicks
+        id: pointerGauge
+        blocking: false
+        property real last: -1
+        property real lastMs: 0
+        property real awaySpeed: 0
+        // Growing coordinates point away from the bar on a top or left bar
+        readonly property real sign: Config.options.bar.bottom ? -1 : 1
+        readonly property real perpendicular: root.vertical ? point.position.x : point.position.y
+        onPointChanged: {
+            const now = Date.now();
+            pointerGauge.awaySpeed = PointerFlick.smooth(pointerGauge.awaySpeed,
+                PointerFlick.awaySpeed(pointerGauge.last, pointerGauge.perpendicular, pointerGauge.lastMs, now, pointerGauge.sign));
+            pointerGauge.last = pointerGauge.perpendicular;
+            pointerGauge.lastMs = now;
+            // Published while hovering, not only on leaving: the popup decides on the very
+            // next property change, and the order of the two hover handlers is not ours to pick
+            root.previewAwaySpeed = pointerGauge.awaySpeed;
+        }
+        onHoveredChanged: {
+            if (hovered) {
+                pointerGauge.awaySpeed = 0; // Every new approach starts from standing still
+                pointerGauge.last = -1;
+                root.previewAwaySpeed = 0;
+            }
+        }
+    }
     WorkspacePreviewPopup {
         hoverTarget: previewAnchor
         workspaceId: root.previewWorkspace
+        awaySpeed: root.previewAwaySpeed
         firstWorkspace: root.workspaceGroup * root.workspacesShown + 1
         lastWorkspace: (root.workspaceGroup + 1) * root.workspacesShown
     }

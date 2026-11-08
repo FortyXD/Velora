@@ -28,6 +28,12 @@ StyledPopup {
     openDelay: 220
 
     property int workspaceId: 0
+    // A flick closes the miniature even when the pointer lands inside it: anyone moving at
+    // ordinary speed is not aiming at a window. Only a careful, slow drift towards it keeps
+    // the grace time, so picking a window has to be done on purpose.
+    property real awaySpeed: 0
+    readonly property real flickSpeed: 300 // pixels per second, perpendicular to the bar
+    hideInstantly: Config.options.bar.workspaces.hidePreviewOnFlick && awaySpeed >= flickSpeed
     // Windows of these workspaces are captured up front
     property int firstWorkspace: 1
     property int lastWorkspace: 10

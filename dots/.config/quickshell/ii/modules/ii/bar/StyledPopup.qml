@@ -19,33 +19,35 @@ LazyLoader {
     // Interactive popups stay open while the pointer is over them, so their content can be used
     property bool interactive: false
     property int openDelay: 0 // ms of hovering before opening, so sweeping across the bar doesn't flash popups
+    property int closeDelay: 280 // ms to cross the gap between the bar and the popup before it closes
+    // An owner that measures the pointer can ask to close at once (a flick). It also latches:
+    // the popup must not pop back while the pointer is still inside it, and re-arms on the bar.
+    property bool hideInstantly: false
+    property bool dismissed: false
     property bool popupHovered: false
 
     readonly property bool animate: Config.options.bar.microAnimations
     readonly property bool targetHovered: !!(hoverTarget && hoverTarget.containsMouse) && !GlobalStates.barEditing
     readonly property bool pointerInside: targetHovered || popupHovered
     property bool wanted: false
+    onTargetHoveredChanged: if (targetHovered) root.dismissed = false
     onPointerInsideChanged: {
-        if (pointerInside) {
-            closeTimer.stop();
-            if (wanted) return;
-            if (openDelay > 0) openTimer.restart();
-            else wanted = true;
-        } else {
-            openTimer.stop();
-            if (!wanted) return;
-            // Time to cross the gap between the bar and the popup
-            if (interactive) closeTimer.restart();
-            else wanted = false;
-        }
+        const next = PopupHoverPolicy.next(wanted, dismissed, pointerInside, hideInstantly,
+            interactive, openDelay > 0);
+        dismissed = next.dismissed;
+        if (next.stopOpen) openTimer.stop();
+        if (next.stopClose) closeTimer.stop();
+        if (next.startOpen) openTimer.restart();
+        if (next.startClose) closeTimer.restart();
+        wanted = next.wanted;
     }
     property Timer openTimer: Timer {
         interval: root.openDelay
-        onTriggered: root.wanted = root.pointerInside
+        onTriggered: root.wanted = PopupHoverPolicy.timerWanted(root.pointerInside, root.dismissed)
     }
     property Timer closeTimer: Timer {
-        interval: 280
-        onTriggered: root.wanted = root.pointerInside
+        interval: root.closeDelay
+        onTriggered: root.wanted = PopupHoverPolicy.timerWanted(root.pointerInside, root.dismissed)
     }
 
     // Stays loaded for the length of the exit animation
