@@ -125,8 +125,6 @@ Item {
         hoverTarget: previewAnchor
         workspaceId: root.previewWorkspace
         awaySpeed: root.previewAwaySpeed
-        firstWorkspace: root.workspaceGroup * root.workspacesShown + 1
-        lastWorkspace: (root.workspaceGroup + 1) * root.workspacesShown
     }
 
     implicitWidth: root.vertical ? Appearance.sizes.verticalBarWidth : (root.workspaceButtonWidth * root.workspacesShown)

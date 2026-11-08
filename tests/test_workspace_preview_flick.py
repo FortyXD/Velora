@@ -80,7 +80,7 @@ class WorkspacePreviewFlickTests(unittest.TestCase):
   // Smoothing halves a single frame: a slow approach can never reach the threshold,
   // while a real flick clears it on the very first frame.
   if (Math.abs(PointerFlick.smooth(0, fast) - 1000) > 0.01) { console.error("TEST smoothing"); Qt.exit(7); }
-  if (!PointerFlick.isFlick(1000, 300) || PointerFlick.isFlick(125, 300) || PointerFlick.isFlick(2000, 0))
+  if (!PointerFlick.isFlick(1000, 370) || PointerFlick.isFlick(125, 370) || PointerFlick.isFlick(2000, 0))
    { console.error("TEST threshold"); Qt.exit(8); }
   Qt.quit();
 } }''')
@@ -120,6 +120,22 @@ class WorkspacePreviewFlickTests(unittest.TestCase):
 } }''')
             self.assertEqual(result.returncode, 0, output)
 
+    def test_the_preview_captures_only_what_it_shows(self):
+        popup = (SHELL / 'modules/ii/bar/WorkspacePreviewPopup.qml').read_text()
+        workspaces = (SHELL / 'modules/ii/bar/Workspaces.qml').read_text()
+        # Only the shown workspace is captured, and every capture is size-limited.
+        self.assertIn('=== root.workspaceId)', popup)
+        self.assertNotIn('firstWorkspace', popup)
+        self.assertNotIn('lastWorkspace', popup)
+        self.assertNotIn('firstWorkspace', workspaces)
+        self.assertIn('constraintSize: windowItem.captureLimit', popup)
+        limit = popup[popup.index('readonly property size captureLimit'):popup.index('readonly property size captureLimit') + 320]
+        self.assertIn('Math.min(720', limit)
+        self.assertIn('Math.max(48', limit)
+        # Refreshing stays bounded: one frame per second, only for visible windows.
+        self.assertIn('running: windowItem.visible && capture.hasContent && !PowerSaving.cutLivePreviews', popup)
+        self.assertIn('live: false', popup)
+
     def test_the_preview_and_its_setting_are_wired_together(self):
         workspaces = (SHELL / 'modules/ii/bar/Workspaces.qml').read_text()
         popup = (SHELL / 'modules/ii/bar/WorkspacePreviewPopup.qml').read_text()
@@ -136,25 +152,34 @@ class WorkspacePreviewFlickTests(unittest.TestCase):
         self.assertIn('property real awaySpeed: 0', popup)
         self.assertIn('hideInstantly: Config.options.bar.workspaces.hidePreviewOnFlick'
                       ' && awaySpeed >= flickSpeed', popup)
+        self.assertIn('readonly property real flickSpeed: Config.options.bar.workspaces.flickSpeed', popup)
         self.assertIn('PopupHoverPolicy.next(wanted, dismissed, pointerInside, hideInstantly', styled)
         self.assertIn('PopupHoverPolicy.timerWanted(root.pointerInside, root.dismissed)', styled)
         self.assertIn('if (targetHovered) root.dismissed = false', styled)
-        # Tuning: an ordinary move closes the miniature, only a slow one may stay open.
-        threshold = float(re.search(r'readonly property real flickSpeed: (\d+)', popup).group(1))
-        self.assertLessEqual(threshold, 400)
-        self.assertGreaterEqual(threshold, 200)
-
+        # The switch and the slider, and a default strict enough that an ordinary
+        # hand movement closes the miniature instead of leaving it under the cursor.
         self.assertIn('property bool hidePreviewOnFlick: true', config)
+        default = int(re.search(r'property int flickSpeed: (\d+)', config).group(1))
+        # Strict enough that an ordinary hand movement dismisses the miniature, loose
+        # enough that a deliberate slow approach still reaches it.
+        self.assertLessEqual(default, 450)
+        self.assertGreaterEqual(default, 300)
         self.assertIn('"scope": "path:bar.workspaces.hidePreviewOnFlick"', catalog)
+        self.assertIn('"scope": "path:bar.workspaces.flickSpeed"', catalog)
+        slider = [part for part in catalog.splitlines() if 'path:bar.workspaces.flickSpeed' in part][0]
+        self.assertEqual((int(re.search(r'"from": (\d+)', slider).group(1)),
+                          int(re.search(r'"to": (\d+)', slider).group(1))), (100, 600))
+        self.assertLessEqual(default, 600)
 
         example = json.loads((PROJECT / 'dots/.config/illogical-impulse/config.example.json').read_text())
         self.assertIs(example['bar']['workspaces']['hidePreviewOnFlick'], True)
+        self.assertEqual(example['bar']['workspaces']['flickSpeed'], default)
 
-        label = 'Hide the workspace preview when the pointer flicks away'
-        self.assertIn(f'Translation.tr("{label}")', catalog)
         russian = json.loads((SHELL / 'translations/ru_RU.json').read_text())
-        self.assertIn(label, russian)
-        self.assertTrue(russian[label].strip())
+        for label in ('Hide the workspace preview when the pointer flicks away',
+                      'How fast the pointer must move to hide it (px/s)'):
+            self.assertIn(f'Translation.tr("{label}")', catalog)
+            self.assertTrue(russian.get(label, '').strip(), label)
 
 
 if __name__ == '__main__':

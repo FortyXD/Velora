@@ -17,10 +17,11 @@ import Qt5Compat.GraphicalEffects
  * app icons below lists every window, so nothing on the workspace stays hidden.
  * Click a window to focus it, or anywhere else to switch to the workspace.
  *
- * Cheap on purpose: when the preview opens, every window of the shown workspaces is captured once
- * (a single frame, ~80 ms for all of them), so moving between workspaces is instant. Only the windows on
- * display are refreshed, once a second, instead of being captured live. The wallpaper is decoded once
- * at a small size and kept. Windows show their app icon until their first frame arrives.
+ * Cheap on purpose: only the windows of the workspace being shown are captured, once each, and every
+ * capture is asked for the size the miniature can actually display instead of the window's full
+ * resolution (a maximized window here is 2558x1398, drawn about 340 px wide). Refreshing is one frame
+ * per second for the visible windows, never a live stream. The wallpaper is decoded once at a small
+ * size and kept in the pixmap cache. Windows show their app icon until their first frame arrives.
  */
 StyledPopup {
     id: root
@@ -32,12 +33,8 @@ StyledPopup {
     // ordinary speed is not aiming at a window. Only a careful, slow drift towards it keeps
     // the grace time, so picking a window has to be done on purpose.
     property real awaySpeed: 0
-    readonly property real flickSpeed: 300 // pixels per second, perpendicular to the bar
+    readonly property real flickSpeed: Config.options.bar.workspaces.flickSpeed // pixels per second, perpendicular to the bar
     hideInstantly: Config.options.bar.workspaces.hidePreviewOnFlick && awaySpeed >= flickSpeed
-    // Windows of these workspaces are captured up front
-    property int firstWorkspace: 1
-    property int lastWorkspace: 10
-
     readonly property var windows: HyprlandData.windowList.filter(win => win.workspace.id === workspaceId)
     readonly property var monitorData: HyprlandData.monitors.find(mon => mon.id === windows[0]?.monitor) ?? HyprlandData.monitors[0]
     readonly property bool rotated: (monitorData?.transform ?? 0) % 2 === 1
@@ -101,7 +98,7 @@ StyledPopup {
                 }
             }
 
-            Image { // Lives as long as the bar, so it's decoded once instead of on every open
+            Image { // Cached pixmap: reopening the preview does not decode the wallpaper again
                 anchors.fill: parent
                 asynchronous: true
                 cache: true
@@ -125,19 +122,24 @@ StyledPopup {
 
                 sourceComponent: Item {
                     Repeater {
+                        // The other workspaces of the group are not captured up front: their icons are
+                        // listed below, and switching costs one small frame round instead of a dozen
+                        // full-screen buffers when the preview opens.
                         model: ScriptModel {
-                            values: ToplevelManager.toplevels.values.filter(toplevel => {
-                                const workspace = HyprlandData.windowByAddress[`0x${toplevel.HyprlandToplevel?.address}`]?.workspace?.id ?? 0;
-                                return workspace >= root.firstWorkspace && workspace <= root.lastWorkspace;
-                            })
+                            values: ToplevelManager.toplevels.values.filter(toplevel =>
+                                (HyprlandData.windowByAddress[`0x${toplevel.HyprlandToplevel?.address}`]?.workspace?.id ?? 0) === root.workspaceId)
                         }
                         delegate: Item {
                             id: windowItem
                             required property var modelData
                             readonly property var windowData: HyprlandData.windowByAddress[`0x${modelData.HyprlandToplevel?.address}`]
-                            readonly property bool shown: (windowData?.workspace?.id ?? 0) === root.workspaceId
                             readonly property var place: root.placement.rects[windowData?.address] ?? null
-                            visible: shown && place !== null
+                            visible: place !== null
+                            // What can be shown, with a little headroom for the display scale: asking the
+                            // compositor for the window's own size costs about ten times the pixels.
+                            readonly property size captureLimit: Qt.size(
+                                Math.min(720, Math.max(48, Math.round((place?.width ?? 0) * 2))),
+                                Math.min(720, Math.max(48, Math.round((place?.height ?? 0) * 2))))
                             x: place?.x ?? 0
                             y: place?.y ?? 0
                             width: place?.width ?? 0
@@ -159,6 +161,7 @@ StyledPopup {
                                 id: capture
                                 anchors.fill: parent
                                 captureSource: windowItem.modelData
+                                constraintSize: windowItem.captureLimit
                                 live: false // One frame on creation, then refreshed by the timer below
                             }
                             IconImage { // Which app it is, once windows are spread out and lose their places
@@ -174,7 +177,7 @@ StyledPopup {
                             Timer { // Keep the windows on display from looking frozen, at a tiny cost
                                 interval: 1000
                                 repeat: true
-                                running: windowItem.shown && capture.hasContent && !PowerSaving.cutLivePreviews
+                                running: windowItem.visible && capture.hasContent && !PowerSaving.cutLivePreviews
                                 onTriggered: capture.captureFrame()
                             }
                             Rectangle { // Hover outline

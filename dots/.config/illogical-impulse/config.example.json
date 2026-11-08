@@ -281,7 +281,7 @@
         },
         "workspaces": {
             "alwaysShowNumbers": false,
-            "flickSpeed": 200,
+            "flickSpeed": 370,
             "hidePreviewOnFlick": true,
             "monochromeIcons": true,
             "numberMap": [
