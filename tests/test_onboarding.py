@@ -39,6 +39,9 @@ class OnboardingTests(unittest.TestCase):
                 'import QtQuick\nQtObject { property string path; property bool printErrors; property bool blockLoading; property string written: "{}"; '
                 'property string content: ""; signal loaded(); signal loadFailed(); function setText(text) { written = text; } '
                 'function text() { return content; } }\n')
+            # Services may expose an IPC status handler (the display service does); the
+            # harness only needs a type that accepts a target.
+            (root / 'IpcHandler.qml').write_text('import QtQuick\nQtObject { property string target }\n')
             (root / 'Process.qml').write_text(
                 'import QtQuick\nQtObject { property bool running; property var command; property QtObject stdout; '
                 'property QtObject stderr; property bool stdinEnabled; property var writes: []; '
