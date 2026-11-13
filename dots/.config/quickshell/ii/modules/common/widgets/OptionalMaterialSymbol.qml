@@ -14,6 +14,7 @@ Loader {
 
     sourceComponent: Item {
         implicitWidth: materialSymbol.implicitWidth
+        implicitHeight: materialSymbol.implicitHeight
 
         MaterialSymbol {
             id: materialSymbol

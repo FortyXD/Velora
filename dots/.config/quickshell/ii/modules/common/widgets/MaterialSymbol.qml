@@ -6,6 +6,10 @@ StyledText {
     property real iconSize: Appearance?.font.pixelSize.small ?? 16
     property real fill: 0
     property real truncatedFill: fill.toFixed(1) // Reduce memory consumption spikes from constant font remapping
+    // Icon line boxes often have an odd height. Integer anchor rounding can
+    // move their center by half a logical pixel (a full pixel at 2x scale).
+    // Keep centered icons on the exact center; baseline-aligned text is untouched.
+    anchors.alignWhenCentered: false
     renderType: Text.NativeRendering
     font {
         hintingPreference: Font.PreferNoHinting

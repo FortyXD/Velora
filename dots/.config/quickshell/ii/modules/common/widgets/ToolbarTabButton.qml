@@ -20,21 +20,29 @@ RippleButton {
     colBackgroundHover: ColorUtils.transparentize(Appearance.colors.colOnSurface, current ? 1 : 0.95)
     colRipple: ColorUtils.transparentize(Appearance.colors.colOnSurface, 0.95)
 
-    contentItem: Row {
-        id: contentRow
-        anchors.centerIn: parent
-        spacing: 6
+    contentItem: Item {
+        implicitWidth: contentRow.implicitWidth
+        implicitHeight: contentRow.implicitHeight
 
-        MaterialSymbol {
-            id: icon
-            anchors.verticalCenter: parent.verticalCenter
-            iconSize: 22
-            text: root.materialSymbol
-        }
-        StyledText {
-            id: label
-            anchors.verticalCenter: parent.verticalCenter
-            text: root.text
+        Row {
+            id: contentRow
+            anchors.centerIn: parent
+            anchors.alignWhenCentered: false
+            spacing: 6
+
+            MaterialSymbol {
+                id: icon
+                visible: root.materialSymbol.length > 0
+                anchors.verticalCenter: parent.verticalCenter
+                iconSize: 22
+                text: root.materialSymbol
+            }
+            StyledText {
+                id: label
+                visible: root.text.length > 0
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.text
+            }
         }
     }
 }

@@ -11,23 +11,33 @@ ToolbarButton {
     colRippleToggled: Appearance.colors.colSecondaryContainerActive
     property color colText: toggled ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnSurfaceVariant
 
-    contentItem: Row {
-        anchors.centerIn: parent
-        spacing: 4
+    contentItem: Item {
+        implicitWidth: contentRow.implicitWidth
+        implicitHeight: contentRow.implicitHeight
 
-        MaterialSymbol {
-            anchors.verticalCenter: parent.verticalCenter
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            iconSize: 22
-            text: iconBtn.iconText
-            color: iconBtn.colText
-        }
-        StyledText {
-            visible: iconBtn.iconText.length > 0 && iconBtn.text.length > 0
-            anchors.verticalCenter: parent.verticalCenter
-            color: iconBtn.colText
-            text: iconBtn.text
+        // Controls sizes contentItem to availableWidth. Center the natural-size
+        // group inside it, rather than centering a Row that is itself stretched.
+        Row {
+            id: contentRow
+            anchors.centerIn: parent
+            anchors.alignWhenCentered: false
+            spacing: 4
+
+            MaterialSymbol {
+                visible: iconBtn.iconText.length > 0
+                anchors.verticalCenter: parent.verticalCenter
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                iconSize: 22
+                text: iconBtn.iconText
+                color: iconBtn.colText
+            }
+            StyledText {
+                visible: iconBtn.text.length > 0
+                anchors.verticalCenter: parent.verticalCenter
+                color: iconBtn.colText
+                text: iconBtn.text
+            }
         }
     }
 }

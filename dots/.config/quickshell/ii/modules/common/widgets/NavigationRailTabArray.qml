@@ -13,12 +13,16 @@ Item {
     Layout.topMargin: 25
 
     Rectangle {
-        property real itemHeight: tabBarColumn.children[0]?.baseSize ?? 56
-        property real baseHighlightHeight: tabBarColumn.children[0]?.baseHighlightHeight ?? 56
+        objectName: "navigationSelectionHighlight"
+        readonly property var selectedButton: tabBarColumn.children[root.currentIndex]
+        property real itemHeight: selectedButton?.baseSize ?? 56
+        property real baseHighlightHeight: selectedButton?.baseHighlightHeight ?? 56
         anchors {
             top: tabBarColumn.top
             left: tabBarColumn.left
-            topMargin: itemHeight * root.currentIndex + (root.expanded ? 0 : ((itemHeight - baseHighlightHeight) / 2))
+            topMargin: (selectedButton?.y ?? itemHeight * root.currentIndex)
+                + (root.expanded ? 0 : ((itemHeight - baseHighlightHeight) / 2)
+                    + (selectedButton?.highlightVerticalOffset ?? 0))
         }
         radius: Appearance.rounding.full
         color: Appearance.colors.colSecondaryContainer
