@@ -9,7 +9,9 @@ license=('GPL-3.0-only')
 # makepkg records the libcrypto ABI required by the compiled search daemon.
 depends=('bash' 'coreutils' 'git' 'python>=3.11' 'pacman' 'sudo' 'openssl' 'libcrypto.so' 'qt6-base' 'kio')
 makedepends=('cargo' 'openssl' 'cmake' 'extra-cmake-modules' 'qt6-base' 'kio')
-options=('!debug')
+# Cargo controls Rust LTO. GCC LTO objects from bundled SQLCipher cannot be
+# consumed by Rust's LLVM linker; keep native C objects in their regular format.
+options=('!debug' '!lto')
 source=('velora-source.tar.gz')
 sha256sums=('@SHA256@')
 
