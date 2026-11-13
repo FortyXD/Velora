@@ -5,6 +5,11 @@
 /.agents/
 /.aws/
 /.codex/
+/.vscode/
+/.pytest_cache/
+
+# Local configuration backups are not release sources.
+/dots/.config/hypr/custom/*.before-*
 
 # Ignore Python cache files
 __pycache__/

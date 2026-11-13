@@ -18,7 +18,7 @@ jobs:
       contents: write
     steps:
       - name: Install build tools
-        run: pacman -Syu --noconfirm --needed git python sudo github-cli rust
+        run: pacman -Syu --noconfirm --needed git python sudo github-cli rust openssl cmake extra-cmake-modules qt6-base kio dbus bubblewrap nodejs
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.release_tag || github.ref }}
@@ -31,7 +31,8 @@ jobs:
           chown -R builder:builder "$GITHUB_WORKSPACE"
       - name: Validate maintenance tools
         run: |
-          runuser -u builder -- python3 -m unittest discover -s tests -v
+          runuser -u builder -- cargo build --locked --workspace --manifest-path tools/Cargo.toml
+          runuser -u builder -- env VELORA_TEST_PREBUILT=1 python3 -m unittest discover -s tests -v
           bash -n velora install.sh setup diagnose scripts/install.sh dots/.config/quickshell/ii/scripts/maintenance/velora.sh
       - name: Build the Velora package
         run: runuser -u builder -- ./velora package --output "$GITHUB_WORKSPACE/dist"

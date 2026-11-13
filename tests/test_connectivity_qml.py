@@ -19,7 +19,7 @@ REQUIRED = os.environ.get('VELORA_REQUIRE_CONNECTIVITY_TESTS') == '1'
 
 def production(path, replacements=()):
     """A shell file without its imports of the things these tests stand in for."""
-    source = '\n'.join(line for line in (SHELL / path).read_text().splitlines()
+    source = '\n'.join(line for line in (Path(os.environ.get('VELORA_QML_SOURCE', SHELL)) / path).read_text().splitlines()
                        if not line.startswith(('import qs', 'import Quickshell')))
     for old, new in replacements:
         if old not in source:

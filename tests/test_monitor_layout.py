@@ -192,6 +192,9 @@ ShellRoot {
  function fail(code, label) { console.error("TEST " + label); Qt.exit(code); }
  Timer { running: true; interval: 300; onTriggered: {
   const monitors = HyprlandMonitors;
+  const physical = {width:1920,height:1200,scale:1.5,refreshRate:60,transform:0,
+      availableModes:["2880x1800@60.00Hz","1920x1200@60.00Hz"],disabled:false};
+  if (monitors.modeText(physical) !== "1920x1200@60.00") fail(13, "physical mode was scaled twice");
   monitors.ready = true;
   monitors.overrides = {};
   // An enabled scaled output reports its logical size; the mode has to come back as the panel.

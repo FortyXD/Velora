@@ -77,6 +77,7 @@ class WorkspacePreviewControlsTests(unittest.TestCase):
             write(root, 'services/qmldir', 'module qs.services\nsingleton Translation 1.0 Translation.qml\n')
             write(root, 'modules/common/functions/qmldir', 'module qs.modules.common.functions\nsingleton FileUtils 1.0 FileUtils.qml\n')
             shutil.copy2(SHELL / 'modules/common/Config.qml', root / 'modules/common/Config.qml')
+            write(root, 'services/ai/PromptDefaults.js', (SHELL / 'services/ai/PromptDefaults.js').read_text())
             for second in (False, True):
                 body = '''
                 const ws = Config.options.bar.workspaces;
