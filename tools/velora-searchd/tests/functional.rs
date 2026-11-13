@@ -38,6 +38,7 @@ async fn functional_search_matrix() {
     }
     let config = Config {
         roots: vec![root.clone()],
+        semantic: true,
         ..Config::default()
     };
     let mut store = Store::open(&temp.path().join("index.db"), &[29; 32]).unwrap();

@@ -38,6 +38,7 @@ async fn main() -> Result<()> {
     let engine = Engine::new();
     let config = Config {
         roots: vec![root.clone()],
+        semantic: true,
         media: false,
         ..Config::default()
     };

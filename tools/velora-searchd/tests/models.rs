@@ -46,6 +46,7 @@ async fn neural_search_rejects_distractors_and_understands_cross_language_querie
     let engine = Engine::new();
     let config = Config {
         roots: vec![root.clone()],
+        semantic: true,
         ..Config::default()
     };
     let mut store = Store::open(&tmp.path().join("index.db"), &[17; 32]).unwrap();
@@ -191,6 +192,8 @@ async fn real_text_images_video_ocr_and_encrypted_ann() {
     let engine = Engine::new();
     let config = Config {
         roots: vec![fixtures.clone()],
+        semantic: true,
+        media: true,
         ..Config::default()
     };
     let mut store = Store::open(&tmp.path().join("index.db"), &[17; 32]).unwrap();

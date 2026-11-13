@@ -115,6 +115,7 @@ ShellRoot {
 }
 '''
 
+@unittest.skipUnless((pages.QS and pages.CARGO and pages.DBUS) or pages.REQUIRED, "needs qs, cargo and dbus-daemon")
 class AiConnectionsPagesTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

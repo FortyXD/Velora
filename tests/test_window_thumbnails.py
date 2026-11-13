@@ -5,12 +5,15 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
 from test_connectivity_qml import production, write_common, write_singletons, QT_TEST_RUNNER, PROJECT
 
 
-@unittest.skipUnless(QT_TEST_RUNNER, 'Qt Quick Test unavailable')
+@unittest.skipUnless(QT_TEST_RUNNER and Image, 'Qt Quick Test and Pillow are required')
 class WindowThumbnailTests(unittest.TestCase):
     def test_capture_policy_and_close_lifecycle(self):
         with tempfile.TemporaryDirectory(prefix='velora-thumbnails-') as directory:

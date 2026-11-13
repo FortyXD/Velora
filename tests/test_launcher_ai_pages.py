@@ -6,6 +6,7 @@ from unittest.mock import patch
 import test_connectivity_pages as pages
 
 
+@unittest.skipUnless((pages.QS and pages.CARGO and pages.DBUS) or pages.REQUIRED, "needs qs, cargo and dbus-daemon")
 class LauncherAiPagesTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
