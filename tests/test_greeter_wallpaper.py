@@ -123,7 +123,8 @@ class SandboxTests(unittest.TestCase):
         if not shutil.which('bwrap'):
             reason = 'bubblewrap is not installed'
         else:
-            probe = subprocess.run(['bwrap', '--unshare-all', '--ro-bind', '/', '/', '/usr/bin/true'],
+            probe = subprocess.run(['bwrap', '--unshare-all', '--cap-drop', 'ALL',
+                                    '--ro-bind', '/', '/', '/usr/bin/true'],
                                    capture_output=True, text=True, timeout=10)
             if probe.returncode == 0:
                 return

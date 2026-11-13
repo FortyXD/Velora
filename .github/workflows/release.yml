@@ -13,12 +13,15 @@ permissions:
 jobs:
   arch-package:
     runs-on: ubuntu-latest
-    container: archlinux:base-devel
+    container:
+      image: archlinux:base-devel
+      # Exercise the real nested bubblewrap sandbox used by agent transactions.
+      options: --security-opt seccomp=unconfined --security-opt apparmor=unconfined
     permissions:
       contents: write
     steps:
       - name: Install build tools
-        run: pacman -Syu --noconfirm --needed git python python-pillow sudo github-cli rust openssl cmake extra-cmake-modules qt6-base kio dbus bubblewrap nodejs poppler libarchive
+        run: pacman -Syu --noconfirm --needed git python python-pillow sudo github-cli rust openssl cmake extra-cmake-modules qt6-base kio dbus bubblewrap nodejs jq poppler libarchive ttf-dejavu
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.release_tag || github.ref }}
@@ -29,10 +32,14 @@ jobs:
           install -d -m 0755 /run/systemd
           useradd --create-home builder
           chown -R builder:builder "$GITHUB_WORKSPACE"
+      - name: Install the real icon font for geometry and pixel tests
+        run: |
+          runuser -u builder -- python3 -c "import sys; sys.path.insert(0, 'scripts'); import velora; velora.download_font('Material Symbols Rounded')"
+          runuser -u builder -- fc-cache -f
       - name: Validate maintenance tools
         run: |
           runuser -u builder -- cargo build --locked --workspace --manifest-path tools/Cargo.toml
-          runuser -u builder -- env VELORA_TEST_PREBUILT=1 python3 -m unittest discover -s tests -v
+          runuser -u builder -- env VELORA_TEST_PREBUILT=1 VELORA_REQUIRE_SANDBOX_TESTS=1 python3 -m unittest discover -s tests -v
           bash -n velora install.sh setup diagnose scripts/install.sh dots/.config/quickshell/ii/scripts/maintenance/velora.sh
       - name: Build the Velora package
         run: runuser -u builder -- ./velora package --output "$GITHUB_WORKSPACE/dist"

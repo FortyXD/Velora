@@ -9,7 +9,7 @@ repo = home / 'Velora'
 def git(path, *args):
     return subprocess.check_output(['git', '-c', 'user.name=QEMU', '-c', 'user.email=qemu@example.invalid', *args], cwd=path, text=True).strip()
 git(repo, 'add', '-A')
-git(repo, 'commit', '-m', 'QEMU GUI update baseline')
+git(repo, 'commit', '--allow-empty', '-m', 'QEMU GUI update baseline')
 branch = git(repo, 'branch', '--show-current')
 remote = home / 'gui-update-remote.git'
 author = home / 'gui-update-author'
