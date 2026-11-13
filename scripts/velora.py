@@ -713,7 +713,9 @@ def build_file_dialog(*, dry=False):
     source = ROOT / "lib/qt6/plugins/generic/libvelora-file-dialog.so"
     if not source.exists():
         build = xdg("XDG_CACHE_HOME", ".cache") / "velora/file-dialog-build"
-        run(["cmake", "-S", ROOT / "tools/velora-file-dialog", "-B", build,
+        # A source update may move the checkout or change the Qt toolchain.
+        # CMake caches absolute source paths, so refresh its configuration each time.
+        run(["cmake", "--fresh", "-S", ROOT / "tools/velora-file-dialog", "-B", build,
              "-DBUILD_TESTING=OFF", "-DCMAKE_BUILD_TYPE=Release"], dry=dry)
         run(["cmake", "--build", build, "--parallel", "2"], dry=dry)
         source = build / "libvelora-file-dialog.so"
