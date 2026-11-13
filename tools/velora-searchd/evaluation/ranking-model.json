@@ -1,0 +1,8 @@
+{
+  "intercept": -19.24080658728124,
+  "cosine": 26.800668293892116,
+  "cross_encoder": 0.6776024175293929,
+  "margin": 48.38340267427049,
+  "threshold": 0.62,
+  "dataset": "synthetic-v1 dev; three-feature logistic regression, L2=0.002"
+}

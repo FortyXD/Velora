@@ -3,9 +3,19 @@
 # (and costs nothing) while the Ollama server is stopped. `ollama list` would start it.
 # Output: one JSON array, e.g. [{"name":"qwen3.5:latest","size":6594474236}]
 
-dirs=()
-[[ -n "${OLLAMA_MODELS:-}" ]] && dirs+=("$OLLAMA_MODELS/manifests")
-dirs+=(/var/lib/ollama/manifests "$HOME/.ollama/models/manifests" /usr/share/ollama/.ollama/models/manifests)
+# Match local-ollama.py and velora-agentd: one server reads one model store.
+# Combining stores advertises models that the launched server cannot load.
+if [[ -n "${OLLAMA_MODELS:-}" ]]; then
+    dirs=("$OLLAMA_MODELS/manifests")
+else
+    dirs=()
+    for folder in "$HOME/.ollama/models" /var/lib/ollama /usr/share/ollama/.ollama/models; do
+        if [[ -d "$folder/manifests" ]]; then
+            dirs=("$folder/manifests")
+            break
+        fi
+    done
+fi
 
 for dir in "${dirs[@]}"; do
     [[ -d "$dir" ]] || continue

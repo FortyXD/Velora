@@ -5,6 +5,7 @@ import qs.modules.common.functions
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Quickshell
 
 /**
  * Searchable model list: local Ollama models (smallest first), then cloud models.
@@ -13,6 +14,7 @@ import QtQuick.Layouts
 Rectangle {
     id: root
     signal closed()
+    property bool assistantMode: false
 
     property string query: ""
     property int selectedIndex: 0
@@ -21,6 +23,7 @@ Rectangle {
         const q = root.query.trim().toLowerCase();
         const matches = Ai.modelList
             .filter(id => Ai.models[id])
+            .filter(id => !root.assistantMode || Ai.models[id].local || !!Ai.models[id].connectionId)
             .filter(id => {
                 const model = Ai.models[id];
                 return q.length === 0 || [model.name, model.model, id].some(text => (text ?? "").toLowerCase().includes(q));
@@ -35,12 +38,13 @@ Rectangle {
     }
 
     function selectable(id) {
-        return Ai.models[id].local || !root.localOnly;
+        return Ai.modelAllowed(Ai.models[id]);
     }
 
     function choose(id) {
-        if (!id || !root.selectable(id)) return;
-        Ai.setModel(id, false);
+        if (!id || !root.selectable(id) || SidebarChat.busy) return;
+        if (root.assistantMode) AiConnections.useForAssistant(id);
+        else Ai.setModel(id, false);
         root.closed();
     }
 
@@ -51,7 +55,7 @@ Rectangle {
 
     onEntriesChanged: root.selectedIndex = Math.min(root.selectedIndex, Math.max(0, root.entries.length - 1))
 
-    color: Appearance.colors.colLayer2
+    color: Appearance.colors.colLayer2Base
     radius: Appearance.rounding.normal
     border.width: 1
     border.color: Appearance.colors.colOutlineVariant
@@ -62,6 +66,25 @@ Rectangle {
             margins: 8
         }
         spacing: 6
+
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: false
+            StyledText { Layout.fillWidth: true; Layout.leftMargin: 8; text: Translation.tr("Models"); font.pixelSize: Appearance.font.pixelSize.normal; font.weight: Font.DemiBold }
+            RippleButtonWithIcon {
+                objectName: "addAiConnection"
+                materialIcon: "add"; mainText: Translation.tr("Add")
+                onClicked: { root.closed(); Quickshell.execDetached(["env", "QS_SETTINGS_PAGE=ai", "QS_AI_ADD_CONNECTION=1", "QS_SETTINGS_SECTION=aiConnectionEditor", "QS_SETTINGS_SEARCH=", "qs", "-p", Quickshell.shellPath("settings.qml")]); }
+            }
+        }
+
+        RowLayout {
+            visible: root.assistantMode
+            Layout.fillWidth: true
+            Layout.fillHeight: false
+            ToolbarTextField { id: customModel; Layout.fillWidth: true; placeholderText: Translation.tr("Model name"); text: Assistant.profile.model; enabled: !SidebarChat.busy }
+            ChatIconButton { symbol: "check"; tooltip: Translation.tr("Choose model"); enabled: !SidebarChat.busy && !!customModel.text.trim(); onClicked: { Config.options.assistant.model = customModel.text.trim(); root.closed(); } }
+        }
 
         RowLayout {
             Layout.fillWidth: true
@@ -155,7 +178,7 @@ Rectangle {
                     rightPadding: 10
                     buttonRadius: Appearance.rounding.small
                     enabled: root.selectable(entry.modelData)
-                    toggled: entry.modelData === Ai.currentModelId
+                    toggled: root.assistantMode ? entry.model?.model === Assistant.profile.model && entry.model?.local === (Assistant.profile.provider === "ollama") : entry.modelData === Ai.currentModelId
                     colBackground: entry.index === root.selectedIndex ? Appearance.colors.colLayer2Hover : "transparent"
                     onClicked: root.choose(entry.modelData)
                     onHoveredChanged: if (hovered) root.selectedIndex = entry.index
@@ -215,6 +238,20 @@ Rectangle {
             text: Ai.modelList.length === 0
                 ? Translation.tr("No models found. Install one with `ollama pull qwen3.5`, then press refresh.")
                 : Translation.tr("No model matches “%1”").arg(root.query)
+        }
+        RippleButtonWithIcon {
+            objectName: "unloadLocalModel"
+            Layout.fillWidth: true
+            visible: SidebarChat.localModel
+            enabled: !SidebarChat.busy
+            materialIcon: "memory"; mainText: Translation.tr("Free memory")
+            onClicked: SidebarChat.releaseMemory()
+        }
+        StyledText {
+            Layout.fillWidth: true; Layout.margins: 8; wrapMode: Text.Wrap
+            visible: SidebarChat.localModel && !!LocalAiRuntime.memoryStatus
+            text: LocalAiRuntime.memoryStatus; color: Appearance.colors.colSubtext
+            font.pixelSize: Appearance.font.pixelSize.smaller
         }
     }
 }

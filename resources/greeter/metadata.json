@@ -1,0 +1,8 @@
+{
+  "uuid": "velora-greeter@velora",
+  "name": "Velora Autumn Login",
+  "description": "Velora styling and synchronized wallpaper for the native GDM login dialog",
+  "shell-version": ["51"],
+  "session-modes": ["gdm"],
+  "version": 2
+}

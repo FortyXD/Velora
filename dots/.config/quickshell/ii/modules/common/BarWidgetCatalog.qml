@@ -14,7 +14,8 @@ import qs.services
  * defaults:    item fields for a newly added one (pill, hideAt, …)
  * options:     [{ key, kind: switch|spin|text|choice|command, label, default, from, to, choices,
  *                 scope: "instance" (stored in the item) | "path:<config path>" (shared setting),
- *                 json: choice values are compared and stored as JSON (for lists) }]
+ *                 json: choice values are compared and stored as JSON (for lists),
+ *                 when: [{ scope, key?, value }] all must match for the option to be visible }]
  */
 Singleton {
     id: root
@@ -99,6 +100,18 @@ Singleton {
                           { "value": ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"], "name": Translation.tr("Roman") },
                       ] },
                     { "key": "showNumberDelay", "kind": "spin", "label": Translation.tr("Numbers appear after holding Super (ms)"), "from": 0, "to": 1000, "scope": "path:bar.workspaces.showNumberDelay" },
+                    { "key": "showPreviews", "kind": "switch", "icon": "preview", "label": Translation.tr("Show workspace previews"), "description": Translation.tr("Hover over a workspace with windows to see its preview. Workspace buttons still work when this is off."), "scope": "path:bar.workspaces.showPreviews" },
+                    { "key": "hidePreviewOnLeave", "kind": "choice", "icon": "mouse", "label": Translation.tr("Preview behavior"),
+                      "description": Config.options.bar.workspaces.hidePreviewOnLeave
+                        ? Translation.tr("The preview stays open anywhere on the panel and closes immediately when you leave it. You cannot enter the preview.")
+                        : Translation.tr("Move into the preview to select a window. A short delay lets you cross the gap."),
+                      "scope": "path:bar.workspaces.hidePreviewOnLeave", "when": [{ "scope": "path:bar.workspaces.showPreviews", "value": true }],
+                      "choices": [
+                          { "value": false, "name": Translation.tr("Interactive") },
+                          { "value": true, "name": Translation.tr("Panel only") },
+                      ] },
+                    { "key": "hidePreviewOnFlick", "kind": "switch", "icon": "swipe", "label": Translation.tr("Hide the workspace preview when the pointer flicks away"), "scope": "path:bar.workspaces.hidePreviewOnFlick", "when": [{ "scope": "path:bar.workspaces.showPreviews", "value": true }, { "scope": "path:bar.workspaces.hidePreviewOnLeave", "value": false }] },
+                    { "key": "flickSpeed", "kind": "spin", "label": Translation.tr("How fast the pointer must move to hide it (px/s)"), "description": Translation.tr("Lower values close the preview with a gentler movement."), "from": 100, "to": 600, "scope": "path:bar.workspaces.flickSpeed", "when": [{ "scope": "path:bar.workspaces.showPreviews", "value": true }, { "scope": "path:bar.workspaces.hidePreviewOnLeave", "value": false }, { "scope": "path:bar.workspaces.hidePreviewOnFlick", "value": true }] },
                 ]
             },
             "resources": {
@@ -339,6 +352,10 @@ Singleton {
 
     function get(type) {
         return root.widgets[type] ?? null;
+    }
+
+    function optionVisible(item, spec) {
+        return (spec.when ?? []).every(condition => root.optionValue(item, condition) === condition.value);
     }
 
     function optionValue(item, spec) {

@@ -21,6 +21,10 @@ Inspect the resulting package with `pacman -Qip` and `pacman -Qlp`. Verify that 
 
 Use an Arch test account to verify fresh installation, component selection, package installation, source builds, repeat installation, microphone/audio controls, monitor configuration, lock screen, wallpapers, updates, and configuration recovery. Record test results rather than treating a generated package as proof of a complete desktop installation.
 
+The disposable desktop harness is documented in [tests/qemu/README.md](../tests/qemu/README.md). Run `VELORA_REQUIRE_SANDBOX_TESTS=1` for release validation so image-decoder checks cannot be skipped when namespaces are unavailable. Keep clean-install and upgrade evidence separately, including the source revision, package checksum, logs and screenshots. Record omitted AUR components, hardware tests and model inference explicitly.
+
+Check the package's resolved `libcrypto.so` dependency against its actual `ldd` output. Install and configure the exact downloadable artifact in the guest before publishing; a source install alone does not validate the package path.
+
 Use `velora update --check --channel release` after publishing a stable release to verify detection. Before the first release exists, this command should explain that there is no published release.
 
 ## Artifacts and publication

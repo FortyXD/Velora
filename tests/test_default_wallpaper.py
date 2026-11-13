@@ -77,13 +77,15 @@ class DefaultWallpaperTests(unittest.TestCase):
             }.items():
                 source = '\n'.join(line for line in (SHELL / relative).read_text().splitlines()
                                    if not line.startswith(('import qs', 'import Quickshell')))
+                source = source.replace('../../services/ai/PromptDefaults.js', 'PromptDefaults.js')
                 for component in ('configFileView', 'firstRunFile', 'initialWallpaper', 'onboardingState'):
                     source = source.replace(f'id: {component}\n', f'id: {component}\n        objectName: "{component}"\n')
                 (root / f'{name}.qml').write_text(source)
+            shutil.copy2(SHELL / 'services/ai/PromptDefaults.js', root / 'PromptDefaults.js')
             (root / 'Singleton.qml').write_text('import QtQuick\nQtObject { default property list<QtObject> content }')
             (root / 'JsonObject.qml').write_text('import QtQuick\nQtObject {}')
             (root / 'JsonAdapter.qml').write_text('import QtQuick\nQtObject {}')
-            (root / 'Process.qml').write_text('import QtQuick\nQtObject { property bool running; property var command }')
+            (root / 'Process.qml').write_text('import QtQuick\nQtObject { property bool running; property var command; signal exited(int code, int status) }')
             (root / 'FileView.qml').write_text('''import QtQuick
                 QtObject {
                     default property list<QtObject> content
@@ -95,7 +97,7 @@ class DefaultWallpaperTests(unittest.TestCase):
                 }''')
             stubs = {
                 'Quickshell': 'property int processId:42; property var detached: []; function execDetached(command) { detached=detached.concat([command]); } function shellPath(path) { return ' + json.dumps(str(SHELL) + '/') + '+path; }',
-                'FileUtils': 'function trimFileProtocol(path) { return path.replace(/^file:\\/\\//, ""); }',
+                'FileUtils': 'function trimFileProtocol(path) { return String(path).replace(/^file:\\/\\//, ""); }',
                 'Translation': 'function tr(text) { return text; }',
                 'Appearance': 'property var font: ({pixelSize:{smaller:12}})',
                 'SystemInfo': 'property string username:"isolated-test"',
@@ -163,11 +165,25 @@ class DefaultWallpaperTests(unittest.TestCase):
                         compare(Config.options.background.wallpaperPath, "/pictures/my own choice.jpg");
                     }
                     function test_e_new_desktop_initializes_colors_from_the_bundled_image() {
+                        FirstRunExperience.onboardingOpened = false;
+                        Quickshell.detached = [];
                         Config.options.background.wallpaperPath = Directories.defaultWallpaper;
                         FirstRunExperience.decide(false);
                         const job = findChild(FirstRunExperience, "initialWallpaper");
                         verify(job.running);
                         compare(job.command, [Directories.wallpaperSwitchScriptPath, Directories.defaultWallpaper]);
+                        compare(Quickshell.detached.length, 0);
+                        job.running = false;
+                        wait(20);
+                        compare(Quickshell.detached.length, 0);
+                        job.exited(0, 0);
+                        tryCompare(FirstRunExperience, "onboardingOpened", true);
+                        compare(Quickshell.detached.length, 1);
+                        // Config and FileView callbacks can repeat during first-run writes.
+                        FirstRunExperience.openOnboarding();
+                        job.exited(0, 0);
+                        wait(20);
+                        compare(Quickshell.detached.length, 1);
                     }
                 }''')
             result = subprocess.run([QT_TEST_RUNNER, '-input', str(root), '-o', '-,txt'],

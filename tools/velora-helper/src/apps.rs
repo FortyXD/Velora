@@ -1167,8 +1167,11 @@ fn describe(uris: &[String], apps: &Apps, lang: &str) -> Value {
             }
         }
     }
-    let closeness = |app: &App| lineage.iter().position(|mime| app.mimes.contains(mime)).unwrap_or(lineage.len());
-    let mut recommended: Vec<&App> = apps.list.iter().filter(|app| app.choosable() && lineage.iter().any(|mime| app.mimes.contains(mime))).collect();
+    // Editors such as VS Code may declare only their workspace MIME type while
+    // advertising TextEditor. They can still open plain text and its subtypes.
+    let closeness = |app: &App| lineage.iter().position(|mime| app.mimes.contains(mime)
+        || (mime == "text/plain" && app.categories.contains("TextEditor"))).unwrap_or(lineage.len());
+    let mut recommended: Vec<&App> = apps.list.iter().filter(|app| app.choosable() && closeness(app) < lineage.len()).collect();
     // Apps that open everything (application/octet-stream) come last
     recommended.sort_by_cached_key(|app| (closeness(app), app.sort_name()));
     let mut others: Vec<&App> = apps.list.iter().filter(|app| {
@@ -1213,7 +1216,13 @@ fn cmd_open_with(uris: &[String]) -> Result<()> {
             None => groups.push((first, vec![uri.clone()])),
         }
     }
-    for (_, group) in groups {
+    for (mime, group) in groups {
+        // Dolphin and other callers may still have the chooser cached after the
+        // user saved a default. Resolve it again before showing another dialog.
+        if let Some(id) = default_for_mime(&mime, &apps)?.filter(|id| id != CHOOSER_ID) {
+            open_app(&id, &group, &apps)?;
+            continue;
+        }
         let request = describe(&group, &apps, &lang);
         let recommended = request["recommended"].as_array().cloned().unwrap_or_default();
         let best = recommended.first().and_then(|app| app["id"].as_str());
@@ -1367,7 +1376,10 @@ fn cmd_sync() -> Result<()> {
     let apps = installed_apps();
     seed(&apps)?;
     // Every type that still has no app goes to the chooser
-    let explicit: HashSet<String> = ini_keys(&read_ini(&user_mimeapps())?, "Default Applications").into_iter().map(|(mime, _)| mime).collect();
+    let mut explicit = HashSet::new();
+    for path in mimeapps_files() {
+        explicit.extend(ini_keys(&read_ini(&path)?, "Default Applications").into_iter().map(|(mime, _)| mime));
+    }
     let missing = pairs(all_types().into_iter().filter(|mime| !explicit.contains(mime)), CHOOSER_ID);
     if !missing.is_empty() {
         update_mimeapps(&user_mimeapps(), &missing, false)?;
@@ -1380,7 +1392,20 @@ fn cmd_sync() -> Result<()> {
 
 pub fn run(argv: Vec<String>) -> Result<()> {
     let arguments: Vec<&str> = argv.iter().map(String::as_str).collect();
-    match arguments[..] {
+    // sync runs at shell startup, and separate chooser windows can save at once.
+    // Serialize the whole read/modify/write operation, not just the final rename.
+    let mutating = arguments.first().is_some_and(|command|
+        matches!(*command, "set" | "set-command" | "set-webmail" | "sync" | "set-mime" | "unset-mime"));
+    let _lock = if mutating {
+        fs::create_dir_all(config_home())?;
+        let lock = fs::OpenOptions::new().read(true).write(true).create(true).truncate(false)
+            .open(config_home().join(".velora-apps.lock"))?;
+        lock.lock()?;
+        Some(lock)
+    } else {
+        None
+    };
+    let result = match arguments[..] {
         ["list"] => cmd_list(""),
         ["list", lang] => cmd_list(lang),
         ["set", role, id] => cmd_set(role, id),
@@ -1405,7 +1430,13 @@ pub fn run(argv: Vec<String>) -> Result<()> {
             Ok(())
         }
         _ => bail!("{USAGE}"),
+    };
+    if result.is_ok() && arguments.first().is_some_and(|command| matches!(*command, "set" | "set-mime" | "unset-mime"))
+        && which("kbuildsycoca6").is_some()
+    {
+        let _ = Command::new("kbuildsycoca6").stdout(Stdio::null()).stderr(Stdio::null()).status();
     }
+    result
 }
 
 #[cfg(test)]

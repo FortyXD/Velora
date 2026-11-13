@@ -16,8 +16,23 @@ ContentPage {
     property var updateStatus: ({})
     property var updateSettings: ({ channel: "branch", automatic_checks: true })
     property string updateError: ""
+    property var installation: ({})
+    property bool showUpdateDetails: false
+    readonly property bool installing: installation.status === "starting" || installation.status === "running"
     readonly property string veloraCommand: Quickshell.shellPath("scripts/maintenance/velora.sh")
-    readonly property bool busy: checkVeloraUpdates.running || saveUpdateSettings.running || loadUpdateSettings.running
+    readonly property bool busy: installing || startInstallation.running || checkVeloraUpdates.running || saveUpdateSettings.running || loadUpdateSettings.running
+
+    function installUpdate() {
+        root.updateError = "";
+        root.installation = ({ status: "starting", phase: "checking" });
+        startInstallation.running = true;
+    }
+
+    function installMessage() {
+        if (installation.phase === "authorizing") return Translation.tr("Waiting for administrator authorization…");
+        if (installation.phase === "installing") return Translation.tr("Installing the update and its dependencies…");
+        return Translation.tr("Preparing the update…");
+    }
 
     function configureUpdates(options) {
         root.updateError = "";
@@ -27,6 +42,45 @@ ContentPage {
 
     // Written by the velora command (scripts/velora.py), also when the timer checks in the background
     readonly property string veloraStateDir: `${Quickshell.env("XDG_STATE_HOME") || `${FileUtils.trimFileProtocol(Directories.home)}/.local/state`}/velora`
+
+    FileView {
+        id: installationFile
+        path: `${root.veloraStateDir}/gui-update.json`
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                root.installation = JSON.parse(text());
+                if (root.installation.status === "succeeded") updateStateFile.reload();
+            } catch (error) {}
+        }
+    }
+
+    Process {
+        id: startInstallation
+        command: [root.veloraCommand, "update", "--gui"]
+        stderr: StdioCollector { onStreamFinished: { if (text.trim()) root.updateError = text.trim(); } }
+        onExited: (exitCode, exitStatus) => {
+            if (exitCode !== 0) root.installation = ({ status: "failed" });
+            installationFile.reload();
+        }
+    }
+
+    Process {
+        id: readInstallation
+        running: true
+        command: [root.veloraCommand, "update", "--gui-status"]
+        stdout: StdioCollector {
+            onStreamFinished: { try { root.installation = JSON.parse(text); } catch (error) {} }
+        }
+    }
+
+    Timer {
+        interval: 3000
+        repeat: true
+        running: root.installing
+        onTriggered: { if (!readInstallation.running) readInstallation.running = true; }
+    }
 
     FileView {
         id: updateStateFile
@@ -58,7 +112,7 @@ ContentPage {
         }
         stderr: StdioCollector { onStreamFinished: root.updateError = text.trim() }
         onExited: (exitCode, exitStatus) => {
-            if (exitCode === 0 && root.updateSettings.automatic_checks && !checkVeloraUpdates.running)
+            if (exitCode === 0 && root.updateSettings.automatic_checks && !checkVeloraUpdates.running && !root.installing)
                 checkVeloraUpdates.running = true;
         }
     }
@@ -113,10 +167,13 @@ ContentPage {
                 StyledText {
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
-                    text: checkVeloraUpdates.running ? Translation.tr("Checking for updates…")
+                    text: root.installing ? root.installMessage()
+                        : root.installation.status === "failed" ? Translation.tr("The update did not finish. You can retry it.")
+                        : root.installation.status === "succeeded" && !root.updateStatus.available ? Translation.tr("Update installed.")
+                        : checkVeloraUpdates.running ? Translation.tr("Checking for updates…")
                         : root.updateError || root.updateStatus.error ? Translation.tr("Couldn't check for updates")
-                        : root.updateStatus.diverged ? Translation.tr("Your branch has diverged. Merge your changes before updating.")
-                        : root.updateStatus.dirty && root.updateStatus.available ? Translation.tr("An update is available. Commit your local changes before installing it.")
+                        : root.updateStatus.diverged ? Translation.tr("This installation has custom changes. Automatic updates are paused to preserve them.")
+                        : root.updateStatus.dirty && root.updateStatus.available ? Translation.tr("Local changes were detected. Automatic updates are paused to preserve them.")
                         : root.updateStatus.available ? Translation.tr("An update is available.")
                         : root.updateStatus.checked_at ? Translation.tr("Velora is up to date.")
                         : Translation.tr("Run the Velora installer to enable update checks.")
@@ -148,6 +205,35 @@ ContentPage {
             }
         }
 
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.margins: 12
+            spacing: 8
+            visible: root.installing || root.installation.status === "succeeded" || root.showUpdateDetails
+            StyledIndeterminateProgressBar {
+                Layout.fillWidth: true
+                visible: root.installing
+            }
+            StyledText {
+                Layout.fillWidth: true
+                visible: root.installing || root.installation.status === "succeeded"
+                wrapMode: Text.Wrap
+                text: root.installing
+                    ? Translation.tr("You can close Settings. Authorization is requested only when system changes need it.")
+                    : Translation.tr("Reopen running applications to load their changes.")
+                color: Appearance.colors.colSubtext
+                font.pixelSize: Appearance.font.pixelSize.smaller
+            }
+            StyledText {
+                Layout.fillWidth: true
+                visible: root.showUpdateDetails
+                wrapMode: Text.WrapAnywhere
+                text: (root.installation.tail || []).join("\n") || root.installation.error || ""
+                color: Appearance.colors.colSubtext
+                font.pixelSize: Appearance.font.pixelSize.smaller
+            }
+        }
+
         Flow {
             Layout.fillWidth: true
             Layout.leftMargin: 12
@@ -156,20 +242,25 @@ ContentPage {
             spacing: 6
             ActionButton {
                 materialIcon: "download"
-                mainText: Translation.tr("Install update")
-                visible: !!root.updateStatus.available
-                enabled: !root.updateStatus.diverged && !root.updateStatus.dirty && !root.updateStatus.error && !root.busy
-                onClicked: Quickshell.execDetached(["kitty", "--hold", "--title", "Velora update",
-                    root.veloraCommand, "update", "--interactive"])
+                mainText: root.installation.status === "failed" ? Translation.tr("Retry update") : Translation.tr("Install update")
+                visible: !!root.updateStatus.available || root.installation.status === "failed"
+                enabled: !root.updateStatus.diverged && !root.updateStatus.dirty && !root.busy
+                onClicked: root.installUpdate()
             }
             ActionButton {
                 materialIcon: "refresh"
                 mainText: Translation.tr("Check for updates")
-                enabled: !checkVeloraUpdates.running && !saveUpdateSettings.running
+                enabled: !root.busy
                 onClicked: {
                     root.updateError = "";
                     checkVeloraUpdates.running = true;
                 }
+            }
+            ActionButton {
+                materialIcon: "description"
+                mainText: root.showUpdateDetails ? Translation.tr("Hide details") : Translation.tr("Show details")
+                visible: !!root.installation.status
+                onClicked: root.showUpdateDetails = !root.showUpdateDetails
             }
             ActionButton {
                 materialIcon: "open_in_new"

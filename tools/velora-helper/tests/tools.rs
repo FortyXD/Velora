@@ -480,6 +480,29 @@ fn the_app_list_has_roles_names_in_the_language_and_hides_what_it_should() {
 }
 
 #[test]
+fn open_with_recommends_text_editors_without_declared_text_mime_types() {
+    let sandbox = apps_sandbox("apps-text-editor");
+    fs::write(sandbox.root.join("data/applications/vscode.desktop"), "[Desktop Entry]\nType=Application\nName=VS Code\nExec=code %F\nCategories=TextEditor;Development;IDE;\nMimeType=application/x-code-workspace;\n").unwrap();
+    let request = |mime: &str| {
+        sandbox.tool("gio", &format!("  standard::content-type: {mime}\n"), 0);
+        let _ = fs::remove_file(sandbox.root.join("log"));
+        assert!(apps(&sandbox, &["open-with", "/tmp/example.conf"]).status.success());
+        let log = sandbox.log();
+        let line = log.lines().find(|line| line.starts_with("qs ")).unwrap();
+        let json = line.split_once(" [ask] [").unwrap().1.strip_suffix(']').unwrap();
+        serde_json::from_str::<serde_json::Value>(json).unwrap()
+    };
+    for mime in ["text/plain", "text/x-new", "text/x-old"] {
+        let value = request(mime);
+        assert!(value["recommended"].as_array().unwrap().iter().any(|app| app["id"] == "vscode.desktop"), "{value}");
+        assert!(!value["others"].as_array().unwrap().iter().any(|app| app["id"] == "vscode.desktop"));
+    }
+    let value = request("image/png");
+    assert!(!value["recommended"].as_array().unwrap().iter().any(|app| app["id"] == "vscode.desktop"));
+    assert!(value["others"].as_array().unwrap().iter().any(|app| app["id"] == "vscode.desktop"));
+}
+
+#[test]
 fn choosing_an_app_writes_mimeapps_and_keeps_the_rest_of_the_file() {
     let sandbox = apps_sandbox("apps-set");
     let list = sandbox.root.join("config/mimeapps.list");
@@ -568,6 +591,54 @@ fn remembering_and_forgetting_a_file_type() {
     let list: serde_json::Value = serde_json::from_slice(&apps(&sandbox, &["list"]).stdout).unwrap();
     assert_eq!(list["types"], serde_json::json!([]));
     assert!(!apps(&sandbox, &["set-mime", "nope.desktop", "a/b"]).status.success());
+}
+
+#[test]
+fn a_cached_chooser_launches_the_remembered_app_without_asking_again() {
+    let sandbox = apps_sandbox("apps-cached-chooser");
+    sandbox.tool("gio", "  standard::content-type: text/x-new\n", 0);
+    fs::write(sandbox.root.join("data/applications/other.desktop"),
+        "[Desktop Entry]\nType=Application\nName=Other\nExec=other %F\nMimeType=text/plain;\n").unwrap();
+    assert!(apps(&sandbox, &["set-mime", "editor.desktop", "text/x-new"]).status.success());
+    assert!(apps(&sandbox, &["open-with", "/tmp/first.conf"]).status.success());
+    assert!(apps(&sandbox, &["open-with", "/tmp/second.conf"]).status.success());
+    let log = wait_for_log(&sandbox, "[/tmp/second.conf]");
+    assert!(log.contains("gio [launch]"), "{log}");
+    assert!(!log.lines().any(|line| line.starts_with("qs ")), "{log}");
+    assert!(log.contains("kbuildsycoca6"), "KDE associations were not refreshed: {log}");
+}
+
+#[test]
+fn concurrent_remembered_choices_do_not_overwrite_each_other() {
+    let sandbox = apps_sandbox("apps-concurrent-choices");
+    let barrier = std::sync::Barrier::new(16);
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..16).map(|index| {
+            let sandbox = &sandbox;
+            let barrier = &barrier;
+            scope.spawn(move || {
+                barrier.wait();
+                let mime = format!("text/x-choice-{index}");
+                let output = apps(sandbox, &["set-mime", "editor.desktop", &mime]);
+                assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+            })
+        }).collect();
+        for handle in handles { handle.join().unwrap(); }
+    });
+    let written = fs::read_to_string(sandbox.root.join("config/mimeapps.list")).unwrap();
+    for index in 0..16 {
+        assert!(written.contains(&format!("text/x-choice-{index}=editor.desktop\n")), "{written}");
+    }
+}
+
+#[test]
+fn sync_keeps_defaults_saved_in_other_mimeapps_locations() {
+    let sandbox = apps_sandbox("apps-external-defaults");
+    fs::write(sandbox.root.join("data/applications/mimeapps.list"),
+        "[Default Applications]\ntext/x-new=editor.desktop;\n").unwrap();
+    assert!(apps(&sandbox, &["sync"]).status.success());
+    let written = fs::read_to_string(sandbox.root.join("config/mimeapps.list")).unwrap();
+    assert!(!written.contains("text/x-new=folis-open-with.desktop"), "{written}");
 }
 
 #[test]

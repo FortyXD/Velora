@@ -16,6 +16,10 @@ import qs.modules.settings.preview
  */
 ContentPage {
     id: page
+    readonly property bool canNavigateBack: page.tab !== "part"
+    function navigateBack() { page.navigateToSection(""); }
+    navigationTrail: [{key: page.tab, title: ({part: Translation.tr("Part"), arrangement: Translation.tr("Arrangement"), look: Translation.tr("Background and motion"), security: Translation.tr("Password and security")})[page.tab]}]
+    function navigateToSection(key) { page.tab = key || "part"; }
     fitToWindow: true
     maxContentWidth: 1100
     readonly property var lock: Config.options.lock

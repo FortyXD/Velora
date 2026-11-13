@@ -176,7 +176,7 @@ ColumnLayout {
             Layout.fillWidth: true
             wrapMode: Text.Wrap
             text: root.part.type === "sliders" ? Translation.tr("No slider is chosen, so it doesn't show.")
-                : root.meta?.policy === "ai" ? Translation.tr("The assistant is turned off on the Search & AI page.")
+                : root.meta?.policy === "ai" ? Translation.tr("The assistant is turned off on the AI page.")
                 : Translation.tr("The image browser is turned off.")
             font.pixelSize: Appearance.font.pixelSize.small
             color: Appearance.colors.colError

@@ -1,0 +1,25 @@
+.velora-greeter { color: #f7ddd2; }
+.velora-greeter .login-dialog-user-list-view { background-color: rgba(38,24,18,0.78); border-radius: 26px; padding: 8px; }
+.velora-greeter .login-dialog-user-list-item { border-radius: 20px; background-color: rgba(54,39,32,0.94); }
+.velora-greeter .login-dialog-user-list-item:selected { background-color: #634334; color: #f7ddd2; }
+.velora-greeter .login-dialog-prompt-entry { background-color: rgba(54,39,32,0.96); color: #f7ddd2; border: 1px solid #bd8d77; border-radius: 28px; padding: 14px 22px; selection-background-color: #ffb692; selected-color: #261812; }
+.velora-greeter .login-dialog-prompt-entry:focus { border-color: #ffb692; box-shadow: 0 0 0 2px rgba(255,182,146,0.25); }
+.velora-greeter .login-dialog-button { border-radius: 24px; background-color: #634334; color: #f7ddd2; }
+.velora-greeter .login-dialog-button:default { background-color: #ffb692; color: #261812; }
+.velora-clock { color: #f7ddd2; font-size: 88px; font-weight: 600; text-align: center; }
+.velora-date { color: #f7ddd2; font-size: 18px; text-align: center; }
+.velora-brand { color: #ffb692; font-size: 18px; spacing: 10px; }
+.velora-power { background-color: rgba(54,39,32,0.9); color: #ffb692; padding: 12px; border-radius: 26px; }
+.velora-power:focus, .velora-power:hover { background-color: #634334; }
+
+.velora-greeter .user-icon { icon-size: 64px; }
+.velora-greeter .user-widget-label { font-size: 20px; }
+.velora-greeter .login-dialog-message { color: #f7ddd2; }
+.velora-greeter.login-dialog .login-dialog-prompt-layout { height: 300px; width: 360px; }
+.velora-greeter.login-dialog .user-widget.vertical { spacing: 10px; }
+.velora-greeter.login-dialog .user-widget.vertical .user-icon { icon-size: 64px; }
+.velora-greeter.login-dialog .user-widget.vertical .user-icon StIcon { padding: 10px; }
+.velora-greeter.login-dialog .user-widget.vertical .user-widget-label { font-size: 20px; margin-bottom: 8px; }
+.velora-greeter.login-dialog .login-dialog-message { margin-top: 12px; }
+.velora-greeter.login-dialog .login-dialog-user-selection-box { padding-top: 0; padding-bottom: 0; }
+.velora-greeter .login-dialog-user-list-item:focus { border-color: #ffb692; box-shadow: inset 0 0 0 2px #ffb692; }

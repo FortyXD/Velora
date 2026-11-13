@@ -1,0 +1,105 @@
+[
+  {
+    "expected_name": "03.md",
+    "found": [
+      "SHAD/DL/03.md"
+    ],
+    "ms": 1524.054366,
+    "problem": null,
+    "query": "shad dl conv layer",
+    "reranked": true,
+    "semantic": true
+  },
+  {
+    "expected_name": "homework.md",
+    "found": [
+      "SHAD/NLP/task01/homework.md"
+    ],
+    "ms": 61.344421000000004,
+    "problem": null,
+    "query": "шад обработка языка первая домашка",
+    "reranked": true,
+    "semantic": true
+  },
+  {
+    "expected_name": "03.md",
+    "found": [
+      "SHAD/DL/03.md"
+    ],
+    "ms": 1026.7718029999999,
+    "problem": null,
+    "query": "как свертка обрабатывает пиксели изображения",
+    "reranked": true,
+    "semantic": true
+  },
+  {
+    "expected_name": "keyboard.conf",
+    "found": [
+      ".config/hypr/keyboard.conf"
+    ],
+    "ms": 45.790917,
+    "problem": null,
+    "query": "config for keyboard hypr",
+    "reranked": true,
+    "semantic": true
+  },
+  {
+    "expected_name": "DL",
+    "found": [
+      "SHAD/DL",
+      "Downloads",
+      "other",
+      "SHAD",
+      ""
+    ],
+    "ms": 16.682418000000002,
+    "problem": null,
+    "query": "folder DL",
+    "reranked": false,
+    "semantic": false
+  },
+  {
+    "expected_name": "DL",
+    "found": [
+      "SHAD/DL",
+      "SHAD/DL/02.md",
+      "SHAD/DL/03.md"
+    ],
+    "ms": 4.308051,
+    "problem": null,
+    "query": "shad dl",
+    "reranked": false,
+    "semantic": false
+  },
+  {
+    "expected_name": "kitty.conf",
+    "found": [
+      ".config/kitty/kitty.conf"
+    ],
+    "ms": 192.78315400000002,
+    "problem": null,
+    "query": "конфиг терминала",
+    "reranked": true,
+    "semantic": true
+  },
+  {
+    "expected_name": "recipes.md",
+    "found": [
+      "notes/recipes.md"
+    ],
+    "ms": 826.339956,
+    "problem": null,
+    "query": "ингредиенты для выпечки хлеба",
+    "reranked": true,
+    "semantic": true
+  },
+  {
+    "expected_name": null,
+    "found": [],
+    "ms": 33.077062999999995,
+    "problem": null,
+    "query": "japanese tax return 2035",
+    "reranked": false,
+    "semantic": true
+  }
+]

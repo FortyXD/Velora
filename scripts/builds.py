@@ -48,7 +48,7 @@ def prepare_package(root, directory, metadata, run):
                 copy_source(source, snapshot / relative, root)
     else:
         for name in ("velora", "install.sh", "setup", "diagnose", "VERSION", "README.md", "LICENSE", "NOTICE",
-                     "scripts", "tools", "dependencies", "packaging", "docs", "licenses", "dots", "home", "dots-extra"):
+                     "scripts", "tools", "resources", "dependencies", "packaging", "docs", "licenses", "dots", "home", "dots-extra"):
             source = root / name
             if source.exists():
                 copy_source(source, snapshot / name, root)

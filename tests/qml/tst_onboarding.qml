@@ -112,6 +112,49 @@ Item {
                 availableModes:["1920x1080@60", "2560x1440@120"]};
         }
 
+        function test_last_display_cannot_be_disabled_by_sequential_changes() {
+            HyprlandMonitors.monitors = [screen(), Object.assign(screen(), {name:"HDMI-A-1",x:1920})];
+            verify(HyprlandMonitors.canDisable("eDP-1"));
+            verify(HyprlandMonitors.change("eDP-1", {disabled:true}));
+            verify(!HyprlandMonitors.canDisable("HDMI-A-1"));
+            const saved = findChild(HyprlandMonitors,"jsonFile").written;
+            const lua = findChild(HyprlandMonitors,"luaFile").written;
+            HyprlandMonitors.secondsLeft = 5;
+            verify(!HyprlandMonitors.change("HDMI-A-1", {disabled:true}));
+            compare(findChild(HyprlandMonitors,"jsonFile").written,saved);
+            compare(findChild(HyprlandMonitors,"luaFile").written,lua);
+            compare(HyprlandMonitors.secondsLeft,5);
+            verify(!HyprlandMonitors.spec(HyprlandMonitors.monitors[1]).disabled);
+            HyprlandMonitors.revert();
+            compare(Object.keys(HyprlandMonitors.overrides).length,0);
+        }
+
+        function test_batch_cannot_disable_all_displays_but_can_switch_outputs() {
+            HyprlandMonitors.monitors = [screen(), Object.assign(screen(), {name:"HDMI-A-1",disabled:true})];
+            const saved = findChild(HyprlandMonitors,"jsonFile").written;
+            verify(!HyprlandMonitors.apply({"eDP-1":{disabled:true},"HDMI-A-1":{disabled:true}},true));
+            verify(!HyprlandMonitors.confirming);
+            compare(Object.keys(HyprlandMonitors.overrides).length,0);
+            compare(findChild(HyprlandMonitors,"jsonFile").written,saved);
+            const external = Object.assign(HyprlandMonitors.spec(HyprlandMonitors.monitors[1]),{disabled:false});
+            verify(HyprlandMonitors.apply({"eDP-1":{disabled:true},"HDMI-A-1":external},true));
+            verify(!HyprlandMonitors.canDisable("HDMI-A-1"));
+            verify(HyprlandMonitors.change("eDP-1",{disabled:false}));
+            verify(HyprlandMonitors.canDisable("HDMI-A-1"));
+        }
+
+        function test_disconnected_output_does_not_count_and_recovery_still_works() {
+            HyprlandMonitors.monitors = [screen()];
+            HyprlandMonitors.overrides = {"HDMI-A-1":{disabled:false}};
+            verify(!HyprlandMonitors.canDisable("eDP-1"));
+            verify(!HyprlandMonitors.change("eDP-1",{disabled:true},false));
+            HyprlandMonitors.overrides = {"eDP-1":{disabled:true}};
+            verify(!HyprlandMonitors.apply({"eDP-1":{disabled:true}},false));
+            verify(HyprlandMonitors.change("eDP-1",{disabled:false}));
+            HyprlandMonitors.resetAll();
+            compare(Object.keys(HyprlandMonitors.overrides).length,0);
+        }
+
         function test_next_keeps_display_changes_after_the_rollback_deadline() {
             HyprlandMonitors.monitors = [screen()];
             HyprlandMonitors.ready = true;

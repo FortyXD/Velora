@@ -9,6 +9,7 @@ Scope {
     id: root
 
     signal accepted
+    signal searchRequested
 
     property int currentIndex: 0
     function setCurrentIndex(index) {

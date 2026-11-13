@@ -57,6 +57,7 @@ class RuntimeTests(IsolatedTest):
         args = velora.parser().parse_args(["install", "--yes", "--skip-packages"])
         with patch.object(velora, "preflight"), patch.object(velora, "run"), \
                 patch.object(velora, "build_native_helper"), \
+                patch.object(velora, "build_file_dialog"), \
                 patch.object(velora, "install_fonts"), \
                 patch.object(velora, "runtime_problems", return_value=["Missing QML module: QtMultimedia"]), \
                 patch.object(velora, "link_configuration") as link:
@@ -88,6 +89,30 @@ class RuntimeTests(IsolatedTest):
 
 
 class DesktopServiceTests(IsolatedTest):
+    def setUp(self):
+        super().setUp()
+        # A fresh install must be independent of the QEMU guest's existing setup.
+        for name in ('files_equal', 'input_ready'):
+            mocked = patch.object(velora, name, return_value=False)
+            mocked.start()
+            self.addCleanup(mocked.stop)
+
+    def test_ready_system_only_refreshes_user_services_without_sudo(self):
+        def run(command, **kwargs):
+            self.assertNotEqual(command[0], 'sudo')
+            return 'enabled' if command[:2] == ['systemctl', 'is-enabled'] else ''
+        args = velora.parser().parse_args(['deps'])
+        with patch.object(velora, 'service_active', side_effect=lambda unit: unit == 'NetworkManager.service'), \
+                patch.object(velora, 'files_equal', return_value=True), \
+                patch.object(velora, 'input_ready', return_value=True), patch.object(velora, 'run', side_effect=run):
+            velora.configure_desktop_services(args)
+
+    def test_active_but_disabled_service_still_gets_enabled(self):
+        with patch.object(velora, 'service_active', return_value=True), \
+                patch.object(velora, 'run', return_value='disabled') as run:
+            velora.ensure_system_service('power-profiles-daemon')
+        run.assert_any_call(['sudo', 'systemctl', 'enable', '--now', 'power-profiles-daemon'], dry=False)
+
     def test_enables_network_audio_and_keyboard_on_a_new_desktop(self):
         args = velora.parser().parse_args(["deps"])
         with patch.object(velora, "service_active", return_value=False), patch.object(velora, "run") as run:

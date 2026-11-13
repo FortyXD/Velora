@@ -38,17 +38,8 @@ handle_kde_material_you_colors() {
         fi
     fi
 
-    # Map $type_flag to allowed scheme variants for kde-material-you-colors-wrapper.sh
-    local kde_scheme_variant=""
-    case "$type_flag" in
-        scheme-content|scheme-expressive|scheme-fidelity|scheme-fruit-salad|scheme-monochrome|scheme-neutral|scheme-rainbow|scheme-tonal-spot)
-            kde_scheme_variant="$type_flag"
-            ;;
-        *)
-            kde_scheme_variant="scheme-tonal-spot" # default
-            ;;
-    esac
-    "$XDG_CONFIG_HOME"/matugen/templates/kde/kde-material-you-colors-wrapper.sh --scheme-variant "$kde_scheme_variant"
+    # The generated palette already contains the selected mode and scheme variant.
+    "$XDG_CONFIG_HOME"/matugen/templates/kde/kde-material-you-colors-wrapper.sh
 }
 
 pre_process() {
@@ -65,7 +56,7 @@ pre_process() {
     mkdir -p "$CACHE_DIR/user/generated" "$STATE_DIR/user/generated"
 }
 
-# Qt and VS Code theming: slow, and nothing on screen waits for it, so it runs at low priority
+# Apply the generated palette to apps after publishing it to the shell.
 post_process() {
     ( renice -n 10 -p "$BASHPID" &>/dev/null; handle_kde_material_you_colors ) &
     nice -n 10 "$SCRIPT_DIR/code/material-code-set-color.sh" &

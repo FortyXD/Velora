@@ -1,0 +1,6 @@
+-r requirements.txt
+# install.py installs the CPU-only PyTorch wheel before these dependencies.
+transformers==5.20.2
+huggingface-hub==1.33.0
+sentencepiece==0.2.2
+onnx==1.23.2

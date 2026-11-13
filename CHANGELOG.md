@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0 — 2026-11-13
+
+- Fix repeated “Open with” prompts: save before opening, reuse remembered apps, preserve existing MIME associations and serialize concurrent changes.
+
+- AI launcher results and local Lens indexing have separate switches, both off by default. Semantic/vector preprocessing and media analysis are opt-in; turning off file search stops its background service. Existing provider and model choices are preserved.
+- Local assistance adds saved conversations, provider connections and reversible file operations with explicit approval. Choosing an installed model does not start inference.
+- Quick Look previews images, PDF, video, audio, text and archives. Native KDE file dialogs expose folder creation. New Dolphin configurations disable selection marks and do not enable Git status badges.
+- Integrated PRs #12–19: icon alignment, optional tmux links and battery analytics, stable workspace previews, popup click behavior, tray deduplication and safer display arrangement changes.
+- Installation includes the native services and file-dialog addon, optional Velora GDM styling and wallpaper synchronization. Graphical updates continue when Settings closes and allow retry after authorization is cancelled.
+- Fixed stale CMake configuration after moving a checkout and duplicate first-run setup windows. Package dependencies include the compiled OpenSSL ABI and KDE/Qt runtime libraries.
+
 ## 0.1.5 — 2026-11-01
 
 - The installer can detect and reuse a graphical login manager or offer to install one. Setup is optional; GDM is the default choice when none exists, with SDDM also available. Enabling a manager takes effect on the next boot without restarting the current session.

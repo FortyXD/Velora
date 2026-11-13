@@ -1,0 +1,5 @@
+# Inference only; training/export dependencies are installed separately.
+numpy==2.4.6
+Pillow==12.3.0
+onnxruntime==1.31.1
+tokenizers==0.23.3

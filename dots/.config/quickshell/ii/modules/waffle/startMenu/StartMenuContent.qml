@@ -20,9 +20,11 @@ WBarAttachedPanelContent {
 
     StartMenuContext {
         id: context
+        onSearchRequested: searchBar.forceFocus()
     }
 
     Keys.onPressed: event => {
+        if (Assistant.panelOpen) return;
         // Prevent Esc and Backspace from registering
         if (event.key === Qt.Key_Escape)
             return;
@@ -97,7 +99,7 @@ WBarAttachedPanelContent {
                     LauncherSearch.query = text;
                 }
                 onAccepted: {
-                    context.accepted();
+                    if (!Assistant.panelOpen) context.accepted();
                 }
             }
             Item {

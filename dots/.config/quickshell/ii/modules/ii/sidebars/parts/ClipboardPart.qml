@@ -35,20 +35,21 @@ SidebarCard {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 8
-        spacing: 8
+        anchors.margins: 16
+        spacing: 12
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 6
-            ToolbarTextField {
-                id: searchField
+            Layout.fillHeight: false
+            spacing: 8
+            StyledText {
                 Layout.fillWidth: true
-                implicitHeight: 40
-                placeholderText: Translation.tr("Search what you copied")
-                Keys.onReturnPressed: if (root.results.length > 0) root.copy(root.results[0])
-                Keys.onDownPressed: list.forceActiveFocus()
+                text: Translation.tr("Clipboard")
+                font.pixelSize: Appearance.font.pixelSize.normal
+                font.weight: Font.DemiBold
+                color: Appearance.m3colors.m3onSurface
             }
+            StyledText { text: root.results.length; font.pixelSize: Appearance.font.pixelSize.smaller; color: Appearance.colors.colSubtext }
             RippleButton {
                 implicitWidth: 40
                 implicitHeight: 40
@@ -82,12 +83,36 @@ SidebarCard {
             }
         }
 
+        ToolbarTextField {
+            id: searchField
+            objectName: "clipboardSearch"
+            Layout.fillWidth: true
+            Layout.fillHeight: false
+            Layout.preferredHeight: 40
+            Layout.maximumHeight: 40
+            placeholderText: Translation.tr("Search clipboard…")
+            colBackground: Appearance.colors.colLayer2
+            Keys.onReturnPressed: if (root.results.length > 0) root.copy(root.results[0])
+            Keys.onDownPressed: list.forceActiveFocus()
+        }
+
+        StyledText {
+            Layout.fillWidth: true
+            visible: root.confirmWipe
+            text: Translation.tr("Click again to clear the whole history")
+            wrapMode: Text.Wrap
+            color: Appearance.colors.colError
+            font.pixelSize: Appearance.font.pixelSize.smaller
+        }
+
         StyledListView {
             id: list
+            objectName: "clipboardList"
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            spacing: 4
+            spacing: 6
+            popin: false
             model: root.results
             keyNavigationEnabled: true
             Keys.onReturnPressed: if (currentIndex >= 0) root.copy(root.results[currentIndex])
@@ -100,9 +125,11 @@ SidebarCard {
                 readonly property bool blurImage: isImage && LauncherSearch.clipboardWorkSafetyActive
                     && (LauncherSearch.containsUnsafeLink(root.results[index - 1]) || LauncherSearch.containsUnsafeLink(root.results[index + 1]))
                 width: list.width
-                implicitHeight: entryButton.isImage ? (image.item?.height ?? 60) + 16 : Math.min(textLabel.implicitHeight, 64) + 18
+                implicitHeight: entryButton.isImage ? (image.item?.height ?? 60) + 24 : Math.max(58, Math.min(textLabel.implicitHeight, 64) + 24)
+                leftPadding: 12
+                rightPadding: 12
                 buttonRadius: Appearance.rounding.small
-                colBackground: list.currentIndex === index && list.activeFocus ? Appearance.colors.colLayer1Hover : Appearance.colors.colLayer2
+                colBackground: list.currentIndex === index && list.activeFocus ? Appearance.colors.colLayer2Hover : "transparent"
                 colBackgroundHover: Appearance.colors.colLayer2Hover
                 onClicked: root.copy(modelData)
 
@@ -114,15 +141,24 @@ SidebarCard {
                             left: parent.left
                             right: parent.right
                             verticalCenter: parent.verticalCenter
-                            leftMargin: 4
+                            leftMargin: 32
                             rightMargin: 34
                         }
                         text: StringUtils.cleanCliphistEntry(entryButton.modelData)
-                        wrapMode: Text.WrapAnywhere
-                        maximumLineCount: 3
+                        textFormat: Text.PlainText
+                        wrapMode: Text.Wrap
+                        maximumLineCount: 2
                         elide: Text.ElideRight
                         font.pixelSize: Appearance.font.pixelSize.small
-                        color: Appearance.colors.colOnLayer2
+                        color: Appearance.m3colors.m3onSurface
+                    }
+                    MaterialSymbol {
+                        visible: !entryButton.isImage
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: /^https?:\/\//.test(StringUtils.cleanCliphistEntry(entryButton.modelData)) ? "link" : "notes"
+                        iconSize: 18
+                        color: Appearance.colors.colSubtext
                     }
                     Loader {
                         id: image
@@ -144,7 +180,7 @@ SidebarCard {
                         top: parent.top
                         margins: 6
                     }
-                    visible: entryButton.hovered
+                    visible: entryButton.hovered || activeFocus
                     implicitWidth: 26
                     implicitHeight: 26
                     buttonRadius: Appearance.rounding.full

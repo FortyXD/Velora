@@ -1,22 +1,21 @@
-# Velora 0.1.5
+# Velora 0.2.0
 
-Optional graphical login setup, an offline first desktop, and fixes for desktop security, installation and screen recording.
-
-Velora is an independently maintained fork of Illogical Impulse for Arch Linux, Hyprland and Quickshell.
+Opt-in AI search, local indexing and desktop assistance, KDE file previews and dialogs, and fixes across panels, displays and installation.
 
 ## Highlights
 
-- **Graphical login setup.** The installer detects existing login managers and offers to reuse them. If none exists and you opt in, GDM is the default; SDDM is also available. Services are enabled for the next boot without interrupting the current session. Unattended installation does not opt in automatically. Select Hyprland in the greeter's session menu.
-- **Offline first start.** A bundled wallpaper and preset preview work without an internet connection. Japanese and Korean greeting fonts are included.
-- **Safer desktop operations.** Remote image URLs and names, AI LaTeX content, and preset keys are handled as data. Sensitive requests use private temporary storage and avoid credentials in process arguments. VPN exports are private, received Bluetooth files do not overwrite existing destinations, and installation rejects unsafe filesystem links.
-- **Recording and layout fixes.** Recording stops on idle screens and waits for healthy encoders to finish. The cheatsheet fits smaller displays, including portrait layouts, and the default shadow configuration no longer produces a Hyprland error.
-- **Reliable installation and maintenance.** Source packages retain Rust build inputs, omit Cargo caches, repair update timers and detect missing helpers. Native helper failures reach the caller. Affected Python dependency pins are updated.
+- **Search stays optional.** AI results in the launcher and Lens indexing each have a separate switch, both off by default. Semantic/vector indexing and media analysis are also opt-in. Ordinary application and calculator search remain available.
+- **Local desktop assistant.** Saved conversations, provider connections and explicit, reversible file actions are integrated into the launcher and sidebar. Existing provider and model choices are preserved.
+- **Desktop files and previews.** Quick Look supports images, video, audio, PDF, text and archives. Native KDE file dialogs gain folder creation, and window previews retain their last ready frame during refresh. Dolphin selection marks are off in fresh configurations; existing explicit preferences are preserved. Remembered file-opening choices are reused even when a file manager has cached the chooser, concurrent saves are serialized, and existing MIME associations are preserved.
+- **Panel and display fixes.** Shared icons are centered, click-opened popups stay open, duplicate tray registrations are filtered, workspace previews gain visibility/dismissal options, and display arrangements support snapping and safer output changes.
+- **Installation and updates.** The installer includes the new native services and Qt addon, optional Velora GDM styling, and a graphical updater that survives closing Settings. Advanced battery analytics and tmux mouse links remain opt-in.
+- **First-run and reinstall repairs.** Setup opens once after wallpaper initialization. Moving the source checkout no longer leaves a stale CMake build configuration. Binary packages declare their required OpenSSL ABI.
 
 ## Validation
 
-The audit recorded 255 unique Python test methods, 339 Rust tests including three real NetworkManager cases, and 12 dependency compatibility checks with passing evidence. One live BlueZ test remained blocked by missing Bluetooth hardware in the test guest.
+Checked in two Arch Linux QEMU guests: a clean installation and an existing desktop upgrade, using Hyprland 0.57.1, Quickshell 0.3.2 and Qt 6.12. The checks cover GDM login, first-run setup, repeated installation with preserved settings, configuration restoration, graphical updates, authorization cancellation, live window-preview lifecycle, Quick Look, native folder creation, panel layouts and disabled AI defaults.
 
-A dedicated Arch VM passed clean and repeated installation, GDM authentication, first startup with internet routes removed, six desktop smoke checks, configuration rollback, logout/relogin and menu shutdown. Fifteen interface views were visually inspected. Physical suspend/resume, Bluetooth transfers and every external provider have not been certified by these tests.
+The source-install scenarios use `--skip-aur --without assistant,appearance,live-wallpapers`; optional model weights are not downloaded. NetworkManager profile operations use synthetic local profiles. Physical Wi-Fi/Bluetooth, GPU-specific behavior and real model inference require separate hardware/model testing. Rust, Python/QML and native Qt checks run in CI and the guests; logs and screenshots are retained with the release validation evidence.
 
 ## Install or update
 
@@ -27,14 +26,8 @@ cd ~/Velora
 ./velora install
 ```
 
-Existing users can update through Settings → General → Software Update, or run:
+Existing users can update through Settings → General → Software Update or run `velora update --interactive --channel release`.
 
-```bash
-velora update --interactive --channel release
-```
+For the Arch package, first update Arch with `sudo pacman -Syu`, install the downloaded `.pkg.tar.zst` with `sudo pacman -U`, then run `velora install` as your regular user. Run `sha256sum --check SHA256SUMS` beside the downloaded package to verify it. Log out and back in after updating native desktop components.
 
-For explicit graphical login setup, use `./velora install --login-manager gdm` or `--login-manager existing`. See the [installation guide](https://github.com/FortyXD/Velora/blob/v0.1.5/docs/installation.md).
-
-After upgrading Qt, Quickshell, Hyprland or the graphics driver, restart the desktop session or reboot so running processes use the updated components. Quickshell 0.3.2 includes upstream session-lock fixes; this release does not claim to fix every suspend or driver failure.
-
-The release provides an x86_64 Arch package with SHA-256 checksums. Install it with `sudo pacman -U ./velora-*.pkg.tar.zst`, then run `velora install` as your regular user. Configuration backups can be listed and restored with `velora restore`.
+See the [installation guide](https://github.com/FortyXD/Velora/blob/v0.2.0/docs/installation.md), [search controls](https://github.com/FortyXD/Velora/blob/v0.2.0/docs/lens.md), and [assistant guide](https://github.com/FortyXD/Velora/blob/v0.2.0/docs/assistant.md).

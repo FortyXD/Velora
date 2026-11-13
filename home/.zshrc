@@ -62,4 +62,12 @@ alias grep='rg'
 eval "$(zoxide init zsh)"
 eval "$(starship init zsh)"
 source "$HOME/.config/quickshell/ii/scripts/supergfxctl.zsh"
+# Lens records directories only. It does not start the service or inspect commands.
+function _velora_lens_directory() {
+  [[ -S "${XDG_RUNTIME_DIR:-/nonexistent}/velora-lens/search.sock" ]] || return 0
+  [[ -x "$HOME/.local/bin/velora-searchd" ]] || return 0
+  "$HOME/.local/bin/velora-searchd" record zsh </dev/null >/dev/null 2>&1 &!
+}
+autoload -Uz add-zsh-hook
+add-zsh-hook chpwd _velora_lens_directory
 export PATH="/usr/local/racket/bin:$PATH"

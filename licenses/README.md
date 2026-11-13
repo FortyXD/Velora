@@ -14,6 +14,15 @@ The following components carry their own notices:
 | --- | --- | --- |
 | Illogical Impulse foundation | end-4 and contributors | GNU GPLv3; [LICENSE](../LICENSE) |
 | Fuzzy search | [farzher/fuzzysort](https://github.com/farzher/fuzzysort), Stephen Kamenar | MIT; [MIT.txt](MIT.txt) and the header in `dots/.config/quickshell/ii/modules/common/functions/fuzzysort.js` |
+| Lens encrypted database | [SQLCipher](https://github.com/sqlcipher/sqlcipher), Zetetic | BSD-3-Clause; [SQLCipher notice](SQLCipher-BSD-3-Clause.txt) |
+| Lens vector search | [USearch](https://github.com/unum-cloud/usearch), Unum | [Apache-2.0](Apache-2.0.txt); dependency pinned in `tools/Cargo.lock` |
+| Lens Russian stemming | [rust-stemmers](https://github.com/CurrySoftware/rust-stemmers), Jakob Demler | MIT; [notice](rust-stemmers-MIT.txt) |
+| Lens FP16 vector decoding | [half](https://github.com/VoidStarKat/half-rs) | MIT or Apache-2.0; [MIT notice](half-MIT.txt) |
+| Lens project exclusions | [ignore / globset](https://github.com/BurntSushi/ripgrep), [bstr](https://github.com/BurntSushi/bstr), [Crossbeam](https://github.com/crossbeam-rs/crossbeam) | MIT option; [dependency notices](lens-ignore-MIT.txt) |
+| Lens text model (optional download) | [multilingual-e5-small](https://huggingface.co/intfloat/multilingual-e5-small), Microsoft / intfloat | MIT; source revision recorded in the installed model manifest |
+| Lens relevance model (optional download) | [mMARCO multilingual MiniLMv2](https://huggingface.co/cross-encoder/mmarco-mMiniLMv2-L12-H384-v1), Sentence Transformers | Apache-2.0; publisher's ONNX and tokenizer pinned by revision and SHA-256 |
+| Lens visual model (optional download) | [SigLIP 2](https://huggingface.co/google/siglip2-base-patch16-224), Google | Apache-2.0; source revision recorded in the installed model manifest |
+| Lens inference runtime | [ONNX Runtime](https://github.com/microsoft/onnxruntime), Microsoft | MIT; installed into the optional private Python environment |
 | Icon helpers, directory icons and brightness service | [caelestia-dots/shell](https://github.com/caelestia-dots/shell) | GPLv3; notices in `Icons.qml`, `DirectoryIcon.qml` and `Brightness.qml` |
 | Levenshtein search helpers | [koeqaife/hyprland-material-you](https://github.com/koeqaife/hyprland-material-you) | GPLv3; notice in `levendist.js` |
 | Rounded polygon shapes submodule | [end-4/rounded-polygon-qmljs](https://github.com/end-4/rounded-polygon-qmljs) | Apache-2.0; submodule `LICENSE` |

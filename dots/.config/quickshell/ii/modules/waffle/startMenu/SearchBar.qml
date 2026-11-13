@@ -7,6 +7,7 @@ import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.functions
+import qs.modules.common.widgets
 import qs.modules.waffle.looks
 
 FooterRectangle {
@@ -74,6 +75,7 @@ FooterRectangle {
 
             WTextInput {
                 id: searchInput
+                objectName: "launcherSearchInput"
                 focus: true
                 Layout.fillWidth: true
 
@@ -88,9 +90,19 @@ FooterRectangle {
                     font.pixelSize: Looks.font.pixelSize.large
                 }
 
+                onTextEdited: Assistant.panelOpen = false
                 onAccepted: {
                     root.accepted();
                 }
+            }
+
+            AiThinkingIndicator {
+                objectName: "searchThinkingIndicator"
+                Layout.rightMargin: 5
+                Layout.alignment: Qt.AlignVCenter
+                implicitHeight: 24
+                accent: Looks.colors.accent
+                active: Assistant.thinking || (Lens.thinking && Lens.query === LauncherSearch.query)
             }
         }
     }

@@ -19,40 +19,84 @@ LazyLoader {
     // Interactive popups stay open while the pointer is over them, so their content can be used
     property bool interactive: false
     property int openDelay: 0 // ms of hovering before opening, so sweeping across the bar doesn't flash popups
+    property int closeDelay: 280 // ms to cross the gap between the bar and the popup before it closes
+    // An owner that measures the pointer can ask to close at once (a flick). It also latches:
+    // the popup must not pop back while the pointer is still inside it, and re-arms on the bar.
+    property bool hideInstantly: false
+    property bool dismissed: false
     property bool popupHovered: false
+    property bool hoverEnabled: true
+    property bool keepOpen: false // Retain an open popup over the panel, never open it there
+    property bool closeImmediately: false // Bypass the grace period AND exit animation
 
     readonly property bool animate: Config.options.bar.microAnimations
-    readonly property bool targetHovered: !!(hoverTarget && hoverTarget.containsMouse) && !GlobalStates.barEditing
-    readonly property bool pointerInside: targetHovered || popupHovered
+    property PopupHoverTarget targetPresence: PopupHoverTarget {
+        target: root.hoverTarget
+        enabled: root.hoverControlled && !GlobalStates.barEditing && root.hoverEnabled
+    }
+    readonly property bool targetHovered: targetPresence.containsMouse
+    readonly property bool pointerInside: targetHovered || (interactive && popupHovered)
     property bool wanted: false
-    onPointerInsideChanged: {
-        if (pointerInside) {
-            closeTimer.stop();
-            if (wanted) return;
-            if (openDelay > 0) openTimer.restart();
-            else wanted = true;
-        } else {
+    onHoverControlledChanged: {
+        openTimer.stop();
+        closeTimer.stop();
+        wanted = false;
+        lingeringTimer.stop();
+        lingering = false;
+        dismissed = false;
+    }
+    onTargetHoveredChanged: {
+        if (targetHovered) root.dismissed = false;
+        if (targetHovered) updateHover();
+    }
+    onPointerInsideChanged: updateHover()
+    // Mode bindings settle together before reconciling retention/interaction. Closing
+    // at a real panel boundary (or disabling) is still synchronous, never deferred.
+    onKeepOpenChanged: Qt.callLater(updateHover)
+    onHoverEnabledChanged: updateHover()
+    onCloseImmediatelyChanged: {
+        if (closeImmediately) updateHover();
+        else Qt.callLater(updateHover);
+    }
+    onInteractiveChanged: Qt.callLater(updateHover)
+
+    function updateHover() {
+        if (!hoverControlled) return;
+        if (!hoverEnabled || closeImmediately) {
             openTimer.stop();
-            if (!wanted) return;
-            // Time to cross the gap between the bar and the popup
-            if (interactive) closeTimer.restart();
-            else wanted = false;
+            closeTimer.stop();
+            lingeringTimer.stop();
+            wanted = false;
+            lingering = false;
+            popupHovered = false;
+            dismissed = false;
+            return;
         }
+        const next = PopupHoverPolicy.next(wanted, dismissed, pointerInside, hideInstantly,
+            interactive, openDelay > 0, hoverEnabled, keepOpen);
+        dismissed = next.dismissed;
+        if (next.stopOpen) openTimer.stop();
+        if (next.stopClose) closeTimer.stop();
+        if (next.startOpen) openTimer.restart();
+        if (next.startClose) closeTimer.restart();
+        wanted = next.wanted;
     }
     property Timer openTimer: Timer {
         interval: root.openDelay
-        onTriggered: root.wanted = root.pointerInside
+        onTriggered: if (root.hoverControlled) root.wanted = root.hoverEnabled && !root.closeImmediately
+            && PopupHoverPolicy.timerWanted(root.pointerInside, root.dismissed)
     }
     property Timer closeTimer: Timer {
-        interval: 280
-        onTriggered: root.wanted = root.pointerInside
+        interval: root.closeDelay
+        onTriggered: if (root.hoverControlled) root.wanted = root.hoverEnabled && !root.closeImmediately
+            && PopupHoverPolicy.timerWanted(root.pointerInside || root.keepOpen, root.dismissed)
     }
 
     // Stays loaded for the length of the exit animation
     property bool lingering: false
     onWantedChanged: {
         if (wanted) lingeringTimer.stop();
-        else if (animate && hoverControlled) {
+        else if (animate && hoverControlled && hoverEnabled && !closeImmediately) {
             lingering = true;
             lingeringTimer.restart();
         }
@@ -93,20 +137,29 @@ LazyLoader {
         function clamp(value, size, available) {
             return Math.max(0, Math.min(value, available - size));
         }
+        // mapFromItem needs the target inside a window already; during a hotplug or the
+        // popup's own creation it is not, and Qt logged "Cannot call mapFromItem before
+        // item is a member of a window". Fall back to the edge padding instead.
+        function centeredOnTarget(axis, targetSize, popupSize, barSize, margin) {
+            if (!root.hoverTarget || !root.hoverTarget.QsWindow?.window || !root.QsWindow?.window || barSize === undefined) return undefined;
+            return popupWindow.clamp(root.QsWindow.mapFromItem(root.hoverTarget,
+                axis === 'x' ? (targetSize - popupSize) / 2 : 0,
+                axis === 'x' ? 0 : (targetSize - popupSize) / 2)[axis] - margin, popupSize, barSize);
+        }
         margins {
             left: {
-                if (!Config.options.bar.vertical) return popupWindow.clamp(root.QsWindow?.mapFromItem(
-                    root.hoverTarget,
-                    (root.hoverTarget.width - popupBackground.implicitWidth) / 2, 0
-                ).x - Appearance.sizes.elevationMargin, popupWindow.implicitWidth, popupWindow.barWindow?.width ?? Infinity);
+                if (!Config.options.bar.vertical) {
+                    const placed = popupWindow.centeredOnTarget('x', root.hoverTarget?.width ?? 0,
+                        popupBackground.implicitWidth, popupWindow.barWindow?.width, Appearance.sizes.elevationMargin);
+                    return placed !== undefined ? placed : Appearance.sizes.elevationMargin;
+                }
                 return Appearance.sizes.verticalBarWidth
             }
             top: {
                 if (!Config.options.bar.vertical) return Appearance.sizes.barHeight;
-                return popupWindow.clamp(root.QsWindow?.mapFromItem(
-                    root.hoverTarget,
-                    0, (root.hoverTarget.height - popupBackground.implicitHeight) / 2
-                ).y - Appearance.sizes.elevationMargin, popupWindow.implicitHeight, popupWindow.barWindow?.height ?? Infinity);
+                const placed = popupWindow.centeredOnTarget('y', root.hoverTarget?.height ?? 0,
+                    popupBackground.implicitHeight, popupWindow.barWindow?.height, Appearance.sizes.elevationMargin);
+                return placed !== undefined ? placed : Appearance.sizes.elevationMargin;
             }
             right: Appearance.sizes.verticalBarWidth
             bottom: Appearance.sizes.barHeight

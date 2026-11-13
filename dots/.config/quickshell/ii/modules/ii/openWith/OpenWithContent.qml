@@ -21,6 +21,8 @@ Item {
     property string filter: ""
     property var selectedApp: null
     property bool remember: true
+    property bool busy: false
+    property string errorText: ""
 
     signal chosen(var app, bool remember)
     signal canceled()
@@ -55,7 +57,7 @@ Item {
     Component.onCompleted: root.reset()
 
     function open() {
-        if (root.selectedApp) root.chosen(root.selectedApp, root.remember);
+        if (root.selectedApp && !root.busy) root.chosen(root.selectedApp, root.remember);
     }
 
     // A second click on the same app opens it right away
@@ -144,6 +146,7 @@ Item {
 
         ColumnLayout {
             id: cardColumn
+            enabled: !root.busy
             anchors {
                 fill: parent
                 margins: 24
@@ -299,6 +302,14 @@ Item {
             }
 
             StyledText {
+                visible: root.errorText.length > 0
+                Layout.fillWidth: true
+                text: root.errorText
+                wrapMode: Text.Wrap
+                color: Appearance.m3colors.m3error
+            }
+
+            StyledText {
                 visible: root.items.length === 0
                 Layout.fillWidth: true
                 text: Translation.tr("Nothing found")
@@ -390,7 +401,7 @@ Item {
                 }
                 DialogButton {
                     enabled: root.selectedApp !== null
-                    buttonText: Translation.tr("Open")
+                    buttonText: root.busy ? Translation.tr("Saving…") : Translation.tr("Open")
                     colBackground: Appearance.colors.colPrimary
                     colBackgroundHover: Appearance.colors.colPrimaryHover
                     colRipple: Appearance.colors.colPrimaryActive

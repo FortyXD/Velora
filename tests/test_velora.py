@@ -62,6 +62,28 @@ class NativeToolsTests(IsolatedTest):
             self.assertEqual(velora.native_helper_path(name).read_text(), name)
             self.assertFalse(velora.native_helper_path(f".{name}.new").exists())
 
+    def test_explicit_package_build_replaces_a_stale_cached_agent(self):
+        release = Path(os.environ["XDG_CACHE_HOME"]) / "velora/cargo-target/release"
+        release.mkdir(parents=True)
+        (release / "velora-agentd").write_text("stale protocol agent")
+        (release / "velora-agentd").chmod(0o755)
+        requested = []
+        def selective_build(command, env=None, dry=False):
+            packages = [command[i + 1] for i, argument in enumerate(command) if argument == "--package"]
+            requested.extend(packages)
+            # Model a workspace whose default selection omits the already-cached agent.
+            selected = packages or [name for name in velora.NATIVE_BINARIES if name != "velora-agentd"]
+            for name in selected:
+                (release / name).write_text("rebuilt " + name)
+                (release / name).chmod(0o755)
+        with patch.object(velora, "package_metadata", return_value=None), \
+                patch.object(velora.shutil, "which", return_value="/usr/bin/cargo"), \
+                patch.object(velora, "run", side_effect=selective_build):
+            velora.build_native_helper()
+        self.assertEqual(set(requested), set(velora.NATIVE_BINARIES))
+        self.assertEqual(velora.native_helper_path("velora-agentd").read_text(), "rebuilt velora-agentd")
+        self.assertTrue(velora.native_tools_current())
+
     def test_a_failed_build_stops_the_installation(self):
         with patch.object(velora, "package_metadata", return_value=None), \
                 patch.object(velora.shutil, "which", return_value="/usr/bin/cargo"), \
@@ -167,12 +189,13 @@ class NativeToolsTests(IsolatedTest):
         with patch.object(velora, "preflight"), patch.object(velora, "run"), \
                 patch.object(velora, "install_dependencies") as dependencies, \
                 patch.object(velora, "build_native_helper", side_effect=lambda: steps.append("native")), \
+                patch.object(velora, "build_file_dialog", side_effect=lambda: steps.append("dialog")), \
                 patch.object(velora, "install_fonts"), \
                 patch.object(velora, "verify_runtime", side_effect=lambda *args: steps.append("verify")), \
                 patch.object(velora, "link_configuration", side_effect=lambda *args: steps.append("link") or self.base):
             velora.install(args)
         dependencies.assert_not_called()
-        self.assertEqual(steps, ["native", "verify", "link"])
+        self.assertEqual(steps, ["native", "dialog", "verify", "link"])
 
     def test_native_build_failure_stops_a_fresh_install_before_linking(self):
         args = velora.parser().parse_args(["install", "--yes", "--skip-packages"])
@@ -381,6 +404,7 @@ class DependencyTests(IsolatedTest):
         args = velora.parser().parse_args(["install", "--yes", "--skip-packages"])
         with patch.object(velora, "run"), patch.object(velora, "preflight"), \
                 patch.object(velora, "build_native_helper"), \
+                patch.object(velora, "build_file_dialog"), \
                 patch.object(velora, "install_fonts", side_effect=velora.VeloraError("Required fonts are missing")), \
                 patch.object(velora, "link_configuration") as link:
             with self.assertRaisesRegex(velora.VeloraError, "Required fonts are missing"):
@@ -440,6 +464,7 @@ class DependencyTests(IsolatedTest):
     def test_dry_dependency_plan_never_executes_package_commands(self):
         args = velora.parser().parse_args(["deps", "--dry-run"])
         with patch.object(velora, "package_plan", return_value=(["git"], ["mpvpaper"])), \
+             patch.object(velora, "service_active", return_value=False), \
              patch.object(velora.shutil, "which", return_value=None), patch.object(velora, "run") as run:
             velora.install_dependencies(args, {"test": {}})
             self.assertTrue(run.call_args_list)
@@ -472,6 +497,7 @@ class InstallerTests(IsolatedTest):
                  "dots/.local/share/applications/org.velora.Settings.desktop",
                  "dots/.local/share/kxmlgui5/dolphin/dolphinui.rc",
                  "dots/.local/share/folis/dolphin-create-archive.py",
+                 "dots/.local/share/folis/assistant-select.py",
                  "dots/.local/share/dbus-1/services/org.freedesktop.FileManager1.service",
                  "dots/.local/share/applications/drracket.desktop",
                  "dots/.config/quickshell/ii/modules/common/widgets/shapes/ShapeCanvas.qml"]
@@ -479,6 +505,8 @@ class InstallerTests(IsolatedTest):
             path = self.repo / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("fixture\n")
+        shutil.copy(PROJECT / "dots/.local/share/kxmlgui5/dolphin/dolphinui.rc",
+                    self.repo / "dots/.local/share/kxmlgui5/dolphin/dolphinui.rc")
         (self.repo / "dots/.config/illogical-impulse/config.example.json").write_text('{"default": true}\n')
         self.home = self.base / "target user"
         self.home.mkdir()
@@ -519,7 +547,7 @@ class InstallerTests(IsolatedTest):
         self.assertTrue(installed.is_symlink())
         touchpad = (installed / "hyprland/general.lua").read_text().split("touchpad = {", 1)[1].split("}", 1)[0]
         self.assertIn("tap_to_click = true", touchpad)
-        self.assertIn("clickfinger_behavior = false", touchpad)
+        self.assertIn("clickfinger_behavior = true", touchpad)
         overrides = json.loads((installed / "custom/shell_settings.json").read_text())
         self.assertNotIn("input:touchpad:tap_to_click", overrides)
         self.assertNotIn("input:touchpad:clickfinger_behavior", overrides)
@@ -575,6 +603,7 @@ class InstallerTests(IsolatedTest):
 
         with patch.object(velora, "ROOT", self.repo), patch.object(velora, "run", side_effect=run), \
              patch.object(velora, "build_native_helper"), \
+             patch.object(velora, "build_file_dialog"), \
              patch.object(velora, "install_fonts"), \
              patch.object(velora, "verify_runtime"), \
              patch.object(velora, "register_installation", side_effect=velora.VeloraError("registration failed")):
@@ -818,6 +847,15 @@ class UpdateTests(IsolatedTest):
         self.assertIn("toolbox", installer_commands[0])
         self.assertTrue(velora.read_json(velora.state_dir() / "last-update.json")["complete"])
 
+    def test_retry_finishes_installation_after_sources_were_already_updated(self):
+        current = git(self.checkout, 'rev-parse', 'HEAD')
+        velora.write_json(velora.state_dir() / 'last-update.json',
+                          {'previous': 'previous', 'target': current, 'complete': False})
+        with patch.object(velora, 'install_updated_tree') as install:
+            velora.update(self.args())
+        install.assert_called_once_with(None)
+        self.assertTrue(velora.read_json(velora.state_dir() / 'last-update.json')['complete'])
+
     def test_generated_files_survive_the_update_that_stops_tracking_them(self):
         colors = "dots/.config/hypr/hyprland/colors.lua"
         (self.author / colors).parent.mkdir(parents=True)
@@ -886,15 +924,15 @@ class ConcurrencyTests(IsolatedTest):
 
 
 class TouchpadDefaultsTests(unittest.TestCase):
-    def test_right_click_works_with_a_corner_click_or_two_finger_tap(self):
+    def test_right_click_defaults_to_two_finger_press_or_tap_with_corner_optional(self):
         source = (PROJECT / "dots/.config/hypr/hyprland/general.lua").read_text()
         touchpad = source.split("touchpad = {", 1)[1].split("}", 1)[0]
         self.assertIn("tap_to_click = true", touchpad)
-        self.assertIn("clickfinger_behavior = false", touchpad)
+        self.assertIn("clickfinger_behavior = true", touchpad)
 
         settings = (PROJECT / "dots/.config/quickshell/ii/modules/settings/MouseConfig.qml").read_text()
         self.assertRegex(settings, r'option: "input:touchpad:tap_to_click"\s+fallback: true')
-        self.assertRegex(settings, r'option: "input:touchpad:clickfinger_behavior"\s+fallback: false')
+        self.assertRegex(settings, r'option: "input:touchpad:clickfinger_behavior"\s+fallback: true')
         self.assertIn('title: Translation.tr("Physical right click")', settings)
         self.assertRegex(settings, r'displayName: Translation.tr\("Bottom-right corner"\).*value: false')
         self.assertRegex(settings, r'displayName: Translation.tr\("Two-finger click"\).*value: true')

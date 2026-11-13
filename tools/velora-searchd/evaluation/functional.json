@@ -1,0 +1,302 @@
+{
+  "description": "Synthetic functional corpus. Metadata-only cases must pass before content indexing; no personal document contents.",
+  "files": [
+    {
+      "path": "courses/NLP/task1/homework.ipynb",
+      "text": "Homework 1: word embeddings. Train skip-gram word vectors, compare semantic similarity, and learn a mapping between languages using bilingual dictionaries."
+    },
+    {
+      "path": "courses/NLP/task1/seminar.ipynb",
+      "text": "Seminar: preparing tokenized text and reading word vectors."
+    },
+    {
+      "path": "courses/NLP/task2/homework_pytorch.ipynb",
+      "text": "Homework 2: language modeling with PyTorch. Build a recurrent neural network to predict the next token and measure perplexity."
+    },
+    {
+      "path": "courses/NLP/task10/homework.ipynb",
+      "text": "Homework 10: evaluating retrieval augmented generation systems and measuring factual correctness."
+    },
+    {
+      "path": "courses/CV/homework_part1.ipynb",
+      "text": "Train a convolutional neural network for image classification. Implement a convolutional layer using a kernel, stride, padding and pooling."
+    },
+    {
+      "path": "courses/CV/homework_part2.ipynb",
+      "text": "Homework: implement ConvNeXt blocks with depthwise convolutions, layer normalization and stochastic depth. Compare label smoothing and model averaging."
+    },
+    {
+      "path": "courses/physics/experiment_02/report.md",
+      "text": "Laboratory experiment 2: measure the speed of sound from the resonance of a tube."
+    },
+    {
+      "path": "courses/physics/experiment_12/report.md",
+      "text": "Laboratory experiment 12: measure the electrical resistance of a wire."
+    },
+    {
+      "path": "courses/algorithms/complexity.md",
+      "text": "Lectures on computational complexity: polynomial reductions, NP completeness, P versus NP, and space complexity."
+    },
+    {
+      "path": ".config/kitty/kitty.conf",
+      "text": "font_family Monospace\nfont_size 12\nscrollback_lines 10000\nbackground #101010\n"
+    },
+    {
+      "path": ".config/hypr/general.conf",
+      "text": "input {\n kb_layout = us,ru\n kb_options = grp:alt_shift_toggle\n repeat_delay = 300\n}\n"
+    },
+    {
+      "path": ".config/hypr/keybinds.conf",
+      "text": "bind = SUPER, Return, exec, kitty\nbind = SUPER, Q, killactive\n"
+    },
+    {
+      "path": ".config/hypr/colors.conf",
+      "text": "background = #202020\nforeground = #eeeeee\n"
+    },
+    {
+      "path": "other/course/hw1.ipynb",
+      "text": "Homework 1: financial accounting and balance sheets."
+    },
+    {
+      "path": "notes/travel.md",
+      "text": "Train tickets and hotel reservations for Berlin."
+    },
+    {
+      "path": "notes/recipes.md",
+      "text": "Bake bread with flour, yeast, water and salt. Knead the dough and let it rise."
+    },
+    {
+      "path": "courses/NLP/task4/homework_solved (2).ipynb",
+      "text": "Fourth homework: language modelling and attention."
+    },
+    {
+      "path": "project/search.py",
+      "text": "Tests for npl and nlp query normalization; irrelevant implementation."
+    },
+    {
+      "path": "courses/CV/logs/finetuned_layer3_layer4/version_11/metrics.csv",
+      "text": "epoch,loss\n1,0.5\n"
+    },
+    {
+      "path": "website/evaluation/fixture.json",
+      "text": "config for keyboard layout hypr горячие клавиши terminal font settings"
+    }
+  ],
+  "queries": [
+    {
+      "q": "nlp hw1",
+      "expected": "courses/NLP/task1/homework.ipynb",
+      "metadata": true
+    },
+    {
+      "q": "NLP HW 01",
+      "expected": "courses/NLP/task1/homework.ipynb",
+      "metadata": true
+    },
+    {
+      "q": "nlp homework1",
+      "expected": "courses/NLP/task1/homework.ipynb",
+      "metadata": true
+    },
+    {
+      "q": "nlp homework 1",
+      "expected": "courses/NLP/task1/homework.ipynb",
+      "metadata": true
+    },
+    {
+      "q": "nlp hw2",
+      "expected": "courses/NLP/task2/homework_pytorch.ipynb",
+      "metadata": true
+    },
+    {
+      "q": "nlp hw10",
+      "expected": "courses/NLP/task10/homework.ipynb",
+      "metadata": true
+    },
+    {
+      "q": "nlp hw9",
+      "expected": null,
+      "metadata": true
+    },
+    {
+      "q": "physics exp2",
+      "expected": "courses/physics/experiment_02",
+      "metadata": true
+    },
+    {
+      "q": "physics exp2 report",
+      "expected": "courses/physics/experiment_02/report.md",
+      "metadata": true
+    },
+    {
+      "q": "nlp task1",
+      "expected": "courses/NLP/task1",
+      "metadata": true
+    },
+    {
+      "q": "покажи первую домашку по nlp",
+      "expected": "courses/NLP/task1/homework.ipynb",
+      "metadata": true
+    },
+    {
+      "q": "первая домашняя работа nlp",
+      "expected": "courses/NLP/task1/homework.ipynb",
+      "metadata": true
+    },
+    {
+      "q": "find my second nlp homework",
+      "expected": "courses/NLP/task2/homework_pytorch.ipynb",
+      "metadata": true
+    },
+    {
+      "q": "homework number 10 for nlp",
+      "expected": "courses/NLP/task10/homework.ipynb",
+      "metadata": true
+    },
+    {
+      "q": "config kitty",
+      "expected": ".config/kitty/kitty.conf",
+      "metadata": true
+    },
+    {
+      "q": "конфиг терминала",
+      "expected": ".config/kitty/kitty.conf",
+      "metadata": false
+    },
+    {
+      "q": "настройки терминала",
+      "expected": ".config/kitty/kitty.conf",
+      "metadata": false
+    },
+    {
+      "q": "где поменять размер шрифта терминала",
+      "expected": ".config/kitty/kitty.conf",
+      "metadata": false
+    },
+    {
+      "q": "terminal font settings",
+      "expected": ".config/kitty/kitty.conf",
+      "metadata": false
+    },
+    {
+      "q": "config for keyboard layout hypr",
+      "expected": ".config/hypr/general.conf",
+      "metadata": false
+    },
+    {
+      "q": "где поменять раскладку клавиатуры",
+      "expected": ".config/hypr/general.conf",
+      "metadata": false
+    },
+    {
+      "q": "hypr keyboard layout",
+      "expected": ".config/hypr/general.conf",
+      "metadata": false
+    },
+    {
+      "q": "hypr горячие клавиши",
+      "expected": ".config/hypr/keybinds.conf",
+      "metadata": false
+    },
+    {
+      "q": "nlp задание про векторные представления слов",
+      "expected": "courses/NLP/task1/homework.ipynb",
+      "metadata": false
+    },
+    {
+      "q": "nlp где предсказываем следующий токен",
+      "expected": "courses/NLP/task2/homework_pytorch.ipynb",
+      "metadata": false
+    },
+    {
+      "q": "CV convolutional layer stride padding",
+      "expected": "courses/CV/homework_part1.ipynb",
+      "metadata": false
+    },
+    {
+      "q": "CV домашка про ConvNeXt",
+      "expected": "courses/CV/homework_part2.ipynb",
+      "metadata": false
+    },
+    {
+      "q": "покажи материал про NP полноту",
+      "expected": "courses/algorithms/complexity.md",
+      "metadata": false
+    },
+    {
+      "q": "ингредиенты для выпечки хлеба",
+      "expected": "notes/recipes.md",
+      "metadata": false
+    },
+    {
+      "q": "japanese tax return 2035",
+      "expected": null,
+      "metadata": false
+    },
+    {
+      "q": "швейная выкройка пиджака",
+      "expected": null,
+      "metadata": false
+    },
+    {
+      "q": "launch terminal",
+      "expected": "app:kitty.desktop",
+      "metadata": false
+    },
+    {
+      "q": "запусти терминал",
+      "expected": "app:kitty.desktop",
+      "metadata": false
+    },
+    {
+      "q": "npl",
+      "expected": "courses/NLP",
+      "metadata": true
+    },
+    {
+      "q": "nlp",
+      "expected": "courses/NLP",
+      "metadata": true
+    },
+    {
+      "q": "тдз",
+      "expected": "courses/NLP",
+      "metadata": true
+    },
+    {
+      "q": "nlp hw100",
+      "expected": null,
+      "metadata": true
+    },
+    {
+      "q": "nlp hw1 вчера",
+      "expected": null,
+      "metadata": true
+    },
+    {
+      "q": "nlp домашней работе 2",
+      "expected": "courses/NLP/task2/homework_pytorch.ipynb",
+      "metadata": true
+    },
+    {
+      "q": "physics exp12 report",
+      "expected": "courses/physics/experiment_12/report.md",
+      "metadata": true
+    },
+    {
+      "q": "config kity",
+      "expected": ".config/kitty/kitty.conf",
+      "metadata": true
+    },
+    {
+      "q": "config kitty keyboard layout",
+      "expected": null,
+      "metadata": false
+    },
+    {
+      "q": "nlp hw1 про следующий токен",
+      "expected": null,
+      "metadata": false
+    }
+  ]
+}

@@ -22,7 +22,7 @@ PageScaffold {
 
     readonly property bool checked: root.flow.displayChecked
     property string selected: ""
-    readonly property var monitors: HyprlandMonitors.monitors.filter(monitor => !monitor.disabled)
+    readonly property var monitors: HyprlandMonitors.displays.filter(monitor => !monitor.disabled)
     readonly property var selectedMonitor: root.monitors.find(monitor => monitor.name === root.selected) ?? root.monitors[0] ?? null
 
     function bestMode(monitor) {
@@ -48,7 +48,7 @@ PageScaffold {
     }
     function applyRecommended() {
         if (root.checked || root.flow.step !== "display") return;
-        for (const monitor of HyprlandMonitors.monitors) {
+        for (const monitor of HyprlandMonitors.displays) {
             if (monitor.disabled) continue;
             const mode = root.bestMode(monitor);
             if (!mode) continue;

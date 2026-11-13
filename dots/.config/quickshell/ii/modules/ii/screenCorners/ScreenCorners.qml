@@ -203,9 +203,15 @@ Scope {
             id: monitorScope
             required property var modelData
             property HyprlandMonitor monitor: Hyprland.monitorFor(modelData)
+            // With no output left (the only enabled screen unplugged) Qt keeps a placeholder
+            // screen, and with a just-added output Hyprland has not registered it yet: reading
+            // monitor.name on null threw a TypeError per corner on every hotplug.
+            readonly property bool tracked: monitor !== null
 
             // Hide when fullscreen
-            property list<HyprlandWorkspace> workspacesForMonitor: Hyprland.workspaces.values.filter(workspace => workspace.monitor && workspace.monitor.name == monitor.name)
+            property list<HyprlandWorkspace> workspacesForMonitor: tracked
+                ? Hyprland.workspaces.values.filter(workspace => workspace.monitor && workspace.monitor.name === monitor.name)
+                : []
             property var activeWorkspaceWithFullscreen: workspacesForMonitor.filter(workspace => ((workspace.toplevels.values.filter(window => window.wayland?.fullscreen)[0] != undefined) && workspace.active))[0]
             property bool fullscreen: activeWorkspaceWithFullscreen != undefined
 

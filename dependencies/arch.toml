@@ -27,6 +27,10 @@ description = "Terminal, file manager and everyday applications"
 required = false
 repo = [
     "dolphin",
+    "dolphin-plugins", # Official Git integration
+    "ffmpegthumbs",
+    "kdegraphics-thumbnailers",
+    "filelight",
     "systemsettings",
     "plasma-systemmonitor", # The default task manager action
     "kitty",
@@ -50,9 +54,16 @@ aur = []
 description = "Shell services, media, networking and hardware controls"
 required = true
 repo = [
+    "openssl", # SQLCipher in velora-searchd
+    "bubblewrap", # Isolated local document and image parsers
+    "python-gobject", # Wallpaper/GSettings monitoring for the GDM bridge
+    "poppler", # pdftotext for Lens documents
     "bc",
     "cliphist",
     "cmake",
+    "extra-cmake-modules",
+    "kio", # Velora KFileWidget toolbar plugin
+    "libarchive", # Quick Look archive listings (bsdtar)
     "curl",
     "wget",
     "xdg-user-dirs",
@@ -187,3 +198,9 @@ description = "Video wallpaper playback"
 required = false
 repo = []
 aur = ["mpvpaper"]
+
+[features.assistant]
+description = "Optional local assistant (CPU Ollama and application accessibility)"
+required = false
+repo = ["ollama", "at-spi2-core", "python-gobject"]
+aur = []

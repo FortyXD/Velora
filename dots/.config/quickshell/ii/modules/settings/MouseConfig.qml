@@ -58,15 +58,16 @@ ContentPage {
             fallback: true
             buttonIcon: "touch_app"
             text: Translation.tr("Tap to click")
-            description: Translation.tr("Two-finger tap for right click, independently of physical click method")
+            description: Translation.tr("Tap with one finger for left click or two for right click. Turn off to click only by physically pressing the touchpad.")
         }
         HyprChoice {
             option: "input:touchpad:clickfinger_behavior"
-            fallback: false
+            fallback: true
             title: Translation.tr("Physical right click")
+            description: Translation.tr("Two-finger mode: press with one finger for left click or two for right click anywhere. Works with tap to click off.")
             choices: [
-                { displayName: Translation.tr("Bottom-right corner"), icon: "ads_click", value: false },
-                { displayName: Translation.tr("Two-finger click"), icon: "touch_app", value: true }
+                { displayName: Translation.tr("Two-finger click"), icon: "touch_app", value: true },
+                { displayName: Translation.tr("Bottom-right corner"), icon: "ads_click", value: false }
             ]
         }
         HyprSwitch {

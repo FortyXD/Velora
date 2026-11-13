@@ -92,10 +92,10 @@ WMouseAreaButton {
                         model: ScriptModel {
                             values: HyprlandData.toplevelsForWorkspace(root.workspace)
                         }
-                        delegate: ScreencopyView {
+                        delegate: WindowThumbnail {
                             required property var modelData
                             readonly property var hyprlandWindowData: HyprlandData.windowByAddress[`0x${modelData.HyprlandToplevel?.address}`]
-                            captureSource: modelData
+                            toplevel: modelData
                             live: true
                             width: hyprlandWindowData?.size[0] * root.windowScale
                             height: hyprlandWindowData?.size[1] * root.windowScale

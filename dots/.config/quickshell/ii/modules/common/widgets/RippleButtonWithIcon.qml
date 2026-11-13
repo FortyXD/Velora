@@ -17,8 +17,9 @@ RippleButton {
             color: Appearance.colors.colOnSecondaryContainer
         }
     }
-    implicitHeight: 35
+    implicitHeight: Math.max(35, contentItem.implicitHeight + verticalPadding * 2)
     horizontalPadding: 10
+    verticalPadding: 3
     buttonRadius: Appearance.rounding.small
     colBackground: Appearance.colors.colLayer2
 
@@ -26,6 +27,8 @@ RippleButton {
         Item {
             Layout.fillWidth: false
             implicitWidth: Math.max(materialIconLoader.implicitWidth, nerdIconLoader.implicitWidth)
+            implicitHeight: Math.max(materialIconLoader.implicitHeight, nerdIconLoader.implicitHeight)
+            Layout.alignment: Qt.AlignVCenter
             Loader {
                 id: materialIconLoader
                 anchors.centerIn: parent

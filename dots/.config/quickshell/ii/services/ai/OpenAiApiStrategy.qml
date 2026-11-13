@@ -1,11 +1,13 @@
 import QtQuick
+import qs.services
+import qs.modules.common
 
 ApiStrategy {
     property bool isReasoning: false
     
     function buildEndpoint(model: AiModel): string {
         // console.log("[AI] Endpoint: " + model.endpoint);
-        return model.endpoint;
+        return model.local ? model.endpoint.replace(/\/v1\/chat\/completions\/?$/, "/api/chat") : model.endpoint;
     }
 
     function buildRequestData(model: AiModel, messages, systemPrompt: string, temperature: real, tools: list<var>, filePath: string) {
@@ -24,7 +26,14 @@ ApiStrategy {
             "temperature": temperature,
         };
         if (tools && tools.length > 0) baseData.tools = tools; // An empty list makes some servers reject the request
-        return model.extraParams ? Object.assign({}, baseData, model.extraParams) : baseData;
+        if (model.local) {
+            baseData.keep_alive = PowerSaving.onBattery ? "60s" : "5m";
+            baseData.options = {temperature, num_ctx:8192, num_predict:4096, num_gpu:(Config.options.ai.localGpu ?? true) && !PowerSaving.onBattery ? -1 : 0};
+            delete baseData.temperature;
+        }
+        const data = model.extraParams ? Object.assign({}, baseData, model.extraParams) : baseData;
+        if (data.temperature === null) delete data.temperature;
+        return data;
     }
 
     function buildAuthorizationHeader(apiKeyEnvVarName: string): string {
@@ -55,13 +64,13 @@ ApiStrategy {
                 const errorMsg = `**Error**: ${dataJson.error.message || JSON.stringify(dataJson.error)}`;
                 message.rawContent += errorMsg;
                 message.content += errorMsg;
-                return { finished: true };
+                return { finished: true, error:errorMsg };
             }
 
             let newContent = "";
 
-            const responseContent = dataJson.choices[0]?.delta?.content || dataJson.message?.content;
-            const responseReasoning = dataJson.choices[0]?.delta?.reasoning || dataJson.choices[0]?.delta?.reasoning_content;
+            const responseContent = dataJson.choices?.[0]?.delta?.content || dataJson.message?.content;
+            const responseReasoning = dataJson.choices?.[0]?.delta?.reasoning || dataJson.choices?.[0]?.delta?.reasoning_content || dataJson.message?.thinking;
 
             if (responseContent && responseContent.length > 0) {
                 if (isReasoning) {
@@ -96,8 +105,14 @@ ApiStrategy {
             }
 
             if (dataJson.done) {
-                return { finished: true };
+                if (isReasoning) {
+                    isReasoning = false;
+                    message.content += "\n</think>\n";
+                    message.rawContent += "\n</think>\n";
+                }
+                return { finished: true, error:dataJson.done_reason === "length" ? Translation.tr("The model reached its output limit. Ask it to continue.") : "" };
             }
+            return {phase:responseReasoning ? Translation.tr("Thinking…") : responseContent ? Translation.tr("Generating response…") : ""};
             
         } catch (e) {
             console.log("[AI] OpenAI: Could not parse line: ", e);

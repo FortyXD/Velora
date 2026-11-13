@@ -29,6 +29,14 @@ fn path(text: &str) -> OwnedObjectPath {
 
 #[interface(name = "org.freedesktop.Secret.Service")]
 impl Service {
+    #[zbus(name = "ReadAlias")]
+    fn read_alias(&self, _name: String) -> OwnedObjectPath { path(COLLECTION_PATH) }
+
+    #[zbus(name = "Unlock")]
+    fn unlock(&self, objects: Vec<OwnedObjectPath>) -> (Vec<OwnedObjectPath>, OwnedObjectPath) {
+        (objects, path("/"))
+    }
+
     #[zbus(name = "OpenSession")]
     fn open_session(&self, _algorithm: String, _input: OwnedVariant) -> (OwnedVariant, OwnedObjectPath) {
         (Variant::from("").try_into_owned().expect("plain text"), path(SESSION_PATH))
@@ -48,6 +56,9 @@ struct Collection {
 
 #[interface(name = "org.freedesktop.Secret.Collection")]
 impl Collection {
+    #[zbus(property)]
+    fn locked(&self) -> bool { false }
+
     #[zbus(name = "CreateItem")]
     async fn create_item(
         &self,

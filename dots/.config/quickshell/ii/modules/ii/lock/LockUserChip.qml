@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell.Services.SystemTray
 import qs
 import qs.services
 import qs.modules.common
@@ -60,7 +59,7 @@ Toolbar {
         sourceComponent: Bar.SysTray {
             showSeparator: false
             showOverflowMenu: false
-            pinnedItems: SystemTray.items.values.filter(i => i.id == "Fcitx")
+            pinnedItems: TrayService.items.filter(i => i.id == "Fcitx")
         }
     }
 }

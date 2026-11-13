@@ -3,11 +3,13 @@ pragma ComponentBehavior: Bound
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
+import qs.services
 import Qt5Compat.GraphicalEffects
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
+import qs
 
 /**
  * Live previews of an app's windows. They open after resting on a running
@@ -25,17 +27,26 @@ PopupWindow {
     property real controlsHeight: 30
 
     property Item tile: null
+    property Item requestedTile: null
+    property bool preparing: false
     property bool shown: false
-    readonly property var toplevels: tile?.toplevels ?? []
+    readonly property var toplevels: previewPool.displayed
+
+    WindowPreviewPool {
+        id: previewPool
+        active: (root.preparing || root.visible) && !GlobalStates.screenLocked
+        current: root.requestedTile?.toplevels ?? []
+        onDisplayedChanged: {
+            if (displayed.length && current.every(window => displayed.includes(window))) root.tile = root.requestedTile;
+        }
+        onCurrentChanged: if (root.preparing && current.length === 0) root.dismiss()
+    }
 
     function dismiss() {
         dwellTimer.stop();
         hideTimer.stop();
+        root.preparing = false;
         root.shown = false;
-    }
-
-    onToplevelsChanged: {
-        if (root.shown && root.toplevels.length === 0) root.dismiss();
     }
 
     Binding {
@@ -50,11 +61,13 @@ PopupWindow {
             const tile = root.dock.hoveredTile;
             if (tile && tile.windowCount > 0 && !root.dock.menuOpen) {
                 hideTimer.stop();
-                if (root.shown) root.tile = tile;
-                else dwellTimer.restart();
+                root.requestedTile = tile;
+                root.preparing = true;
+                if (!root.shown) dwellTimer.restart();
             } else {
                 dwellTimer.stop();
                 if (root.shown) hideTimer.restart();
+                else root.preparing = false;
             }
         }
         function onTileActivated() {
@@ -74,7 +87,6 @@ PopupWindow {
         onTriggered: {
             const tile = root.dock.hoveredTile;
             if (!tile || !(tile.windowCount > 0)) return;
-            root.tile = tile;
             root.shown = true;
         }
     }
@@ -83,8 +95,12 @@ PopupWindow {
         id: hideTimer
         interval: 350
         onTriggered: {
-            if (!contentArea.containsMouse) root.shown = false;
+            if (!contentArea.containsMouse && !(root.dock.hoveredTile?.windowCount > 0)) root.dismiss();
         }
+    }
+    Connections {
+        target: GlobalStates
+        function onScreenLockedChanged() { if (GlobalStates.screenLocked) root.dismiss(); }
     }
 
     anchor {
@@ -96,7 +112,7 @@ PopupWindow {
         adjustment: PopupAdjustment.None
     }
 
-    visible: previewBackground.opacity > 0
+    visible: previewBackground.opacity > 0 && previewPool.displayed.length > 0
     color: "transparent"
     implicitWidth: root.dockWindow?.width ?? 1
     implicitHeight: contentArea.implicitHeight
@@ -152,7 +168,7 @@ PopupWindow {
             border.color: Appearance.popup.colBorder
             clip: true
 
-            opacity: root.shown ? 1 : 0
+            opacity: root.shown && previewPool.displayed.length > 0 ? 1 : 0
             transform: Translate {
                 y: root.shown ? 0 : 8
                 Behavior on y {
@@ -182,13 +198,14 @@ PopupWindow {
 
                 Repeater {
                     model: ScriptModel {
-                        // No captures run while the previews are hidden
-                        values: root.visible ? root.toplevels : []
+                        values: previewPool.windows
                     }
 
                     RippleButton {
                         id: windowButton
                         required property var modelData
+                        visible: root.toplevels.includes(modelData)
+                        Component.onCompleted: previewPool.setReady(modelData, screencopyView.hasContent)
                         Layout.fillHeight: true
                         padding: 0
                         middleClickAction: () => {
@@ -234,10 +251,14 @@ PopupWindow {
                                 Layout.fillHeight: true
                                 implicitHeight: screencopyView.height
                                 implicitWidth: screencopyView.width
-                                ScreencopyView {
+                                WindowThumbnail {
                                     id: screencopyView
                                     anchors.centerIn: parent
-                                    captureSource: windowButton.modelData
+                                    toplevel: windowButton.modelData
+                                    retainWhileHidden: true
+                                    showFallback: false
+                                    preparing: root.preparing && previewPool.current.includes(windowButton.modelData)
+                                    onHasContentChanged: previewPool.setReady(windowButton.modelData, hasContent)
                                     live: !PowerSaving.cutLivePreviews
                                     paintCursor: true
                                     constraintSize: Qt.size(root.maxPreviewWidth, root.maxPreviewHeight)

@@ -27,7 +27,11 @@ Singleton {
     property bool isSuspendingAndNotCharging: allowAutomaticSuspend && isSuspending && !isCharging
     property bool isFullAndCharging: isFull && isCharging
 
-    property real energyRate: UPower.displayDevice.changeRate
+    // Analytics never silently falls back to stale UPower readings while enabled.
+    readonly property bool energyRateAvailable: !PowerAnalytics.enabled || PowerAnalytics.hasLivePower
+    property real energyRate: PowerAnalytics.enabled
+        ? (PowerAnalytics.hasLivePower ? Math.abs(PowerAnalytics.latest.battery_power_w) : NaN)
+        : UPower.displayDevice.changeRate
     property real timeToEmpty: UPower.displayDevice.timeToEmpty
     property real timeToFull: UPower.displayDevice.timeToFull
 

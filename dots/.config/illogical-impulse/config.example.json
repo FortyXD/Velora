@@ -281,6 +281,10 @@
         },
         "workspaces": {
             "alwaysShowNumbers": false,
+            "flickSpeed": 370,
+            "hidePreviewOnFlick": true,
+            "showPreviews": true,
+            "hidePreviewOnLeave": false,
             "monochromeIcons": true,
             "numberMap": [
                 "1",
@@ -293,6 +297,7 @@
         }
     },
     "battery": {
+        "advancedAnalytics": false,
         "automaticSuspend": true,
         "critical": 5,
         "full": 101,
@@ -499,7 +504,13 @@
             "showDefaultActionsWithoutPrefix": true,
             "webSearch": "?"
         },
-        "sloppy": false
+        "sloppy": false,
+        "ai": {
+            "enabled": false
+        },
+        "lens": {
+            "enabled": false
+        }
     },
     "sidebar": {
         "ai": {

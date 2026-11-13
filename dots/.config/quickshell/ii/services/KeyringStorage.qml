@@ -16,9 +16,13 @@ Singleton {
     id: root
 
     signal dataChanged()
+    signal saveFinished(bool ok)
+    readonly property bool saving: saveData.running
+    readonly property bool fetching: getData.running
 
     property bool loaded: false
     property var keyringData: ({})
+    property var rollbackData: null
     
     property var properties: {
         "application": "illogical-impulse",
@@ -32,6 +36,7 @@ Singleton {
     property string keyringLabel: Translation.tr("%1 Safe Storage").arg("illogical-impulse")
 
     function setNestedField(path, value) {
+        if (!saving) rollbackData = JSON.parse(JSON.stringify(root.keyringData));
         if (!root.keyringData) root.keyringData = {};
         let keys = path;
         let obj = root.keyringData;
@@ -76,6 +81,12 @@ Singleton {
 
     Process {
         id: saveData
+        onExited: (code, status) => {
+            if (code === 0) Config.options.ai.credentialsRevision = Date.now();
+            else if (root.rollbackData !== null) root.keyringData = root.rollbackData;
+            root.rollbackData = null;
+            root.saveFinished(code === 0);
+        }
         command: [
             "secret-tool", "store", "--label=" + keyringLabel,
             ...propertiesAsArgs,
