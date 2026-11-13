@@ -97,7 +97,7 @@ class DefaultWallpaperTests(unittest.TestCase):
                 }''')
             stubs = {
                 'Quickshell': 'property int processId:42; property var detached: []; function execDetached(command) { detached=detached.concat([command]); } function shellPath(path) { return ' + json.dumps(str(SHELL) + '/') + '+path; }',
-                'FileUtils': 'function trimFileProtocol(path) { return path.replace(/^file:\\/\\//, ""); }',
+                'FileUtils': 'function trimFileProtocol(path) { return String(path).replace(/^file:\\/\\//, ""); }',
                 'Translation': 'function tr(text) { return text; }',
                 'Appearance': 'property var font: ({pixelSize:{smaller:12}})',
                 'SystemInfo': 'property string username:"isolated-test"',

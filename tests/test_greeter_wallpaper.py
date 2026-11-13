@@ -5,11 +5,10 @@ import os
 from pathlib import Path
 import socket
 import struct
-import subprocess
-import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
+from sandbox_support import require_sandbox
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('bridge', ROOT / 'scripts/greeter_wallpaper.py')
@@ -117,24 +116,8 @@ class PublicationTests(unittest.TestCase):
 
 
 class SandboxTests(unittest.TestCase):
-    def require_sandbox(self):
-        # Hosted runners can forbid nested user/network namespaces. Probe the host
-        # independently of our decoder; QEMU release checks require this to work.
-        if not shutil.which('bwrap'):
-            reason = 'bubblewrap is not installed'
-        else:
-            probe = subprocess.run(['bwrap', '--unshare-all', '--cap-drop', 'ALL',
-                                    '--ro-bind', '/', '/', '/usr/bin/true'],
-                                   capture_output=True, text=True, timeout=10)
-            if probe.returncode == 0:
-                return
-            reason = probe.stderr.strip()
-        if os.environ.get('VELORA_REQUIRE_SANDBOX_TESTS') == '1':
-            self.fail('Required image sandbox unavailable: ' + reason)
-        self.skipTest('Host cannot create the image sandbox: ' + reason)
-
     def test_real_decoder_unicode_spaces_alpha_gif_and_bounds(self):
-        self.require_sandbox()
+        require_sandbox(self)
         from PIL import Image
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -150,7 +133,7 @@ class SandboxTests(unittest.TestCase):
                 self.assertEqual(len(data), 12 + width * height * 3)
 
     def test_corrupt_fifo_device_oversized_and_bomb(self):
-        self.require_sandbox()
+        require_sandbox(self)
         from PIL import Image
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

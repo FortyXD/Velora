@@ -13,6 +13,7 @@ import threading
 import time
 import unittest
 import zipfile
+from sandbox_support import require_sandbox
 
 ROOT = Path(__file__).resolve().parents[1]
 BINARY = ROOT / 'tools/target/debug/velora-agentd'
@@ -496,6 +497,7 @@ print('data: [DONE]',flush=True)
         self.until(lambda e:e['type']=='finished');self.assertFalse((self.root/'injected').exists())
 
     def test_approved_terminal_publishes_only_the_selected_directory_diff(self):
+        require_sandbox(self)
         source=self.root/'work';source.mkdir()
         self.configure(selection=[str(source)])
         command='printf sandbox-ok > result; test ! -e /home/andrey; test ! -e /run/user; cat result'
@@ -532,6 +534,7 @@ print('data: [DONE]',flush=True)
         self.assertTrue((self.root/'Desktop/Archive.zip').exists())
 
     def test_direct_terminal_requires_run_and_diff_approval_then_manual_rollback(self):
+        require_sandbox(self)
         work = self.root/'work'; work.mkdir(); (work/'note').write_text('original')
         self.configure(selection=[str(work)])
         task = self.send('submit', {'text':'изменить файл', 'tool':{'name':'terminal_run','arguments':{'command':"printf changed > "+str(work/'note')+"; printf new > created",'cwd':str(work),'network':False}}})

@@ -4,6 +4,7 @@ test -e /var/lib/velora-qemu-ready
 cd "$HOME/Velora"
 mkdir -p "$HOME/evidence"
 VELORA_REQUIRE_SANDBOX_TESTS=1 python -m unittest discover -s tests -p test_greeter_wallpaper.py -v 2>&1 | tee "$HOME/evidence/greeter-wallpaper-tests.log"
+VELORA_REQUIRE_SANDBOX_TESTS=1 PYTHONPATH=tests python -m unittest test_agent.AgentTests.test_approved_terminal_publishes_only_the_selected_directory_diff test_agent.AgentTests.test_direct_terminal_requires_run_and_diff_approval_then_manual_rollback -v 2>&1 | tee "$HOME/evidence/agent-sandbox-tests.log"
 python -m unittest discover -s tests -p test_desktop_extras.py 2>&1 | tee "$HOME/evidence/desktop-tests.log"
 python -m unittest discover -s tests -p test_velora.py 2>&1 | tee "$HOME/evidence/installer-tests.log"
 python -m unittest discover -s tests -p test_update_gui.py 2>&1 | tee "$HOME/evidence/gui-update-tests.log"

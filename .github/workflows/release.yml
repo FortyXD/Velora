@@ -13,10 +13,7 @@ permissions:
 jobs:
   arch-package:
     runs-on: ubuntu-latest
-    container:
-      image: archlinux:base-devel
-      # Exercise the real nested bubblewrap sandbox used by agent transactions.
-      options: --security-opt seccomp=unconfined --security-opt apparmor=unconfined
+    container: archlinux:base-devel
     permissions:
       contents: write
     steps:
@@ -39,7 +36,7 @@ jobs:
       - name: Validate maintenance tools
         run: |
           runuser -u builder -- cargo build --locked --workspace --manifest-path tools/Cargo.toml
-          runuser -u builder -- env VELORA_TEST_PREBUILT=1 VELORA_REQUIRE_SANDBOX_TESTS=1 python3 -m unittest discover -s tests -v
+          runuser -u builder -- env VELORA_TEST_PREBUILT=1 python3 -m unittest discover -s tests -v
           bash -n velora install.sh setup diagnose scripts/install.sh dots/.config/quickshell/ii/scripts/maintenance/velora.sh
       - name: Build the Velora package
         run: runuser -u builder -- ./velora package --output "$GITHUB_WORKSPACE/dist"
