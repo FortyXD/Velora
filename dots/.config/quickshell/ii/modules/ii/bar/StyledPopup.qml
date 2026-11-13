@@ -30,9 +30,21 @@ LazyLoader {
     property bool closeImmediately: false // Bypass the grace period AND exit animation
 
     readonly property bool animate: Config.options.bar.microAnimations
-    readonly property bool targetHovered: !!(hoverTarget && hoverTarget.containsMouse) && !GlobalStates.barEditing
+    property PopupHoverTarget targetPresence: PopupHoverTarget {
+        target: root.hoverTarget
+        enabled: root.hoverControlled && !GlobalStates.barEditing && root.hoverEnabled
+    }
+    readonly property bool targetHovered: targetPresence.containsMouse
     readonly property bool pointerInside: targetHovered || (interactive && popupHovered)
     property bool wanted: false
+    onHoverControlledChanged: {
+        openTimer.stop();
+        closeTimer.stop();
+        wanted = false;
+        lingeringTimer.stop();
+        lingering = false;
+        dismissed = false;
+    }
     onTargetHoveredChanged: {
         if (targetHovered) root.dismissed = false;
         if (targetHovered) updateHover();
@@ -125,20 +137,29 @@ LazyLoader {
         function clamp(value, size, available) {
             return Math.max(0, Math.min(value, available - size));
         }
+        // mapFromItem needs the target inside a window already; during a hotplug or the
+        // popup's own creation it is not, and Qt logged "Cannot call mapFromItem before
+        // item is a member of a window". Fall back to the edge padding instead.
+        function centeredOnTarget(axis, targetSize, popupSize, barSize, margin) {
+            if (!root.hoverTarget || !root.hoverTarget.QsWindow?.window || !root.QsWindow?.window || barSize === undefined) return undefined;
+            return popupWindow.clamp(root.QsWindow.mapFromItem(root.hoverTarget,
+                axis === 'x' ? (targetSize - popupSize) / 2 : 0,
+                axis === 'x' ? 0 : (targetSize - popupSize) / 2)[axis] - margin, popupSize, barSize);
+        }
         margins {
             left: {
-                if (!Config.options.bar.vertical) return popupWindow.clamp(root.QsWindow?.mapFromItem(
-                    root.hoverTarget,
-                    (root.hoverTarget.width - popupBackground.implicitWidth) / 2, 0
-                ).x - Appearance.sizes.elevationMargin, popupWindow.implicitWidth, popupWindow.barWindow?.width ?? Infinity);
+                if (!Config.options.bar.vertical) {
+                    const placed = popupWindow.centeredOnTarget('x', root.hoverTarget?.width ?? 0,
+                        popupBackground.implicitWidth, popupWindow.barWindow?.width, Appearance.sizes.elevationMargin);
+                    return placed !== undefined ? placed : Appearance.sizes.elevationMargin;
+                }
                 return Appearance.sizes.verticalBarWidth
             }
             top: {
                 if (!Config.options.bar.vertical) return Appearance.sizes.barHeight;
-                return popupWindow.clamp(root.QsWindow?.mapFromItem(
-                    root.hoverTarget,
-                    0, (root.hoverTarget.height - popupBackground.implicitHeight) / 2
-                ).y - Appearance.sizes.elevationMargin, popupWindow.implicitHeight, popupWindow.barWindow?.height ?? Infinity);
+                const placed = popupWindow.centeredOnTarget('y', root.hoverTarget?.height ?? 0,
+                    popupBackground.implicitHeight, popupWindow.barWindow?.height, Appearance.sizes.elevationMargin);
+                return placed !== undefined ? placed : Appearance.sizes.elevationMargin;
             }
             right: Appearance.sizes.verticalBarWidth
             bottom: Appearance.sizes.barHeight
