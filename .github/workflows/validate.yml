@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install native test dependencies
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config bubblewrap dbus-daemon
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config bubblewrap dbus-daemon python3-pil poppler-utils libarchive-tools
       - name: Check shell entry points
         run: bash -n velora install.sh setup diagnose scripts/install.sh dots/.config/quickshell/ii/scripts/maintenance/velora.sh
       - name: Test the native helper
@@ -33,20 +33,24 @@ jobs:
     container: archlinux:latest
     steps:
       - name: Install what the tests need
-        run: pacman -Syu --noconfirm --needed git rust cargo-llvm-cov llvm dbus qt6-declarative qt6-5compat qt6-svg qt6-multimedia qt6-positioning kirigami libqalculate quickshell python python-pillow ttf-dejavu
+        run: pacman -Syu --noconfirm --needed git rust cargo-llvm-cov llvm dbus qt6-declarative qt6-5compat qt6-svg qt6-multimedia qt6-positioning kirigami syntax-highlighting libqalculate quickshell python python-pillow ttf-dejavu
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Create an unprivileged test user
+        run: |
+          useradd --create-home tester
+          chown -R tester:tester "$GITHUB_WORKSPACE"
       - name: Test the daemon, with at least 90% of its lines covered
         env:
           LLVM_COV: /usr/bin/llvm-cov
           LLVM_PROFDATA: /usr/bin/llvm-profdata
-        run: cargo llvm-cov --locked --manifest-path tools/Cargo.toml -p velora-connectivityd --fail-under-lines 90
+        run: runuser -u tester -- cargo llvm-cov --locked --manifest-path tools/Cargo.toml -p velora-connectivityd --fail-under-lines 90
       - name: Test the shell's side of it
         env:
           VELORA_REQUIRE_CONNECTIVITY_TESTS: "1"
           PYTHONPATH: tests
         run: |
-          python3 -m unittest discover -s tests -p "test_connectivity_qml.py" -v
-          python3 -m unittest discover -s tests -p "test_connectivity_pages.py" -v
-          python3 -m unittest test_agent_pages test_ai_connections_pages test_ai_defaults_pages test_launcher_ai_pages test_search_ai_settings test_sidebar_chat_pages test_search_opt_in test_lens test_agent_qml test_window_thumbnails test_default_wallpaper test_screenshot_cursor -v
+          runuser -u tester -- python3 -m unittest discover -s tests -p "test_connectivity_qml.py" -v
+          runuser -u tester -- python3 -m unittest discover -s tests -p "test_connectivity_pages.py" -v
+          runuser -u tester -- python3 -m unittest test_agent_pages test_ai_connections_pages test_ai_defaults_pages test_launcher_ai_pages test_search_ai_settings test_sidebar_chat_pages test_search_opt_in test_lens test_agent_qml test_window_thumbnails test_default_wallpaper test_screenshot_cursor -v

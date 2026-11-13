@@ -18,7 +18,7 @@ jobs:
       contents: write
     steps:
       - name: Install build tools
-        run: pacman -Syu --noconfirm --needed git python sudo github-cli rust openssl cmake extra-cmake-modules qt6-base kio dbus bubblewrap nodejs
+        run: pacman -Syu --noconfirm --needed git python python-pillow sudo github-cli rust openssl cmake extra-cmake-modules qt6-base kio dbus bubblewrap nodejs poppler libarchive
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.release_tag || github.ref }}
