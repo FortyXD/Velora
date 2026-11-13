@@ -13,6 +13,11 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config bubblewrap dbus-daemon python3-pil poppler-utils libarchive-tools
       - name: Check shell entry points
         run: bash -n velora install.sh setup diagnose scripts/install.sh dots/.config/quickshell/ii/scripts/maintenance/velora.sh
+      - name: Allow the image sandbox to create its namespaces on the ephemeral runner
+        run: |
+          printf '%s\n' 'profile velora-ci-bwrap /usr/bin/bwrap flags=(unconfined) { userns, }' > /tmp/velora-ci-bwrap
+          sudo apparmor_parser -r /tmp/velora-ci-bwrap
+          bwrap --unshare-all --ro-bind / / /usr/bin/true
       - name: Test the native helper
         run: |
           cargo build --locked --workspace --manifest-path tools/Cargo.toml
@@ -33,7 +38,7 @@ jobs:
     container: archlinux:latest
     steps:
       - name: Install what the tests need
-        run: pacman -Syu --noconfirm --needed git rust cargo-llvm-cov llvm dbus qt6-declarative qt6-5compat qt6-svg qt6-multimedia qt6-positioning kirigami syntax-highlighting libqalculate quickshell python python-pillow ttf-dejavu
+        run: pacman -Syu --noconfirm --needed git rust cargo-llvm-cov llvm dbus jq qt6-declarative qt6-5compat qt6-svg qt6-multimedia qt6-positioning kirigami syntax-highlighting libqalculate quickshell python python-pillow ttf-dejavu
       - uses: actions/checkout@v4
         with:
           submodules: recursive

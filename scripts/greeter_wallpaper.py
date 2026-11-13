@@ -209,7 +209,8 @@ def decode(path):
         command = ['/usr/bin/prlimit', '--as=536870912', '--cpu=10', '--fsize=67108864', '--core=0', '--',
                    '/usr/bin/bwrap', '--die-with-parent', '--unshare-all', '--new-session',
                    '--cap-drop', 'ALL', '--clearenv', '--ro-bind', '/usr', '/usr',
-                   '--symlink', 'usr/lib', '/lib', '--symlink', 'usr/lib', '/lib64',
+                   '--symlink', str(Path('/lib').resolve()).lstrip('/'), '/lib',
+                   '--symlink', str(Path('/lib64').resolve()).lstrip('/'), '/lib64',
                    '--symlink', 'usr/bin', '/bin', '--proc', '/proc', '--dev', '/dev', '--tmpfs', '/tmp',
                    '--ro-bind', str(Path(__file__).resolve()), '/worker.py',
                    '--ro-bind-data', str(fd), '/input', '--chdir', '/tmp',
@@ -225,7 +226,9 @@ def decode(path):
                 process.wait()
                 raise ValueError('Wallpaper decoding timed out') from None
             if result:
-                raise ValueError('Wallpaper decoding failed inside the sandbox')
+                errors.seek(0)
+                reason = errors.read(2048).decode(errors='replace').strip()
+                raise ValueError('Wallpaper decoding failed inside the sandbox: ' + reason)
             output.seek(0)
             data = output.read(HEADER.size + MAX_PIXELS * 3 + 1)
             if len(data) > HEADER.size + MAX_PIXELS * 3 or len(data) < HEADER.size:

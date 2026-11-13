@@ -164,9 +164,12 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(run.call_args.args[0][:4], ['sudo', 'python3', '-I', ROOT / 'scripts/greeter.py'])
 
     def test_greeter_receipt_detects_changed_source_missing_files_and_restore(self):
+        is_dir = Path.is_dir
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            with patch.object(greeter, 'STATE', root / 'state'), \
+            with patch.object(Path, 'is_dir', autospec=True,
+                              side_effect=lambda path: path == Path('/usr/share/gdm') or is_dir(path)), \
+                    patch.object(greeter, 'STATE', root / 'state'), \
                     patch.object(greeter, 'EXTENSION', root / 'extension'), \
                     patch.object(greeter, 'PROFILE', root / 'profile'), \
                     patch.object(greeter, 'SETTINGS', root / 'settings'), \
