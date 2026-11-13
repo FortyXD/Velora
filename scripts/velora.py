@@ -26,6 +26,9 @@ import tomllib
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import builds
 import login_manager
+import greeter
+import kde
+import update_gui
 from runtime import sync_runtime
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +44,17 @@ class NoUpstream(VeloraError):
 
 def run(command, *, cwd=None, capture=False, dry=False, env=None, timeout=None):
     command = [str(arg) for arg in command]
+    if os.environ.get("VELORA_GUI_UPDATE") == "1":
+        executable = Path(command[1] if command[0] == "sudo" and len(command) > 1 else command[0]).name
+        if executable in ("pacman", "makepkg", "yay", "paru") and any(
+                arg in ("--syncdeps", "--install") or arg.startswith(("-S", "-U", "-s")) for arg in command[1:]):
+            if "--noconfirm" not in command:
+                command.insert(command.index("--") if "--" in command else len(command), "--noconfirm")
+            if executable in ("yay", "paru"):
+                options = ["--sudoflags=-A", *(["--answerclean", "None", "--answerdiff", "None", "--answeredit", "None"]
+                                             if executable == "yay" else ["--skipreview"])]
+                index = command.index("--") if "--" in command else len(command)
+                command[index:index] = options
     if dry:
         print("  Would run: " + shlex.join(command))
         return ""
@@ -438,25 +452,54 @@ def service_active(unit, *, user=False):
         return False
 
 
+def ensure_system_service(unit, *, dry=False):
+    if service_active(unit):
+        try:
+            enabled = run(["systemctl", "is-enabled", unit], capture=True, timeout=10)
+            if enabled in ("enabled", "static", "alias"):
+                return
+        except VeloraError:
+            pass
+    run(["sudo", "systemctl", "enable", "--now", unit], dry=dry)
+
+
+def files_equal(source, target):
+    try:
+        return Path(source).read_bytes() == Path(target).read_bytes()
+    except OSError:
+        return False
+
+
+def input_ready():
+    # uaccess grants access when the user becomes active on a seat. An SSH update
+    # must not request root just because its caller is not the graphical user yet.
+    return Path('/dev/uinput').exists()
+
+
 def configure_desktop_services(args):
     # Preserve an existing network manager rather than taking over a working connection.
     competitors = [unit for unit in ("systemd-networkd.service", "iwd.service", "connman.service", "dhcpcd.service")
                    if service_active(unit)]
     if service_active("NetworkManager.service") or not competitors:
-        run(["sudo", "systemctl", "enable", "--now", "NetworkManager.service"], dry=args.dry_run)
+        ensure_system_service("NetworkManager.service", dry=args.dry_run)
     else:
         print("Keeping the existing network manager: " + ", ".join(competitors)
               + ". Velora's network controls require NetworkManager; switch managers before using them.")
 
     # uaccess grants only the active local session access to uinput. Do not add the user to the
     # input group, which would also grant access to physical keyboard event devices.
+    input_changed = False
     for source, target in (("velora-uinput.conf", "/etc/modules-load.d/velora-uinput.conf"),
                            ("70-velora-uinput.rules", "/etc/udev/rules.d/70-velora-uinput.rules")):
-        run(["sudo", "install", "-Dm644", ROOT / "dependencies/system" / source, target], dry=args.dry_run)
-    run(["sudo", "modprobe", "uinput"], dry=args.dry_run)
-    run(["sudo", "udevadm", "control", "--reload-rules"], dry=args.dry_run)
-    run(["sudo", "udevadm", "trigger", "--subsystem-match=misc", "--sysname-match=uinput"], dry=args.dry_run)
-    run(["sudo", "udevadm", "settle"], dry=args.dry_run)
+        source = ROOT / "dependencies/system" / source
+        if not files_equal(source, target):
+            run(["sudo", "install", "-Dm644", source, target], dry=args.dry_run)
+            input_changed = True
+    if input_changed or not input_ready():
+        run(["sudo", "modprobe", "uinput"], dry=args.dry_run)
+        run(["sudo", "udevadm", "control", "--reload-rules"], dry=args.dry_run)
+        run(["sudo", "udevadm", "trigger", "--subsystem-match=misc", "--sysname-match=uinput"], dry=args.dry_run)
+        run(["sudo", "udevadm", "settle"], dry=args.dry_run)
 
     dropin = xdg("XDG_CONFIG_HOME", ".config") / "systemd/user/ydotool.service.d/velora.conf"
     run(["install", "-Dm644", ROOT / "dependencies/system/ydotool-user.conf", dropin], dry=args.dry_run)
@@ -586,11 +629,11 @@ def install_dependencies(args, features):
         run(["uv", "venv", "--python", "3.12", str(venv)], dry=args.dry_run)
     run(["uv", "pip", "sync", "--python", str(venv / "bin/python"),
          str(ROOT / "dependencies/python/requirements.txt")], dry=args.dry_run)
-    run(["sudo", "systemctl", "enable", "--now", "power-profiles-daemon"], dry=args.dry_run)
+    ensure_system_service("power-profiles-daemon", dry=args.dry_run)
     if "shell" in features:
         configure_desktop_services(args)
     if "shell" in features and bluetooth_adapters_present():
-        run(["sudo", "systemctl", "enable", "--now", "bluetooth.service"], dry=args.dry_run)
+        ensure_system_service("bluetooth.service", dry=args.dry_run)
     elif "shell" in features:
         print("No Bluetooth adapter detected; leaving bluetooth.service unchanged. "
               "After connecting one, run 'velora deps'.")
@@ -655,6 +698,62 @@ def desktop_quote(value):
     return '"' + value.replace("\\", "\\\\").replace("%", "%%") + '"'
 
 
+def lens_service_unit(binary):
+    return (
+        "[Unit]\nDescription=Velora Lens private search\nPartOf=graphical-session.target\n\n"
+        "[Service]\nType=simple\n"
+        f"ExecStart={systemd_quote(binary)} serve\n"
+        "Restart=on-failure\nRestartSec=5\nUMask=0077\nNice=10\nIOSchedulingClass=idle\n"
+        "LimitCORE=0\nMemoryHigh=2G\nMemoryMax=3G\nRestrictAddressFamilies=AF_UNIX AF_NETLINK\n"
+    )
+
+
+def build_file_dialog(*, dry=False):
+    destination = xdg("XDG_DATA_HOME", ".local/share") / "velora/qt6/plugins/generic/libvelora-file-dialog.so"
+    source = ROOT / "lib/qt6/plugins/generic/libvelora-file-dialog.so"
+    if not source.exists():
+        build = xdg("XDG_CACHE_HOME", ".cache") / "velora/file-dialog-build"
+        run(["cmake", "-S", ROOT / "tools/velora-file-dialog", "-B", build,
+             "-DBUILD_TESTING=OFF", "-DCMAKE_BUILD_TYPE=Release"], dry=dry)
+        run(["cmake", "--build", build, "--parallel", "2"], dry=dry)
+        source = build / "libvelora-file-dialog.so"
+    if dry:
+        print("  Would atomically install the Velora Qt file-dialog addon: " + str(destination))
+        return
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    # Running Qt applications keep the old inode until they exit.
+    with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as output:
+        temporary = Path(output.name)
+        try:
+            with source.open("rb") as binary:
+                shutil.copyfileobj(binary, output)
+            output.flush()
+            os.fchmod(output.fileno(), 0o755)
+            os.replace(temporary, destination)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
+def preview(paths):
+    paths = [str(Path(path).expanduser().absolute()) for path in paths]
+    shell = xdg("XDG_CONFIG_HOME", ".config") / "quickshell/ii/quicklook.qml"
+    if not shell.exists():
+        shell = ROOT / "dots/.config/quickshell/ii/quicklook.qml"
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if not runtime or Path(runtime).stat().st_uid != os.getuid():
+        raise VeloraError("Quick Look requires an active desktop session")
+    with tempfile.TemporaryDirectory(prefix="velora-quicklook-", dir=runtime) as directory:
+        environment = dict(os.environ, VELORA_PREVIEW_PATHS=json.dumps(paths), VELORA_PREVIEW_DIR=directory)
+        # Keep the temporary images alive exactly as long as the separate viewer.
+        process = subprocess.Popen(["qs", "-p", str(shell)], env=environment)
+        try:
+            process.wait()
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=5)
+
+
 def register_installation(journal, args, without):
     config = xdg("XDG_CONFIG_HOME", ".config")
     data = xdg("XDG_DATA_HOME", ".local/share")
@@ -663,8 +762,19 @@ def register_installation(journal, args, without):
     journal_file(journal, data / "applications/velora-update.desktop", content=(
         "[Desktop Entry]\nType=Application\nName=Update Velora\n"
         "Comment=Review and install Velora updates\nIcon=system-software-update\n"
-        f"Exec={desktop_quote(ROOT / 'velora')} update --interactive\nTerminal=true\nCategories=Settings;DesktopSettings;\n"))
+        f"Exec={desktop_quote(ROOT / 'velora')} update --gui --show-progress\nTerminal=false\nCategories=Settings;DesktopSettings;\n"))
+    toolbar = data / "kxmlgui5/dolphin/dolphinui.rc"
+    template = ROOT / "dots/.local/share/kxmlgui5/dolphin/dolphinui.rc"
+    journal_file(journal, toolbar, content=kde.dolphin_toolbar((toolbar if toolbar.exists() else template).read_text()))
+    plugin_path = data / "velora/qt6/plugins"
+    # KDE's portal is D-Bus/systemd activated and does not inherit Hyprland's environment.
+    plugin_paths = ":".join(dict.fromkeys([str(plugin_path), *filter(None, os.environ.get("QT_PLUGIN_PATH", "").split(":"))]))
+    plugins = ",".join(dict.fromkeys([*filter(None, os.environ.get("QT_QPA_GENERIC_PLUGINS", "").split(",")), "velora-file-dialog"]))
+    journal_file(journal, config / "systemd/user/plasma-xdg-desktop-portal-kde.service.d/velora.conf", content=(
+        "[Service]\nEnvironment=" + systemd_quote("QT_PLUGIN_PATH=" + plugin_paths) + "\nEnvironment="
+        + systemd_quote("QT_QPA_GENERIC_PLUGINS=" + plugins) + "\n"))
     service, timer = update_units()
+    journal_file(journal, config / "systemd/user/velora-searchd.service", content=lens_service_unit(native_helper_path("velora-searchd")))
     journal_file(journal, config / "systemd/user/velora-update.service", content=service)
     journal_file(journal, config / "systemd/user/velora-update.timer", content=timer)
     timer_link = config / "systemd/user/timers.target.wants/velora-update.timer"
@@ -680,6 +790,7 @@ def register_installation(journal, args, without):
         "build_from_source": getattr(args, "source_packages", []),
         "installation_type": "package" if package_metadata() else "checkout",
         "login_manager": getattr(args, "login_manager_choice", preferences().get("login_manager", "skip")),
+        "login_theme": getattr(args, "login_theme_choice", preferences().get("login_theme", "keep")),
     }, indent=2) + "\n")
     if shutil.which("systemctl"):
         try:
@@ -755,7 +866,7 @@ def relink(args):
     print(f"\nConfiguration linked to {ROOT}. Backup: {backup}\nRestart Quickshell or log in again to load it.")
 
 
-NATIVE_BINARIES = ("velora-helper", "velora-connectivityd")
+NATIVE_BINARIES = ("velora-helper", "velora-connectivityd", "velora-searchd", "velora-agentd")
 
 
 def native_helper_path(name="velora-helper"):
@@ -775,7 +886,7 @@ def native_source_fingerprint():
         crate = ROOT / "tools" / name
         files.add(crate / "Cargo.toml")
         files.update(path for path in crate.rglob("*") if path.is_file()
-                     and not {"target", "tests", ".git"}.intersection(path.relative_to(crate).parts))
+                     and not {"target", "tests", ".git", "__pycache__"}.intersection(path.relative_to(crate).parts))
     digest = hashlib.sha256()
     for path in sorted(files):
         digest.update(path.relative_to(ROOT).as_posix().encode() + b"\0")
@@ -800,7 +911,7 @@ def packaged_native_path(name):
 
 
 def build_native_helper(dry=False):
-    """Install the native pair into ~/.local/bin, building checkout sources or copying package binaries.
+    """Install native tools into ~/.local/bin, building checkout sources or copying package binaries.
     This is required even with --skip-packages: these are Velora's own executables, not dependencies.
     A failed build stops installation before configuration is linked."""
     if package_metadata():
@@ -818,8 +929,12 @@ def build_native_helper(dry=False):
                 return
             raise VeloraError("Velora's native tools need Rust, and cargo is missing. Install the 'rust' package, then run 'velora deps'.")
         target = xdg("XDG_CACHE_HOME", ".cache") / "velora/cargo-target"
-        run([cargo, "build", "--release", "--locked", "--manifest-path", ROOT / "tools/Cargo.toml"],
-            env=dict(os.environ, CARGO_TARGET_DIR=str(target)), dry=dry)
+        command = [cargo, "build", "--release", "--locked", "--manifest-path", ROOT / "tools/Cargo.toml"]
+        # Build exactly the outputs we install, independent of workspace default-members.
+        # Otherwise a cached binary omitted by Cargo's defaults could be stamped current.
+        for name in NATIVE_BINARIES:
+            command.extend(["--package", name])
+        run(command, env=dict(os.environ, CARGO_TARGET_DIR=str(target)), dry=dry)
         built = {name: target / "release" / name for name in NATIVE_BINARIES}
     if dry:
         return
@@ -882,7 +997,21 @@ def add_features(args):
         write_json(state_dir() / "installation.json", dict(saved, without=without))
 
 
+def configure_greeter(theme, *, dry=False):
+    if theme != "velora":
+        return
+    if greeter.version() not in greeter.SUPPORTED:
+        print("This GNOME version is not verified; keeping the standard greeter.")
+    elif greeter.is_current(ROOT):
+        print("GDM theme: already current; no administrator authorization needed.")
+    else:
+        run(["sudo", "python3", "-I", ROOT / "scripts/greeter.py", "apply", "--source", ROOT,
+             "--owner-uid", str(os.getuid())], dry=dry)
+
+
 def install(args):
+    if os.environ.get("VELORA_GUI_UPDATE") == "1":
+        print("::velora-phase installing", flush=True)
     features, without = selected_features(args, wizard=True)
     # Persist the user's AUR choice, including for subsequent updates.
     if args.skip_aur is None:
@@ -891,6 +1020,7 @@ def install(args):
     if args.build_package is None and sys.stdin.isatty() and not args.yes and not args.dry_run and not package_metadata():
         args.build_package = input("Build and install Velora as an Arch package? [y/N] ").strip().lower() in ("y", "yes")
     preflight(args, features)
+    args.login_theme_choice = args.login_theme or preferences().get("login_theme", "keep")
     login_inventory = login_manager.inspect()
     if sys.stdin.isatty() and not args.yes and not args.dry_run:
         login_manager.describe("skip", login_inventory)
@@ -907,6 +1037,7 @@ def install(args):
                             else "no adapter detected; leave service unchanged"))
     print("  Desktop services: " + ("leave unchanged (--skip-packages)" if args.skip_packages else
           "enable PipeWire, WirePlumber and the virtual keyboard; enable NetworkManager unless another manager is active"))
+    print("  Login theme: " + args.login_theme_choice)
     print("  Source builds: " + (", ".join(args.source_packages) or "none"))
     print("  Velora installation: " + ("build an Arch package" if args.build_package else "system package" if package_metadata() else "current checkout"))
     if not args.skip_packages and not args.skip_aur and not (shutil.which("yay") or shutil.which("paru")):
@@ -919,6 +1050,8 @@ def install(args):
         if not args.skip_packages:
             install_dependencies(args, features)
         build_native_helper(dry=True)
+        build_file_dialog(dry=True)
+        configure_greeter(args.login_theme_choice, dry=True)
         install_fonts(dry=True)
         verify_runtime(features, args)
         login_manager.configure(args.login_manager_choice, run, dry=True, skip_packages=args.skip_packages, inventory=login_inventory)
@@ -945,10 +1078,12 @@ def install(args):
     if not package_metadata():
         run(["git", "submodule", "update", "--init", "--recursive"], cwd=ROOT)
     build_native_helper()
+    build_file_dialog()
     install_fonts()
     verify_runtime(features, args)
     backup = link_configuration(args, without)
     login_manager.configure(args.login_manager_choice, run, skip_packages=args.skip_packages)
+    configure_greeter(args.login_theme_choice)
     print(f"\nVelora installed. Backup: {backup}\nRestore with: velora restore {backup.name}")
     print("Log in to Hyprland: the setup assistant starts on its own (later: Shift+Super+Alt+/).")
     print("Open Settings with Super+I. Update Velora from Settings > General > Software Update, or run: velora update")
@@ -962,6 +1097,9 @@ def install_command(binary, args, without):
     choice = getattr(args, "login_manager_choice", getattr(args, "login_manager", None))
     if choice is not None:
         command += ["--login-manager", choice]
+    theme = getattr(args, "login_theme_choice", getattr(args, "login_theme", None))
+    if theme is not None:
+        command += ["--login-theme", theme]
     for attribute, flag in (("skip_aur", "--skip-aur"), ("skip_packages", "--skip-packages"),
                             ("no_updates", "--no-updates"), ("no_reload", "--no-reload")):
         if getattr(args, attribute, False):
@@ -1065,7 +1203,20 @@ def update_status(*, fetch=True, channel=None):
             "checked_at": datetime.now(timezone.utc).isoformat(), "error": ""}
 
 
+def install_updated_tree(binary=None):
+    saved = dict(preferences())
+    if os.environ.get("VELORA_GUI_UPDATE") == "1":
+        # The update button includes dependencies for the user's selected components.
+        # --skip-packages is useful for a manual bootstrap, not for a complete GUI update.
+        saved.update(skip_packages=False, no_reload=True)
+    options = argparse.Namespace(**saved, source_packages=saved.get("build_from_source", []))
+    run(install_command(binary or ROOT / "velora", options, saved.get("without", [])),
+        env=dict(os.environ, VELORA_PARENT_OPERATION=str(os.getpid())))
+
+
 def update(args):
+    if os.environ.get("VELORA_GUI_UPDATE") == "1":
+        print("::velora-phase checking", flush=True)
     if args.interactive and not sys.stdin.isatty():
         raise VeloraError("Interactive updates must be opened in a terminal.")
     try:
@@ -1105,6 +1256,13 @@ def update(args):
     if status["dirty"]:
         raise VeloraError("Local changes are present. Review 'git status' and commit your work before updating. Velora will not stash or overwrite it.")
     if not status["available"]:
+        unfinished = read_json(state_dir() / "last-update.json")
+        if unfinished.get("complete") is False and unfinished.get("target") == status["current"]:
+            print("Finishing the interrupted update.")
+            install_updated_tree(Path('/usr/bin/velora') if status["installation_type"] == "package" else None)
+            write_json(state_dir() / "last-update.json", dict(unfinished, complete=True))
+            print("Update installation completed.")
+            return
         if native_tools_current():
             print("Already up to date. Native tools match the installed sources.")
         else:
@@ -1131,10 +1289,7 @@ def update(args):
             metadata = build_metadata(checkout)
             metadata["source_branch"] = status["branch"]
             builds.build_package(checkout, xdg("XDG_CACHE_HOME", ".cache") / "velora/packages", metadata, run, install=True)
-        saved = preferences()
-        install_args = argparse.Namespace(**saved, source_packages=saved.get("build_from_source", []))
-        run(install_command(Path("/usr/bin/velora"), install_args, saved.get("without", [])),
-            env=dict(os.environ, VELORA_PARENT_OPERATION=str(os.getpid())))
+        install_updated_tree(Path("/usr/bin/velora"))
         write_json(state_dir() / "last-update.json", {"previous": old, "target": status["target"], "complete": True})
         write_json(state_dir() / "update.json", {**status, "current": status["target"], "available": False,
                    "current_version": metadata["version"], "behind": 0})
@@ -1143,18 +1298,12 @@ def update(args):
     # Pin the fetched commit so another fetch cannot change what the user reviewed.
     with generated_files_kept():
         git("merge", "--ff-only", status["target"])
-    saved = preferences()
-    command = [ROOT / "velora", "install", "--yes", "--without", ",".join(saved.get("without", []))]
-    command += ["--build-from-source", ",".join(saved.get("build_from_source", []))]
-    for key, option in (("skip_aur", "--skip-aur"), ("skip_packages", "--skip-packages"), ("no_updates", "--no-updates")):
-        if saved.get(key):
-            command.append(option)
     try:
         # The update process holds the lock; the child is the same operation.
-        run(command, env=dict(os.environ, VELORA_PARENT_OPERATION=str(os.getpid())))
+        install_updated_tree()
     except VeloraError:
-        raise VeloraError("Source updated, but installation did not finish. Fix the reported error and run 'velora install --yes'. "
-                          f"Previous source commit: {old}. See 'velora status' for recovery details.")
+        raise VeloraError("Source updated, but installation did not finish. Retry the update to finish installation. "
+                          f"Previous source commit: {old}.")
     write_json(state_dir() / "last-update.json", {"previous": old, "target": status["target"], "complete": True})
     write_json(state_dir() / "update.json", update_status(fetch=False))
     print("Update installed. Restart Quickshell or log in again to load all changes.")
@@ -1223,6 +1372,8 @@ def parser():
                          help="Use repository/AUR packages instead of saved source builds")
         sub.add_argument("--rebuild", action="store_true", help="Rebuild selected source packages even when their recipes are unchanged")
         if name == "install":
+            sub.add_argument("--login-theme", choices=("keep", "velora"), default=None,
+                             help="GDM appearance: keep existing by default, or install Velora Autumn")
             sub.add_argument("--login-manager", choices=login_manager.CHOICES, default=None,
                              help="Optional graphical login: reuse existing, install gdm (GNOME) or sddm, or skip; unattended installs default to skip")
             sub.add_argument("--build-package", action="store_true", default=None,
@@ -1230,12 +1381,19 @@ def parser():
         if name == "deps":
             sub.add_argument("--add", default=None, metavar="FEATURES",
                              help="Comma-separated optional features to add to the saved selection, e.g. from the setup assistant")
+    sub = commands.add_parser("preview", help="Quick Look for local files")
+    sub.add_argument("paths", nargs="+")
+    sub = commands.add_parser("greeter", help="Inspect or restore the system GDM theme")
+    sub.add_argument("action", choices=("status", "restore"))
     sub = commands.add_parser("update", help="Check or install updates from your tracked Velora branch")
     sub.add_argument("--check", action="store_true", help="Check only; never install")
     sub.add_argument("--notify", action="store_true", help="Notify once for each new target commit")
     sub.add_argument("--json", action="store_true")
     sub.add_argument("--dry-run", action="store_true")
     sub.add_argument("--interactive", action="store_true", help="Review commits before installing")
+    sub.add_argument("--gui", action="store_true", help="Install in the background with graphical authorization and progress")
+    sub.add_argument("--gui-status", action="store_true", help="Read the graphical update's progress as JSON")
+    sub.add_argument("--show-progress", action="store_true", help="Open Software Update when launching --gui from the application menu")
     sub.add_argument("--channel", choices=("branch", "release"), help="Check branch changes or the latest published GitHub release")
     sub = commands.add_parser("update-settings", help="Configure the GitHub update channel and automatic checks")
     sub.add_argument("--channel", choices=("branch", "release"))
@@ -1265,6 +1423,27 @@ def main(argv=None):
         else:
             cli.print_help()
             return 0
+    if args.command == "preview":
+        preview(args.paths)
+        return 0
+    if args.command == "update" and (args.gui or args.gui_status):
+        if args.gui_status:
+            print(json.dumps(update_gui.status()))
+        else:
+            if args.check or args.interactive or args.dry_run:
+                raise VeloraError("Use --gui on its own to install an update from the desktop.")
+            update_gui.start(ROOT / 'velora')
+            if args.show_progress:
+                update_gui.show_progress()
+        return 0
+    if args.command == "greeter":
+        if args.action == "status":
+            print(json.dumps(greeter.status(), indent=2))
+        else:
+            with operation_lock():
+                run(["sudo", "python3", "-I", ROOT / "scripts/greeter.py", "restore"])
+                write_json(state_dir() / "installation.json", dict(preferences(), login_theme="keep"))
+        return 0
     if args.command == "components":
         if args.json:
             print(json.dumps(components_state()))

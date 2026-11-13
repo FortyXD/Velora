@@ -1,0 +1,9 @@
+[Unit]
+Description=Velora login wallpaper socket
+
+[Socket]
+ListenStream=/run/velora-greeter-wallpaper.sock
+SocketMode=0666
+Backlog=8
+RemoveOnStop=yes
+

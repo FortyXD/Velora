@@ -1,0 +1,16 @@
+[Unit]
+Description=Sync desktop wallpaper to the Velora login screen
+ConditionUser=@OWNER_UID@
+ConditionPathExists=/etc/velora/greeter-wallpaper.json
+
+[Service]
+ExecStart=/usr/bin/python3 -I /usr/lib/velora/greeter-wallpaper.py watch
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=%t/bus
+Restart=on-failure
+RestartSec=15
+Slice=background.slice
+Nice=10
+MemoryMax=768M
+TasksMax=16
+LimitCORE=0
+

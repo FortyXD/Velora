@@ -133,7 +133,7 @@ link_item "$repo_root/home/.tmux.conf" "$target_home/.tmux.conf"
 link_item "$repo_root/dots/.local/share/icons/illogical-impulse.svg" "$data_home/icons/illogical-impulse.svg"
 link_item "$repo_root/dots/.local/share/icons/hicolor/scalable/apps/org.velora.Settings.svg" "$data_home/icons/hicolor/scalable/apps/org.velora.Settings.svg"
 link_item "$repo_root/dots/.local/share/applications/org.velora.Settings.desktop" "$data_home/applications/org.velora.Settings.desktop"
-link_item "$repo_root/dots/.local/share/kxmlgui5/dolphin/dolphinui.rc" "$data_home/kxmlgui5/dolphin/dolphinui.rc"
+# The Python installer merges Dolphin toolbar additions into the existing XML.
 link_item "$repo_root/dots/.local/share/folis/dolphin-create-archive.py" "$data_home/folis/dolphin-create-archive.py"
 link_item "$repo_root/dots/.local/share/dbus-1/services/org.freedesktop.FileManager1.service" "$data_home/dbus-1/services/org.freedesktop.FileManager1.service"
 if [[ -x /usr/local/racket/bin/drracket ]]; then
@@ -168,7 +168,20 @@ install_generated() {
   mv -- "$tmp" "$dest"
 }
 
+link_item "$repo_root/dots/.local/share/folis/assistant-select.py" "$data_home/folis/assistant-select.py"
 service_menus="$data_home/kio/servicemenus"
+install_generated "$service_menus/velora-assistant.desktop" <<EOF
+[Desktop Entry]
+Type=Service
+MimeType=all/all;
+Actions=askVelora;
+X-KDE-ServiceTypes=KonqPopupMenu/Plugin
+[Desktop Action askVelora]
+Name=Ask Velora
+Name[ru]=Спросить Velora
+Icon=system-search
+Exec=/usr/bin/python3 "$data_home/folis/assistant-select.py" %F
+EOF
 install_generated "$service_menus/folis-create-archive.desktop" <<EOF
 [Desktop Entry]
 Type=Service
@@ -276,6 +289,21 @@ Icon=view-barcode-qr
 Exec="$helper" toolbox-open qr %f
 EOF
 
+install_generated "$service_menus/velora-preview.desktop" <<EOF
+[Desktop Entry]
+Type=Service
+MimeType=all/allfiles;inode/directory;
+X-KDE-Protocols=file
+X-KDE-Priority=TopLevel
+Actions=preview;
+
+[Desktop Action preview]
+Name=Quick Look
+Name[ru]=Быстрый просмотр
+Icon=preview
+Exec="$HOME/.local/bin/velora" preview %F
+EOF
+
 if $desktop_integration && command -v xdg-mime >/dev/null 2>&1 && [[ -f /usr/share/applications/org.kde.dolphin.desktop ]]; then
   if $dry_run; then
     printf 'Would make Dolphin the default handler for directories.\n'
@@ -309,6 +337,7 @@ if $desktop_integration && command -v kwriteconfig6 >/dev/null 2>&1; then
   if $dry_run; then
     printf 'Would hide Dolphin Activities and use the configured Kitty terminal on F4.\n'
   else
+    python3 "$(dirname -- "${BASH_SOURCE[0]}")/kde.py"
     kwriteconfig6 --file "$config_home/kservicemenurc" --group Show --key kactivitymanagerd_fileitem_linking_plugin false
     kwriteconfig6 --file "$config_home/dolphinrc" --group ContextMenu --key ShowAddToPlaces false
     kwriteconfig6 --file "$config_home/dolphinrc" --group Shortcuts --key show_terminal_panel none

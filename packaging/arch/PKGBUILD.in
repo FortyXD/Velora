@@ -6,8 +6,8 @@ pkgdesc='A customizable Hyprland and Quickshell desktop for Arch Linux'
 arch=('x86_64' 'aarch64') # tools/ is native code
 url='https://github.com/FortyXD/Velora'
 license=('GPL-3.0-only')
-depends=('bash' 'coreutils' 'git' 'python>=3.11' 'pacman' 'sudo')
-makedepends=('cargo')
+depends=('bash' 'coreutils' 'git' 'python>=3.11' 'pacman' 'sudo' 'openssl')
+makedepends=('cargo' 'openssl' 'cmake' 'extra-cmake-modules' 'qt6-base' 'kio')
 options=('!debug')
 source=('velora-source.tar.gz')
 sha256sums=('@SHA256@')
@@ -16,13 +16,18 @@ build() {
     cd "$srcdir/velora/tools"
     export CARGO_TARGET_DIR="$srcdir/cargo-target"
     cargo build --release --locked
+    cmake -S "$srcdir/velora/tools/velora-file-dialog" -B "$srcdir/dialog-build" -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+    cmake --build "$srcdir/dialog-build" --parallel 2
 }
 
 package() {
     install -Dm755 "$srcdir/cargo-target/release/velora-helper" "$pkgdir/usr/bin/velora-helper"
     install -Dm755 "$srcdir/cargo-target/release/velora-connectivityd" "$pkgdir/usr/bin/velora-connectivityd"
+    install -Dm755 "$srcdir/cargo-target/release/velora-searchd" "$pkgdir/usr/bin/velora-searchd"
+    install -Dm755 "$srcdir/cargo-target/release/velora-agentd" "$pkgdir/usr/bin/velora-agentd"
     install -d "$pkgdir/usr/share/velora" "$pkgdir/usr/bin"
     cp -a --no-preserve=ownership "$srcdir/velora/." "$pkgdir/usr/share/velora/"
+    install -Dm755 "$srcdir/dialog-build/libvelora-file-dialog.so" "$pkgdir/usr/share/velora/lib/qt6/plugins/generic/libvelora-file-dialog.so"
     chmod 755 "$pkgdir/usr/share/velora/velora"
     ln -s /usr/share/velora/velora "$pkgdir/usr/bin/velora"
     install -Dm644 "$srcdir/velora/LICENSE" "$pkgdir/usr/share/licenses/velora/LICENSE"
