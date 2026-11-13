@@ -122,6 +122,8 @@ Item {
         }
     }
     WorkspacePreviewPopup {
+        // Read the owning bar's window here, not the popup's separate PanelWindow.
+        panelHovered: root.QsWindow.window?.panelHovered ?? false
         hoverTarget: previewAnchor
         workspaceId: root.previewWorkspace
         awaySpeed: root.previewAwaySpeed

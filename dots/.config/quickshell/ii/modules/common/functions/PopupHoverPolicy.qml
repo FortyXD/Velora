@@ -16,11 +16,22 @@ Singleton {
      * wanted/dismissed: current state. pointerInside: pointer over the target or the popup.
      * hideInstantly: the owner measured a flick and wants no grace time. interactive: the
      * popup can be entered and used. useOpenDelay: the owner asked for a hover delay.
+     * enabled: master hover switch. keepOpen: another region may retain an already open popup.
      */
-    function next(wanted, dismissed, pointerInside, hideInstantly, interactive, useOpenDelay) {
+    function next(wanted, dismissed, pointerInside, hideInstantly, interactive, useOpenDelay,
+                  enabled = true, keepOpen = false) {
         const result = { wanted: wanted, dismissed: dismissed, stopOpen: false, stopClose: false,
             startOpen: false, startClose: false };
-        if (pointerInside) {
+        if (!enabled) {
+            result.wanted = false;
+            result.dismissed = false;
+            result.stopOpen = true;
+            result.stopClose = true;
+            return result;
+        }
+        // The rest of the panel can retain an ALREADY open preview, never open one
+        // itself or finish a hover delay after the pointer has left the workspace button.
+        if (pointerInside || (keepOpen && wanted && !dismissed)) {
             result.stopClose = true;
             if (dismissed) return result; // latched by a flick: stay closed, do not even start the open timer
             if (wanted) return result;

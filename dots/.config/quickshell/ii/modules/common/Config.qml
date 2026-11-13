@@ -419,6 +419,8 @@ Singleton {
                     property int shown: 10
                     property bool showAppIcons: true
                     property bool alwaysShowNumbers: false
+                    property bool showPreviews: true
+                    property bool hidePreviewOnLeave: false // Close when leaving the whole panel, without a grace period
                     property bool hidePreviewOnFlick: true // Close the workspace preview at once when the pointer is flicked away from the bar
                     property int flickSpeed: 370 // Pixels per second away from the bar that counts as a flick
                     property int showNumberDelay: 300 // milliseconds

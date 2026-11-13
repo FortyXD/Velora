@@ -283,6 +283,8 @@
             "alwaysShowNumbers": false,
             "flickSpeed": 370,
             "hidePreviewOnFlick": true,
+            "showPreviews": true,
+            "hidePreviewOnLeave": false,
             "monochromeIcons": true,
             "numberMap": [
                 "1",
