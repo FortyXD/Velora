@@ -6,6 +6,7 @@ import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
 import qs.modules.settings.preview
+import qs.modules.settings.power
 
 ContentPage {
     id: page
@@ -16,6 +17,10 @@ ContentPage {
         autoToggle: false
         checked: Config.options.powerSaving[key]
         onClicked: Config.options.powerSaving[key] = !checked
+    }
+
+    PowerAnalyticsPanel {
+        pageActive: page.pageShown
     }
 
     ContentSection {
@@ -250,6 +255,16 @@ ContentPage {
             buttonIcon: Battery.isCharging ? "battery_charging_full" : "battery_android_full"
             title: Translation.tr("Charge")
             valueText: `${Math.round(Battery.percentage * 100)}%`
+            trailingIcon: ""
+            rippleEnabled: false
+            pointingHandCursor: false
+            colBackgroundHover: "transparent"
+        }
+        ConfigNavRow {
+            buttonIcon: "electric_bolt"
+            title: Translation.tr("Battery power")
+            description: PowerAnalytics.enabled ? Translation.tr("Live battery measurement · every 2 seconds") : Translation.tr("Reported by the system power service")
+            valueText: PowerAnalytics.enabled && !PowerAnalytics.hasLivePower ? "—" : `${Battery.energyRate.toFixed(2)} W`
             trailingIcon: ""
             rippleEnabled: false
             pointingHandCursor: false

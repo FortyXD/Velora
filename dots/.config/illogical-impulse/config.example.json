@@ -293,6 +293,7 @@
         }
     },
     "battery": {
+        "advancedAnalytics": false,
         "automaticSuspend": true,
         "critical": 5,
         "full": 101,
