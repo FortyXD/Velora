@@ -20,6 +20,7 @@ Singleton {
     readonly property string onboardingPath: FileUtils.trimFileProtocol(Quickshell.shellPath("onboarding.qml"))
     readonly property string onboardingStatePath: `${FileUtils.trimFileProtocol(Directories.home)}/.local/state/velora/onboarding.json`
     readonly property string announcedPath: `${FileUtils.trimFileProtocol(Directories.home)}/.local/state/velora/onboarding-announced`
+    property bool onboardingOpened: false
 
     function load() {
         if (!Config.ready) return;
@@ -32,6 +33,8 @@ Singleton {
     }
 
     function openOnboarding() {
+        if (root.onboardingOpened) return;
+        root.onboardingOpened = true;
         Quickshell.execDetached(["qs", "-p", root.onboardingPath]);
     }
 
@@ -55,7 +58,7 @@ Singleton {
         id: initialWallpaper
         command: [Directories.wallpaperSwitchScriptPath, root.defaultWallpaperPath]
         // Finish the initial wallpaper job before setup can apply Autumn or a user's choice.
-        onRunningChanged: if (!running) Qt.callLater(root.openOnboarding)
+        onExited: Qt.callLater(root.openOnboarding)
     }
 
     FileView {

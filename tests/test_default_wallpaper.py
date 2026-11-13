@@ -85,7 +85,7 @@ class DefaultWallpaperTests(unittest.TestCase):
             (root / 'Singleton.qml').write_text('import QtQuick\nQtObject { default property list<QtObject> content }')
             (root / 'JsonObject.qml').write_text('import QtQuick\nQtObject {}')
             (root / 'JsonAdapter.qml').write_text('import QtQuick\nQtObject {}')
-            (root / 'Process.qml').write_text('import QtQuick\nQtObject { property bool running; property var command }')
+            (root / 'Process.qml').write_text('import QtQuick\nQtObject { property bool running; property var command; signal exited(int code, int status) }')
             (root / 'FileView.qml').write_text('''import QtQuick
                 QtObject {
                     default property list<QtObject> content
@@ -165,11 +165,25 @@ class DefaultWallpaperTests(unittest.TestCase):
                         compare(Config.options.background.wallpaperPath, "/pictures/my own choice.jpg");
                     }
                     function test_e_new_desktop_initializes_colors_from_the_bundled_image() {
+                        FirstRunExperience.onboardingOpened = false;
+                        Quickshell.detached = [];
                         Config.options.background.wallpaperPath = Directories.defaultWallpaper;
                         FirstRunExperience.decide(false);
                         const job = findChild(FirstRunExperience, "initialWallpaper");
                         verify(job.running);
                         compare(job.command, [Directories.wallpaperSwitchScriptPath, Directories.defaultWallpaper]);
+                        compare(Quickshell.detached.length, 0);
+                        job.running = false;
+                        wait(20);
+                        compare(Quickshell.detached.length, 0);
+                        job.exited(0, 0);
+                        tryCompare(FirstRunExperience, "onboardingOpened", true);
+                        compare(Quickshell.detached.length, 1);
+                        // Config and FileView callbacks can repeat during first-run writes.
+                        FirstRunExperience.openOnboarding();
+                        job.exited(0, 0);
+                        wait(20);
+                        compare(Quickshell.detached.length, 1);
                     }
                 }''')
             result = subprocess.run([QT_TEST_RUNNER, '-input', str(root), '-o', '-,txt'],
