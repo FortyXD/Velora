@@ -771,7 +771,7 @@ impl Query {
 
     pub fn fts_terms(&self) -> String {
         self.terms()
-            .into_iter()
+            .iter()
             .flatten()
             .map(|term| {
                 let suffix = if term.chars().count() >= 3
@@ -876,9 +876,8 @@ pub fn name_score(name: &str, query: &Query) -> f64 {
                 10.0
             } else if n.starts_with(v) {
                 8.0
-            } else if n.split_whitespace().any(|word| word == v) {
-                6.0
-            } else if v.chars().count() > 3 && n.contains(v) {
+            } else if n.split_whitespace().any(|word| word == v)
+                || (v.chars().count() > 3 && n.contains(v)) {
                 6.0
             } else {
                 0.0

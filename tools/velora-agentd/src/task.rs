@@ -82,8 +82,6 @@ pub struct Task {
 impl Task {
     pub fn new(
         id: u64,
-        text: String,
-        extended: bool,
         context: Context,
         events: mpsc::Sender<Value>,
         decisions: mpsc::Receiver<Decision>,
@@ -92,8 +90,8 @@ impl Task {
     ) -> Self {
         Self {
             id,
-            text,
-            extended,
+            text: request["text"].as_str().unwrap_or("").to_owned(),
+            extended: request["extended"] == true,
             context,
             events,
             decisions,

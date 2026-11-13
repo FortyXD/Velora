@@ -915,7 +915,7 @@ fn retrieve_bounded(
             continue;
         }
         let vector: Vec<_> = bytes
-            .chunks_exact(2)
+            .as_chunks::<2>().0.iter()
             .map(|b| half::f16::from_bits(u16::from_le_bytes([b[0], b[1]])).to_f32())
             .collect();
         let norm = vector.iter().map(|v| v * v).sum::<f32>().sqrt() * query_norm;

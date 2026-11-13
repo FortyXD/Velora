@@ -13,7 +13,7 @@ pub async fn call(operation: &str, mut params: Value) -> Result<Value> {
     };
     let bytes = process::output(
         "/usr/bin/python3",
-        &vec!["-I".into(), script.to_string_lossy().into_owned()],
+        &["-I".into(), script.to_string_lossy().into_owned()],
         &serde_json::to_vec(&params)?,
         300,
         2 * 1024 * 1024,

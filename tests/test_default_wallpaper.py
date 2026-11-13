@@ -77,9 +77,11 @@ class DefaultWallpaperTests(unittest.TestCase):
             }.items():
                 source = '\n'.join(line for line in (SHELL / relative).read_text().splitlines()
                                    if not line.startswith(('import qs', 'import Quickshell')))
+                source = source.replace('../../services/ai/PromptDefaults.js', 'PromptDefaults.js')
                 for component in ('configFileView', 'firstRunFile', 'initialWallpaper', 'onboardingState'):
                     source = source.replace(f'id: {component}\n', f'id: {component}\n        objectName: "{component}"\n')
                 (root / f'{name}.qml').write_text(source)
+            shutil.copy2(SHELL / 'services/ai/PromptDefaults.js', root / 'PromptDefaults.js')
             (root / 'Singleton.qml').write_text('import QtQuick\nQtObject { default property list<QtObject> content }')
             (root / 'JsonObject.qml').write_text('import QtQuick\nQtObject {}')
             (root / 'JsonAdapter.qml').write_text('import QtQuick\nQtObject {}')

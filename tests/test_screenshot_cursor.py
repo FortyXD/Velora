@@ -282,6 +282,7 @@ ShellRoot {
               + json.dumps(str(self.config)) + '; property string defaultWallpaper: '
               + json.dumps(str(SHELL / 'assets/images/mountain-night.png')) + ' }')
         shutil.copy2(SHELL / 'modules/common/Config.qml', root / 'modules/common/Config.qml')
+        write(root / 'services/ai/PromptDefaults.js', (SHELL / 'services/ai/PromptDefaults.js').read_text())
         write(root / 'modules/common/Appearance.qml', 'pragma Singleton\nimport Quickshell\nSingleton { property var font: ({pixelSize:{smaller:12}}) }')
         write(root / 'modules/common/functions/FileUtils.qml', 'pragma Singleton\nimport Quickshell\nSingleton {}')
         write(root / 'services/Translation.qml', 'pragma Singleton\nimport Quickshell\nSingleton { function tr(s) { return s; } }')

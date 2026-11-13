@@ -327,7 +327,7 @@ impl Executor {
     async fn script(&self, input: Value) -> Result<Value> {
         let result = process::json(
             "/usr/bin/python3",
-            &vec![
+            &[
                 "-I".into(),
                 crate::tool_script().to_string_lossy().into_owned(),
             ],
@@ -374,7 +374,7 @@ impl Executor {
         );
         let image = process::output(
             "grim",
-            &vec![
+            &[
                 "-s".into(),
                 "1".into(),
                 "-g".into(),
@@ -518,10 +518,9 @@ impl Executor {
                 command.extend(args(&["--ro-bind", p, p]));
             }
         }
-        for p in ["/etc/ld.so.cache"] {
-            if Path::new(p).exists() {
-                command.extend(args(&["--ro-bind", p, p]));
-            }
+        let ld_cache = "/etc/ld.so.cache";
+        if Path::new(ld_cache).exists() {
+            command.extend(args(&["--ro-bind", ld_cache, ld_cache]));
         }
         command.extend(args(&[
             "--bind",

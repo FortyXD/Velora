@@ -132,7 +132,7 @@ async fn main() -> Result<()> {
                             let (tx, rx) = mpsc::channel(8); decisions = Some(tx);
                             let saved = std::mem::take(&mut session); let emit = events.clone();
                             if method == "submit" {
-                                let task = Task::new(id, p["text"].as_str().unwrap_or("").into(), p["extended"] == true, ctx, emit, rx, runtime.clone(), p);
+                                let task = Task::new(id, ctx, emit, rx, runtime.clone(), p);
                                 job = Some(tokio::spawn(task.run(saved)));
                             } else {
                                 let pull = method == "pull"; let runtime = runtime.clone();
