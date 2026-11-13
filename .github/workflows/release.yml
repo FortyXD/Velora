@@ -44,7 +44,7 @@ jobs:
         run: |
           pacman -Qip dist/velora-*.pkg.tar.zst
           pacman -Qlp dist/velora-*.pkg.tar.zst
-          sha256sum dist/velora-*.pkg.tar.zst > dist/SHA256SUMS
+          (cd dist && sha256sum velora-*.pkg.tar.zst > SHA256SUMS && sha256sum --check SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
           name: velora-arch-package

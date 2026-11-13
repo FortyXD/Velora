@@ -28,6 +28,6 @@ cd ~/Velora
 
 Existing users can update through Settings → General → Software Update or run `velora update --interactive --channel release`.
 
-For the Arch package, install the downloaded `.pkg.tar.zst` with `sudo pacman -U`, then run `velora install` as your regular user. The release includes SHA-256 checksums. Log out and back in after updating native desktop components.
+For the Arch package, first update Arch with `sudo pacman -Syu`, install the downloaded `.pkg.tar.zst` with `sudo pacman -U`, then run `velora install` as your regular user. Run `sha256sum --check SHA256SUMS` beside the downloaded package to verify it. Log out and back in after updating native desktop components.
 
 See the [installation guide](https://github.com/FortyXD/Velora/blob/v0.2.0/docs/installation.md), [search controls](https://github.com/FortyXD/Velora/blob/v0.2.0/docs/lens.md), and [assistant guide](https://github.com/FortyXD/Velora/blob/v0.2.0/docs/assistant.md).
