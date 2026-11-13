@@ -1167,8 +1167,11 @@ fn describe(uris: &[String], apps: &Apps, lang: &str) -> Value {
             }
         }
     }
-    let closeness = |app: &App| lineage.iter().position(|mime| app.mimes.contains(mime)).unwrap_or(lineage.len());
-    let mut recommended: Vec<&App> = apps.list.iter().filter(|app| app.choosable() && lineage.iter().any(|mime| app.mimes.contains(mime))).collect();
+    // Editors such as VS Code may declare only their workspace MIME type while
+    // advertising TextEditor. They can still open plain text and its subtypes.
+    let closeness = |app: &App| lineage.iter().position(|mime| app.mimes.contains(mime)
+        || (mime == "text/plain" && app.categories.contains("TextEditor"))).unwrap_or(lineage.len());
+    let mut recommended: Vec<&App> = apps.list.iter().filter(|app| app.choosable() && closeness(app) < lineage.len()).collect();
     // Apps that open everything (application/octet-stream) come last
     recommended.sort_by_cached_key(|app| (closeness(app), app.sort_name()));
     let mut others: Vec<&App> = apps.list.iter().filter(|app| {

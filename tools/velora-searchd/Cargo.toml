@@ -1,0 +1,34 @@
+[package]
+name = "velora-searchd"
+version = "0.1.0"
+edition = "2021"
+description = "Private, local desktop search for Velora Lens"
+license = "GPL-3.0-only"
+publish = false
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+libc = "0.2"
+chrono = { version = "0.4", features = ["serde"] }
+notify = "8"
+quick-xml = "0.38"
+percent-encoding = "2"
+regex = "1"
+rusqlite = { version = "0.37", features = ["bundled-sqlcipher"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tokio = { version = "1", features = ["rt", "macros", "io-std", "io-util", "net", "sync", "time", "process", "fs"] }
+usearch = "2"
+walkdir = "2"
+zbus = { version = "6", default-features = false, features = ["tokio", "proxy"] }
+zeroize = "1"
+rust-stemmers = "1.2.0"
+half = "2"
+ignore = "0.4.34"
+
+[dev-dependencies]
+tempfile = "3"
+velora-connectivity-fakes = { path = "../velora-connectivity-fakes" }

@@ -480,6 +480,29 @@ fn the_app_list_has_roles_names_in_the_language_and_hides_what_it_should() {
 }
 
 #[test]
+fn open_with_recommends_text_editors_without_declared_text_mime_types() {
+    let sandbox = apps_sandbox("apps-text-editor");
+    fs::write(sandbox.root.join("data/applications/vscode.desktop"), "[Desktop Entry]\nType=Application\nName=VS Code\nExec=code %F\nCategories=TextEditor;Development;IDE;\nMimeType=application/x-code-workspace;\n").unwrap();
+    let request = |mime: &str| {
+        sandbox.tool("gio", &format!("  standard::content-type: {mime}\n"), 0);
+        let _ = fs::remove_file(sandbox.root.join("log"));
+        assert!(apps(&sandbox, &["open-with", "/tmp/example.conf"]).status.success());
+        let log = sandbox.log();
+        let line = log.lines().find(|line| line.starts_with("qs ")).unwrap();
+        let json = line.split_once(" [ask] [").unwrap().1.strip_suffix(']').unwrap();
+        serde_json::from_str::<serde_json::Value>(json).unwrap()
+    };
+    for mime in ["text/plain", "text/x-new", "text/x-old"] {
+        let value = request(mime);
+        assert!(value["recommended"].as_array().unwrap().iter().any(|app| app["id"] == "vscode.desktop"), "{value}");
+        assert!(!value["others"].as_array().unwrap().iter().any(|app| app["id"] == "vscode.desktop"));
+    }
+    let value = request("image/png");
+    assert!(!value["recommended"].as_array().unwrap().iter().any(|app| app["id"] == "vscode.desktop"));
+    assert!(value["others"].as_array().unwrap().iter().any(|app| app["id"] == "vscode.desktop"));
+}
+
+#[test]
 fn choosing_an_app_writes_mimeapps_and_keeps_the_rest_of_the_file() {
     let sandbox = apps_sandbox("apps-set");
     let list = sandbox.root.join("config/mimeapps.list");

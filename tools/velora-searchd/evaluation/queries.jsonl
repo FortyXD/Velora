@@ -1,0 +1,200 @@
+{"query": "папка обучение нейросетей", "expected": ["neural_lab"], "category": "semantic", "split": "dev"}
+{"query": "проект глубокое обучение", "expected": ["neural_lab"], "category": "semantic", "split": "dev"}
+{"query": "папка где обучение нейросетей", "expected": ["neural_lab"], "category": "semantic", "split": "dev"}
+{"query": "найди папку глубокое обучение", "expected": ["neural_lab"], "category": "semantic", "split": "dev"}
+{"query": "folder neural lab", "expected": ["neural_lab"], "category": "name", "split": "dev"}
+{"query": "папка neural lab", "expected": ["neural_lab"], "category": "name", "split": "dev"}
+{"query": "папка neral lab", "expected": ["neural_lab"], "category": "name", "split": "dev"}
+{"query": "папка где я делал обучение нейросетей сегодня", "expected": ["neural_lab"], "category": "history", "split": "dev"}
+{"query": "проект где я работал глубокое обучение сегодня", "expected": ["neural_lab"], "category": "history", "split": "dev"}
+{"query": "папка Training neural networks with PyTorch", "expected": ["neural_lab"], "category": "semantic", "split": "dev"}
+{"query": "папка байесовская статистика", "expected": ["bayesian_lab"], "category": "semantic", "split": "dev"}
+{"query": "проект апостериорные вероятности", "expected": ["bayesian_lab"], "category": "semantic", "split": "dev"}
+{"query": "папка где байесовская статистика", "expected": ["bayesian_lab"], "category": "semantic", "split": "dev"}
+{"query": "найди папку апостериорные вероятности", "expected": ["bayesian_lab"], "category": "semantic", "split": "dev"}
+{"query": "folder bayesian lab", "expected": ["bayesian_lab"], "category": "name", "split": "dev"}
+{"query": "папка bayesian lab", "expected": ["bayesian_lab"], "category": "name", "split": "dev"}
+{"query": "папка baesian lab", "expected": ["bayesian_lab"], "category": "name", "split": "dev"}
+{"query": "папка где я делал байесовская статистика сегодня", "expected": ["bayesian_lab"], "category": "history", "split": "dev"}
+{"query": "проект где я работал апостериорные вероятности сегодня", "expected": ["bayesian_lab"], "category": "history", "split": "dev"}
+{"query": "папка Bayesian inference", "expected": ["bayesian_lab"], "category": "semantic", "split": "dev"}
+{"query": "папка линейная регрессия", "expected": ["linear_models"], "category": "semantic", "split": "dev"}
+{"query": "проект предсказание цены квартиры", "expected": ["linear_models"], "category": "semantic", "split": "dev"}
+{"query": "папка где линейная регрессия", "expected": ["linear_models"], "category": "semantic", "split": "dev"}
+{"query": "найди папку предсказание цены квартиры", "expected": ["linear_models"], "category": "semantic", "split": "dev"}
+{"query": "folder linear models", "expected": ["linear_models"], "category": "name", "split": "dev"}
+{"query": "папка linear models", "expected": ["linear_models"], "category": "name", "split": "dev"}
+{"query": "папка liear models", "expected": ["linear_models"], "category": "name", "split": "dev"}
+{"query": "папка где я делал линейная регрессия сегодня", "expected": ["linear_models"], "category": "history", "split": "dev"}
+{"query": "проект где я работал предсказание цены квартиры сегодня", "expected": ["linear_models"], "category": "history", "split": "dev"}
+{"query": "папка Linear regression", "expected": ["linear_models"], "category": "semantic", "split": "dev"}
+{"query": "папка распознавание речи", "expected": ["speech_lab"], "category": "semantic", "split": "dev"}
+{"query": "проект расшифровка аудиозаписей", "expected": ["speech_lab"], "category": "semantic", "split": "dev"}
+{"query": "папка где распознавание речи", "expected": ["speech_lab"], "category": "semantic", "split": "dev"}
+{"query": "найди папку расшифровка аудиозаписей", "expected": ["speech_lab"], "category": "semantic", "split": "dev"}
+{"query": "folder speech lab", "expected": ["speech_lab"], "category": "name", "split": "dev"}
+{"query": "папка speech lab", "expected": ["speech_lab"], "category": "name", "split": "dev"}
+{"query": "папка spech lab", "expected": ["speech_lab"], "category": "name", "split": "dev"}
+{"query": "папка где я делал распознавание речи сегодня", "expected": ["speech_lab"], "category": "history", "split": "dev"}
+{"query": "проект где я работал расшифровка аудиозаписей сегодня", "expected": ["speech_lab"], "category": "history", "split": "dev"}
+{"query": "папка Automatic speech recognition", "expected": ["speech_lab"], "category": "semantic", "split": "dev"}
+{"query": "папка рекомендательная система", "expected": ["recommendations"], "category": "semantic", "split": "test"}
+{"query": "проект подбор фильмов", "expected": ["recommendations"], "category": "semantic", "split": "test"}
+{"query": "папка где рекомендательная система", "expected": ["recommendations"], "category": "semantic", "split": "test"}
+{"query": "найди папку подбор фильмов", "expected": ["recommendations"], "category": "semantic", "split": "test"}
+{"query": "folder recommendations", "expected": ["recommendations"], "category": "name", "split": "test"}
+{"query": "папка recommendations", "expected": ["recommendations"], "category": "name", "split": "test"}
+{"query": "папка reommendations", "expected": ["recommendations"], "category": "name", "split": "test"}
+{"query": "папка где я делал рекомендательная система сегодня", "expected": ["recommendations"], "category": "history", "split": "test"}
+{"query": "проект где я работал подбор фильмов сегодня", "expected": ["recommendations"], "category": "history", "split": "test"}
+{"query": "папка Recommender systems", "expected": ["recommendations"], "category": "semantic", "split": "test"}
+{"query": "папка градиентный спуск", "expected": ["optimization"], "category": "semantic", "split": "test"}
+{"query": "проект выпуклая оптимизация", "expected": ["optimization"], "category": "semantic", "split": "test"}
+{"query": "папка где градиентный спуск", "expected": ["optimization"], "category": "semantic", "split": "test"}
+{"query": "найди папку выпуклая оптимизация", "expected": ["optimization"], "category": "semantic", "split": "test"}
+{"query": "folder optimization", "expected": ["optimization"], "category": "name", "split": "test"}
+{"query": "папка optimization", "expected": ["optimization"], "category": "name", "split": "test"}
+{"query": "папка opimization", "expected": ["optimization"], "category": "name", "split": "test"}
+{"query": "папка где я делал градиентный спуск сегодня", "expected": ["optimization"], "category": "history", "split": "test"}
+{"query": "проект где я работал выпуклая оптимизация сегодня", "expected": ["optimization"], "category": "history", "split": "test"}
+{"query": "папка Numerical optimization", "expected": ["optimization"], "category": "semantic", "split": "test"}
+{"query": "папка поиск ближайших соседей", "expected": ["vector_storage"], "category": "semantic", "split": "test"}
+{"query": "проект векторная база данных", "expected": ["vector_storage"], "category": "semantic", "split": "test"}
+{"query": "папка где поиск ближайших соседей", "expected": ["vector_storage"], "category": "semantic", "split": "test"}
+{"query": "найди папку векторная база данных", "expected": ["vector_storage"], "category": "semantic", "split": "test"}
+{"query": "folder vector storage", "expected": ["vector_storage"], "category": "name", "split": "test"}
+{"query": "папка vector storage", "expected": ["vector_storage"], "category": "name", "split": "test"}
+{"query": "папка vetor storage", "expected": ["vector_storage"], "category": "name", "split": "test"}
+{"query": "папка где я делал поиск ближайших соседей сегодня", "expected": ["vector_storage"], "category": "history", "split": "test"}
+{"query": "проект где я работал векторная база данных сегодня", "expected": ["vector_storage"], "category": "history", "split": "test"}
+{"query": "папка Vector databases", "expected": ["vector_storage"], "category": "semantic", "split": "test"}
+{"query": "папка обнаружение объектов", "expected": ["object_detection"], "category": "semantic", "split": "test"}
+{"query": "проект распознавание машин на изображениях", "expected": ["object_detection"], "category": "semantic", "split": "test"}
+{"query": "папка где обнаружение объектов", "expected": ["object_detection"], "category": "semantic", "split": "test"}
+{"query": "найди папку распознавание машин на изображениях", "expected": ["object_detection"], "category": "semantic", "split": "test"}
+{"query": "folder object detection", "expected": ["object_detection"], "category": "name", "split": "test"}
+{"query": "папка object detection", "expected": ["object_detection"], "category": "name", "split": "test"}
+{"query": "папка obect detection", "expected": ["object_detection"], "category": "name", "split": "test"}
+{"query": "папка где я делал обнаружение объектов сегодня", "expected": ["object_detection"], "category": "history", "split": "test"}
+{"query": "проект где я работал распознавание машин на изображениях сегодня", "expected": ["object_detection"], "category": "history", "split": "test"}
+{"query": "папка Computer vision", "expected": ["object_detection"], "category": "semantic", "split": "test"}
+{"query": "папка кластеризация", "expected": ["clustering"], "category": "semantic", "split": "test"}
+{"query": "проект сегментация покупателей", "expected": ["clustering"], "category": "semantic", "split": "test"}
+{"query": "папка где кластеризация", "expected": ["clustering"], "category": "semantic", "split": "test"}
+{"query": "найди папку сегментация покупателей", "expected": ["clustering"], "category": "semantic", "split": "test"}
+{"query": "folder clustering", "expected": ["clustering"], "category": "name", "split": "test"}
+{"query": "папка clustering", "expected": ["clustering"], "category": "name", "split": "test"}
+{"query": "папка clstering", "expected": ["clustering"], "category": "name", "split": "test"}
+{"query": "папка где я делал кластеризация сегодня", "expected": ["clustering"], "category": "history", "split": "test"}
+{"query": "проект где я работал сегментация покупателей сегодня", "expected": ["clustering"], "category": "history", "split": "test"}
+{"query": "папка Unsupervised learning", "expected": ["clustering"], "category": "semantic", "split": "test"}
+{"query": "папка поиск мошеннических транзакций", "expected": ["fraud_detection"], "category": "semantic", "split": "test"}
+{"query": "проект аномалии в платежах", "expected": ["fraud_detection"], "category": "semantic", "split": "test"}
+{"query": "папка где поиск мошеннических транзакций", "expected": ["fraud_detection"], "category": "semantic", "split": "test"}
+{"query": "найди папку аномалии в платежах", "expected": ["fraud_detection"], "category": "semantic", "split": "test"}
+{"query": "folder fraud detection", "expected": ["fraud_detection"], "category": "name", "split": "test"}
+{"query": "папка fraud detection", "expected": ["fraud_detection"], "category": "name", "split": "test"}
+{"query": "папка frud detection", "expected": ["fraud_detection"], "category": "name", "split": "test"}
+{"query": "папка где я делал поиск мошеннических транзакций сегодня", "expected": ["fraud_detection"], "category": "history", "split": "test"}
+{"query": "проект где я работал аномалии в платежах сегодня", "expected": ["fraud_detection"], "category": "history", "split": "test"}
+{"query": "папка Detecting fraudulent transactions", "expected": ["fraud_detection"], "category": "semantic", "split": "test"}
+{"query": "папка тональность отзывов", "expected": ["text_analysis"], "category": "semantic", "split": "test"}
+{"query": "проект анализ текста", "expected": ["text_analysis"], "category": "semantic", "split": "test"}
+{"query": "папка где тональность отзывов", "expected": ["text_analysis"], "category": "semantic", "split": "test"}
+{"query": "найди папку анализ текста", "expected": ["text_analysis"], "category": "semantic", "split": "test"}
+{"query": "folder text analysis", "expected": ["text_analysis"], "category": "name", "split": "test"}
+{"query": "папка text analysis", "expected": ["text_analysis"], "category": "name", "split": "test"}
+{"query": "папка tet analysis", "expected": ["text_analysis"], "category": "name", "split": "test"}
+{"query": "папка где я делал тональность отзывов сегодня", "expected": ["text_analysis"], "category": "history", "split": "test"}
+{"query": "проект где я работал анализ текста сегодня", "expected": ["text_analysis"], "category": "history", "split": "test"}
+{"query": "папка Natural language processing", "expected": ["text_analysis"], "category": "semantic", "split": "test"}
+{"query": "папка прогноз временных рядов", "expected": ["forecasting"], "category": "semantic", "split": "test"}
+{"query": "проект предсказание спроса", "expected": ["forecasting"], "category": "semantic", "split": "test"}
+{"query": "папка где прогноз временных рядов", "expected": ["forecasting"], "category": "semantic", "split": "test"}
+{"query": "найди папку предсказание спроса", "expected": ["forecasting"], "category": "semantic", "split": "test"}
+{"query": "folder forecasting", "expected": ["forecasting"], "category": "name", "split": "test"}
+{"query": "папка forecasting", "expected": ["forecasting"], "category": "name", "split": "test"}
+{"query": "папка foecasting", "expected": ["forecasting"], "category": "name", "split": "test"}
+{"query": "папка где я делал прогноз временных рядов сегодня", "expected": ["forecasting"], "category": "history", "split": "test"}
+{"query": "проект где я работал предсказание спроса сегодня", "expected": ["forecasting"], "category": "history", "split": "test"}
+{"query": "папка Time series forecasting", "expected": ["forecasting"], "category": "semantic", "split": "test"}
+{"query": "папка проверка статистических гипотез", "expected": ["experiments"], "category": "semantic", "split": "test"}
+{"query": "проект доверительные интервалы", "expected": ["experiments"], "category": "semantic", "split": "test"}
+{"query": "папка где проверка статистических гипотез", "expected": ["experiments"], "category": "semantic", "split": "test"}
+{"query": "найди папку доверительные интервалы", "expected": ["experiments"], "category": "semantic", "split": "test"}
+{"query": "folder experiments", "expected": ["experiments"], "category": "name", "split": "test"}
+{"query": "папка experiments", "expected": ["experiments"], "category": "name", "split": "test"}
+{"query": "папка exeriments", "expected": ["experiments"], "category": "name", "split": "test"}
+{"query": "папка где я делал проверка статистических гипотез сегодня", "expected": ["experiments"], "category": "history", "split": "test"}
+{"query": "проект где я работал доверительные интервалы сегодня", "expected": ["experiments"], "category": "history", "split": "test"}
+{"query": "папка Statistical hypothesis testing", "expected": ["experiments"], "category": "semantic", "split": "test"}
+{"query": "папка асинхронный сервер на расте", "expected": ["rust_service"], "category": "semantic", "split": "test"}
+{"query": "проект фоновый системный сервис", "expected": ["rust_service"], "category": "semantic", "split": "test"}
+{"query": "папка где асинхронный сервер на расте", "expected": ["rust_service"], "category": "semantic", "split": "test"}
+{"query": "найди папку фоновый системный сервис", "expected": ["rust_service"], "category": "semantic", "split": "test"}
+{"query": "folder rust service", "expected": ["rust_service"], "category": "name", "split": "test"}
+{"query": "папка rust service", "expected": ["rust_service"], "category": "name", "split": "test"}
+{"query": "папка rut service", "expected": ["rust_service"], "category": "name", "split": "test"}
+{"query": "папка где я делал асинхронный сервер на расте сегодня", "expected": ["rust_service"], "category": "history", "split": "test"}
+{"query": "проект где я работал фоновый системный сервис сегодня", "expected": ["rust_service"], "category": "history", "split": "test"}
+{"query": "папка Rust asynchronous server", "expected": ["rust_service"], "category": "semantic", "split": "test"}
+{"query": "папка горячие клавиши", "expected": ["keyboard_setup"], "category": "semantic", "split": "test"}
+{"query": "проект настройки переключения окон", "expected": ["keyboard_setup"], "category": "semantic", "split": "test"}
+{"query": "папка где горячие клавиши", "expected": ["keyboard_setup"], "category": "semantic", "split": "test"}
+{"query": "найди папку настройки переключения окон", "expected": ["keyboard_setup"], "category": "semantic", "split": "test"}
+{"query": "folder keyboard setup", "expected": ["keyboard_setup"], "category": "name", "split": "test"}
+{"query": "папка keyboard setup", "expected": ["keyboard_setup"], "category": "name", "split": "test"}
+{"query": "папка keboard setup", "expected": ["keyboard_setup"], "category": "name", "split": "test"}
+{"query": "папка где я делал горячие клавиши сегодня", "expected": ["keyboard_setup"], "category": "history", "split": "test"}
+{"query": "проект где я работал настройки переключения окон сегодня", "expected": ["keyboard_setup"], "category": "history", "split": "test"}
+{"query": "папка Keyboard shortcuts", "expected": ["keyboard_setup"], "category": "semantic", "split": "test"}
+{"query": "папка обои рабочего стола", "expected": ["wallpaper_themes"], "category": "semantic", "split": "test"}
+{"query": "проект цветовая тема", "expected": ["wallpaper_themes"], "category": "semantic", "split": "test"}
+{"query": "папка где обои рабочего стола", "expected": ["wallpaper_themes"], "category": "semantic", "split": "test"}
+{"query": "найди папку цветовая тема", "expected": ["wallpaper_themes"], "category": "semantic", "split": "test"}
+{"query": "folder wallpaper themes", "expected": ["wallpaper_themes"], "category": "name", "split": "test"}
+{"query": "папка wallpaper themes", "expected": ["wallpaper_themes"], "category": "name", "split": "test"}
+{"query": "папка walpaper themes", "expected": ["wallpaper_themes"], "category": "name", "split": "test"}
+{"query": "папка где я делал обои рабочего стола сегодня", "expected": ["wallpaper_themes"], "category": "history", "split": "test"}
+{"query": "проект где я работал цветовая тема сегодня", "expected": ["wallpaper_themes"], "category": "history", "split": "test"}
+{"query": "папка Desktop wallpapers", "expected": ["wallpaper_themes"], "category": "semantic", "split": "test"}
+{"query": "папка домашний бюджет", "expected": ["household_budget"], "category": "semantic", "split": "test"}
+{"query": "проект учет расходов", "expected": ["household_budget"], "category": "semantic", "split": "test"}
+{"query": "папка где домашний бюджет", "expected": ["household_budget"], "category": "semantic", "split": "test"}
+{"query": "найди папку учет расходов", "expected": ["household_budget"], "category": "semantic", "split": "test"}
+{"query": "folder household budget", "expected": ["household_budget"], "category": "name", "split": "test"}
+{"query": "папка household budget", "expected": ["household_budget"], "category": "name", "split": "test"}
+{"query": "папка hosehold budget", "expected": ["household_budget"], "category": "name", "split": "test"}
+{"query": "папка где я делал домашний бюджет сегодня", "expected": ["household_budget"], "category": "history", "split": "test"}
+{"query": "проект где я работал учет расходов сегодня", "expected": ["household_budget"], "category": "history", "split": "test"}
+{"query": "папка Household budget spreadsheet", "expected": ["household_budget"], "category": "semantic", "split": "test"}
+{"query": "папка кулинарные рецепты", "expected": ["cooking_recipes"], "category": "semantic", "split": "test"}
+{"query": "проект выпечка хлеба", "expected": ["cooking_recipes"], "category": "semantic", "split": "test"}
+{"query": "папка где кулинарные рецепты", "expected": ["cooking_recipes"], "category": "semantic", "split": "test"}
+{"query": "найди папку выпечка хлеба", "expected": ["cooking_recipes"], "category": "semantic", "split": "test"}
+{"query": "folder cooking recipes", "expected": ["cooking_recipes"], "category": "name", "split": "test"}
+{"query": "папка cooking recipes", "expected": ["cooking_recipes"], "category": "name", "split": "test"}
+{"query": "папка coking recipes", "expected": ["cooking_recipes"], "category": "name", "split": "test"}
+{"query": "папка где я делал кулинарные рецепты сегодня", "expected": ["cooking_recipes"], "category": "history", "split": "test"}
+{"query": "проект где я работал выпечка хлеба сегодня", "expected": ["cooking_recipes"], "category": "history", "split": "test"}
+{"query": "папка Cooking recipes", "expected": ["cooking_recipes"], "category": "semantic", "split": "test"}
+{"query": "папка планирование отпуска", "expected": ["travel_plans"], "category": "semantic", "split": "test"}
+{"query": "проект маршрут путешествия", "expected": ["travel_plans"], "category": "semantic", "split": "test"}
+{"query": "папка где планирование отпуска", "expected": ["travel_plans"], "category": "semantic", "split": "test"}
+{"query": "найди папку маршрут путешествия", "expected": ["travel_plans"], "category": "semantic", "split": "test"}
+{"query": "folder travel plans", "expected": ["travel_plans"], "category": "name", "split": "test"}
+{"query": "папка travel plans", "expected": ["travel_plans"], "category": "name", "split": "test"}
+{"query": "папка trvel plans", "expected": ["travel_plans"], "category": "name", "split": "test"}
+{"query": "папка где я делал планирование отпуска сегодня", "expected": ["travel_plans"], "category": "history", "split": "test"}
+{"query": "проект где я работал маршрут путешествия сегодня", "expected": ["travel_plans"], "category": "history", "split": "test"}
+{"query": "папка Travel itinerary", "expected": ["travel_plans"], "category": "semantic", "split": "test"}
+{"query": "папка редактирование фотографий", "expected": ["photo_editing"], "category": "semantic", "split": "test"}
+{"query": "проект коррекция экспозиции", "expected": ["photo_editing"], "category": "semantic", "split": "test"}
+{"query": "папка где редактирование фотографий", "expected": ["photo_editing"], "category": "semantic", "split": "test"}
+{"query": "найди папку коррекция экспозиции", "expected": ["photo_editing"], "category": "semantic", "split": "test"}
+{"query": "folder photo editing", "expected": ["photo_editing"], "category": "name", "split": "test"}
+{"query": "папка photo editing", "expected": ["photo_editing"], "category": "name", "split": "test"}
+{"query": "папка phto editing", "expected": ["photo_editing"], "category": "name", "split": "test"}
+{"query": "папка где я делал редактирование фотографий сегодня", "expected": ["photo_editing"], "category": "history", "split": "test"}
+{"query": "проект где я работал коррекция экспозиции сегодня", "expected": ["photo_editing"], "category": "history", "split": "test"}
+{"query": "папка Photo editing", "expected": ["photo_editing"], "category": "semantic", "split": "test"}

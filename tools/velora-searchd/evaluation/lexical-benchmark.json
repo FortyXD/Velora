@@ -1,0 +1,175 @@
+{
+  "cpu": "AMD Ryzen AI 9 HX 370 w/ Radeon 890M",
+  "debug_build": false,
+  "notes": "Synthetic end-to-end lexical Engine queries, no models. Cold means fresh encrypted connection/application caches; OS page cache is not cleared. RSS is current process RSS after ingestion and search. Idle is this query engine only, not the desktop or power draw.",
+  "reports": [
+    {
+      "cached_query": {
+        "max_ms": 0.22670700000000002,
+        "p50_ms": 0.140959,
+        "p95_ms": 0.165354,
+        "samples": 40
+      },
+      "cold_connection_first_query": {
+        "max_ms": 1.829435,
+        "p50_ms": 1.044611,
+        "p95_ms": 1.829435,
+        "samples": 8
+      },
+      "connection_open": {
+        "max_ms": 0.5018130000000001,
+        "p50_ms": 0.285845,
+        "p95_ms": 0.5018130000000001,
+        "samples": 8
+      },
+      "idle_cpu_percent": 0.017867390457944204,
+      "index_bytes": 10375168,
+      "indexing_seconds": 1.150483334,
+      "model_started": false,
+      "ndcg10": 1.0,
+      "objects": 10000,
+      "quality": [
+        {
+          "ndcg10": 1.0,
+          "query": "shad nlp hw1",
+          "rank": 1,
+          "recall5": true
+        },
+        {
+          "ndcg10": 1.0,
+          "query": "shad npl hw1",
+          "rank": 1,
+          "recall5": true
+        },
+        {
+          "ndcg10": 1.0,
+          "query": "velora folder hupr config",
+          "rank": 1,
+          "recall5": true
+        },
+        {
+          "ndcg10": 1.0,
+          "query": "config hupr velora folder",
+          "rank": 1,
+          "recall5": true
+        },
+        {
+          "ndcg10": 1.0,
+          "query": "velora config font hnting",
+          "rank": 1,
+          "recall5": true
+        },
+        {
+          "ndcg10": 1.0,
+          "query": "arcturus rust lab2",
+          "rank": 1,
+          "recall5": true
+        },
+        {
+          "ndcg10": 1.0,
+          "query": "arcturs rust concurrent queue",
+          "rank": 1,
+          "recall5": true
+        },
+        {
+          "ndcg10": 1.0,
+          "query": "shad word embeddings",
+          "rank": 1,
+          "recall5": true
+        }
+      ],
+      "recall5": 1.0,
+      "rss_kib": 26280,
+      "warm_index_without_query_cache": {
+        "max_ms": 1.2532450000000002,
+        "p50_ms": 0.44164200000000003,
+        "p95_ms": 1.0253560000000002,
+        "samples": 40
+      }
+    },
+    {
+      "cached_query": {
+        "max_ms": 0.215086,
+        "p50_ms": 0.154714,
+        "p95_ms": 0.195801,
+        "samples": 40
+      },
+      "cold_connection_first_query": {
+        "max_ms": 8.408369,
+        "p50_ms": 1.680664,
+        "p95_ms": 8.408369,
+        "samples": 8
+      },
+      "connection_open": {
+        "max_ms": 0.53208,
+        "p50_ms": 0.296466,
+        "p95_ms": 0.53208,
+        "samples": 8
+      },
+      "idle_cpu_percent": 0.011985692941921453,
+      "index_bytes": 107270144,
+      "indexing_seconds": 11.367805571,
+      "model_started": false,
+      "ndcg10": 1.0,
+      "objects": 100000,
+      "quality": [
+        {
+          "ndcg10": 1.0,
+          "query": "shad nlp hw1",
+          "rank": 1,
+          "recall5": true
+        },
+        {
+          "ndcg10": 1.0,
+          "query": "shad npl hw1",
+          "rank": 1,
+          "recall5": true
+        },
+        {
+          "ndcg10": 1.0,
+          "query": "velora folder hupr config",
+          "rank": 1,
+          "recall5": true
+        },
+        {
+          "ndcg10": 1.0,
+          "query": "config hupr velora folder",
+          "rank": 1,
+          "recall5": true
+        },
+        {
+          "ndcg10": 1.0,
+          "query": "velora config font hnting",
+          "rank": 1,
+          "recall5": true
+        },
+        {
+          "ndcg10": 1.0,
+          "query": "arcturus rust lab2",
+          "rank": 1,
+          "recall5": true
+        },
+        {
+          "ndcg10": 1.0,
+          "query": "arcturs rust concurrent queue",
+          "rank": 1,
+          "recall5": true
+        },
+        {
+          "ndcg10": 1.0,
+          "query": "shad word embeddings",
+          "rank": 1,
+          "recall5": true
+        }
+      ],
+      "recall5": 1.0,
+      "rss_kib": 26412,
+      "warm_index_without_query_cache": {
+        "max_ms": 7.363325000000001,
+        "p50_ms": 0.604433,
+        "p95_ms": 5.967726,
+        "samples": 40
+      }
+    }
+  ]
+}

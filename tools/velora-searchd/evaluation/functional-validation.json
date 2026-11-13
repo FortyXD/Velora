@@ -1,0 +1,2786 @@
+[
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 13,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 13
+      }
+    },
+    "expected": "courses/NLP/task1/homework.ipynb",
+    "found": [
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 13,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "nlp hw1",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 5,
+        "rerank_ms": 0,
+        "retrieval_ms": 1,
+        "total_ms": 6
+      }
+    },
+    "expected": "courses/NLP/task1/homework.ipynb",
+    "found": [
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 6,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "NLP HW 01",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 4,
+        "rerank_ms": 0,
+        "retrieval_ms": 1,
+        "total_ms": 5
+      }
+    },
+    "expected": "courses/NLP/task1/homework.ipynb",
+    "found": [
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 5,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "nlp homework1",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 7,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 7
+      }
+    },
+    "expected": "courses/NLP/task1/homework.ipynb",
+    "found": [
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 7,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "nlp homework 1",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 7,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 7
+      }
+    },
+    "expected": "courses/NLP/task2/homework_pytorch.ipynb",
+    "found": [
+      "courses/NLP/task2/homework_pytorch.ipynb",
+      "courses/NLP/task2"
+    ],
+    "ms": 7,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "nlp hw2",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 6,
+        "rerank_ms": 0,
+        "retrieval_ms": 1,
+        "total_ms": 7
+      }
+    },
+    "expected": "courses/NLP/task10/homework.ipynb",
+    "found": [
+      "courses/NLP/task10/homework.ipynb",
+      "courses/NLP/task10"
+    ],
+    "ms": 7,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "nlp hw10",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 4,
+        "rerank_ms": 0,
+        "retrieval_ms": 1690,
+        "total_ms": 1694
+      }
+    },
+    "expected": null,
+    "found": [],
+    "ms": 1694,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "nlp hw9",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 2
+      }
+    },
+    "expected": "courses/physics/experiment_02",
+    "found": [
+      "courses/physics/experiment_02",
+      "courses/physics/experiment_02/report.md"
+    ],
+    "ms": 2,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "physics exp2",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 2
+      }
+    },
+    "expected": "courses/physics/experiment_02/report.md",
+    "found": [
+      "courses/physics/experiment_02/report.md"
+    ],
+    "ms": 2,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "physics exp2 report",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 2
+      }
+    },
+    "expected": "courses/NLP/task1",
+    "found": [
+      "courses/NLP/task1",
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 2,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "nlp task1",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 4,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 4
+      }
+    },
+    "expected": "courses/NLP/task1/homework.ipynb",
+    "found": [
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 4,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "покажи первую домашку по nlp",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 4,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 4
+      }
+    },
+    "expected": "courses/NLP/task1/homework.ipynb",
+    "found": [
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 4,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "первая домашняя работа nlp",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 3,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 3
+      }
+    },
+    "expected": "courses/NLP/task2/homework_pytorch.ipynb",
+    "found": [
+      "courses/NLP/task2/homework_pytorch.ipynb"
+    ],
+    "ms": 3,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "find my second nlp homework",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 1,
+        "total_ms": 3
+      }
+    },
+    "expected": "courses/NLP/task10/homework.ipynb",
+    "found": [
+      "courses/NLP/task10/homework.ipynb"
+    ],
+    "ms": 3,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "homework number 10 for nlp",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 4,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 4
+      }
+    },
+    "expected": ".config/kitty/kitty.conf",
+    "found": [
+      ".config/kitty/kitty.conf"
+    ],
+    "ms": 4,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "config kitty",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 6,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 6
+      }
+    },
+    "expected": "courses/NLP",
+    "found": [
+      "courses/NLP",
+      "courses/NLP/task1",
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb",
+      "courses/NLP/task10",
+      "courses/NLP/task10/homework.ipynb",
+      "courses/NLP/task2",
+      "courses/NLP/task2/homework_pytorch.ipynb",
+      "courses/NLP/task4",
+      "courses/NLP/task4/homework_solved (2).ipynb"
+    ],
+    "ms": 6,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "npl",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 5,
+        "rerank_ms": 0,
+        "retrieval_ms": 1,
+        "total_ms": 6
+      }
+    },
+    "expected": "courses/NLP",
+    "found": [
+      "courses/NLP",
+      "courses/NLP/task1",
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb",
+      "courses/NLP/task10",
+      "courses/NLP/task10/homework.ipynb",
+      "courses/NLP/task2",
+      "courses/NLP/task2/homework_pytorch.ipynb",
+      "courses/NLP/task4",
+      "courses/NLP/task4/homework_solved (2).ipynb"
+    ],
+    "ms": 6,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "nlp",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 6,
+        "rerank_ms": 0,
+        "retrieval_ms": 1,
+        "total_ms": 7
+      }
+    },
+    "expected": "courses/NLP",
+    "found": [
+      "courses/NLP",
+      "courses/NLP/task1",
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb",
+      "courses/NLP/task10",
+      "courses/NLP/task10/homework.ipynb",
+      "courses/NLP/task2",
+      "courses/NLP/task2/homework_pytorch.ipynb",
+      "courses/NLP/task4",
+      "courses/NLP/task4/homework_solved (2).ipynb"
+    ],
+    "ms": 7,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "тдз",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 8,
+        "total_ms": 10
+      }
+    },
+    "expected": null,
+    "found": [],
+    "ms": 10,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "nlp hw100",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 8,
+        "total_ms": 10
+      }
+    },
+    "expected": null,
+    "found": [],
+    "ms": 10,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "nlp hw1 вчера",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 3,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 3
+      }
+    },
+    "expected": "courses/NLP/task2/homework_pytorch.ipynb",
+    "found": [
+      "courses/NLP/task2/homework_pytorch.ipynb"
+    ],
+    "ms": 3,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "nlp домашней работе 2",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 2
+      }
+    },
+    "expected": "courses/physics/experiment_12/report.md",
+    "found": [
+      "courses/physics/experiment_12/report.md"
+    ],
+    "ms": 2,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "physics exp12 report",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 3,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 3
+      }
+    },
+    "expected": ".config/kitty/kitty.conf",
+    "found": [
+      ".config/kitty/kitty.conf"
+    ],
+    "ms": 3,
+    "pass": true,
+    "phase": "metadata",
+    "problem": null,
+    "query": "config kity",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 3,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 3
+      }
+    },
+    "expected": "courses/NLP/task1/homework.ipynb",
+    "found": [
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 3,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "nlp hw1",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 1,
+        "total_ms": 3
+      }
+    },
+    "expected": "courses/NLP/task1/homework.ipynb",
+    "found": [
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 3,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "NLP HW 01",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 2
+      }
+    },
+    "expected": "courses/NLP/task1/homework.ipynb",
+    "found": [
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 2,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "nlp homework1",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 2
+      }
+    },
+    "expected": "courses/NLP/task1/homework.ipynb",
+    "found": [
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 2,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "nlp homework 1",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 2
+      }
+    },
+    "expected": "courses/NLP/task2/homework_pytorch.ipynb",
+    "found": [
+      "courses/NLP/task2/homework_pytorch.ipynb",
+      "courses/NLP/task2"
+    ],
+    "ms": 2,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "nlp hw2",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 2
+      }
+    },
+    "expected": "courses/NLP/task10/homework.ipynb",
+    "found": [
+      "courses/NLP/task10/homework.ipynb",
+      "courses/NLP/task10"
+    ],
+    "ms": 2,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "nlp hw10",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 10,
+        "total_ms": 12
+      }
+    },
+    "expected": null,
+    "found": [],
+    "ms": 12,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "nlp hw9",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 2
+      }
+    },
+    "expected": "courses/physics/experiment_02",
+    "found": [
+      "courses/physics/experiment_02",
+      "courses/physics/experiment_02/report.md"
+    ],
+    "ms": 2,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "physics exp2",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 2
+      }
+    },
+    "expected": "courses/physics/experiment_02/report.md",
+    "found": [
+      "courses/physics/experiment_02/report.md"
+    ],
+    "ms": 2,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "physics exp2 report",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 2
+      }
+    },
+    "expected": "courses/NLP/task1",
+    "found": [
+      "courses/NLP/task1",
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 2,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "nlp task1",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 4,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 4
+      }
+    },
+    "expected": "courses/NLP/task1/homework.ipynb",
+    "found": [
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 4,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "покажи первую домашку по nlp",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 4,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 4
+      }
+    },
+    "expected": "courses/NLP/task1/homework.ipynb",
+    "found": [
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 4,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "первая домашняя работа nlp",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 3,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 3
+      }
+    },
+    "expected": "courses/NLP/task2/homework_pytorch.ipynb",
+    "found": [
+      "courses/NLP/task2/homework_pytorch.ipynb"
+    ],
+    "ms": 3,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "find my second nlp homework",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 1,
+        "total_ms": 3
+      }
+    },
+    "expected": "courses/NLP/task10/homework.ipynb",
+    "found": [
+      "courses/NLP/task10/homework.ipynb"
+    ],
+    "ms": 3,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "homework number 10 for nlp",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 4,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 4
+      }
+    },
+    "expected": ".config/kitty/kitty.conf",
+    "found": [
+      ".config/kitty/kitty.conf",
+      ".config/hypr/keybinds.conf"
+    ],
+    "ms": 4,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "config kitty",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": 106,
+          "competitor": null,
+          "cosine": 0.8388100858580791,
+          "lexical": false,
+          "logit": -1.3124974966049194,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/kitty/kitty.conf",
+          "relevance": 0.9129749796925747
+        },
+        {
+          "application": null,
+          "competitor": 0.8410026052275663,
+          "cosine": 0.837353166512327,
+          "lexical": false,
+          "logit": -5.0846123695373535,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/general.conf",
+          "relevance": 0.3962535541754944
+        },
+        {
+          "application": null,
+          "competitor": 0.8410026052275663,
+          "cosine": 0.8266225504527377,
+          "lexical": false,
+          "logit": -4.7612104415893555,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/colors.conf",
+          "relevance": 0.26722778104693296
+        },
+        {
+          "application": null,
+          "competitor": 0.837353166512327,
+          "cosine": 0.8410026052275663,
+          "lexical": false,
+          "logit": -5.978328704833984,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/keybinds.conf",
+          "relevance": 0.35991514675194614
+        }
+      ],
+      "timings": {
+        "lexical_ms": 39,
+        "rerank_ms": 1101,
+        "retrieval_ms": 49,
+        "total_ms": 1189
+      }
+    },
+    "expected": ".config/kitty/kitty.conf",
+    "found": [
+      ".config/kitty/kitty.conf"
+    ],
+    "ms": 1189,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "конфиг терминала",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": 106,
+          "competitor": null,
+          "cosine": 0.8388100858580791,
+          "lexical": false,
+          "logit": -1.3124974966049194,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/kitty/kitty.conf",
+          "relevance": 0.9129749796925747
+        },
+        {
+          "application": null,
+          "competitor": 0.8246947930071753,
+          "cosine": 0.815711222331128,
+          "lexical": false,
+          "logit": -5.0846123695373535,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/general.conf",
+          "relevance": 0.22111128627030274
+        },
+        {
+          "application": null,
+          "competitor": 0.8246947930071753,
+          "cosine": 0.807253072324861,
+          "lexical": false,
+          "logit": -4.7612104415893555,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/colors.conf",
+          "relevance": 0.1576282161568293
+        },
+        {
+          "application": null,
+          "competitor": 0.815711222331128,
+          "cosine": 0.8246947930071753,
+          "lexical": false,
+          "logit": -5.978328704833984,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/keybinds.conf",
+          "relevance": 0.3197960432377655
+        }
+      ],
+      "timings": {
+        "lexical_ms": 0,
+        "rerank_ms": 1,
+        "retrieval_ms": 46,
+        "total_ms": 47
+      }
+    },
+    "expected": ".config/kitty/kitty.conf",
+    "found": [
+      ".config/kitty/kitty.conf"
+    ],
+    "ms": 47,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "настройки терминала",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": 106,
+          "competitor": null,
+          "cosine": 0.818546540731224,
+          "lexical": false,
+          "logit": 1.539560317993164,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/kitty/kitty.conf",
+          "relevance": 0.9767970058132969
+        },
+        {
+          "application": null,
+          "competitor": 0.8005040768564139,
+          "cosine": 0.809942059005781,
+          "lexical": false,
+          "logit": -6.269146919250488,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/general.conf",
+          "relevance": 0.20996016530383746
+        },
+        {
+          "application": null,
+          "competitor": 0.809942059005781,
+          "cosine": 0.7890084847755123,
+          "lexical": false,
+          "logit": -3.4958934783935547,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/colors.conf",
+          "relevance": 0.18595433524128757
+        },
+        {
+          "application": null,
+          "competitor": 0.809942059005781,
+          "cosine": 0.8005040768564139,
+          "lexical": false,
+          "logit": -8.077012062072754,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/keybinds.conf",
+          "relevance": 0.023743722630112526
+        }
+      ],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 55,
+        "retrieval_ms": 14,
+        "total_ms": 71
+      }
+    },
+    "expected": ".config/kitty/kitty.conf",
+    "found": [
+      ".config/kitty/kitty.conf"
+    ],
+    "ms": 72,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "где поменять размер шрифта терминала",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": 106,
+          "competitor": null,
+          "cosine": 0.8641688924297907,
+          "lexical": false,
+          "logit": -3.2656238079071045,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/kitty/kitty.conf",
+          "relevance": 0.8464081150277557
+        },
+        {
+          "application": null,
+          "competitor": 0.8244129586387371,
+          "cosine": 0.8188190119403708,
+          "lexical": false,
+          "logit": -3.842409133911133,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/general.conf",
+          "relevance": 0.45755496333163737
+        },
+        {
+          "application": null,
+          "competitor": 0.8188190119403708,
+          "cosine": 0.8244129586387371,
+          "lexical": false,
+          "logit": -4.597039222717285,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/keybinds.conf",
+          "relevance": 0.5024252157897695
+        },
+        {
+          "application": null,
+          "competitor": 0.8244129586387371,
+          "cosine": 0.8172438337430925,
+          "lexical": false,
+          "logit": -4.8329386711120605,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/colors.conf",
+          "relevance": 0.2769175856547818
+        }
+      ],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 53,
+        "retrieval_ms": 11,
+        "total_ms": 66
+      }
+    },
+    "expected": ".config/kitty/kitty.conf",
+    "found": [
+      ".config/kitty/kitty.conf"
+    ],
+    "ms": 66,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "terminal font settings",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": null,
+          "competitor": 0.9009061584706376,
+          "cosine": 0.882559239300688,
+          "lexical": true,
+          "logit": 1.160016655921936,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/general.conf",
+          "relevance": 0.9867538614402537
+        },
+        {
+          "application": null,
+          "competitor": 0.882559239300688,
+          "cosine": 0.9009061584706376,
+          "lexical": false,
+          "logit": -0.385590136051178,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/keybinds.conf",
+          "relevance": 0.996051605779548
+        },
+        {
+          "application": null,
+          "competitor": 0.9009061584706376,
+          "cosine": 0.8801703784041349,
+          "lexical": false,
+          "logit": -1.8631436824798584,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/colors.conf",
+          "relevance": 0.8892013890224862
+        }
+      ],
+      "timings": {
+        "lexical_ms": 3,
+        "rerank_ms": 32,
+        "retrieval_ms": 12,
+        "total_ms": 47
+      }
+    },
+    "expected": ".config/hypr/general.conf",
+    "found": [
+      ".config/hypr/general.conf",
+      ".config/hypr/keybinds.conf"
+    ],
+    "ms": 47,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "config for keyboard layout hypr",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": 106,
+          "competitor": null,
+          "cosine": 0.8043574642309145,
+          "lexical": false,
+          "logit": -3.32405424118042,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/kitty/kitty.conf",
+          "relevance": 0.5160254620335708
+        },
+        {
+          "application": null,
+          "competitor": 0.8083754713679235,
+          "cosine": 0.8256176359705133,
+          "lexical": false,
+          "logit": -3.784245014190674,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/general.conf",
+          "relevance": 0.7606631845932557
+        },
+        {
+          "application": null,
+          "competitor": 0.8256176359705133,
+          "cosine": 0.8083754713679235,
+          "lexical": false,
+          "logit": -1.7919048070907593,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/keybinds.conf",
+          "relevance": 0.5928507018252698
+        },
+        {
+          "application": null,
+          "competitor": 0.8256176359705133,
+          "cosine": 0.7852399649691023,
+          "lexical": false,
+          "logit": -2.945105791091919,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/colors.conf",
+          "relevance": 0.10479274920618181
+        }
+      ],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 55,
+        "retrieval_ms": 14,
+        "total_ms": 71
+      }
+    },
+    "expected": ".config/hypr/general.conf",
+    "found": [
+      ".config/hypr/general.conf"
+    ],
+    "ms": 71,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "где поменять раскладку клавиатуры",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": null,
+          "competitor": 0.8583978368741016,
+          "cosine": 0.8402576398764768,
+          "lexical": true,
+          "logit": 1.9658401012420657,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/general.conf",
+          "relevance": 0.9766386379093137
+        },
+        {
+          "application": null,
+          "competitor": 0.8410125369478114,
+          "cosine": 0.8583978368741016,
+          "lexical": false,
+          "logit": -0.31611260771751404,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/keybinds.conf",
+          "relevance": 0.9877728080824314
+        },
+        {
+          "application": null,
+          "competitor": 0.8583978368741016,
+          "cosine": 0.8410125369478114,
+          "lexical": false,
+          "logit": -1.648500919342041,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/colors.conf",
+          "relevance": 0.7926055703537359
+        }
+      ],
+      "timings": {
+        "lexical_ms": 4,
+        "rerank_ms": 32,
+        "retrieval_ms": 12,
+        "total_ms": 48
+      }
+    },
+    "expected": ".config/hypr/general.conf",
+    "found": [
+      ".config/hypr/general.conf",
+      ".config/hypr/keybinds.conf"
+    ],
+    "ms": 48,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "hypr keyboard layout",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": null,
+          "competitor": 0.8583462642814409,
+          "cosine": 0.8424620183454419,
+          "lexical": false,
+          "logit": -1.838281273841858,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/general.conf",
+          "relevance": 0.7897768437614671
+        },
+        {
+          "application": null,
+          "competitor": 0.8424620183454419,
+          "cosine": 0.8583462642814409,
+          "lexical": false,
+          "logit": -1.909196615219116,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/keybinds.conf",
+          "relevance": 0.9622505714541479
+        },
+        {
+          "application": null,
+          "competitor": 0.8583462642814409,
+          "cosine": 0.8384195738398011,
+          "lexical": false,
+          "logit": -1.8208956718444824,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/hypr/colors.conf",
+          "relevance": 0.7371937938486858
+        }
+      ],
+      "timings": {
+        "lexical_ms": 3,
+        "rerank_ms": 36,
+        "retrieval_ms": 13,
+        "total_ms": 52
+      }
+    },
+    "expected": ".config/hypr/keybinds.conf",
+    "found": [
+      ".config/hypr/keybinds.conf"
+    ],
+    "ms": 52,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "hypr горячие клавиши",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": null,
+          "competitor": 0.8328059958875547,
+          "cosine": 0.8161871166757654,
+          "lexical": false,
+          "logit": -7.339799880981445,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/NLP/task4/homework_solved (2).ipynb",
+          "relevance": 0.0413287243050255
+        },
+        {
+          "application": null,
+          "competitor": 0.8328059958875547,
+          "cosine": 0.8298630312695539,
+          "lexical": false,
+          "logit": -0.4319162964820862,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/NLP/task1/homework.ipynb",
+          "relevance": 0.928576052509451
+        },
+        {
+          "application": null,
+          "competitor": 0.8328059958875547,
+          "cosine": 0.7999330989508269,
+          "lexical": false,
+          "logit": -6.933572769165039,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/NLP/task10/homework.ipynb",
+          "relevance": 0.01645112892496502
+        },
+        {
+          "application": null,
+          "competitor": 0.8328059958875547,
+          "cosine": 0.8037825768031922,
+          "lexical": false,
+          "logit": -4.428503513336182,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/NLP/task2/homework_pytorch.ipynb",
+          "relevance": 0.10871709659358389
+        },
+        {
+          "application": null,
+          "competitor": 0.8298630312695539,
+          "cosine": 0.8328059958875547,
+          "lexical": false,
+          "logit": -0.23864157497882843,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/NLP/task1/seminar.ipynb",
+          "relevance": 0.9551967729786041
+        }
+      ],
+      "timings": {
+        "lexical_ms": 4,
+        "rerank_ms": 112,
+        "retrieval_ms": 12,
+        "total_ms": 128
+      }
+    },
+    "expected": "courses/NLP/task1/homework.ipynb",
+    "found": [
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb"
+    ],
+    "ms": 128,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "nlp задание про векторные представления слов",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": null,
+          "competitor": 0.8198201677733182,
+          "cosine": 0.785877626544909,
+          "lexical": false,
+          "logit": -5.323422431945801,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/NLP/task1/seminar.ipynb",
+          "relevance": 0.03142626672847401
+        },
+        {
+          "application": null,
+          "competitor": 0.785877626544909,
+          "cosine": 0.8198201677733182,
+          "lexical": false,
+          "logit": -1.6218092441558838,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/NLP/task2/homework_pytorch.ipynb",
+          "relevance": 0.9635342849417371
+        },
+        {
+          "application": null,
+          "competitor": 0.8198201677733182,
+          "cosine": 0.7789520695079412,
+          "lexical": false,
+          "logit": -8.256705284118652,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/NLP/task10/homework.ipynb",
+          "relevance": 0.0026343744584647207
+        },
+        {
+          "application": null,
+          "competitor": 0.8198201677733182,
+          "cosine": 0.776265303963615,
+          "lexical": false,
+          "logit": -8.155546188354492,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/NLP/task1/homework.ipynb",
+          "relevance": 0.00230600966035106
+        },
+        {
+          "application": null,
+          "competitor": 0.8198201677733182,
+          "cosine": 0.7849594303085667,
+          "lexical": false,
+          "logit": -8.544493675231934,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/NLP/task4/homework_solved (2).ipynb",
+          "relevance": 0.0034025562259403447
+        }
+      ],
+      "timings": {
+        "lexical_ms": 4,
+        "rerank_ms": 82,
+        "retrieval_ms": 13,
+        "total_ms": 99
+      }
+    },
+    "expected": "courses/NLP/task2/homework_pytorch.ipynb",
+    "found": [
+      "courses/NLP/task2/homework_pytorch.ipynb"
+    ],
+    "ms": 99,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "nlp где предсказываем следующий токен",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": null,
+          "competitor": 0.8405305240013216,
+          "cosine": 0.8816484304834374,
+          "lexical": true,
+          "logit": 2.7022013664245605,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/CV/homework_part1.ipynb",
+          "relevance": 0.9997277188193355
+        },
+        {
+          "application": null,
+          "competitor": 0.8816484304834374,
+          "cosine": 0.8405305240013216,
+          "lexical": false,
+          "logit": -2.568078994750977,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/CV/homework_part2.ipynb",
+          "relevance": 0.39088645252449467
+        },
+        {
+          "application": null,
+          "competitor": 0.8816484304834374,
+          "cosine": 0.8226259143946865,
+          "lexical": false,
+          "logit": -7.27445125579834,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/CV/logs/finetuned_layer3_layer4/version_11/metrics.csv",
+          "relevance": 0.006835421549512924
+        }
+      ],
+      "timings": {
+        "lexical_ms": 4,
+        "rerank_ms": 74,
+        "retrieval_ms": 11,
+        "total_ms": 89
+      }
+    },
+    "expected": "courses/CV/homework_part1.ipynb",
+    "found": [
+      "courses/CV/homework_part1.ipynb"
+    ],
+    "ms": 90,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "CV convolutional layer stride padding",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": null,
+          "competitor": 0.819923278151701,
+          "cosine": 0.8371545729524067,
+          "lexical": false,
+          "logit": 4.753558158874512,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/CV/homework_part2.ipynb",
+          "relevance": 0.9992904902858595
+        },
+        {
+          "application": null,
+          "competitor": 0.8371545729524067,
+          "cosine": 0.819923278151701,
+          "lexical": false,
+          "logit": -3.247445583343506,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/CV/homework_part1.ipynb",
+          "relevance": 0.42543515198231624
+        },
+        {
+          "application": null,
+          "competitor": 0.8371545729524067,
+          "cosine": 0.8099018796652339,
+          "lexical": false,
+          "logit": -6.464591026306152,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/CV/logs/finetuned_layer3_layer4/version_11/metrics.csv",
+          "relevance": 0.03790991140926459
+        }
+      ],
+      "timings": {
+        "lexical_ms": 4,
+        "rerank_ms": 53,
+        "retrieval_ms": 12,
+        "total_ms": 69
+      }
+    },
+    "expected": "courses/CV/homework_part2.ipynb",
+    "found": [
+      "courses/CV/homework_part2.ipynb"
+    ],
+    "ms": 69,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "CV домашка про ConvNeXt",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8189943432807922,
+          "lexical": false,
+          "logit": -8.889636039733887,
+          "path": "/tmp/.tmpXqIWYd/sources/website/evaluation/fixture.json",
+          "relevance": 0.026702504436951796
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.430318832397461,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/36.json",
+          "relevance": 0.05073533943690084
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.513887405395508,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/37.json",
+          "relevance": 0.0480764986193252
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.43384838104248,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/38.json",
+          "relevance": 0.050620279162036486
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.381324291229248,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/39.json",
+          "relevance": 0.05235829397283341
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -8.126965522766113,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/0.json",
+          "relevance": 0.032260654257983176
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.334893226623535,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/40.json",
+          "relevance": 0.05394149777345464
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.561767101287842,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/1.json",
+          "relevance": 0.04661330330746873
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.442090511322021,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/41.json",
+          "relevance": 0.05035255400392868
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.542378425598144,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/2.json",
+          "relevance": 0.04720064440712014
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.381123065948486,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/42.json",
+          "relevance": 0.05236505968705782
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.507657051086426,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/3.json",
+          "relevance": 0.04827007452564933
+        },
+        {
+          "application": null,
+          "competitor": 0.8189943432807922,
+          "cosine": 0.8248038291931152,
+          "lexical": false,
+          "logit": -1.5491660833358765,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/algorithms/complexity.md",
+          "relevance": 0.8904992887604752
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.48309850692749,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/43.json",
+          "relevance": 0.04904033244981872
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.470958232879639,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/4.json",
+          "relevance": 0.04942539438508933
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.420172691345215,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/44.json",
+          "relevance": 0.051067475090836666
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.487202644348144,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/5.json",
+          "relevance": 0.048910803228612826
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.33383321762085,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/45.json",
+          "relevance": 0.05397816386692102
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.448890686035156,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/6.json",
+          "relevance": 0.050132677269164434
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.442662239074707,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/46.json",
+          "relevance": 0.05033403266075952
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.467307090759277,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/7.json",
+          "relevance": 0.04954175987613891
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.47406530380249,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/10.json",
+          "relevance": 0.049326573095048766
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.523306369781494,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/11.json",
+          "relevance": 0.047785252148644264
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.43669319152832,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/12.json",
+          "relevance": 0.05052772060068571
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.538025856018066,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/13.json",
+          "relevance": 0.047333460316830875
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.451755523681641,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/14.json",
+          "relevance": 0.05004031819499936
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.484107971191406,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/15.json",
+          "relevance": 0.049008442969699806
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.454889297485352,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/16.json",
+          "relevance": 0.049939473534292705
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.5668253898620605,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/17.json",
+          "relevance": 0.046461219586819945
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.442728042602539,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/18.json",
+          "relevance": 0.05033190134391196
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.510300636291504,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/19.json",
+          "relevance": 0.04818784864074507
+        },
+        {
+          "application": null,
+          "competitor": 0.8248038291931152,
+          "cosine": 0.8147119283676147,
+          "lexical": false,
+          "logit": -7.44937801361084,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/20.json",
+          "relevance": 0.05011695499864931
+        }
+      ],
+      "timings": {
+        "lexical_ms": 3,
+        "rerank_ms": 471,
+        "retrieval_ms": 36,
+        "total_ms": 510
+      }
+    },
+    "expected": "courses/algorithms/complexity.md",
+    "found": [
+      "courses/algorithms/complexity.md"
+    ],
+    "ms": 511,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "покажи материал про NP полноту",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": null,
+          "competitor": 0.7975165247917175,
+          "cosine": 0.8257128596305847,
+          "lexical": false,
+          "logit": 0.7477636337280273,
+          "path": "/tmp/.tmpXqIWYd/sources/notes/recipes.md",
+          "relevance": 0.9915052080616598
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7975165247917175,
+          "lexical": false,
+          "logit": -7.810965538024902,
+          "path": "/tmp/.tmpXqIWYd/sources/website/evaluation/fixture.json",
+          "relevance": 0.0107313719422189
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.433439254760742,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/36.json",
+          "relevance": 0.007185465909481341
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.478598117828369,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/37.json",
+          "relevance": 0.00697043180188067
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.456083297729492,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/38.json",
+          "relevance": 0.007076830370725637
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.519908905029297,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/39.json",
+          "relevance": 0.006779323487180875
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.446517467498779,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/0.json",
+          "relevance": 0.007122522388029684
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.35723352432251,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/40.json",
+          "relevance": 0.007563369847342376
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.32941198348999,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/1.json",
+          "relevance": 0.007706197342860939
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.492535591125488,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/41.json",
+          "relevance": 0.0069053648931208
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.472220420837402,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/2.json",
+          "relevance": 0.007000408675006814
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.481478691101074,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/42.json",
+          "relevance": 0.006956934161218291
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.445529937744141,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/3.json",
+          "relevance": 0.0071272560567511275
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.50504207611084,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/43.json",
+          "relevance": 0.006847492173649635
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.459861278533936,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/4.json",
+          "relevance": 0.007058864792034554
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.462610244750977,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/44.json",
+          "relevance": 0.0070458209959124544
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.429427146911621,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/5.json",
+          "relevance": 0.007204886059621003
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.412507057189941,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/45.json",
+          "relevance": 0.007287360669334153
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.435147762298584,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/6.json",
+          "relevance": 0.007177211858413868
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.470921516418457,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/46.json",
+          "relevance": 0.0070065295436906325
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.379766464233398,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/7.json",
+          "relevance": 0.007449620363125368
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.36256217956543,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/10.json",
+          "relevance": 0.007536315397173119
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.495656490325928,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/11.json",
+          "relevance": 0.006890877869584008
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.456397533416748,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/12.json",
+          "relevance": 0.007075334344172508
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.489014625549316,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/13.json",
+          "relevance": 0.006921745312129839
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.460676193237305,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/14.json",
+          "relevance": 0.007054995537871893
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.424167633056641,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/15.json",
+          "relevance": 0.007230423080958283
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.464872360229492,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/16.json",
+          "relevance": 0.007035105249824639
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.523465633392334,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/17.json",
+          "relevance": 0.006763115032479546
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.476078033447266,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/18.json",
+          "relevance": 0.006982261606586544
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.510539054870605,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/19.json",
+          "relevance": 0.006822207987532802
+        },
+        {
+          "application": null,
+          "competitor": 0.8257128596305847,
+          "cosine": 0.7887313961982727,
+          "lexical": false,
+          "logit": -7.411299705505371,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/20.json",
+          "relevance": 0.0072932814316350285
+        }
+      ],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 379,
+        "retrieval_ms": 30,
+        "total_ms": 411
+      }
+    },
+    "expected": "notes/recipes.md",
+    "found": [
+      "notes/recipes.md"
+    ],
+    "ms": 411,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "ингредиенты для выпечки хлеба",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 1,
+        "rerank_ms": 0,
+        "retrieval_ms": 12,
+        "total_ms": 13
+      }
+    },
+    "expected": null,
+    "found": [],
+    "ms": 13,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "japanese tax return 2035",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": null,
+          "competitor": 0.8063985705375671,
+          "cosine": 0.81424880027771,
+          "lexical": false,
+          "logit": -8.21224594116211,
+          "path": "/tmp/.tmpXqIWYd/sources/website/evaluation/fixture.json",
+          "relevance": 0.06893202208571846
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.601143836975098,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/36.json",
+          "relevance": 0.04073185219295018
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.661581993103027,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/37.json",
+          "relevance": 0.03916145960845395
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.617387771606445,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/38.json",
+          "relevance": 0.04030394842072878
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.6599273681640625,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/39.json",
+          "relevance": 0.03920366891355188
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.87397575378418,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/0.json",
+          "relevance": 0.034091144507410666
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.564507961273193,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/40.json",
+          "relevance": 0.0417129516539013
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.693524837493896,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/1.json",
+          "relevance": 0.03835509666665938
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.665277481079102,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/41.json",
+          "relevance": 0.03906734545856065
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.7159247398376465,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/2.json",
+          "relevance": 0.0377991691901096
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.638667583465576,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/42.json",
+          "relevance": 0.03974990047689273
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.680314064025879,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/3.json",
+          "relevance": 0.038686637122218696
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.667020320892334,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/43.json",
+          "relevance": 0.039023035342855304
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.681058883666992,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/4.json",
+          "relevance": 0.03866787202078772
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.624093055725098,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/44.json",
+          "relevance": 0.04012857387833148
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.675928592681885,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/5.json",
+          "relevance": 0.03879730271657304
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.56190824508667,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/45.json",
+          "relevance": 0.04178342389188441
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.63031005859375,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/6.json",
+          "relevance": 0.03996662362688692
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.640397548675537,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/46.json",
+          "relevance": 0.03970518082375281
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.603774547576904,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/7.json",
+          "relevance": 0.04066225901205393
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.592879295349121,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/10.json",
+          "relevance": 0.04095122620588397
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.672462463378906,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/11.json",
+          "relevance": 0.03888498396141056
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.6288838386535645,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/12.json",
+          "relevance": 0.04000372058772963
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.657136917114258,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/13.json",
+          "relevance": 0.03927495189108657
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.624014854431152,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/14.json",
+          "relevance": 0.040130614987616095
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.614620208740234,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/15.json",
+          "relevance": 0.040376547008209855
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.624224662780762,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/16.json",
+          "relevance": 0.0401251390653244
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.691900253295898,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/17.json",
+          "relevance": 0.03839572001371702
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.625577926635742,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/18.json",
+          "relevance": 0.04008983656496039
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.668789863586426,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/19.json",
+          "relevance": 0.038978095662155335
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.61233377456665,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/20.json",
+          "relevance": 0.04043661912822068
+        },
+        {
+          "application": null,
+          "competitor": 0.81424880027771,
+          "cosine": 0.8063985705375671,
+          "lexical": false,
+          "logit": -7.652475357055664,
+          "path": "/tmp/.tmpXqIWYd/sources/website/messages/21.json",
+          "relevance": 0.03939431032923535
+        }
+      ],
+      "timings": {
+        "lexical_ms": 1,
+        "rerank_ms": 348,
+        "retrieval_ms": 21,
+        "total_ms": 370
+      }
+    },
+    "expected": null,
+    "found": [],
+    "ms": 370,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "швейная выкройка пиджака",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": null,
+          "competitor": null,
+          "cosine": 0.8609178678854724,
+          "lexical": true,
+          "logit": -5.388204097747803,
+          "path": "app:kitty.desktop",
+          "relevance": 0.545203113712911
+        }
+      ],
+      "timings": {
+        "lexical_ms": 20,
+        "rerank_ms": 15,
+        "retrieval_ms": 27,
+        "total_ms": 62
+      }
+    },
+    "expected": "app:kitty.desktop",
+    "found": [
+      "app:kitty.desktop"
+    ],
+    "ms": 62,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "launch terminal",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": null,
+          "competitor": null,
+          "cosine": 0.8350320150576066,
+          "lexical": true,
+          "logit": -3.911352634429931,
+          "path": "app:kitty.desktop",
+          "relevance": 0.6196982058574485
+        }
+      ],
+      "timings": {
+        "lexical_ms": 26,
+        "rerank_ms": 10,
+        "retrieval_ms": 32,
+        "total_ms": 68
+      }
+    },
+    "expected": "app:kitty.desktop",
+    "found": [
+      "app:kitty.desktop"
+    ],
+    "ms": 68,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "запусти терминал",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 5,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 5
+      }
+    },
+    "expected": "courses/NLP",
+    "found": [
+      "courses/NLP",
+      "courses/NLP/task1",
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb",
+      "courses/NLP/task10",
+      "courses/NLP/task10/homework.ipynb",
+      "courses/NLP/task2",
+      "courses/NLP/task2/homework_pytorch.ipynb",
+      "courses/NLP/task4",
+      "courses/NLP/task4/homework_solved (2).ipynb"
+    ],
+    "ms": 5,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "npl",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 4,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 4
+      }
+    },
+    "expected": "courses/NLP",
+    "found": [
+      "courses/NLP",
+      "courses/NLP/task1",
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb",
+      "courses/NLP/task10",
+      "courses/NLP/task10/homework.ipynb",
+      "courses/NLP/task2",
+      "courses/NLP/task2/homework_pytorch.ipynb",
+      "courses/NLP/task4",
+      "courses/NLP/task4/homework_solved (2).ipynb"
+    ],
+    "ms": 4,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "nlp",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 5,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 5
+      }
+    },
+    "expected": "courses/NLP",
+    "found": [
+      "courses/NLP",
+      "courses/NLP/task1",
+      "courses/NLP/task1/homework.ipynb",
+      "courses/NLP/task1/seminar.ipynb",
+      "courses/NLP/task10",
+      "courses/NLP/task10/homework.ipynb",
+      "courses/NLP/task2",
+      "courses/NLP/task2/homework_pytorch.ipynb",
+      "courses/NLP/task4",
+      "courses/NLP/task4/homework_solved (2).ipynb"
+    ],
+    "ms": 5,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "тдз",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 7,
+        "total_ms": 9
+      }
+    },
+    "expected": null,
+    "found": [],
+    "ms": 9,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "nlp hw100",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 1,
+        "rerank_ms": 0,
+        "retrieval_ms": 8,
+        "total_ms": 9
+      }
+    },
+    "expected": null,
+    "found": [],
+    "ms": 9,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "nlp hw1 вчера",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 2
+      }
+    },
+    "expected": "courses/NLP/task2/homework_pytorch.ipynb",
+    "found": [
+      "courses/NLP/task2/homework_pytorch.ipynb"
+    ],
+    "ms": 2,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "nlp домашней работе 2",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 1,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 1
+      }
+    },
+    "expected": "courses/physics/experiment_12/report.md",
+    "found": [
+      "courses/physics/experiment_12/report.md"
+    ],
+    "ms": 1,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "physics exp12 report",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [],
+      "timings": {
+        "lexical_ms": 2,
+        "rerank_ms": 0,
+        "retrieval_ms": 0,
+        "total_ms": 2
+      }
+    },
+    "expected": ".config/kitty/kitty.conf",
+    "found": [
+      ".config/kitty/kitty.conf",
+      ".config/hypr/keybinds.conf"
+    ],
+    "ms": 2,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "config kity",
+    "semantic": false
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": 106,
+          "competitor": null,
+          "cosine": 0.852434822918366,
+          "lexical": false,
+          "logit": -0.483470618724823,
+          "path": "/tmp/.tmpXqIWYd/sources/.config/kitty/kitty.conf",
+          "relevance": 0.9636458499140664
+        }
+      ],
+      "timings": {
+        "lexical_ms": 1,
+        "rerank_ms": 16,
+        "retrieval_ms": 11,
+        "total_ms": 28
+      }
+    },
+    "expected": null,
+    "found": [],
+    "ms": 28,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "config kitty keyboard layout",
+    "semantic": true
+  },
+  {
+    "diagnostics": {
+      "candidates": [
+        {
+          "application": null,
+          "competitor": 0.806050148617178,
+          "cosine": 0.7933975213005156,
+          "lexical": false,
+          "logit": -7.519567012786865,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/NLP/task1/seminar.ipynb",
+          "relevance": 0.02449044908083847
+        },
+        {
+          "application": null,
+          "competitor": 0.7933975213005156,
+          "cosine": 0.806050148617178,
+          "lexical": false,
+          "logit": -8.444293022155762,
+          "path": "/tmp/.tmpXqIWYd/sources/courses/NLP/task1/homework.ipynb",
+          "relevance": 0.060209879182286104
+        }
+      ],
+      "timings": {
+        "lexical_ms": 3,
+        "rerank_ms": 37,
+        "retrieval_ms": 10,
+        "total_ms": 50
+      }
+    },
+    "expected": null,
+    "found": [],
+    "ms": 50,
+    "pass": true,
+    "phase": "indexed",
+    "problem": null,
+    "query": "nlp hw1 про следующий токен",
+    "semantic": true
+  }
+]

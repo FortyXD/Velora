@@ -1,0 +1,82 @@
+[
+  {
+    "id": "neural_lab",
+    "text": "Training neural networks with PyTorch, backpropagation, image classification, deep learning."
+  },
+  {
+    "id": "bayesian_lab",
+    "text": "Bayesian inference, posterior probabilities, Markov chain Monte Carlo, probabilistic modelling."
+  },
+  {
+    "id": "linear_models",
+    "text": "Linear regression, least squares, ridge and lasso regularization, predicting house prices."
+  },
+  {
+    "id": "speech_lab",
+    "text": "Automatic speech recognition, audio recordings, transcription, voice processing."
+  },
+  {
+    "id": "recommendations",
+    "text": "Recommender systems, collaborative filtering, user preferences, movie recommendations."
+  },
+  {
+    "id": "optimization",
+    "text": "Numerical optimization, gradient descent, convex functions, learning rate schedules."
+  },
+  {
+    "id": "vector_storage",
+    "text": "Vector databases, approximate nearest neighbors, HNSW, similarity search and embeddings."
+  },
+  {
+    "id": "object_detection",
+    "text": "Computer vision, object detection, bounding boxes, recognizing vehicles in traffic images."
+  },
+  {
+    "id": "clustering",
+    "text": "Unsupervised learning, k-means clustering, DBSCAN, grouping customers into segments."
+  },
+  {
+    "id": "fraud_detection",
+    "text": "Detecting fraudulent transactions, credit card fraud, anomaly detection in payments."
+  },
+  {
+    "id": "text_analysis",
+    "text": "Natural language processing, sentiment classification, customer reviews and text analysis."
+  },
+  {
+    "id": "forecasting",
+    "text": "Time series forecasting, seasonal patterns, predicting sales and future demand."
+  },
+  {
+    "id": "experiments",
+    "text": "Statistical hypothesis testing, A/B experiments, confidence intervals and significance."
+  },
+  {
+    "id": "rust_service",
+    "text": "Rust asynchronous server, Tokio tasks, Unix sockets, background service implementation."
+  },
+  {
+    "id": "keyboard_setup",
+    "text": "Keyboard shortcuts, Hyprland hotkey bindings, window focus and workspace navigation."
+  },
+  {
+    "id": "wallpaper_themes",
+    "text": "Desktop wallpapers, color palettes, appearance themes, background customization."
+  },
+  {
+    "id": "household_budget",
+    "text": "Household budget spreadsheet, monthly expenses, income tracking and savings."
+  },
+  {
+    "id": "cooking_recipes",
+    "text": "Cooking recipes, baking bread, soup ingredients, meal preparation and kitchen notes."
+  },
+  {
+    "id": "travel_plans",
+    "text": "Travel itinerary, train tickets, hotel reservations, vacation planning and sightseeing."
+  },
+  {
+    "id": "photo_editing",
+    "text": "Photo editing, cropping pictures, exposure correction, white balance and color grading."
+  }
+]
