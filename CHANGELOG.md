@@ -2,6 +2,8 @@
 
 ## 0.2.0 — 2026-11-13
 
+- Fix repeated “Open with” prompts: save before opening, reuse remembered apps, preserve existing MIME associations and serialize concurrent changes.
+
 - AI launcher results and local Lens indexing have separate switches, both off by default. Semantic/vector preprocessing and media analysis are opt-in; turning off file search stops its background service. Existing provider and model choices are preserved.
 - Local assistance adds saved conversations, provider connections and reversible file operations with explicit approval. Choosing an installed model does not start inference.
 - Quick Look previews images, PDF, video, audio, text and archives. Native KDE file dialogs expose folder creation. New Dolphin configurations disable selection marks and do not enable Git status badges.

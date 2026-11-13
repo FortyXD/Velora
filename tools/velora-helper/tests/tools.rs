@@ -594,6 +594,54 @@ fn remembering_and_forgetting_a_file_type() {
 }
 
 #[test]
+fn a_cached_chooser_launches_the_remembered_app_without_asking_again() {
+    let sandbox = apps_sandbox("apps-cached-chooser");
+    sandbox.tool("gio", "  standard::content-type: text/x-new\n", 0);
+    fs::write(sandbox.root.join("data/applications/other.desktop"),
+        "[Desktop Entry]\nType=Application\nName=Other\nExec=other %F\nMimeType=text/plain;\n").unwrap();
+    assert!(apps(&sandbox, &["set-mime", "editor.desktop", "text/x-new"]).status.success());
+    assert!(apps(&sandbox, &["open-with", "/tmp/first.conf"]).status.success());
+    assert!(apps(&sandbox, &["open-with", "/tmp/second.conf"]).status.success());
+    let log = wait_for_log(&sandbox, "[/tmp/second.conf]");
+    assert!(log.contains("gio [launch]"), "{log}");
+    assert!(!log.lines().any(|line| line.starts_with("qs ")), "{log}");
+    assert!(log.contains("kbuildsycoca6"), "KDE associations were not refreshed: {log}");
+}
+
+#[test]
+fn concurrent_remembered_choices_do_not_overwrite_each_other() {
+    let sandbox = apps_sandbox("apps-concurrent-choices");
+    let barrier = std::sync::Barrier::new(16);
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..16).map(|index| {
+            let sandbox = &sandbox;
+            let barrier = &barrier;
+            scope.spawn(move || {
+                barrier.wait();
+                let mime = format!("text/x-choice-{index}");
+                let output = apps(sandbox, &["set-mime", "editor.desktop", &mime]);
+                assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+            })
+        }).collect();
+        for handle in handles { handle.join().unwrap(); }
+    });
+    let written = fs::read_to_string(sandbox.root.join("config/mimeapps.list")).unwrap();
+    for index in 0..16 {
+        assert!(written.contains(&format!("text/x-choice-{index}=editor.desktop\n")), "{written}");
+    }
+}
+
+#[test]
+fn sync_keeps_defaults_saved_in_other_mimeapps_locations() {
+    let sandbox = apps_sandbox("apps-external-defaults");
+    fs::write(sandbox.root.join("data/applications/mimeapps.list"),
+        "[Default Applications]\ntext/x-new=editor.desktop;\n").unwrap();
+    assert!(apps(&sandbox, &["sync"]).status.success());
+    let written = fs::read_to_string(sandbox.root.join("config/mimeapps.list")).unwrap();
+    assert!(!written.contains("text/x-new=folis-open-with.desktop"), "{written}");
+}
+
+#[test]
 fn mail_links_open_in_the_chosen_web_mail() {
     let sandbox = apps_sandbox("apps-mail");
     assert!(apps(&sandbox, &["set", "mail", "web.desktop"]).status.success());
