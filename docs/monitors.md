@@ -33,13 +33,11 @@ complaints are answered here:
 Overlapping two displays is refused: if the snapped position would stack them, the closest
 position that still touches a neighbour is used, and if nothing fits the move is ignored
 instead of teleporting a display somewhere unexpected. Positions are normalised so the layout
-always starts at `0x0`. Positions are normalised so the layout always starts at
-`0x0`.
+always starts at `0x0`.
 
-`hyprctl monitors all` reports an **enabled** output in scaled pixels and a **disabled** one in
-mode pixels. `HyprlandMonitors.modeText()` recovers the real mode from `availableModes`
-accordingly; rebuilding the mode from the reported size instead would divide by the scale twice
-and write a mode that the panel does not have.
+`HyprlandMonitors.modeText()` first matches physical mode pixels against `availableModes`,
+then accepts scaled and rotated geometry reported by older compositor versions. This avoids
+applying the scale twice or replacing a selected lower-resolution mode with the largest one.
 
 ## Nothing left lit
 
@@ -57,8 +55,7 @@ user's choice remains the intent.
 
 Two details of Hyprland make this trickier than it looks, and both are handled:
 
-- `hyprctl monitors all` reports an **enabled** output in scaled pixels and a **disabled** one in
-  mode pixels, and an unplugged output can stay in the list as disabled instead of disappearing.
+- An unplugged output can stay in the list as disabled instead of disappearing.
   "Is anything lit" is therefore read from the live `disabled` flag, never from the saved intent.
 - When no real output is left enabled, Hyprland creates a virtual **`FALLBACK`** output
   (1920x1080) so the desktop keeps working. It is filtered out of the display list: counting it

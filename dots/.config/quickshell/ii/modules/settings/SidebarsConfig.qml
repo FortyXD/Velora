@@ -15,6 +15,16 @@ import qs.modules.settings.sidebars
  */
 ContentPage {
     id: page
+    readonly property bool canNavigateBack: page.selected !== null
+    function navigateBack() { page.select(""); }
+    navigationTrail: {
+        const trail = [{key: page.side, title: page.side === "left" ? Translation.tr("Left sidebar") : Translation.tr("Right sidebar")}];
+        if (page.selected) trail.push({key: page.selectedUid, title: SidebarCatalog.part(page.selected.part.type)?.name ?? Translation.tr("Part")});
+        return trail;
+    }
+    function navigateToSection(key) {
+        if (!key || key === "left" || key === "right") { if (key) page.side = key; page.select(""); }
+    }
     fitToWindow: true
     maxContentWidth: 1100
 

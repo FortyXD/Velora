@@ -504,7 +504,13 @@
             "showDefaultActionsWithoutPrefix": true,
             "webSearch": "?"
         },
-        "sloppy": false
+        "sloppy": false,
+        "ai": {
+            "enabled": false
+        },
+        "lens": {
+            "enabled": false
+        }
     },
     "sidebar": {
         "ai": {

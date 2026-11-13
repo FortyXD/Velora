@@ -40,7 +40,7 @@ RippleButton {
     property int buttonHorizontalPadding: 10
     property int buttonVerticalPadding: 6
     property bool keyboardDown: false
-    readonly property bool selected: (root.hovered || root.focus)
+    readonly property bool selected: root.hovered || root.focus || ListView.isCurrentItem
 
     implicitHeight: rowLayout.implicitHeight + root.buttonVerticalPadding * 2
     implicitWidth: rowLayout.implicitWidth + root.buttonHorizontalPadding * 2
@@ -104,8 +104,9 @@ RippleButton {
     }
 
     onClicked: {
-        GlobalStates.overviewOpen = false
-        root.itemExecute()
+        const keepOpen = root.entry.keepOpen;
+        root.itemExecute();
+        if (!keepOpen) GlobalStates.overviewOpen = false;
     }
     Keys.onPressed: (event) => {
         if (event.key === Qt.Key_Delete && event.modifiers === Qt.ShiftModifier) {
@@ -213,7 +214,7 @@ RippleButton {
                     model: root.query == root.itemName ? [] : root.urls
                     Favicon {
                         required property var modelData
-                        size: parent.height
+                        size: parent?.height ?? 0
                         url: modelData
                     }
                 }
@@ -226,8 +227,38 @@ RippleButton {
                     color: root.colForeground
                     horizontalAlignment: Text.AlignLeft
                     elide: Text.ElideRight
-                    text: root.selected ? root.itemName : root.displayContent
+                    text: root.selected ? StringUtils.escapeHtml(root.itemName) : root.displayContent
                 }
+            }
+            StyledText {
+                objectName: "lensResultPath"
+                Layout.fillWidth: true
+                visible: (root.entry?.lensPath ?? "").startsWith("/")
+                text: visible ? root.entry.lensPath : ""
+                textFormat: Text.PlainText
+                elide: Text.ElideMiddle
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: root.selected ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext
+                StyledToolTip { text: parent.text; extraVisibleCondition: root.hovered && parent.truncated }
+            }
+            StyledText {
+                Layout.fillWidth: true
+                visible: (root.entry?.lensPath ?? "") !== ""
+                text: root.entry?.comment ?? ""
+                textFormat: Text.PlainText
+                wrapMode: Text.Wrap
+                maximumLineCount: 2
+                elide: Text.ElideRight
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+            }
+            Image {
+                visible: root.selected && (root.entry?.preview ?? "") !== ""
+                source: visible ? root.entry.preview : ""
+                cache: false
+                fillMode: Image.PreserveAspectFit
+                Layout.preferredWidth: 160
+                Layout.preferredHeight: visible ? 90 : 0
             }
             Loader { // Clipboard image preview
                 active: root.cliphistRawString && Cliphist.entryIsImage(root.cliphistRawString)

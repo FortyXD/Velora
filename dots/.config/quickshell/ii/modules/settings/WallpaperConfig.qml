@@ -12,6 +12,17 @@ import qs.modules.settings.preview
 
 ContentPage {
     id: root
+    property string greeterOwner: ""
+    FileView {
+        path: "/etc/velora/greeter-wallpaper.json"
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            try { root.greeterOwner = JSON.parse(text()).owner_name ?? ""; }
+            catch (error) { root.greeterOwner = ""; }
+        }
+        onLoadFailed: root.greeterOwner = ""
+    }
 
     readonly property string wallpaperPath: {
         const path = Config.options.background.wallpaperPath;
@@ -189,6 +200,20 @@ ContentPage {
             buttonIcon: "palette"
             title: Translation.tr("Color palette and theming")
             onClicked: ApplicationWindow.window?.openPage("appearance", Translation.tr("Colors"))
+        }
+    }
+
+    ContentSection {
+        icon: "login"
+        title: Translation.tr("Login screen wallpaper")
+        description: Translation.tr("With the Velora GDM theme installed, this account's wallpaper is also shown before login. It is visible to everyone using this computer.")
+        ConfigSwitch {
+            buttonIcon: "sync"
+            text: Translation.tr("Use desktop wallpaper on the login screen")
+            enabled: root.greeterOwner.length > 0 && root.greeterOwner === SystemInfo.username
+            description: root.greeterOwner.length > 0 ? Translation.tr("Wallpaper owner: %1").arg(root.greeterOwner) : Translation.tr("Available with the Velora GDM theme")
+            checked: Config.options.background.syncGreeterWallpaper
+            onCheckedChanged: Config.options.background.syncGreeterWallpaper = checked
         }
     }
 

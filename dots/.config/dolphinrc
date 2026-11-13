@@ -4,6 +4,7 @@ PreviewSize=32
 [General]
 GlobalViewProps=false
 ShowFullPath=true
+ShowSelectionToggle=false
 ShowStatusBar=FullWidth
 Version=202
 

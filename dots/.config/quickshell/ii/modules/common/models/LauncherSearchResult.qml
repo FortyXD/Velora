@@ -21,8 +21,13 @@ QtObject {
     
     // Stuff needed for DesktopEntry 
     property string id: ""
+    property string key: id || type + ":" + rawValue + ":" + name
+    property string desktopId: ""
+    property bool keepOpen: false
     property bool shown: true
     property string comment: ""
+    property string lensPath: ""
+    property string preview: ""
     property bool runInTerminal: false
     property string genericName: ""
     property list<string> keywords: []

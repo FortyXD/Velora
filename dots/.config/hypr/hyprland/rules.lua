@@ -15,6 +15,8 @@ window({ class = [=[^()$]=], title = [=[^()$]=] }, { no_blur = true })
 window({ class = [=[.*]=] }, { no_blur = true })
 
 -- Floating dialogs.
+window({ class = [=[^org.kde.kdialog$]=] }, { float = true, center = true })
+window({ class = [=[^org.quickshell$]=], title = [=[^Velora Quick Look.*$]=] }, { float = true, center = true, size = { "monitor_w*.65", "monitor_h*.75" } })
 window({ title = [=[^(Open File)(.*)$]=] }, { center = true })
 window({ title = [=[^(Open File)(.*)$]=] }, { float = true })
 window({ title = [=[^(Select a File)(.*)$]=] }, { center = true })

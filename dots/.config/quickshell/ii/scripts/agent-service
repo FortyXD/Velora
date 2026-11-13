@@ -1,0 +1,10 @@
+#!/bin/sh
+# On-demand stdio process; never launches an inference model on its own.
+if [ -x "$HOME/.local/bin/velora-agentd" ]; then
+    exec "$HOME/.local/bin/velora-agentd" "$@"
+elif command -v velora-agentd >/dev/null 2>&1; then
+    exec velora-agentd "$@"
+else
+    printf '%s\n' '{"type":"unavailable","message":"Install Velora native tools to enable the assistant"}'
+    exit 127
+fi

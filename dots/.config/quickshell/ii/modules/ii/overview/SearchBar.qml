@@ -60,6 +60,7 @@ RowLayout {
     }
     ToolbarTextField { // Search box
         id: searchInput
+        objectName: "launcherSearchInput"
         Layout.topMargin: 4
         Layout.bottomMargin: 4
         implicitHeight: 40
@@ -67,6 +68,16 @@ RowLayout {
         font.pixelSize: Appearance.font.pixelSize.small
         placeholderText: Translation.tr("Search, calculate or run")
         implicitWidth: root.searchingText == "" ? Appearance.sizes.searchWidthCollapsed : Appearance.sizes.searchWidth
+        rightPadding: thinkingIndicator.visible ? thinkingIndicator.width + 16 : padding
+
+        AiThinkingIndicator {
+            id: thinkingIndicator
+            objectName: "searchThinkingIndicator"
+            anchors.right: parent.right
+            anchors.rightMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            active: Assistant.thinking || (Lens.thinking && Lens.query === LauncherSearch.query)
+        }
 
         Behavior on implicitWidth {
             id: searchWidthBehavior
@@ -78,22 +89,31 @@ RowLayout {
             }
         }
 
+        onTextEdited: Assistant.panelOpen = false
         onTextChanged: LauncherSearch.query = text
 
         onAccepted: {
-            if (appResults.count > 0) {
-                // Get the first visible delegate and trigger its click
-                let firstItem = appResults.itemAtIndex(0);
-                if (firstItem && firstItem.clicked) {
-                    firstItem.clicked();
+            if (Assistant.panelOpen) return;
+            if (appResults.currentIndex >= 0 && appResults.indexVisible(appResults.currentIndex)) {
+                // Async ranking must never change the result Enter activates.
+                let selectedItem = appResults.itemAtIndex(appResults.currentIndex);
+                if (selectedItem && selectedItem.clicked) {
+                    selectedItem.clicked();
                 }
             }
         }
 
         Keys.onPressed: event => {
+            if (Assistant.panelOpen) return;
+            if (event.key === Qt.Key_Down || event.key === Qt.Key_Up) {
+                appResults.moveSelection(event.key === Qt.Key_Down ? 1 : -1);
+                event.accepted = true;
+                return;
+            }
             if (event.key === Qt.Key_Tab) {
-                if (LauncherSearch.results.length === 0) return;
-                const tabbedText = LauncherSearch.results[0].name;
+                const selectedItem = appResults.itemAtIndex(appResults.currentIndex);
+                if (!selectedItem) return;
+                const tabbedText = selectedItem.entry.name;
                 LauncherSearch.query = tabbedText;
                 searchInput.text = tabbedText;
                 event.accepted = true;

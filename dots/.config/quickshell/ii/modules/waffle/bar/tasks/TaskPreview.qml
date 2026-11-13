@@ -6,6 +6,8 @@ import qs.modules.common
 import qs.modules.common.functions
 import qs.modules.waffle.looks
 import Quickshell
+import qs
+import qs.modules.common.widgets
 
 PopupWindow {
     id: root
@@ -13,24 +15,41 @@ PopupWindow {
     ///////////////////// Properties ////////////////////
     required property bool tasksHovered
     property var appEntry
+    property var requestedEntry
     property Item anchorItem
+    property Item requestedAnchor
+    property bool opened: false
+
+    WindowPreviewPool {
+        id: previewPool
+        active: root.opened && !GlobalStates.screenLocked
+        current: root.requestedEntry?.toplevels ?? []
+        onDisplayedChanged: root.presentReady()
+    }
+
+    function presentReady() {
+        if (!previewPool.displayed.length || !previewPool.current.every(window => previewPool.displayed.includes(window))) return;
+        root.appEntry = root.requestedEntry;
+        root.anchorItem = root.requestedAnchor;
+        root.anchor.updateAnchor();
+    }
 
     //////////////////// Functions ////////////////////
     function close() { // Closing doesn't animate, not sure if they're just lazy or it's intentional
         marginBehavior.enabled = false;
-        root.visible = false;
+        root.opened = false;
     }
 
     function open() {
         marginBehavior.enabled = true;
-        root.visible = true;
+        root.opened = true;
     }
 
     function show(appEntry: var, button: Item) {
-        root.appEntry = appEntry;
-        root.anchorItem = button;
-        root.anchor.updateAnchor();
+        root.requestedAnchor = button;
+        root.requestedEntry = appEntry;
         root.open();
+        root.presentReady();
     }
 
     ///////////////////// Internals /////////////////////
@@ -38,7 +57,7 @@ PopupWindow {
     property real visualMargin: 12
     property real ambientShadowWidth: 1
 
-    visible: false
+    visible: root.opened && previewPool.displayed.length > 0 && !GlobalStates.screenLocked
     color: "transparent"
     implicitWidth: contentItem.implicitWidth + ambientShadowWidth + (visualMargin * 2)
     implicitHeight: contentItem.implicitHeight + ambientShadowWidth + (visualMargin * 2)
@@ -51,10 +70,14 @@ PopupWindow {
 
     Timer {
         interval: 250
-        running: root.visible && !hoverChecker.containsMouse && !root.tasksHovered
+        running: root.opened && !hoverChecker.containsMouse && !root.tasksHovered
         onTriggered: {
             root.close();
         }
+    }
+    Connections {
+        target: GlobalStates
+        function onScreenLockedChanged() { if (GlobalStates.screenLocked) root.close(); }
     }
 
     // Content
@@ -107,11 +130,15 @@ PopupWindow {
 
                 Repeater {
                     model: ScriptModel {
-                        values: root.appEntry?.toplevels ?? []
+                        values: previewPool.windows
                     }
                     delegate: WindowPreview {
                         required property var modelData
+                        visible: previewPool.displayed.includes(modelData)
                         toplevel: modelData
+                        preparing: root.opened && previewPool.current.includes(modelData)
+                        onReadyChanged: previewPool.setReady(modelData, ready)
+                        Component.onCompleted: previewPool.setReady(modelData, ready)
                     }
                 }
             }

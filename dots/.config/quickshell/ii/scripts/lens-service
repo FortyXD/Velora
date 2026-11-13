@@ -1,0 +1,20 @@
+#!/bin/sh
+case "${1:-}" in
+    setup-status|setup-start|setup-cancel)
+        action=${1#setup-}
+        shift
+        source=$(readlink -f -- "$0")
+        root=$(dirname -- "$source")/../../../../..
+        exec /usr/bin/python3 -B "$root/tools/velora-searchd/python/setup.py" "$action" "$@"
+        ;;
+esac
+if [ -n "${VELORA_SEARCHD:-}" ]; then
+    exec "$VELORA_SEARCHD" "$@"
+elif [ -x "$HOME/.local/bin/velora-searchd" ]; then
+    exec "$HOME/.local/bin/velora-searchd" "$@"
+elif command -v velora-searchd >/dev/null 2>&1; then
+    exec velora-searchd "$@"
+else
+    printf '%s\n' '{"type":"unavailable","code":"not_installed"}'
+    exit 127
+fi

@@ -114,7 +114,7 @@ WMouseAreaButton {
             }
         }
 
-        ScreencopyView {
+        WindowThumbnail {
             Layout.fillHeight: true
             Layout.alignment: Qt.AlignHCenter
             implicitWidth: Math.round(root.size.width)
@@ -128,7 +128,7 @@ WMouseAreaButton {
                 animation: Looks.transition.enter.createObject(this)
             }
 
-            captureSource: root.toplevel ?? null
+            toplevel: root.toplevel ?? null
             live: true
         }
     }

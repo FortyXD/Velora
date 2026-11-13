@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
 import qs.services
 import qs.modules.common
+import qs.modules.common.widgets
 import qs.modules.common.functions
 import qs.modules.waffle.looks
 import qs.modules.waffle.bar
@@ -14,6 +15,8 @@ Button {
     id: root
 
     required property var toplevel
+    property bool preparing: false
+    readonly property bool ready: screencopyView.hasContent
     property real previewWidthConstraint: 200
     property real previewHeightConstraint: 110
     padding: 5
@@ -80,11 +83,14 @@ Button {
             implicitWidth: Math.max(screencopyView.implicitWidth, 80)
             implicitHeight: screencopyView.implicitHeight
 
-            ScreencopyView {
+            WindowThumbnail {
                 id: screencopyView
                 anchors.centerIn: parent
-                captureSource: root.toplevel
-                live: true
+                toplevel: root.toplevel
+                retainWhileHidden: true
+                showFallback: false
+                preparing: root.preparing
+                live: !PowerSaving.cutLivePreviews
                 paintCursor: true
                 constraintSize: Qt.size(root.previewWidthConstraint, root.previewHeightConstraint)
             }

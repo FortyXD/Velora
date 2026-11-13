@@ -27,8 +27,9 @@ WChoiceButton {
     }
 
     function execute() {
-        GlobalStates.searchOpen = false;
+        const keepOpen = root.entry.keepOpen;
         root.entry.execute();
+        if (!keepOpen) GlobalStates.searchOpen = false;
     }
 
     horizontalPadding: 0
@@ -112,6 +113,34 @@ WChoiceButton {
             text: root.entry.type
             color: Looks.colors.accentUnfocused
             elide: Text.ElideRight
+        }
+        WText {
+            objectName: "lensResultPath"
+            Layout.fillWidth: true
+            visible: root.entry.lensPath.startsWith("/")
+            text: visible ? root.entry.lensPath : ""
+            textFormat: Text.PlainText
+            elide: Text.ElideMiddle
+            color: Looks.colors.accentUnfocused
+            StyledToolTip { text: parent.text; extraVisibleCondition: root.hovered && parent.truncated }
+        }
+        WText {
+            Layout.fillWidth: true
+            visible: root.entry.lensPath !== ""
+            text: root.entry.comment
+            textFormat: Text.PlainText
+            wrapMode: Text.Wrap
+            maximumLineCount: 2
+            elide: Text.ElideRight
+            color: Looks.colors.accentUnfocused
+        }
+        Image {
+            visible: root.checked && root.entry.preview !== ""
+            source: visible ? root.entry.preview : ""
+            cache: false
+            fillMode: Image.PreserveAspectFit
+            Layout.preferredWidth: 160
+            Layout.preferredHeight: visible ? 90 : 0
         }
     }
 

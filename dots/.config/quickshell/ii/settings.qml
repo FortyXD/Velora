@@ -169,10 +169,16 @@ ApplicationWindow {
             component: "modules/settings/BatteryConfig.qml"
         },
         {
-            key: "search", group: "system", color: "#FF9500", icon: "search",
-            name: Translation.tr("Search & AI"),
-            description: Translation.tr("App search, the assistant and music recognition"),
+            key: "search", group: "system", color: "#FF9500", icon: "search", hero: false,
+            name: Translation.tr("Search"),
+            description: Translation.tr("App search, files, web search and music recognition"),
             component: "modules/settings/SearchConfig.qml"
+        },
+        {
+            key: "ai", group: "system", color: "#AF52DE", icon: "neurology", hero: false,
+            name: Translation.tr("AI"),
+            description: Translation.tr("Models, API connections, chat and desktop assistant"),
+            component: "modules/settings/AiConfig.qml"
         },
         {
             key: "tools", group: "system", color: "#FFB800", icon: "screenshot_region",
@@ -229,11 +235,36 @@ ApplicationWindow {
     readonly property bool preloading: (root.loadAllPages || root.backgroundPreload) && root.preloadedPages < root.pages.length
     readonly property bool searching: sidebar.searchText.trim().length > 0
     readonly property var currentPageData: root.pages[root.currentPage]
+    // A page may be built after the initial navigation bindings have evaluated.
+    property Item currentPageLoader: null
+    readonly property Item currentPageItem: root.currentPageLoader?.item ?? null
+    onCurrentPageChanged: currentPageLoader = pageRepeater.itemAt(root.currentPage)
+
+    readonly property var breadcrumbs: {
+        if (root.searching) return [{title: Translation.tr("Search"), pageIndex: -1}];
+        const path = [];
+        let current = root.currentPageData;
+        while (current && !path.some(entry => entry.pageIndex === root.pageIndex(current.key))) {
+            path.unshift({title: current.name, pageIndex: root.pageIndex(current.key)});
+            current = current.parentKey ? root.pages[root.pageIndex(current.parentKey)] : null;
+        }
+        const page = root.currentPageItem;
+        for (const section of page?.navigationTrail ?? [])
+            path.push({title: section.title, pageIndex: root.currentPage, sectionKey: section.key});
+        return path;
+    }
+
+    function followBreadcrumb(entry) {
+        if (entry.pageIndex < 0) return;
+        root.setPage(entry.pageIndex);
+        const page = root.pageItemAt(entry.pageIndex);
+        page?.navigateToSection?.(entry.sectionKey ?? "");
+    }
 
     // Back / forward history
     property var history: [root.currentPage]
     property int historyIndex: 0
-    readonly property bool canGoBack: root.historyIndex > 0
+    readonly property bool canGoBack: !!root.currentPageItem?.canNavigateBack || root.historyIndex > 0 || !!root.currentPageData?.parentKey
     readonly property bool canGoForward: root.historyIndex < root.history.length - 1
 
     // Keys of pages that were merged into others still lead somewhere
@@ -262,7 +293,16 @@ ApplicationWindow {
     }
 
     function goBack() {
-        if (!root.canGoBack) return;
+        const page = root.currentPageItem;
+        if (page?.canNavigateBack) { page.navigateBack(); return; }
+        if (root.historyIndex <= 0) {
+            const parentIndex = root.pageIndex(root.currentPageData?.parentKey);
+            if (parentIndex >= 0) {
+                root.history = [parentIndex, ...root.history];
+                root.showPage(parentIndex);
+            }
+            return;
+        }
         root.historyIndex--;
         root.showPage(root.history[root.historyIndex]);
     }
@@ -428,6 +468,7 @@ ApplicationWindow {
             const focusItem = root.activeFocusItem;
             if (sidebar.searchText.length > 0) sidebar.searchText = "";
             else if (focusItem && focusItem.cursorPosition !== undefined) contentPane.forceActiveFocus(); // Leave the text field first
+            else if (root.currentPageItem?.canNavigateBack) root.currentPageItem.navigateBack();
             else root.close();
         }
     }
@@ -514,28 +555,6 @@ ApplicationWindow {
                     id: toolbar
                     Layout.fillWidth: true
                     implicitHeight: 54
-                    readonly property string titleText: root.searching ? Translation.tr("Search") : root.currentPageData.name
-
-                    // Title crossfades with a small slide whenever the page changes
-                    property string shownTitle: titleText
-                    onTitleTextChanged: titleAnim.restart()
-                    SequentialAnimation {
-                        id: titleAnim
-                        ParallelAnimation {
-                            NumberAnimation { target: titleLabel; property: "opacity"; to: 0; duration: 100; easing.type: Easing.BezierSpline; easing.bezierCurve: Appearance.animationCurves.emphasizedAccel }
-                            NumberAnimation { target: titleTranslate; property: "x"; to: -8 * root.pageDirection; duration: 100; easing.type: Easing.BezierSpline; easing.bezierCurve: Appearance.animationCurves.emphasizedAccel }
-                        }
-                        ScriptAction {
-                            script: {
-                                toolbar.shownTitle = toolbar.titleText;
-                                titleTranslate.x = 12 * root.pageDirection;
-                            }
-                        }
-                        ParallelAnimation {
-                            NumberAnimation { target: titleLabel; property: "opacity"; to: 1; duration: 240; easing.type: Easing.BezierSpline; easing.bezierCurve: Appearance.animationCurves.emphasizedDecel }
-                            NumberAnimation { target: titleTranslate; property: "x"; to: 0; duration: 340; easing.type: Easing.BezierSpline; easing.bezierCurve: Appearance.animationCurves.emphasizedDecel }
-                        }
-                    }
 
                     RowLayout {
                         anchors {
@@ -554,6 +573,7 @@ ApplicationWindow {
                         }
                         ToolbarIconButton {
                             Layout.leftMargin: 6
+                            objectName: "settingsBackButton"
                             buttonIcon: "chevron_left"
                             enabled: root.canGoBack
                             onClicked: root.goBack()
@@ -569,18 +589,14 @@ ApplicationWindow {
                                 text: Translation.tr("Forward") + " (Alt+→)"
                             }
                         }
-                        StyledText {
+                        SettingsBreadcrumbs {
                             id: titleLabel
+                            objectName: "settingsBreadcrumbs"
                             Layout.fillWidth: true
-                            Layout.leftMargin: 10
-                            transform: Translate {
-                                id: titleTranslate
-                            }
-                            text: toolbar.shownTitle
-                            elide: Text.ElideRight
-                            font.pixelSize: Appearance.font.pixelSize.large
-                            font.variableAxes: ({ "wght": 650, "wdth": 100 })
-                            color: Appearance.colors.colOnLayer1
+                            Layout.minimumWidth: 0
+                            Layout.leftMargin: 6
+                            entries: root.breadcrumbs
+                            onActivated: entry => root.followBreadcrumb(entry)
                         }
                         Item { // Hyprland is being reloaded with new options
                             implicitWidth: 28
@@ -627,6 +643,12 @@ ApplicationWindow {
                     Repeater {
                         id: pageRepeater
                         model: root.pages
+                        onItemAdded: (index, item) => {
+                            if (index === root.currentPage) root.currentPageLoader = item;
+                        }
+                        onItemRemoved: (index, item) => {
+                            if (root.currentPageLoader === item) root.currentPageLoader = null;
+                        }
                         delegate: Loader {
                             id: pageLoader
                             required property int index

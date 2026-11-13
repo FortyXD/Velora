@@ -94,11 +94,12 @@ Item { // Window
         animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
     }
 
-    ScreencopyView {
+    WindowThumbnail {
         id: windowPreview
+        showFallbackIcon: false
         anchors.fill: parent
-        captureSource: GlobalStates.overviewOpen ? root.toplevel : null
-        live: true
+        toplevel: GlobalStates.overviewOpen ? root.toplevel : null
+        live: !PowerSaving.cutLivePreviews
 
         // Color overlay for interactions
         Rectangle {

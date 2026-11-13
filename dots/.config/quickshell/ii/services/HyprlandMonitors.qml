@@ -88,6 +88,12 @@ Singleton {
         const parsed = available.map(text => ({ text: text, mode: root.parseMode(text) }))
             .filter(item => item.mode !== null);
         const sameRate = item => !(rate > 0) || Math.abs(parseFloat(item.mode.rate) - rate) < 0.6;
+        // Newer compositors report physical mode pixels. Prefer an exact physical
+        // match before accepting the scaled/rotated geometry of older versions.
+        const physical = parsed.find(item => sameRate(item)
+            && Math.abs(item.mode.width - Number(monitor.width)) <= 2
+            && Math.abs(item.mode.height - Number(monitor.height)) <= 2);
+        if (physical) return name(physical.mode);
         const exact = parsed.find(item => {
             const width = rotated ? item.mode.height : item.mode.width;
             const height = rotated ? item.mode.width : item.mode.height;
@@ -101,9 +107,9 @@ Singleton {
     }
 
     // What the output uses now: the saved choice, otherwise what Hyprland reports
-    function spec(monitor) {
+    function spec(monitor, overrides = root.overrides) {
         if (!monitor) return null;
-        const saved = root.overrides[monitor.name];
+        const saved = overrides[monitor.name];
         if (saved) return Object.assign({}, saved);
         if (!(monitor.width > 0)) { // Turned off elsewhere: start from its best mode
             const best = root.modes(monitor)[0];
@@ -152,6 +158,11 @@ Singleton {
         return root.spec(monitor);
     }
 
+    function canDisable(name) {
+        return root.monitorByName(name) !== null
+            && root.litOutputs.some(monitor => monitor.name !== name && !root.effectiveSpec(monitor).disabled);
+    }
+
     // Size on the desktop, in logical pixels
     function logicalSize(spec) {
         const mode = root.parseMode(spec?.mode) ?? { width: 1920, height: 1080 };
@@ -181,10 +192,10 @@ Singleton {
     // Changes to one output. `confirm` asks to keep them, for things that can black out a screen.
     function change(name, changes, confirm = true) {
         const monitor = root.monitorByName(name);
-        if (!monitor) return;
+        if (!monitor) return false;
         let next = Object.assign({}, root.overrides);
         next[name] = Object.assign(root.spec(monitor), changes);
-        root.apply(next, confirm);
+        return root.apply(next, confirm);
     }
     // New positions for several outputs at once: { name: "XxY" }
     function arrange(positions) {
@@ -201,6 +212,11 @@ Singleton {
     }
 
     function apply(next, confirm) {
+        // Validate the whole pending layout before writing it, including rapid or batched edits.
+        // Removing rules (reset) and enabling a display must remain available for recovery.
+        const disablesDisplay = root.displays.some(monitor => next[monitor.name]?.disabled);
+        if (disablesDisplay && !root.displays.some(monitor => !root.spec(monitor, next).disabled))
+            return false;
         if (confirm && root.previousOverrides === null) {
             root.previousOverrides = JSON.parse(JSON.stringify(root.overrides));
         }
@@ -210,6 +226,7 @@ Singleton {
             root.secondsLeft = root.confirmSeconds;
             countdown.restart();
         }
+        return true;
     }
     function keep() {
         countdown.stop();

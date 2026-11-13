@@ -18,6 +18,8 @@ import QtQuick;
  */
 
 QtObject {
+    property string connectionId
+    property string providerId
     property string name
     property string icon
     property string description

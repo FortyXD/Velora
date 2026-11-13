@@ -29,3 +29,17 @@ if not state_home or state_home == "" then
     state_home = home .. "/.local/state"
 end
 hl.env("ILLOGICAL_IMPULSE_VIRTUAL_ENV", state_home .. "/quickshell/.venv")
+
+-- Velora's own generic Qt addon, scoped to this session. It leaves KIO operations intact.
+local qt_plugins = (os.getenv("XDG_DATA_HOME") or (home .. "/.local/share")) .. "/velora/qt6/plugins"
+local plugin_file = io.open(qt_plugins .. "/generic/libvelora-file-dialog.so", "rb")
+if plugin_file then
+    plugin_file:close()
+    local existing_paths = os.getenv("QT_PLUGIN_PATH") or ""
+    hl.env("QT_PLUGIN_PATH", qt_plugins .. (existing_paths ~= "" and (":" .. existing_paths) or ""))
+    local existing_plugins = os.getenv("QT_QPA_GENERIC_PLUGINS") or ""
+    if not existing_plugins:find("velora-file-dialog", 1, true) then
+        existing_plugins = existing_plugins .. (existing_plugins ~= "" and "," or "") .. "velora-file-dialog"
+    end
+    hl.env("QT_QPA_GENERIC_PLUGINS", existing_plugins)
+end

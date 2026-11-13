@@ -133,7 +133,7 @@ Singleton {
             "options": [
                 { "key": "textFadeIn", "kind": "switch", "icon": "gradient", "label": Translation.tr("Fade in the answers"), "scope": "path:sidebar.ai.textFadeIn" }
             ],
-            "links": [{ "label": Translation.tr("Models, keys and the system prompt"), "icon": "neurology", "page": "search", "section": Translation.tr("Assistant") }]
+            "links": [{ "label": Translation.tr("Models, keys and the system prompt"), "icon": "neurology", "page": "ai", "section": Translation.tr("AI connections") }]
         },
         "translator": {
             "name": Translation.tr("Translator"), "icon": "translate", "category": "assistant", "limit": "shell",

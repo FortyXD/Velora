@@ -72,6 +72,9 @@ hl.define_submap("global", function()
     local unbind = keymap.unbinder(h.unbind)
 
     keymap.group("shell", "Shell", "dashboard")
+    bind("Ctrl+Alt", "Escape", exec([=[qs -c $qsConfig ipc call assistant stop]=]), {
+        id = "assistant.stop", description = "Stop the desktop assistant",
+    })
     keymap.note("", "Super", "Search apps, files and more")
     bind("Super", "Super_L", function()
         arm_search_release("Super_L")

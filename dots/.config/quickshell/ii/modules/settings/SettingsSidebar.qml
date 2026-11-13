@@ -40,6 +40,14 @@ Item {
         searchInput.forceActiveFocus();
         searchInput.selectAll();
     }
+    function revealCurrentPage() {
+        const item = navRepeater.itemAt(root.highlightedPage);
+        if (!item?.visible || navFlickable.height <= 0) return;
+        const top = item.y + item.buttonY;
+        if (top < navFlickable.contentY || top + root.itemHeight > navFlickable.contentY + navFlickable.height)
+            navFlickable.contentY = Math.max(0, Math.min(top - (navFlickable.height - root.itemHeight) / 2, navFlickable.contentHeight - navFlickable.height));
+    }
+    onHighlightedPageChanged: Qt.callLater(root.revealCurrentPage)
 
     // Icon colors are nudged towards the accent so they sit well with any wallpaper
     function iconColor(hex) {
@@ -62,7 +70,7 @@ Item {
         id: entranceTranslate
         x: -18
     }
-    Component.onCompleted: entranceAnim.start()
+    Component.onCompleted: { entranceAnim.start(); Qt.callLater(root.revealCurrentPage); }
     ParallelAnimation {
         id: entranceAnim
         NumberAnimation { target: root; property: "opacity"; to: 1; duration: 350; easing.type: Easing.BezierSpline; easing.bezierCurve: Appearance.animationCurves.emphasizedDecel }
@@ -257,6 +265,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentHeight: navColumn.implicitHeight
+            onHeightChanged: Qt.callLater(root.revealCurrentPage)
             clip: true
             ScrollBar.vertical: null
 

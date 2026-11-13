@@ -164,10 +164,11 @@ StyledPopup {
                                     source: Quickshell.iconPath(AppSearch.guessIcon(windowItem.windowData?.class), "image-missing")
                                 }
                             }
-                            ScreencopyView {
+                            WindowThumbnail {
+                                showFallbackIcon: false
                                 id: capture
                                 anchors.fill: parent
-                                captureSource: windowItem.modelData
+                                toplevel: windowItem.modelData
                                 constraintSize: windowItem.captureLimit
                                 live: false // One frame on creation, then refreshed by the timer below
                             }

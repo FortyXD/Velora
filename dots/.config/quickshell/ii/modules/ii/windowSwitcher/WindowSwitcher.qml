@@ -291,10 +291,11 @@ Scope {
                                     radius: Appearance.rounding.small
                                     color: Appearance.colors.colLayer1
                                     clip: true
-                                    ScreencopyView {
+                                    WindowThumbnail {
+                                        showFallbackIcon: false
                                         id: preview
                                         anchors.centerIn: parent
-                                        captureSource: tile.minimized ? null : root.toplevelFor(tile.modelData.address)
+                                        toplevel: tile.minimized ? null : root.toplevelFor(tile.modelData.address)
                                         live: !PowerSaving.cutLivePreviews
                                         constraintSize: Qt.size(parent.width, parent.height)
                                     }

@@ -19,7 +19,8 @@ ContentPage {
     readonly property var selectedSpec: HyprlandMonitors.effectiveSpec(root.selected)
     readonly property var selectedMode: HyprlandMonitors.parseMode(root.selectedSpec?.mode)
     readonly property var selectedModes: HyprlandMonitors.modes(root.selected)
-    readonly property int enabledCount: root.monitors.filter(m => !HyprlandMonitors.effectiveSpec(m).disabled).length
+    readonly property bool lastEnabledDisplay: root.selected !== null && !root.selectedSpec?.disabled
+        && !HyprlandMonitors.canDisable(root.selected.name)
 
     function isBuiltIn(monitor) {
         return monitor.name.startsWith("eDP") || monitor.name.startsWith("LVDS") || monitor.name.startsWith("DSI");
@@ -380,10 +381,11 @@ ContentPage {
         description: root.selected ? `${root.selected.name} · ${root.selected.make?.trim() ?? ""} ${root.selected.model?.trim() ?? ""}` : ""
 
         ConfigSwitch {
+            objectName: "displayEnabled"
             buttonIcon: "desktop_windows"
             text: Translation.tr("Use this display")
-            description: root.enabledCount <= 1 && !root.selectedSpec?.disabled ? Translation.tr("The only display in use can't be turned off") : ""
-            enabled: !(root.enabledCount <= 1 && !root.selectedSpec?.disabled)
+            description: root.lastEnabledDisplay ? Translation.tr("The only display in use can't be turned off") : ""
+            enabled: root.selected !== null && !root.lastEnabledDisplay
             autoToggle: false
             checked: !root.selectedSpec?.disabled
             onClicked: HyprlandMonitors.change(root.selected.name, { disabled: checked })

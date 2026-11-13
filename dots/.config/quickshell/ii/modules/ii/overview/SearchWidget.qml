@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import Qt.labs.synchronizer
 import Qt5Compat.GraphicalEffects
 import QtQuick
+import QtQuick.Window
 import QtQuick.Layouts
 import Quickshell
 
@@ -20,12 +21,39 @@ Item { // Wrapper
     readonly property int typingResultLimit: 15 // Should be enough to cover the whole view
 
     property string searchingText: LauncherSearch.query
+    property string selectedResultKey: ""
+    property int resultsRevision: -1
+    property string resultsMode: "auto"
+    property bool updatingResults: false
+    function updateResults(values) {
+        const sameQuery = resultsRevision === LauncherSearch.queryRevision && resultsMode === LauncherSearch.intentMode;
+        const key = sameQuery ? selectedResultKey : "";
+        const viewportOffset = appResults.contentY - appResults.originY;
+        resultsRevision = LauncherSearch.queryRevision;
+        resultsMode = LauncherSearch.intentMode;
+        updatingResults = true;
+        resultModel.values = values;
+        const index = key ? values.findIndex(entry => entry.key === key) : -1;
+        appResults.currentIndex = key ? index : (values.length ? 0 : -1);
+        selectedResultKey = key || values[appResults.currentIndex]?.key || "";
+        appResults.forceLayout();
+        if (sameQuery) {
+            const first = appResults.originY - appResults.topMargin;
+            const last = Math.max(first, appResults.originY + appResults.contentHeight - appResults.height + appResults.bottomMargin);
+            appResults.contentY = Math.max(first, Math.min(last, appResults.originY + viewportOffset));
+            // Ranking can move the retained target offscreen. Keep its identity,
+            // but require explicit navigation before it can be activated again.
+            if (key && appResults.height > 0 && !appResults.indexVisible(appResults.currentIndex)) appResults.currentIndex = -1;
+        } else appResults.positionViewAtBeginning();
+        updatingResults = false;
+    }
     property bool showResults: searchingText != ""
     implicitWidth: searchWidgetContent.implicitWidth + Appearance.sizes.elevationMargin * 2
     implicitHeight: searchWidgetContent.implicitHeight + searchBar.verticalPadding * 2 + Appearance.sizes.elevationMargin * 2
 
     function focusFirstItem() {
         appResults.currentIndex = 0;
+        appResults.positionViewAtBeginning();
     }
 
     function focusSearchInput() {
@@ -48,6 +76,7 @@ Item { // Wrapper
     }
 
     Keys.onPressed: event => {
+        if (Assistant.panelOpen) return;
         // Prevent Esc and Backspace from registering
         if (event.key === Qt.Key_Escape)
             return;
@@ -132,7 +161,7 @@ Item { // Wrapper
             layer.effect: OpacityMask {
                 maskSource: Rectangle {
                     width: searchWidgetContent.width
-                    height: searchWidgetContent.width
+                    height: searchWidgetContent.height
                     radius: searchWidgetContent.radius
                 }
             }
@@ -158,9 +187,17 @@ Item { // Wrapper
                 color: Appearance.colors.colOutlineVariant
             }
 
+            AssistantPanel {
+                id: assistantPanel
+                onSearchRequested: root.focusSearchInput()
+                Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.bottomMargin: 12
+                maximumTranscriptHeight: Math.min(350, Math.max(120, (root.Window.window?.height ?? 800) - 380))
+            }
+
             ListView { // App results
                 id: appResults
-                visible: root.showResults
+                objectName: "launcherResults"
+                visible: root.showResults && !Assistant.panelOpen
                 Layout.fillWidth: true
                 implicitHeight: Math.min(600, appResults.contentHeight + topMargin + bottomMargin)
                 clip: true
@@ -169,33 +206,47 @@ Item { // Wrapper
                 spacing: 2
                 KeyNavigation.up: searchBar
                 highlightMoveDuration: 100
+                highlightFollowsCurrentItem: false
 
-                onFocusChanged: {
-                    if (focus)
-                        appResults.currentIndex = 1;
+                function indexVisible(index) {
+                    const item = itemAtIndex(index);
+                    return !!item && item.y + item.height > contentY && item.y < contentY + height;
                 }
-
-                Connections {
-                    target: root
-                    function onSearchingTextChanged() {
-                        if (appResults.count > 0)
-                            appResults.currentIndex = 0;
+                function moveSelection(direction) {
+                    if (!count) return;
+                    let next = currentIndex;
+                    if (next < 0 || !indexVisible(next)) {
+                        next = 0;
+                        for (let y = contentY + 1; y < contentY + height; y += 10) {
+                            const visibleIndex = indexAt(width / 2, y);
+                            if (visibleIndex >= 0) { next = visibleIndex; break; }
+                        }
+                    } else next = Math.max(0, Math.min(count - 1, next + direction));
+                    currentIndex = next;
+                    positionViewAtIndex(next, ListView.Contain);
+                }
+                onCurrentIndexChanged: {
+                    if (!root.updatingResults) {
+                        root.selectedResultKey = resultModel.values[currentIndex]?.key ?? "";
+                        if (currentIndex >= 0) positionViewAtIndex(currentIndex, ListView.Contain);
                     }
                 }
-
+                Keys.onDownPressed: event => { moveSelection(1); event.accepted = true; }
+                Keys.onUpPressed: event => { moveSelection(-1); event.accepted = true; }
                 Timer {
                     id: debounceTimer
                     interval: root.typingDebounceInterval
                     onTriggered: {
-                        resultModel.values = LauncherSearch.results ?? [];
+                        root.updateResults(LauncherSearch.results ?? []);
                     }
                 }
 
                 Connections {
                     target: LauncherSearch
                     function onResultsChanged() {
-                        resultModel.values = LauncherSearch.results.slice(0, root.typingResultLimit);
-                        root.focusFirstItem();
+                        const sameQuery = root.resultsRevision === LauncherSearch.queryRevision && root.resultsMode === LauncherSearch.intentMode;
+                        const limit = sameQuery ? Math.max(root.typingResultLimit, resultModel.values.length) : root.typingResultLimit;
+                        root.updateResults(LauncherSearch.results.slice(0, limit));
                         debounceTimer.restart();
                     }
                 }

@@ -26,6 +26,7 @@ BodyRectangle {
         spacing: 12
 
         TagStrip {
+            visible: !Assistant.panelOpen
             context: root.context
             Layout.fillWidth: true
             Layout.fillHeight: false
@@ -34,7 +35,9 @@ BodyRectangle {
         SearchResults {
             id: searchResults
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.fillHeight: !Assistant.panelOpen
+            Layout.alignment: Qt.AlignTop
         }
+        Item { visible: Assistant.panelOpen; Layout.fillWidth: true; Layout.fillHeight: true }
     }
 }

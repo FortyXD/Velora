@@ -16,6 +16,19 @@ import qs.modules.settings.barLayout
  */
 ContentPage {
     id: page
+    readonly property bool canNavigateBack: page.tab !== "widgets" || page.selected !== null
+    function navigateBack() { page.navigateToSection(""); }
+    navigationTrail: {
+        const trail = [{key: page.tab, title: ({widgets: Translation.tr("Widgets"), look: Translation.tr("Look"), behavior: Translation.tr("Behavior"), share: Translation.tr("Ready-made")})[page.tab]}];
+        if (page.tab === "widgets" && page.selected)
+            trail.push({key: page.selectedUid, title: BarWidgetCatalog.get(page.selected.item.type)?.name ?? Translation.tr("Widget")});
+        return trail;
+    }
+    function navigateToSection(key) {
+        if (key === page.selectedUid && key) return;
+        page.tab = key || "widgets";
+        if (page.tab === "widgets") page.selectedUid = "";
+    }
     fitToWindow: true
     maxContentWidth: 1100
 

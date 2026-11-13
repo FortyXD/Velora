@@ -4,6 +4,7 @@ import qs.services
 import qs.modules.common
 import qs.modules.waffle.looks
 import qs.modules.common.functions
+import qs.modules.common.widgets
 import qs.modules.common.models
 import qs.modules.waffle.startMenu
 import Quickshell
@@ -17,42 +18,85 @@ RowLayout {
     property int maxResultsPerCategory: 4
     property int resultLimit: 20
     property StartMenuContext context
+    property string selectedResultKey: ""
+    property int resultsRevision: -1
+    property string resultsMode: "auto"
+    property bool updatingResults: false
     property int currentIndex: context.currentIndex
     onCurrentIndexChanged: {
+        if (!updatingResults) selectedResultKey = resultList.model[currentIndex]?.key ?? "";
         forceCurrentIndex(currentIndex);
     }
-    function focusFirstItem() {
-        forceCurrentIndex(0);
-    }
+    function focusFirstItem() { forceCurrentIndex(0); }
     function forceCurrentIndex(index) {
+        if (!context) return;
         context.currentIndex = index;
-        // Somehow this hack is needed
-        if (index === 0) {
-            resultList.incrementCurrentIndex();
-            resultList.decrementCurrentIndex();
-        } else {
-            resultList.decrementCurrentIndex();
-            resultList.incrementCurrentIndex();
-        }
+        resultList.currentIndex = index;
     }
+    function updateResults(values) {
+        if (!resultList || !context) return;
+        const key = resultsRevision === LauncherSearch.queryRevision && resultsMode === LauncherSearch.intentMode ? selectedResultKey : "";
+        resultsRevision = LauncherSearch.queryRevision;
+        resultsMode = LauncherSearch.intentMode;
+        const previous = resultList.model ?? [];
+        const byKey = new Map(previous.map(entry => [entry.key, entry]));
+        const categories = Array.from(new Set(values.map(entry => entry.type)));
+        const next = [];
+        updatingResults = true;
+        for (const category of categories) {
+            let count = 0;
+            for (const entry of values) {
+                if (entry.type !== category) continue;
+                if (next.length >= resultLimit || count >= maxResultsPerCategory) break;
+                const row = byKey.get(entry.key) ?? searchResultComp.createObject(root);
+                byKey.delete(entry.key);
+                for (const field of ["id", "key", "name", "type", "rawValue", "fontType", "iconName", "iconType", "verb", "blurImage", "actions", "desktopId", "keepOpen", "shown", "comment", "lensPath", "preview", "runInTerminal", "genericName", "keywords"])
+                    row[field] = entry[field];
+                row.execute = entry.execute;
+                row.category = next.length === 0 ? Translation.tr("Best match") : entry.type;
+                next.push(row);
+                count++;
+            }
+        }
+        resultList.model = next;
+        const index = key ? next.findIndex(entry => entry.key === key) : -1;
+        forceCurrentIndex(key ? index : (next.length ? 0 : -1));
+        selectedResultKey = key || next[context.currentIndex]?.key || "";
+        updatingResults = false;
+        for (const row of byKey.values()) { row.execute = () => {}; row.destroy(); }
+    }
+    Component.onCompleted: updateResults(LauncherSearch.results)
+    onResultLimitChanged: updateResults(LauncherSearch.results)
+    onMaxResultsPerCategoryChanged: updateResults(LauncherSearch.results)
 
     Connections {
         target: context
         function onAccepted() {
-            resultList.currentItem?.execute();
+            if (!Assistant.panelOpen) resultList.currentItem?.execute();
         }
     }
 
+    Connections {
+        target: LauncherSearch
+        function onResultsChanged() { root.updateResults(LauncherSearch.results); }
+    }
+    LauncherSearchResult { id: emptyResult }
+    AssistantPanel {
+        Layout.fillWidth: true; Layout.fillHeight: false; Layout.alignment: Qt.AlignTop
+        onSearchRequested: root.context.searchRequested()
+    }
     ResultList {
         id: resultList
+        visible: !Assistant.panelOpen
         Layout.fillHeight: true
         Layout.fillWidth: true
     }
     ResultPreview {
+        visible: !Assistant.panelOpen
         Layout.preferredWidth: 386
         Layout.leftMargin: 1
         Layout.rightMargin: 1
-        entry: resultList.model[resultList.currentIndex] ?? searchResultComp.createObject()
+        entry: resultList.model[resultList.currentIndex] ?? emptyResult
     }
 
     component ResultList: WListView {
@@ -89,50 +133,9 @@ RowLayout {
         spacing: 4
         currentIndex: root.currentIndex
 
-        // We can't use a ScriptModel here because it would mess up sections
-        model: {
-            const allResults = LauncherSearch.results;
-            // Find categories
-            var categories = new Set();
-            for (let i = 0; i < allResults.length; i++) {
-                categories.add(allResults[i].type);
-            }
-
-            // Collect max 4 per category
-            var categorizedResults = [];
-            let categoriesArray = Array.from(categories);
-            let totalCount = 0;
-            for (let c = 0; c < categoriesArray.length; c++) {
-                let category = categoriesArray[c];
-                let count = 0;
-                for (let i = 0; i < allResults.length; i++) {
-                    if (allResults[i].type === category) {
-                        if (totalCount >= root.resultLimit) {
-                            break;
-                        }
-                        const entry = allResults[i];
-                        const tweakedEntry = searchResultComp.createObject(null, Object.assign({}, entry));
-                        tweakedEntry.category = categorizedResults.length === 0 ? Translation.tr("Best match") : entry.type;
-
-                        categorizedResults.push(tweakedEntry); // Section header
-                        count++;
-                        totalCount++;
-                        if (count >= root.maxResultsPerCategory) {
-                            break;
-                        }
-                    }
-                }
-                if (totalCount >= root.resultLimit) {
-                    break;
-                }
-            }
-            
-            // print(JSON.stringify(categorizedResults, null, 2));
-            return categorizedResults;
-        }
-        onModelChanged: {
-            root.focusFirstItem();
-        }
+        objectName: "launcherResults"
+        // A plain array retains section headers; rows are reused by stable key.
+        model: []
         delegate: SearchResultButton {
             required property int index
             required property var modelData

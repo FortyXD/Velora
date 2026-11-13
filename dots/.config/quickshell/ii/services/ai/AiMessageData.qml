@@ -4,6 +4,7 @@ import QtQuick;
  * Represents a message in an AI conversation. (Kind of) follows the OpenAI API message structure.
  */
 QtObject {
+    property string uid: ""
     property string role
     property string content
     property string rawContent

@@ -66,6 +66,16 @@ Pause live wallpapers, reduce effects and slow background polling. **Automatical
 
 ## Installation
 
+**Local search:** optional [Velora Lens](docs/lens.md) finds files, projects,
+configurations, photos and video frames by meaning, name or recorded activity.
+Its index is encrypted; background content processing waits for idle time on
+external power. Enable it in Settings → Search.
+
+**Desktop assistant:** the optional [assistant harness](docs/assistant.md) adds
+local Ollama or API dialogue, typed desktop actions, confirmed terminal commands
+and application interaction. It works on CPU, supports larger custom models,
+and starts models only on demand. Lens remains usable independently.
+
 **Arch Linux is the only supported distribution.** Start with working graphics drivers, a normal user account, network access, and sudo configured. Velora uses Hyprland's Lua configuration format.
 
 ### 1. Install Git and Python

@@ -21,6 +21,10 @@ StyledFlickable {
 
     default property alias contentData: contentColumn.data
 
+    // Optional inner levels displayed by the settings window's breadcrumb navigation.
+    property var navigationTrail: [] // [{key, title}]
+    function navigateToSection(key) {} // An empty key means this page's root.
+
     property bool pageShown: true // False while another settings page is in front
     signal revealCancelled() // The user scrolled, so nothing should pull the page to a revealed item any more
 

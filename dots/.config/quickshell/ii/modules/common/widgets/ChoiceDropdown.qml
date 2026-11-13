@@ -56,7 +56,7 @@ RippleButton {
     colBackground: Appearance.colors.colSecondaryContainer
     colBackgroundHover: Appearance.colors.colSecondaryContainerHover
     colRipple: Appearance.colors.colSecondaryContainerActive
-    onClicked: popup.opened ? popup.close() : popup.open()
+    onClicked: popup.visible ? popup.close() : popup.open()
 
     contentItem: RowLayout {
         id: buttonRow
@@ -84,7 +84,7 @@ RippleButton {
             text: "keyboard_arrow_down"
             iconSize: 20
             color: Appearance.colors.colOnSecondaryContainer
-            rotation: popup.opened ? 180 : 0
+            rotation: popup.visible ? 180 : 0
             Behavior on rotation {
                 animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
             }
@@ -144,6 +144,8 @@ RippleButton {
         padding: 6
         margins: 8
         focus: true
+        // The trigger handles its own click; closing on press would reopen it on release.
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
 
         onAboutToShow: {
             root.filter = "";
