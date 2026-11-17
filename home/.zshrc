@@ -9,7 +9,7 @@ HISTFILE="$HOME/.zsh_history"
 HISTSIZE=100000                # entries kept in memory
 SAVEHIST=100000                # entries written to HISTFILE
 
-setopt EXTENDED_HISTORY        # record timestamps and command durations
+setopt EXTENDED_HISTORY        # timestamped format; shared durations may be zero
 setopt SHARE_HISTORY           # append commands and import other shells' history
 setopt HIST_EXPIRE_DUPS_FIRST  # expire duplicates before unique entries
 setopt HIST_IGNORE_DUPS        # omit consecutive duplicate commands

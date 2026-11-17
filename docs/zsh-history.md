@@ -1,8 +1,10 @@
 # Zsh history
 
 Velora's `home/.zshrc` stores up to 100,000 commands in `~/.zsh_history`
-and keeps up to 100,000 in memory. Extended history includes timestamps and
-command durations. Commands are appended during interactive use, and other
+and keeps up to 100,000 in memory. Extended history uses timestamped records
+with a duration field. With `SHARE_HISTORY`, commands are appended before they
+finish, so that field can remain zero and is not reliable execution timing.
+Commands are appended during interactive use, and other
 kitty, tmux, or TTY shells import them at command boundaries; a restart is not
 required. Consecutive duplicates are omitted, redundant whitespace is reduced,
 and duplicates expire before unique entries when history fills up.
@@ -25,7 +27,7 @@ history file; do not enter secrets assuming that a tab has private history.
 ## Isolated regression tests
 
 ```sh
-python3 -m unittest discover -s tests -p 'test_zsh_history.py' -v
+/usr/bin/python3 -m unittest discover -s tests -p 'test_zsh_history.py' -v
 ```
 
 Requires Python 3 and zsh (otherwise the real-shell tests are explicitly
