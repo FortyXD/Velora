@@ -57,6 +57,8 @@ elif name=='hyprctl': print(os.environ.get('FAKE_MONITORS','[{"name":"screen","f
 elif name=='ffprobe':
     if os.environ.get('FAKE_PROBE_FAIL'): sys.exit(1)
     print('video')
+elif name=='qs':
+    if os.environ.get('FAKE_QS_FAIL'): sys.exit(1)
 elif name=='slurp':
     if os.environ.get('FAKE_CHILD_READY'): pathlib.Path(os.environ['FAKE_CHILD_READY']).touch()
     if os.environ.get('FAKE_SELECT_WAIT'): time.sleep(60)
@@ -95,7 +97,7 @@ class RecorderTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.bin = self.root / "bin"
         self.bin.mkdir()
-        for name in ("wf-recorder", "pactl", "hyprctl", "notify-send", "slurp", "ffprobe", "xdg-user-dir"):
+        for name in ("wf-recorder", "pactl", "hyprctl", "notify-send", "slurp", "ffprobe", "xdg-user-dir", "qs"):
             path = self.bin / name
             path.write_text(FAKE)
             path.chmod(0o755)
@@ -104,9 +106,16 @@ class RecorderTests(unittest.TestCase):
         self.calls = self.root / "calls.jsonl"
         self.options = dict(savePath=str(self.root / "Videos with spaces"), audio="none", mode="screen")
         self.write_config()
-        self.env = {**os.environ, "PATH": str(self.bin) + os.pathsep + os.environ["PATH"],
-                    "FAKE_CALLS": str(self.calls), "FAKE_VIDEOS": str(self.root / "XDG Videos"),
-                    "VELORA_RECORDER_CONFIG": str(self.config), "VELORA_RECORDER_RUNTIME": str(self.runtime)}
+        self.env = {key: value for key, value in os.environ.items()
+                    if not key.startswith(('QS_', 'HYPRLAND_'))
+                    and key not in ('DISPLAY', 'WAYLAND_DISPLAY', 'SWAYSOCK', 'qsConfig')}
+        for key in ('XDG_RUNTIME_DIR', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME'):
+            path = self.root / key
+            path.mkdir(mode=0o700)
+            self.env[key] = str(path)
+        self.env.update(PATH=str(self.bin) + os.pathsep + os.environ["PATH"],
+                        FAKE_CALLS=str(self.calls), FAKE_VIDEOS=str(self.root / "XDG Videos"),
+                        VELORA_RECORDER_CONFIG=str(self.config), VELORA_RECORDER_RUNTIME=str(self.runtime))
         self.children = []
         self.addCleanup(self.cleanup_children)
 
@@ -128,8 +137,10 @@ class RecorderTests(unittest.TestCase):
         return subprocess.run(self.command(*args), env=env or self.env, capture_output=True, text=True, timeout=8)
 
     def start(self, *args, env=None):
-        process = subprocess.Popen(self.command(*args), env=env or self.env,
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Preserve fixture diagnostics instead of swallowing an early controller failure.
+        with (self.root / "controller.log").open("ab") as output:
+            process = subprocess.Popen(self.command(*args), env=env or self.env,
+                                       stdout=output, stderr=output)
         self.children.append(process)
         return process
 
@@ -140,7 +151,9 @@ class RecorderTests(unittest.TestCase):
             if state.get("state") == expected:
                 return state
             time.sleep(.025)
-        self.fail(f"Expected {expected}: {recorder.status(self.runtime)}; calls {self.get_calls()}")
+        output = self.root / "controller.log"
+        diagnostic = output.read_text() if output.exists() else ""
+        self.fail(f"Expected {expected}: {recorder.status(self.runtime)}; calls {self.get_calls()}; controller {diagnostic}")
 
     def get_calls(self, name=None):
         calls = [json.loads(line) for line in self.calls.read_text().splitlines()] if self.calls.exists() else []
@@ -235,6 +248,64 @@ class RecorderTests(unittest.TestCase):
         process = self.start()
         self.wait_state("recording")
         self.stop_capture(process)
+
+    def test_external_region_selection_holds_hot_corners(self):
+        """A slurp run by the controller must keep the corners still until it finishes."""
+        process = self.start("--select-region")
+        self.wait_state("recording")
+        self.stop_capture(process)
+        calls = self.get_calls("qs")
+        self.assertEqual([call[-1] for call in calls], ["block", "unblock"])
+        for call in calls:
+            self.assertEqual(call[:2], ["qs", "-c"])
+            self.assertEqual(call[2:6], ["ii", "ipc", "call", "hotCorners"])
+
+    def test_cancelled_selection_releases_hot_corners(self):
+        process = self.start("--select-region", env={**self.env, "FAKE_SELECT_WAIT": "1"})
+        self.wait_state("selecting")
+        self.stop_capture(process)
+        calls = [call[-1] for call in self.get_calls("qs")]
+        self.assertEqual(calls, ["block", "unblock"])
+        self.assertFalse(self.get_calls("wf-recorder"))
+
+    def test_selection_escape_and_diagnostic_both_release_hot_corners(self):
+        for flag, expected in (("FAKE_SELECT_CANCEL", 0), ("FAKE_SELECT_ERROR", 1)):
+            with self.subTest(flag=flag):
+                before = len(self.get_calls("qs"))
+                result = self.call("--select-region", env={**self.env, flag: "1"})
+                self.assertEqual(result.returncode, expected)
+                self.assertEqual([call[-1] for call in self.get_calls("qs")[before:]], ["block", "unblock"])
+        self.assertFalse(self.get_calls("wf-recorder"))
+
+    def test_selector_exceptions_still_unblock(self):
+        owner = recorder.Recorder(self.runtime)
+        for stage in ("launch_child", "wait"):
+            with self.subTest(stage=stage), patch.object(owner, "publish"):
+                with patch.object(owner, "hot_corners") as ipc:
+                    with patch.object(owner, "launch_child"), patch.object(owner, "child") as child:
+                        child.poll.return_value = None
+                        with patch.object(owner, stage, side_effect=OSError("selector failed")):
+                            with self.assertRaisesRegex(OSError, "selector failed"):
+                                owner.select()
+                self.assertEqual([call.args[0] for call in ipc.call_args_list], ["block", "unblock"])
+
+    def test_hot_corner_ipc_is_bounded_best_effort_and_honors_config(self):
+        owner = recorder.Recorder(self.runtime)
+        for error in (FileNotFoundError("qs missing"), subprocess.TimeoutExpired("qs", 3)):
+            with self.subTest(error=error), patch.dict(os.environ, {"qsConfig": "test-config"}):
+                with patch.object(recorder.subprocess, "run", side_effect=error) as command:
+                    owner.hot_corners("block")
+                    owner.hot_corners("unblock")
+                self.assertEqual(command.call_count, 2)
+                for call in command.call_args_list:
+                    self.assertEqual(call.args[0][:6], ["qs", "-c", "test-config", "ipc", "call", "hotCorners"])
+                    self.assertEqual(call.kwargs, dict(capture_output=True, timeout=3, check=False))
+
+    def test_failed_hot_corner_ipc_does_not_break_selection(self):
+        process = self.start("--select-region", env={**self.env, "FAKE_QS_FAIL": "1"})
+        self.wait_state("recording")
+        self.stop_capture(process)
+        self.assertEqual([call[-1] for call in self.get_calls("qs")], ["block", "unblock"])
 
     def test_explicit_region_overrides_screen_default_and_reused_module_is_safe(self):
         process = self.start("--select-region")
