@@ -2,6 +2,8 @@ import QtQuick
 
 QtObject {
     required property var lastIpcObject
+    readonly property string key: JSON.stringify([lastIpcObject.ssidHex ?? lastIpcObject.ssid, lastIpcObject.securityType ?? lastIpcObject.security])
+    readonly property string securityType: lastIpcObject.securityType ?? ""
     readonly property string ssid: lastIpcObject.ssid
     readonly property string bssid: lastIpcObject.bssid
     readonly property int strength: lastIpcObject.strength

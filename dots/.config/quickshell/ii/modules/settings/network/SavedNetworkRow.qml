@@ -16,10 +16,10 @@ ColumnLayout {
     readonly property var accessPoint: Network.wifiNetworks.find(network => network.savedUuid === root.uuid) ?? null
     readonly property string name: root.profile?.ssid || root.profile?.id || ""
     readonly property bool active: (root.profile?.activeState ?? 0) === 2
-    readonly property bool connecting: (Network.connectionPending && Network.wifiConnectSsid === root.name) || (root.profile?.activeState ?? 0) === 1
+    readonly property bool connecting: (Network.connectionPending && Network.wifiConnectUuid === root.uuid) || (root.profile?.activeState ?? 0) === 1
     readonly property bool inRange: root.profile?.inRange ?? false
-    readonly property bool rejected: Network.credentialErrorSsid === root.name
-    readonly property bool asking: (root.accessPoint?.askingPassword ?? false) || root.changingPassword || root.connecting
+    readonly property bool rejected: Network.credentialErrorKey !== "" && Network.credentialErrorKey === root.accessPoint?.key
+    readonly property bool asking: (root.accessPoint?.askingPassword ?? false) || Network.passwordPromptUuid === root.uuid || root.changingPassword || root.connecting
     readonly property bool hasPassword: ["wep", "wpa-psk", "sae"].includes(root.profile?.securityType ?? "")
     property bool expanded: false
     property bool changingPassword: false
@@ -142,7 +142,7 @@ ColumnLayout {
         DialogButton {
             buttonText: Translation.tr("Enter a new one")
             onClicked: {
-                Network.credentialErrorSsid = "";
+                Network.credentialErrorKey = "";
                 root.changingPassword = true;
             }
         }
@@ -161,8 +161,12 @@ ColumnLayout {
             active: passwordDetails.visible
             Layout.fillWidth: true
             sourceComponent: PasswordForm {
-                errorText: root.accessPoint?.errorText ?? ""
-                busy: root.connecting
+                // An out-of-range profile has no access point to carry the message, so while this
+                // row owns the prompt it shows the operation's own error.
+                errorText: root.accessPoint ? root.accessPoint.errorText
+                    : (Network.passwordPromptUuid === root.uuid || (Network.connectionPending && Network.wifiConnectUuid === root.uuid) ? Network.wifiErrorMessage : "")
+                // The wait for this password is not the backend working: the field stays usable.
+                busy: root.connecting && !Network.awaitingPassword
                 placeholderText: Translation.tr("New password")
                 onAccepted: password => {
                     Network.changeProfilePassword(root.profile, password);

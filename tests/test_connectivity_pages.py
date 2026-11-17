@@ -223,7 +223,7 @@ ShellRoot {
                 // state here, including a strong saved network whose password was never usable.
                 ConnectivityBackend.network = Object.assign({}, Network.state, {
                     networks: Network.state.networks.map(network => Object.assign({}, network, { active: network.ssid === "Home" })).concat([
-                        Object.assign({}, Network.state.networks[0], { ssid: "Never joined", active: false, strength: 99, savedUuid: "never-uuid", neverUsed: true }),
+                        Object.assign({}, Network.state.networks[0], { ssid: "Never joined", ssidHex: "4e65766572206a6f696e6564", active: false, strength: 99, savedUuid: "never-uuid", neverUsed: true }),
                     ]),
                 });
             } else if (root.step === 13) {
@@ -317,7 +317,7 @@ Singleton {
 class SettingsPagesTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        target = TOOLS / 'target'
+        target = Path(os.environ.get('CARGO_TARGET_DIR', str(TOOLS / 'target'))).resolve()
         if not os.environ.get('VELORA_TEST_PREBUILT'):
             subprocess.run([CARGO, 'build', '--quiet', '--manifest-path', str(TOOLS / 'Cargo.toml'),
                             '-p', 'velora-connectivityd', '-p', 'velora-connectivity-fakes'], check=True, timeout=400)

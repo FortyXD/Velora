@@ -233,6 +233,23 @@ impl NmClient {
         F: FnOnce() -> Fut,
         Fut: std::future::Future<Output = Result<String, ApiError>>,
     {
+        self.activation_wait(start, Some(ACTIVATION_TIMEOUT)).await
+    }
+
+    /// Wi-Fi supplies its own prompt-paused work budget. Other activations keep the existing timeout.
+    pub(super) async fn activation<F, Fut>(&self, start: F) -> Result<String, ApiError>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = Result<String, ApiError>>,
+    {
+        self.activation_wait(start, None).await
+    }
+
+    async fn activation_wait<F, Fut>(&self, start: F, timeout: Option<Duration>) -> Result<String, ApiError>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = Result<String, ApiError>>,
+    {
         let device_rule =
             MatchRule::builder().msg_type(MessageType::Signal).sender(BUS_NAME).interface(IFACE_DEVICE).member("StateChanged").build().map_err(error)?;
         let mut device_signals = MessageStream::for_match_rule(device_rule, &self.connection, NonZeroUsize::new(64)).await.map_err(error)?;
@@ -295,9 +312,13 @@ impl NmClient {
                 }
             }
         };
-        match tokio::time::timeout(ACTIVATION_TIMEOUT, outcome).await {
-            Ok(result) => result,
-            Err(_) => Err(ApiError::new(ErrorCode::Timeout, "The connection attempt timed out")),
+        if let Some(timeout) = timeout {
+            match tokio::time::timeout(timeout, outcome).await {
+                Ok(result) => result,
+                Err(_) => Err(ApiError::new(ErrorCode::Timeout, "The connection attempt timed out")),
+            }
+        } else {
+            outcome.await
         }
     }
 

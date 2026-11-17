@@ -31,6 +31,12 @@ Item {
             Network.connectionWarning = "";
             Network.connectionPending = false;
             Network.wifiConnectSsid = "";
+            Network.wifiConnectKey = "";
+            Network.wifiConnectUuid = "";
+            Network.wifiConnectHidden = false;
+            Network.passwordPromptUuid = "";
+            Network.passwordPromptKey = "";
+            Network.credentialErrorKey = "";
             Network.passwordPromptSsid = "";
             Network.credentialErrorSsid = "";
             Network.wifiErrorMessage = "";
@@ -60,6 +66,67 @@ Item {
             compare(Network.wifiNetworks.length, 2);
             publish({ networks: [ap("Cafe")] });
             verify(network("Home") === undefined);
+        }
+
+        function test_same_name_rows_and_prompts_are_security_scoped() {
+            publish({ networks: [
+                ap("Home", { security: "", securityType: "none", bssid: "open" }),
+                ap("Home", { savedUuid: "secure", bssid: "secure" }),
+            ] });
+            compare(Network.wifiNetworks.length, 2);
+            const open = Network.wifiNetworks.find(item => item.securityType === "none");
+            const secure = Network.wifiNetworks.find(item => item.securityType === "wpa-psk");
+            verify(open.key !== secure.key);
+            Network.connectToWifiNetwork(secure);
+            compare(lastCall().params.security, "wpa-psk");
+            compare(lastCall().params.uuid, "secure");
+            compare(Network.targetNetwork(), secure);
+            ConnectivityBackend.event("wifiPassword", { operation: Network.operationId, request: "1", retry: true });
+            verify(secure.askingPassword && !open.askingPassword);
+            compare(Network.passwordPromptKey, secure.key);
+            publish({ networks: [ap("Home", { security: "", securityType: "none", bssid: "open" })] });
+            compare(Network.wifiNetworks.length, 2);
+            compare(Network.targetNetwork(), secure);
+            Network.cancelPasswordPrompt();
+            compare(Network.wifiNetworks.length, 1);
+            compare(Network.wifiNetworks[0], open);
+        }
+
+        function test_one_initial_prompt_and_wrong_row_cannot_answer_a_retry() {
+            publish({ networks: [ap("Home"), ap("Other")] });
+            const home = network("Home");
+            const other = network("Other");
+            Network.connectToWifiNetwork(home);
+            Network.connectToWifiNetwork(other);
+            verify(!home.askingPassword && other.askingPassword);
+            Network.changePassword(other, "first-password");
+            const operation = Network.operationId;
+            ConnectivityBackend.event("wifiPassword", { operation, request: "1", retry: true });
+            const before = ConnectivityBackend.calls.length;
+            Network.changePassword(home, "wrong-row-password");
+            Network.connectToHiddenNetwork("Other", "wrong-form-password");
+            Network.changeProfilePassword({uuid:"unrelated"}, "wrong-profile-password");
+            compare(ConnectivityBackend.calls.length, before);
+            Network.changePassword(other, "right-password");
+            compare(lastCall().method, "network.submitWifiPassword");
+        }
+
+        function test_out_of_range_profile_retry_keeps_exact_uuid() {
+            const profile = {connectionType:"802-11-wireless", ssid:"Home", uuid:"secure"};
+            Network.connectProfile(profile);
+            compare(Network.wifiConnectUuid, "secure");
+            const operation = Network.operationId;
+            ConnectivityBackend.event("wifiPassword", {operation, request:"1", retry:true});
+            compare(Network.passwordPromptUuid, "secure");
+            Network.changeProfilePassword(profile, "password");
+            compare(lastCall().method, "network.submitWifiPassword");
+        }
+
+        function test_same_name_saved_security_out_of_range_stays_listed() {
+            publish({ networks: [ap("Home", { security: "", securityType: "none" })], profiles: [
+                { connectionType: "802-11-wireless", ssid: "Home", securityType: "wpa-psk", uuid: "secure" },
+            ] });
+            compare(Network.savedOutOfRange.map(item => item.uuid), ["secure"]);
         }
 
         function test_the_friendly_order_is_active_saved_then_by_signal() {
@@ -336,6 +403,38 @@ Item {
             compare(Network.materialSymbol, "signal_wifi_bad");
             publish({ wifiStatus: "disconnected" });
             compare(Network.materialSymbol, "wifi_find");
+        }
+
+        function test_a_qr_prompt_binds_to_the_network_the_backend_resolved() {
+            publish({ networks: [ap("Home"), ap("Home", { security: "", securityType: "none", bssid: "open" })] });
+            const secure = Network.wifiNetworks.find(item => item.securityType === "wpa-psk");
+            const open = Network.wifiNetworks.find(item => item.securityType === "none");
+            // A QR join carries no row identity, so the operation starts unbound.
+            Network.joinNetwork("Home", "qr-password");
+            compare(Network.wifiConnectKey, "");
+            const operation = Network.operationId;
+            ConnectivityBackend.event("wifiPassword", { operation, ssid: "Home", security: "wpa-psk", uuid: "generated-1", request: "1", retry: true });
+            compare(Network.wifiConnectKey, secure.key);
+            compare(Network.passwordPromptKey, secure.key);
+            verify(secure.askingPassword && !open.askingPassword);
+            compare(Network.targetNetwork(), secure);
+            Network.changePassword(secure, "typed-again");
+            compare(lastCall().method, "network.submitWifiPassword");
+        }
+
+        function test_a_profile_switch_cannot_route_a_password_elsewhere() {
+            publish({ networks: [ap("Home", { savedUuid: "a" })] });
+            Network.connectProfile({ connectionType: "802-11-wireless", ssid: "Home", uuid: "a" });
+            compare(Network.wifiConnectUuid, "a");
+            const operation = Network.operationId;
+            // A newer snapshot points the same access point at another saved profile.
+            publish({ networks: [ap("Home", { savedUuid: "b" })] });
+            ConnectivityBackend.event("wifiPassword", { operation, ssid: "Home", request: "1", retry: true });
+            const before = ConnectivityBackend.calls.length;
+            Network.changeProfilePassword({ uuid: "b" }, "wrong-profile-password");
+            compare(ConnectivityBackend.calls.length, before);
+            Network.changeProfilePassword({ uuid: "a" }, "right-profile-password");
+            compare(lastCall().method, "network.submitWifiPassword");
         }
 
         function test_small_helpers() {
