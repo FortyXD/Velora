@@ -432,9 +432,48 @@ Item {
             ConnectivityBackend.event("wifiPassword", { operation, ssid: "Home", request: "1", retry: true });
             const before = ConnectivityBackend.calls.length;
             Network.changeProfilePassword({ uuid: "b" }, "wrong-profile-password");
+            Network.changePassword(network("Home"), "wrong-row-password");
             compare(ConnectivityBackend.calls.length, before);
             Network.changeProfilePassword({ uuid: "a" }, "right-profile-password");
             compare(lastCall().method, "network.submitWifiPassword");
+        }
+
+        function test_an_appearing_row_cannot_replace_the_frozen_profile_owner() {
+            Network.connectProfile({ connectionType: "802-11-wireless", ssid: "Home", uuid: "a" });
+            compare(Network.wifiConnectKey, "");
+            compare(Network.wifiConnectUuid, "a");
+            const operation = Network.operationId;
+            publish({ networks: [ap("Home", { savedUuid: "b" })] });
+            ConnectivityBackend.event("wifiPassword", { operation, ssid: "Home", security: "wpa-psk", uuid: "a", request: "1", retry: true });
+            compare(Network.wifiConnectKey, network("Home").key);
+            compare(Network.wifiConnectUuid, "a");
+            compare(Network.passwordPromptUuid, "a");
+            const before = ConnectivityBackend.calls.length;
+            Network.changeProfilePassword({ uuid: "b" }, "wrong-profile-password");
+            Network.changePassword(network("Home"), "wrong-row-password");
+            compare(ConnectivityBackend.calls.length, before);
+            Network.changeProfilePassword({ uuid: "a" }, "right-profile-password");
+            compare(lastCall().method, "network.submitWifiPassword");
+            compare(lastCall().params.operation, operation);
+            compare(lastCall().params.password, "right-profile-password");
+        }
+
+        function test_an_unbound_prompt_prefers_the_backend_uuid_over_the_row() {
+            Network.joinNetwork("Home", "qr-password");
+            compare(Network.wifiConnectUuid, "");
+            const operation = Network.operationId;
+            publish({ networks: [ap("Home", { savedUuid: "b" })] });
+            ConnectivityBackend.event("wifiPassword", { operation, ssid: "Home", security: "wpa-psk", uuid: "a", request: "1", retry: true });
+            compare(Network.wifiConnectKey, network("Home").key);
+            compare(Network.wifiConnectUuid, "a");
+            compare(Network.passwordPromptUuid, "a");
+            const before = ConnectivityBackend.calls.length;
+            Network.changeProfilePassword({ uuid: "b" }, "wrong-profile-password");
+            Network.changePassword(network("Home"), "wrong-row-password");
+            compare(ConnectivityBackend.calls.length, before);
+            Network.changeProfilePassword({ uuid: "a" }, "right-profile-password");
+            compare(lastCall().method, "network.submitWifiPassword");
+            compare(lastCall().params.operation, operation);
         }
 
         function test_small_helpers() {

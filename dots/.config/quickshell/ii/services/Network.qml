@@ -291,7 +291,8 @@ Singleton {
 
     function changePassword(network: WifiAccessPoint, password: string): void {
         if (root.connectionPending && root.awaitingPassword) {
-            if (network?.key === root.wifiConnectKey) root.submitPassword(password);
+            if (network?.key === root.wifiConnectKey
+                && (!network.savedUuid || !root.wifiConnectUuid || network.savedUuid === root.wifiConnectUuid)) root.submitPassword(password);
             return;
         }
         if (!network || connectionPending || !password) return;
@@ -376,6 +377,9 @@ Singleton {
             if (name !== "wifiPassword" || data.operation !== root.operationId || !root.connectionPending) return;
             root.awaitingPassword = true;
             root.secretRequest = data.request;
+            // Freeze the operation's owner independently of scan rows: a newly appearing row may
+            // select a different saved profile. For rowless joins the backend UUID is authoritative.
+            if (root.wifiConnectUuid === "" && data.uuid) root.wifiConnectUuid = data.uuid;
             // An operation that started without a row (from a QR code, for instance) is bound to the
             // network the backend resolved, so the prompt, retry and stop-waiting land on the right one.
             if (root.wifiConnectKey === "" && data.ssid) {
@@ -383,7 +387,7 @@ Singleton {
                     && (data.security ? network.securityType === data.security : true)) ?? null;
                 if (resolved) {
                     root.wifiConnectKey = resolved.key;
-                    root.wifiConnectUuid = resolved.savedUuid.length > 0 ? resolved.savedUuid : (data.uuid ?? "");
+                    if (root.wifiConnectUuid === "") root.wifiConnectUuid = resolved.savedUuid;
                 }
             }
             root.passwordPromptSsid = root.wifiConnectSsid;
