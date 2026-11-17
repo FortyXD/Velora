@@ -75,14 +75,12 @@ class AurPreferenceTests(IsolatedTest):
 
     def test_install_and_deps_respect_saved_explicit_choices_and_exclusions(self):
         for command in ("install", "deps"):
-            # None models installations created before the AUR preference was saved.
-            for saved in (None, False, True):
-                for flags, expected in (([], bool(saved)), (["--skip-aur"], True), (["--with-aur"], False)):
+            # Missing and explicit JSON null are distinct legacy states; both enable AUR.
+            for saved in ({}, {"skip_aur": None}, {"skip_aur": False}, {"skip_aur": True}):
+                for flags, expected in (([], saved.get("skip_aur", False)), (["--skip-aur"], True), (["--with-aur"], False)):
                     for skip_packages in (False, True):
                         with self.subTest(command=command, saved=saved, flags=flags, skip_packages=skip_packages):
-                            saved_values = {"without": ["toolbox", "live-wallpapers"]}
-                            if saved is not None:
-                                saved_values["skip_aur"] = saved
+                            saved_values = dict(saved, without=["toolbox", "live-wallpapers"])
                             self.save(**saved_values)
                             options = [command, "--yes", *flags, *(["--skip-packages"] if skip_packages else [])]
                             with self.isolated_install() as mocks:
@@ -90,6 +88,10 @@ class AurPreferenceTests(IsolatedTest):
                             features, args = mocks["verify_runtime"].call_args.args
                             self.assertIs(args.skip_aur, expected)
                             self.assertIs(args.skip_packages, skip_packages)
+                            with patch.object(velora, "missing_packages", side_effect=list):
+                                _, aur = velora.package_plan(features, skip_aur=args.skip_aur)
+                            selected_aur = sorted({pkg for item in features.values() for pkg in item.get("aur", [])})
+                            self.assertEqual(aur, [] if expected else selected_aur)
                             self.assertNotIn("toolbox", features)
                             self.assertNotIn("live-wallpapers", features)
                             if command == "install" and skip_packages:
@@ -136,19 +138,18 @@ class AurPreferenceTests(IsolatedTest):
                 mocks["link_configuration"].assert_not_called()
 
     def test_updated_tree_preserves_old_and_saved_preferences_including_gui(self):
-        for saved in (None, False, True):
+        for saved in ({}, {"skip_aur": None}, {"skip_aur": False}, {"skip_aur": True}):
             for gui in (False, True):
                 with self.subTest(saved=saved, gui=gui):
                     values = dict(without=["toolbox", "live-wallpapers"], skip_packages=True,
                                   no_updates=True, login_theme="velora", login_manager="existing",
                                   build_from_source=["quickshell"])
-                    if saved is not None:
-                        values["skip_aur"] = saved
+                    values.update(saved)
                     self.save(**values)
                     with patch.dict(os.environ, VELORA_GUI_UPDATE="1" if gui else "0"), patch.object(velora, "run") as run:
                         velora.install_updated_tree(Path("/usr/bin/velora"))
                     command = run.call_args.args[0]
-                    self.assert_aur_flag(command, saved)
+                    self.assert_aur_flag(command, saved.get("skip_aur"))
                     self.assertEqual("--skip-packages" in command, not gui)
                     self.assertEqual("--no-reload" in command, gui)
                     for flag, value in (("--without", "toolbox,live-wallpapers"), ("--login-theme", "velora"),
@@ -159,7 +160,7 @@ class AurPreferenceTests(IsolatedTest):
     def test_update_forwards_saved_choice_through_checkout_package_and_retry_paths(self):
         for kind in ("checkout", "package"):
             for retry in (False, True):
-                for skip in (False, True):
+                for skip in (None, False, True):
                     with self.subTest(kind=kind, retry=retry, skip=skip):
                         self.save(skip_aur=skip, without=["toolbox"])
                         status = dict(current="a" * 40, target="b" * 40, available=not retry,
@@ -192,11 +193,11 @@ class AurPreferenceTests(IsolatedTest):
         venv = velora.xdg("XDG_STATE_HOME", ".local/state") / "quickshell/.venv/bin/python"
         venv.parent.mkdir(parents=True)
         venv.touch()
-        for saved in (None, False, True):
-            for flags, skip in (([], bool(saved)), (["--skip-aur"], True), (["--with-aur"], False)):
+        for saved in ({}, {"skip_aur": None}, {"skip_aur": False}, {"skip_aur": True}):
+            for flags, skip in (([], saved.get("skip_aur", False)), (["--skip-aur"], True), (["--with-aur"], False)):
                 for missing in (False, True):
                     with self.subTest(saved=saved, flags=flags, missing=missing):
-                        self.save(**({} if saved is None else {"skip_aur": saved}))
+                        self.save(**saved)
                         with patch.object(velora, "package_plan", side_effect=lambda features, skip_aur: ([], ["breeze-plus"] if missing and not skip_aur else [])) as plan, \
                                 patch.object(velora, "runtime_problems", return_value=[]), \
                                 patch.object(velora, "font_installed", return_value=True), \
