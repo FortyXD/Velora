@@ -80,11 +80,14 @@ The package managers are still interactive when `--yes` is passed. The option ac
 ./velora install --skip-packages      # Relink and register maintenance tools
 ./velora relink                       # After moving or renaming the checkout: point every link at it again
 ./velora install --skip-aur           # Official packages and Python environment
+./velora install --with-aur           # Enable AUR packages even after a saved --skip-aur
 ./velora install --no-reload          # Apply files without reloading Hyprland
 ./velora install --no-updates         # Disable scheduled update checks
 ./velora deps                         # Reconcile dependencies without relinking
 ./velora doctor                       # Inspect missing dependencies, tools and stale links
 ```
+
+For `install`, `deps` and `doctor`, `--skip-aur` and `--with-aur` are mutually exclusive. With neither flag, the saved AUR preference is reused (AUR enabled by default). `install` saves the resolved choice for later installs and updates; `deps` and `doctor` can override it for that invocation.
 
 Old `illogical-impulse-*` metapackages are no longer built or maintained by Velora. The installer does not automatically remove packages from your system. On an older installation, inspect the metapackages and their removal transaction yourself; avoid recursive dependency removal if the desktop still needs those packages.
 
