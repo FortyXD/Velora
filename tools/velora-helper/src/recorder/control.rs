@@ -41,6 +41,20 @@ pub(super) async fn command(program: &str, args: &[&str]) -> Result<String> {
     .into())
 }
 
+async fn hot_corners(action: &str) {
+    let config = std::env::var("qsConfig")
+        .ok()
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "ii".into());
+    let mut ipc = Command::new("qs");
+    ipc.args(["-c", &config, "ipc", "call", "hotCorners", action])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .kill_on_drop(true);
+    let _ = timeout(Duration::from_secs(3), ipc.status()).await;
+}
+
 pub(super) struct Options {
     mode: String,
     audio: String,
@@ -332,6 +346,13 @@ impl Owner {
 
     async fn select(&mut self) -> Result<Option<String>> {
         self.publish("selecting")?;
+        hot_corners("block").await;
+        let result = self.select_region().await;
+        hot_corners("unblock").await;
+        result
+    }
+
+    async fn select_region(&mut self) -> Result<Option<String>> {
         self.launch(
             &["slurp".into()],
             "selector",

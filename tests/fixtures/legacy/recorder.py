@@ -276,19 +276,34 @@ class Recorder:
                 os.close(reader)
             os.close(writer)  # EOF also aborts an unreleased gate on failure
 
+    def hot_corners(self, method):
+        """Hold hot corners still while this external selector owns the pointer.
+        Best effort: another config, or no shell at all, must never break recording."""
+        config = os.environ.get("qsConfig") or "ii"
+        try:
+            subprocess.run(["qs", "-c", config, "ipc", "call", "hotCorners", method],
+                           capture_output=True, timeout=3, check=False)
+        except (OSError, subprocess.SubprocessError):
+            pass
+
     def select(self):
         self.publish("selecting")
-        self.launch_child(["slurp"], "selector", "selecting", stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE, text=True)
-        while self.child.poll() is None:
-            if self.wait(.05):
-                self.terminate_child(self.child.pid, self.state.get("childIdentity"), "selector", owned=True)
-                self.child.communicate(timeout=3)
-                return None
-        output, diagnostic = self.child.communicate()
-        if self.child.returncode != 0 and diagnostic.strip():
-            raise ValueError("Region selection failed: " + diagnostic.strip()[-2000:])
-        return output.strip() if self.child.returncode == 0 else None
+        # Ending a slurp drag in a corner is not a fresh, intentional corner entry.
+        self.hot_corners("block")
+        try:
+            self.launch_child(["slurp"], "selector", "selecting", stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, text=True)
+            while self.child.poll() is None:
+                if self.wait(.05):
+                    self.terminate_child(self.child.pid, self.state.get("childIdentity"), "selector", owned=True)
+                    self.child.communicate(timeout=3)
+                    return None
+            output, diagnostic = self.child.communicate()
+            if self.child.returncode != 0 and diagnostic.strip():
+                raise ValueError("Region selection failed: " + diagnostic.strip()[-2000:])
+            return output.strip() if self.child.returncode == 0 else None
+        finally:
+            self.hot_corners("unblock")
 
     def mixed_source(self, options):
         system = audio_source(dict(options, audio="system"))

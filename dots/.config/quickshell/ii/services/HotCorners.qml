@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 
 import qs
 import qs.modules.common
+import qs.services
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -18,19 +19,59 @@ Singleton {
     // Keep the guard closed across unmapping the picker and remapping the corners.
     property bool rearmPending: false
     property int selectionEpoch: 0
+    // A region selector running outside the shell (the recorder's slurp) asks for this over IPC.
+    property bool externalSelection: false
     readonly property bool blocked: GlobalStates.regionSelectorOpen || rearmPending
+        || ScreenRecorder.regionSelecting || externalSelection
     signal selectionFinished(real x, real y, bool valid)
+
+    function armRearm(): void {
+        root.selectionEpoch++;
+        root.rearmPending = true;
+        root.checkCursor();
+    }
 
     Connections {
         target: GlobalStates
         function onRegionSelectorOpenChanged() {
-            root.selectionEpoch++;
-            root.rearmPending = true;
-            root.checkCursor();
+            root.armRearm();
+        }
+    }
+    Connections {
+        target: ScreenRecorder
+        // Choosing a region for recording ends in the same corner: the recorder's own picker
+        // (or an external slurp) must not leave the pointer sitting in a live hot corner.
+        function onRegionSelectingChanged() {
+            if (!ScreenRecorder.regionSelecting) root.armRearm();
+        }
+    }
+    IpcHandler {
+        target: "hotCorners"
+        function block(): void {
+            root.externalSelection = true;
+            selectionExpiry.restart();
+        }
+        function unblock(): void {
+            if (!root.externalSelection)
+                return;
+            root.externalSelection = false;
+            selectionExpiry.stop();
+            root.armRearm();
+        }
+    }
+    Timer {
+        id: selectionExpiry
+        // Bounded once: a controller killed before unblocking must not disable the corners for good.
+        interval: 120000
+        onTriggered: {
+            root.externalSelection = false;
+            root.armRearm();
         }
     }
     function checkCursor() {
-        if (GlobalStates.regionSelectorOpen || !root.rearmPending || cursorCheck.running) return;
+        if (GlobalStates.regionSelectorOpen || ScreenRecorder.regionSelecting || root.externalSelection
+                || !root.rearmPending || cursorCheck.running)
+            return;
         cursorCheck.epoch = root.selectionEpoch;
         cursorCheck.running = true;
     }
@@ -41,7 +82,8 @@ Singleton {
         command: ["timeout", "1", "hyprctl", "cursorpos", "-j"]
         stdout: StdioCollector { id: cursorOutput }
         onExited: exitCode => {
-            if (epoch !== root.selectionEpoch || GlobalStates.regionSelectorOpen) {
+            if (epoch !== root.selectionEpoch || GlobalStates.regionSelectorOpen || ScreenRecorder.regionSelecting
+                    || root.externalSelection) {
                 Qt.callLater(root.checkCursor); // Ignore a reply for an older selection.
                 return;
             }
