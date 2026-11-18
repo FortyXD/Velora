@@ -17,12 +17,15 @@ Item { // Window
     property var monitorData
     property var scale
     property bool restrictToWorkspace: true
+    readonly property bool animateGeometry: TouchpadGestures.overview.progress === 1 && !TouchpadGestures.moving
     property real widthRatio: {
+        if (!widgetMonitor || !monitorData) return 1;
         const widgetWidth = widgetMonitor.transform & 1 ? widgetMonitor.height : widgetMonitor.width;
         const monitorWidth = monitorData.transform & 1 ? monitorData.height : monitorData.width;
         return (widgetWidth * monitorData.scale) / (monitorWidth * widgetMonitor.scale);
     }
     property real heightRatio: {
+        if (!widgetMonitor || !monitorData) return 1;
         const widgetHeight = widgetMonitor.transform & 1 ? widgetMonitor.width : widgetMonitor.height;
         const monitorHeight = monitorData.transform & 1 ? monitorData.width : monitorData.height;
         return (widgetHeight * monitorData.scale) / (monitorHeight * widgetMonitor.scale);
@@ -31,17 +34,17 @@ Item { // Window
     property var spreadRect: null
     property real initX: {
         if (spreadRect) return spreadRect.x + xOffset;
-        return Math.max((windowData?.at[0] - (monitorData?.x ?? 0) - monitorData?.reserved[0]) * widthRatio * root.scale, 0) + xOffset;
+        return Math.max(((windowData?.at[0] ?? 0) - (monitorData?.x ?? 0) - (monitorData?.reserved[0] ?? 0)) * widthRatio * root.scale, 0) + xOffset;
     }
 
     property real initY: {
         if (spreadRect) return spreadRect.y + yOffset;
-        return Math.max((windowData?.at[1] - (monitorData?.y ?? 0) - monitorData?.reserved[1]) * heightRatio * root.scale, 0) + yOffset;
+        return Math.max(((windowData?.at[1] ?? 0) - (monitorData?.y ?? 0) - (monitorData?.reserved[1] ?? 0)) * heightRatio * root.scale, 0) + yOffset;
     }
     property real xOffset: 0
     property real yOffset: 0
     property var widgetMonitor
-    property int widgetMonitorId: widgetMonitor.id
+    property int widgetMonitorId: widgetMonitor?.id ?? -1
 
     property var targetWindowWidth: spreadRect ? spreadRect.width : windowData?.size[0] * scale * widthRatio
     property var targetWindowHeight: spreadRect ? spreadRect.height : windowData?.size[1] * scale * heightRatio
@@ -62,7 +65,7 @@ Item { // Window
     y: initY
     width: targetWindowWidth
     height: targetWindowHeight
-    opacity: windowData.monitor == widgetMonitorId ? 1 : 0.4
+    opacity: windowData?.monitor === widgetMonitorId ? 1 : 0.4
 
     property real topLeftRadius
     property real topRightRadius
@@ -82,15 +85,19 @@ Item { // Window
     }
 
     Behavior on x {
+        enabled: root.animateGeometry
         animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
     }
     Behavior on y {
+        enabled: root.animateGeometry
         animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
     }
     Behavior on width {
+        enabled: root.animateGeometry
         animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
     }
     Behavior on height {
+        enabled: root.animateGeometry
         animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
     }
 
@@ -98,7 +105,7 @@ Item { // Window
         id: windowPreview
         showFallbackIcon: false
         anchors.fill: parent
-        toplevel: GlobalStates.overviewOpen ? root.toplevel : null
+        toplevel: root.toplevel ?? null
         live: !PowerSaving.cutLivePreviews
 
         // Color overlay for interactions
@@ -139,9 +146,11 @@ Item { // Window
             height: iconSize
 
             Behavior on width {
+                enabled: root.animateGeometry
                 animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
             }
             Behavior on height {
+                enabled: root.animateGeometry
                 animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
             }
         }

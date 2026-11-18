@@ -5,6 +5,7 @@
 -- manifest ($XDG_RUNTIME_DIR/folis-keybinds.json) that the cheat sheet (Super+/) and the
 -- settings app read, so both always show what is actually bound.
 local h = require("hyprland.helpers")
+local modifier_taps = require("hyprland.modifier_taps")
 
 local M = {}
 
@@ -30,6 +31,7 @@ function M.begin()
         hidden = {},
         remap = {},
         custom = {},
+        modifiers = modifier_taps.new(),
     }
     package.loaded["custom.keybind_overrides"] = nil
     local ok, overrides = pcall(require, "custom.keybind_overrides")
@@ -37,6 +39,18 @@ function M.begin()
         state.remap = type(overrides.remap) == "table" and overrides.remap or {}
         state.custom = type(overrides.custom) == "table" and overrides.custom or {}
     end
+end
+
+function M.interrupt_modifiers()
+    state.modifiers:cancel()
+end
+
+function M.current_mods(id)
+    return state.entries[id] and state.entries[id].mods or {}
+end
+
+function M.is_modifier_tap(id)
+    return state.entries[id] and modifier_taps.kind(state.entries[id].key) ~= nil
 end
 
 -- "ctrl+SUPER" -> { "Super", "Ctrl" }
@@ -89,6 +103,8 @@ function M.binder(bind_fn)
         options = options or {}
         local id = options.id
         local description = options.description
+        -- Custom Lua files can describe a bind without manually assigning an id.
+        if not id and description then id = "described:" .. (state.group or "other") .. ":" .. description end
         local default_mods, default_key = mods, key
         local remap = id and state.remap[id]
         local disabled = remap == false
@@ -114,6 +130,7 @@ function M.binder(bind_fn)
                 disabled = disabled,
                 remapped = type(remap) == "table",
                 locked = options.locked == true,
+                mouse = options.mouse == true,
             })
             if description and not entry.description then
                 entry.description = description
@@ -128,6 +145,9 @@ function M.binder(bind_fn)
             if not OWN_OPTIONS[name] then
                 hl_options[name] = value
             end
+        end
+        if id and modifier_taps.kind(key) then
+            return state.modifiers:bind(M.mods_list(mods), key, dispatcher, hl_options)
         end
         return bind_fn(mods, key, dispatcher, hl_options)
     end

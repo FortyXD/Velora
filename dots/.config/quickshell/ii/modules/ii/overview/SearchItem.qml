@@ -86,14 +86,7 @@ RippleButton {
     }
     property string displayContent: highlightContent(root.itemName, root.query)
 
-    property list<string> urls: {
-        if (!root.itemName) return [];
-        // Regular expression to match URLs
-        const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
-        const matches = root.itemName?.match(urlRegex)
-            ?.filter(url => !url.includes("…")) // Elided = invalid
-        return matches ? matches : [];
-    }
+    readonly property bool containsLink: /https?:\/\/\S/i.test(root.itemName)
     
     PointingHandInteraction {}
 
@@ -210,13 +203,11 @@ RippleButton {
                         }
                     }
                 }
-                Repeater { // Favicons for links
-                    model: root.query == root.itemName ? [] : root.urls
-                    Favicon {
-                        required property var modelData
-                        size: parent?.height ?? 0
-                        url: modelData
-                    }
+                MaterialSymbol {
+                    visible: root.query !== root.itemName && root.containsLink
+                    text: "link"
+                    iconSize: Appearance.font.pixelSize.small
+                    color: root.colForeground
                 }
                 StyledText { // Item name/content
                     Layout.fillWidth: true

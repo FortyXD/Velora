@@ -43,6 +43,10 @@ Scope {
         case "left": FreeWindows.snap("left", address); break;
         case "right": FreeWindows.snap("right", address); break;
         case "center": FreeWindows.snap("center", address); break;
+        case "fullscreen": Hyprland.dispatch(`hl.dsp.window.fullscreen({ mode = "fullscreen", window = "${selector}" })`); break;
+        case "caption-auto": FreeWindows.caption(address, "auto"); break;
+        case "caption-on": FreeWindows.caption(address, "on"); break;
+        case "caption-off": FreeWindows.caption(address, "off"); break;
         case "pin": Hyprland.dispatch(`hl.dsp.window.pin({ window = "${selector}" })`); break;
         case "close": Hyprland.dispatch(`hl.dsp.window.close({ window = "${selector}" })`); break;
         }
@@ -122,9 +126,13 @@ Scope {
                             { "action": "left", "icon": "border_left", "text": Translation.tr("Snap left") },
                             { "action": "right", "icon": "border_right", "text": Translation.tr("Snap right") },
                             { "action": "center", "icon": "center_focus_strong", "text": Translation.tr("Center the window") },
+                            { "action": "fullscreen", "icon": "fullscreen", "text": Translation.tr("Fullscreen") },
+                            { "action": "caption-on", "icon": "toolbar", "text": Translation.tr("Show title bar for this app") },
+                            { "action": "caption-off", "icon": "toolbar", "text": Translation.tr("Hide title bar for this app") },
+                            { "action": "caption-auto", "icon": "settings_backup_restore", "text": Translation.tr("Use automatic title bar") },
                             { "action": "pin", "icon": "keep", "text": root.target?.pinned ? Translation.tr("Only on this workspace") : Translation.tr("Show on every workspace") },
                             { "action": "close", "icon": "close", "text": Translation.tr("Close"), "danger": true },
-                        ]
+                        ].filter(entry => FreeWindows.nativeAvailable || !entry.action.startsWith("caption-"))
 
                         delegate: RippleButton {
                             id: item

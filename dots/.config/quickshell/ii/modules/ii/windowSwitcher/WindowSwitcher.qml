@@ -75,9 +75,9 @@ Scope {
         if (current) root.remember(current.startsWith("0x") ? current : `0x${current}`);
         // Minimized windows (free windows) come last, like on Windows
         root.windows = HyprlandData.windowList
-            .filter(window => window.mapped !== false && window.class !== "" && !(window.workspace?.name ?? "").startsWith("special:desktop"))
+            .filter(window => window.mapped !== false && window.class !== "" && !FreeWindows.desktopHidden(window.workspace?.name))
             .sort((a, b) => {
-                const hiddenA = (a.workspace?.name ?? "").startsWith("special:"), hiddenB = (b.workspace?.name ?? "").startsWith("special:");
+                const hiddenA = FreeWindows.minimized(a.workspace?.name), hiddenB = FreeWindows.minimized(b.workspace?.name);
                 return (hiddenA - hiddenB) || (root.rank(a) - root.rank(b));
             });
     }
@@ -121,17 +121,11 @@ Scope {
     }
 
     function activate(window) {
-        const target = `address:${window.address}`;
-        if ((window.workspace?.name ?? "").startsWith("special:")) {
-            const workspace = HyprlandData.activeWorkspace?.id ?? 1;
-            Hyprland.dispatch(`hl.dsp.window.move({ workspace = "${workspace}", follow = false, window = "${target}" })`);
-        }
-        Hyprland.dispatch(`hl.dsp.focus({ window = "${target}" })`);
-        if (window.floating) Hyprland.dispatch(`hl.dsp.window.alter_zorder({ mode = "top", window = "${target}" })`);
+        FreeWindows.restore(window.address);
     }
 
     function toplevelFor(address) {
-        return ToplevelManager.toplevels.values.find(toplevel => `0x${toplevel.HyprlandToplevel?.address}` === address) ?? null;
+        return ToplevelManager.toplevels.values.find(toplevel => FreeWindows.addressOf(toplevel) === address) ?? null;
     }
 
     Timer {
@@ -170,10 +164,11 @@ Scope {
     }
 
     LazyLoader {
-        active: root.shown
+        active: root.active || root.shown
 
         component: PanelWindow {
             id: window
+            visible: root.shown
             screen: Quickshell.screens.find(screen => screen.name === root.screenName) ?? Quickshell.screens[0]
             color: "transparent"
             exclusionMode: ExclusionMode.Ignore
@@ -249,7 +244,7 @@ Scope {
                             id: tile
                             required property var modelData
                             required property int index
-                            readonly property bool minimized: (modelData.workspace?.name ?? "").startsWith("special:")
+                            readonly property bool minimized: FreeWindows.minimized(modelData.workspace?.name)
                             implicitWidth: window.tileWidth
                             implicitHeight: column.implicitHeight
                             selected: root.index === tile.index
@@ -296,8 +291,10 @@ Scope {
                                         id: preview
                                         anchors.centerIn: parent
                                         toplevel: tile.minimized ? null : root.toplevelFor(tile.modelData.address)
+                                        preparing: root.active
+                                        priority: tile.selected ? 1 : 0
                                         live: !PowerSaving.cutLivePreviews
-                                        constraintSize: Qt.size(parent.width, parent.height)
+                                        constraintSize: Qt.size(window.tileWidth, window.previewHeight)
                                     }
                                     // No picture of a minimized window: its icon instead
                                     Image {

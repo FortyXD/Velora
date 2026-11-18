@@ -29,6 +29,7 @@ class WindowSwitcherTests(unittest.TestCase):
                 line for line in tile.splitlines() if not line.startswith('import qs')))
             stubs = {
                 'Hyprland': 'property var activeToplevel:null; property var calls:[]; signal rawEvent(var event); function dispatch(command) { calls=calls.concat([command]); }',
+                'FreeWindows': 'function desktopHidden(name) { return name === "special:desktop"; } function minimized(name) { return name === "special:minimized"; } function restore(address) { Hyprland.dispatch("address:" + address); }',
                 'HyprlandData': 'property var windowList:[]; property var activeWorkspace: ({id:1})',
                 'Appearance': 'property var rounding: ({normal:8}); property var colors: ({colPrimary:"#ffa060"})',
                 'ColorUtils': 'function transparentize(color, amount) { return Qt.rgba(1,0.6,0.4,1-amount); }',

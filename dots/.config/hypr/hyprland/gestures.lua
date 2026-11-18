@@ -2,8 +2,8 @@
 -- another action (custom/gesture_overrides.lua, written by the settings app), and reads the list from
 -- $XDG_RUNTIME_DIR/velora-gestures.json, as do the cheat sheet and the tour.
 --
--- Actions drawn by the shell (the app library, the overview) follow the fingers: their progress goes
--- to Quickshell as `custom>>gesture:<action>:<begin|update|end|cancel>:<progress>` events on socket2.
+-- Shell panels follow gesture:<action>:<phase>:<progress> events on socket2.
+-- The begin event also carries the physical direction so the panel moves with the fingers.
 local actions = require("hyprland.window_actions")
 local M = {}
 
@@ -36,33 +36,42 @@ M.actions = { "none", "workspace", "overview", "library", "desktop", "switcher",
     "maximize", "minimize", "close", "fullscreen", "window_previous_workspace", "window_next_workspace",
     "volume", "brightness", "zoom", "scratchpad", "command" }
 
-local function emit(action, phase, progress)
-    hl.dispatch(hl.dsp.event(string.format("gesture:%s:%s:%.3f", action, phase, progress or 0)))
+local function emit(action, phase, progress, direction)
+    local message = string.format("gesture:%s:%s:%.3f", action, phase, progress)
+    hl.dispatch(hl.dsp.event(direction and (message .. ":" .. direction) or message))
 end
 
 -- How far along the gesture is, 0 at its start and 1 a comfortable swipe or pinch later
 local SWIPE = 320
-local function along(direction, event, progress)
-    if direction == "pinchin" or direction == "pinchout" or direction == "pinch" then
-        local scale = event.scale or 1
-        return math.max(0, direction == "pinchout" and (scale - 1) * 1.5 or (1 - scale) * 2)
-    end
-    local dx, dy = event.delta and event.delta.x or 0, event.delta and event.delta.y or 0
-    local step = (direction == "up" and -dy) or (direction == "down" and dy) or (direction == "left" and -dx)
-        or (direction == "right" and dx) or (direction == "vertical" and dy) or dx
-    return math.max(0, progress + step / SWIPE)
-end
-
--- Drawn by the shell, following the fingers
-local function live(action, direction)
-    local progress = 0
+local function live(action, binding)
+    local direction, progress, lastScale
     return {
-        start = function()
+        start = function(event)
+            direction = binding
+            if binding == "pinch" then
+                direction = event.scale < 1 and "pinchin" or "pinchout"
+            elseif binding == "horizontal" or binding == "vertical" or binding == "swipe" then
+                direction = event.direction:lower()
+            end
+            -- The first update repeats the recognition sample, around 10% into a pinch.
+            -- Preserve any extra travel if a fast pinch already passed that point.
+            lastScale = event.scale or 1
+            if direction == "pinchin" then lastScale = math.max(0.9, lastScale) end
+            if direction == "pinchout" then lastScale = math.min(1.1, lastScale) end
             progress = 0
-            emit(action, "begin", 0)
+            emit(action, "begin", 0, direction)
         end,
         update = function(event)
-            progress = along(direction, event, progress)
+            local step
+            if event.scale then
+                step = (event.scale - lastScale) * (direction == "pinchin" and -2 or 1.5)
+                lastScale = event.scale
+            else
+                local dx, dy = event.delta.x, event.delta.y
+                step = ((direction == "up" and -dy) or (direction == "down" and dy)
+                    or (direction == "left" and -dx) or dx) / SWIPE
+            end
+            progress = math.max(0, math.min(1, progress + step))
             emit(action, "update", progress)
         end,
         finish = function(event)
@@ -114,7 +123,9 @@ end
 -- hl.gesture fields for an action, or nil for "none"
 function M.build(gesture)
     local action = gesture.action
-    local spec = { fingers = gesture.fingers, direction = gesture.direction, mods = gesture.mods }
+    -- Hyprland names pinches after the zoom effect: PINCH_OUT is decreasing finger separation.
+    local zoomDirection = { pinchin = "pinchout", pinchout = "pinchin" }
+    local spec = { fingers = gesture.fingers, direction = zoomDirection[gesture.direction] or gesture.direction, mods = gesture.mods }
     if action == "move" or action == "resize" or action == "float" or action == "close" or action == "fullscreen" or action == "workspace" then
         spec.action = action
     elseif action == "overview" or action == "library" then

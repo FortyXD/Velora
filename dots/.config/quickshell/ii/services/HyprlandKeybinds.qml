@@ -32,7 +32,7 @@ Singleton {
     property var remap: ({})  // id -> { mods, key } or false
     property var custom: []   // [{ mods, key, description, app?, command? }]
     readonly property bool applying: saveTimer.running || reloadProc.running
-    readonly property int changedCount: Object.keys(root.remap).length
+    readonly property int changedCount: Object.keys(root.remap).length + root.custom.length
 
     // Stable identity of a manifest entry, also for notes that have no id
     function uid(bind) {
@@ -56,6 +56,7 @@ Singleton {
     }
 
     function setRemap(id, value) {
+        if (id === "keyboard.layout") root.clearLayoutToggle();
         let newRemap = Object.assign({}, root.remap);
         if (value === undefined) delete newRemap[id];
         else newRemap[id] = value;
@@ -78,8 +79,17 @@ Singleton {
     }
 
     function resetAll() {
+        root.activeRecorder?.stop();
         root.remap = {};
+        root.custom = [];
+        root.clearLayoutToggle();
         root.save();
+    }
+
+    function clearLayoutToggle() {
+        const options = HyprlandSettings.get("input:kb_options", "");
+        const filtered = options.split(",").filter(option => !option.trim().startsWith("grp:")).join(",");
+        if (filtered !== options) HyprlandSettings.set("input:kb_options", filtered);
     }
 
     function addCustom(shortcut) {
@@ -191,6 +201,7 @@ Singleton {
         id: overridesJson
         path: root.overridesJsonPath
         blockLoading: true // Saved changes must be known before anything new is written
+        blockWrites: true // Reload only after both override files have reached disk.
         onLoaded: {
             try {
                 const data = JSON.parse(overridesJson.text());
@@ -205,6 +216,7 @@ Singleton {
     FileView {
         id: overridesLua
         path: root.overridesLuaPath
+        blockWrites: true
     }
 
     FileView {

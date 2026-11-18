@@ -103,14 +103,14 @@ check("Super+Up maximizes a free window", editor.fullscreen == 1)
 free.down()
 check("Super+Down restores it", editor.fullscreen == 0)
 free.down()
-check("and minimizes it next", editor.workspace.name == "special:minimized")
+check("and minimizes it next", editor.workspace.name == "special:velora-min-31")
 free.restore("0x1")
 check("restoring brings it back here", editor.workspace.id == 1)
 
 -- Desktop: everything away and back
 local terminal = window("0x2", "terminal", 100, 100, 600, 400)
 free.show_desktop()
-check("show desktop hides every window", editor.workspace.name == "special:desktop" and terminal.workspace.name == "special:desktop")
+check("show desktop hides every window", editor.workspace.name == "special:velora-desktop-31" and terminal.workspace.name == "special:velora-desktop-31")
 free.show_desktop()
 check("and brings them back", editor.workspace.id == 1 and terminal.workspace.id == 1)
 
@@ -145,4 +145,37 @@ local before = #dispatched
 handlers["window.open"](dialog)
 check("small windows aren't placed", #dispatched == before)
 
+local other = window("0x9", "notes", 20, 20, 600, 400)
+other.workspace = { id = 7, name = "7", special = false }
+free.minimize(other.address)
+package.loaded["hyprland.window_actions"] = nil
+local reloaded = require("hyprland.window_actions")
+reloaded.restore(other.address)
+check("restore on another workspace after reload", other.workspace.id == 7)
+local scratch = window("0xa", "scratch", 0, 0, 400, 200)
+scratch.workspace = { id = -90, name = "special:scratch", special = true }
+reloaded.restore(scratch.address)
+check("a scratchpad keeps its workspace", scratch.workspace.name == "special:scratch")
+local count = #dispatched
+reloaded.minimize("0xdeadbeef")
+check("a closed address never minimizes the focused window", #dispatched == count)
+local docA = window("0xb", "documents", 0, 0, 500, 300)
+local docB = window("0xc", "documents", 0, 0, 500, 300)
+local docC = window("0xd", "documents", 0, 0, 500, 300)
+handlers["window.open"](docA)
+handlers["window.open"](docB)
+handlers["window.open"](docC)
+docA.at, docB.at = {x=70, y=80}, {x=940, y=260}
+handlers["window.close"](docA)
+docC.at = {x=1380, y=140}
+handlers["window.close"](docC)
+local partial = assert(loadfile(state_dir .. "/velora/window-geometry.lua"))().documents
+check("a pending middle slot preserves the first and third positions", partial[1].x == 70 and partial[2].x == nil and partial[3].x == 1380)
+handlers["window.close"](docB)
+local savedSlots = assert(loadfile(state_dir .. "/velora/window-geometry.lua"))().documents
+check("independent geometry slots survive closing out of order", savedSlots[1].x == 70 and savedSlots[2].x == 940 and savedSlots[3].x == 1380)
+other.workspace = { id=nil, name="work", addressable_name="work", special=false }
+reloaded.minimize(other.address)
+reloaded.restore(other.address)
+check("named workspaces recover their addressable selector", other.workspace.name == "name:work")
 os.exit(failures == 0 and 0 or 1)
