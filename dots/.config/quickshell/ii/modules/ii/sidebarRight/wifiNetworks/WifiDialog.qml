@@ -12,8 +12,8 @@ WindowDialog {
     id: root
     backgroundHeight: 600
     onShowChanged: if (!show) Network.cancelPasswordPrompt()
-    readonly property WifiAccessPoint passwordNetwork: Network.wifiNetworks.find(network => network.ssid === Network.passwordPromptSsid) ?? null
-    readonly property WifiAccessPoint credentialErrorNetwork: Network.wifiNetworks.find(network => network.ssid === Network.credentialErrorSsid) ?? null
+    readonly property WifiAccessPoint passwordNetwork: Network.wifiNetworks.find(network => network.key === Network.passwordPromptKey) ?? null
+    readonly property WifiAccessPoint credentialErrorNetwork: Network.wifiNetworks.find(network => network.key === Network.credentialErrorKey) ?? null
 
     WindowDialogTitle {
         text: Translation.tr("Network connections")
@@ -100,7 +100,7 @@ WindowDialog {
                     }
                     NetworkRevealer {
                         id: credentialForm
-                        expanded: root.show && ((networkEntry.modelData?.askingPassword ?? false) || (Network.connectionPending && Network.wifiConnectSsid === networkEntry.modelData?.ssid))
+                        expanded: root.show && ((networkEntry.modelData?.askingPassword ?? false) || (Network.connectionPending && Network.wifiConnectKey === networkEntry.modelData?.key))
                         Layout.leftMargin: Appearance.rounding.large + 30
                         Layout.rightMargin: Appearance.rounding.large
                         bottomPadding: 10

@@ -5,6 +5,7 @@ use super::agent::{secrets_reply, AgentError, AGENT_PATH};
 use super::client::{wifi_settings, NmClient, BUS_NAME};
 use super::model::{self, Security, IFACE_MANAGER, IFACE_SETTINGS_CONNECTION};
 use super::{form, reasons, validate};
+use super::wifi_budget::{WorkBudget, WORK_TIMEOUT};
 use crate::protocol::{ApiError, ErrorCode, Outgoing};
 use crate::secret::Secret;
 use crate::values::{self, Settings};
@@ -55,6 +56,7 @@ struct Operation {
     security: Security,
     waiting: Mutex<Waiting>,
     canceled: watch::Sender<bool>,
+    prompting: watch::Sender<bool>,
     out: mpsc::UnboundedSender<String>,
 }
 
@@ -84,24 +86,61 @@ impl Operation {
             }
             let (answer, receiver) = oneshot::channel();
             waiting.answer = Some(answer);
+            self.prompting.send_replace(true);
             waiting.request += 1;
-            self.event("wifiPassword", json!({ "operation": self.id, "ssid": self.ssid, "request": waiting.request.to_string(), "retry": retry }));
+            // The backend resolved this network's identity: a prompt that arrives for an
+            // operation started without a row (a QR code, say) can be bound to the right one.
+            self.event("wifiPassword", json!({ "operation": self.id, "ssid": self.ssid, "uuid": self.uuid,
+                "security": serde_json::to_value(self.security).ok().and_then(|value| value.as_str().map(str::to_string)).unwrap_or_default(),
+                "request": waiting.request.to_string(), "retry": retry }));
             receiver
         };
-        tokio::select! {
+        let result = tokio::select! {
             answer = receiver => answer.map_err(|_| AgentError::AgentCanceled("The password request went away".into())),
             () = self.canceled() => Err(AgentError::UserCanceled("The password request was canceled".into())),
-        }
+        };
+        self.prompting.send_replace(self.waiting.lock().expect("operation lock").answer.is_some());
+        result
     }
+}
+
+#[derive(Default)]
+struct Lifecycle {
+    stopping: bool,
+    current: Option<(watch::Sender<bool>, watch::Receiver<bool>)>,
+}
+
+struct Completion(watch::Sender<bool>);
+impl Drop for Completion {
+    fn drop(&mut self) { self.0.send_replace(true); }
 }
 
 #[derive(Default)]
 pub struct Operations {
     preparing: Mutex<Option<(String, watch::Sender<bool>)>>,
     active: Mutex<Option<Arc<Operation>>>,
+    lifecycle: Mutex<Lifecycle>,
 }
 
 impl Operations {
+    /// EOF cancels only Wi-Fi work and gives version-checked rollback/save a bounded chance to finish.
+    pub async fn shutdown(&self) {
+        let current = {
+            let mut lifecycle = self.lifecycle.lock().expect("operation lock");
+            lifecycle.stopping = true;
+            lifecycle.current.clone()
+        };
+        if let Some((canceled, mut completed)) = current {
+            canceled.send_replace(true);
+            let wait = async {
+                while !*completed.borrow_and_update() {
+                    if completed.changed().await.is_err() { break; }
+                }
+            };
+            let _ = tokio::time::timeout(std::time::Duration::from_secs(65), wait).await;
+        }
+    }
+
     pub fn cancel(&self, id: &str) -> bool {
         let mut active = self.active.lock().expect("operation lock");
         let Some(operation) = active.as_ref().filter(|operation| operation.id == id) else {
@@ -138,11 +177,20 @@ impl Operations {
         }
         let _lock = operation_lock()?;
         let (canceled, mut cancellation) = watch::channel(false);
+        let (finished, completed) = watch::channel(false);
+        let _completion = Completion(finished);
+        {
+            let mut lifecycle = self.lifecycle.lock().expect("operation lock");
+            if lifecycle.stopping { return Err(ApiError::new(ErrorCode::Canceled, "The connection was canceled")); }
+            lifecycle.current = Some((canceled.clone(), completed));
+        }
         {
             let mut preparing = self.preparing.lock().expect("operation lock");
             if preparing.is_some() { return Err(ApiError::new(ErrorCode::Conflict, "Another Wi-Fi connection is still in progress")); }
             *preparing = Some((request.operation.clone(), canceled.clone()));
         }
+        let (prompting, prompt_state) = watch::channel(false);
+        let mut budget = WorkBudget::new();
         let initialize = async {
             let connection = Connection::system().await.map_err(dbus_error)?;
             let client = NmClient::new(connection.clone());
@@ -152,21 +200,21 @@ impl Operations {
         let initialized = tokio::select! {
             biased;
             _ = cancellation.changed() => Err(ApiError::new(ErrorCode::Canceled, "The connection was canceled")),
-            result = initialize => result,
+            result = budget.run(initialize, prompt_state) => result,
         };
         *self.preparing.lock().expect("operation lock") = None;
         let (connection, client, prepared) = initialized?;
         let operation = Arc::new(Operation {
             id: request.operation.clone(), uuid: prepared.uuid.clone(), ssid: request.ssid.clone(), security: prepared.security,
             waiting: Mutex::new(Waiting { path: prepared.path.clone(), secret: request.password.clone(), served: prepared.path.is_none() && request.password.is_some(), request: 0, answer: None, connected: false }),
-            canceled, out,
+            canceled, prompting, out,
         });
         {
             let mut active = self.active.lock().expect("operation lock");
             if active.is_some() { return Err(ApiError::new(ErrorCode::Conflict, "Another Wi-Fi connection is still in progress")); }
             *active = Some(Arc::clone(&operation));
         }
-        let result = run(&connection, &client, &operation, prepared, &request).await;
+        let result = run(&connection, &client, &operation, prepared, &request, &mut budget).await;
         operation.canceled.send_replace(true);
         operation.waiting.lock().expect("operation lock").answer = None;
         let _ = connection.close().await;
@@ -189,7 +237,7 @@ fn operation_lock() -> Result<File, ApiError> {
 fn validate_password(security: Security, password: &Secret) -> Result<(), ApiError> {
     let valid = !password.expose().contains('\0') && match security {
         Security::WpaPsk => validate::wpa_psk(password.expose()),
-        Security::Sae => validate::sae_password(password.expose()),
+        Security::Sae => (1..=63).contains(&password.expose().len()) && validate::sae_password(password.expose()),
         Security::Wep => validate::wep_key(password.expose()),
         _ => false,
     };
@@ -208,8 +256,24 @@ struct Prepared {
 
 async fn prepare(client: &NmClient, request: &Connect) -> Result<Prepared, ApiError> {
     let snapshot = client.snapshot().await;
-    let target = snapshot.networks.iter().find(|network| !request.bssid.is_empty() && network.bssid.eq_ignore_ascii_case(&request.bssid))
-        .or_else(|| snapshot.networks.iter().find(|network| network.ssid == request.ssid));
+    let profile_security = snapshot.profiles.iter().find(|profile| profile.uuid == request.uuid).map(|profile| profile.security_type);
+    let matches = |network: &&model::WifiNetwork| {
+        network.ssid == request.ssid && profile_security.is_none_or(|security| {
+            security == network.security_type
+                || (security == Security::WpaPsk && network.security_type == Security::Sae && (network.security.contains("WPA2") || network.security.contains("WPA1")))
+                || (matches!(security, Security::DynamicWep | Security::Leap) && network.security_type == Security::Wep)
+                // Explicit UUIDs may repair an incomplete saved profile, but are never auto-associated.
+                || (security == Security::None && !request.bssid.is_empty() && network.security_type.is_personal())
+        }) && (request.security.is_empty() || serde_json::to_value(network.security_type).ok().as_ref().and_then(Value::as_str) == Some(request.security.as_str()))
+    };
+    let target = if request.bssid.is_empty() {
+        snapshot.networks.iter().find(matches)
+    } else {
+        snapshot.networks.iter().filter(matches).find(|network| network.bssid.eq_ignore_ascii_case(&request.bssid))
+    };
+    if !request.hidden && !request.bssid.is_empty() && target.is_none() {
+        return Err(ApiError::new(ErrorCode::NotFound, "The network is out of range"));
+    }
     let (path, settings, security, repair_security) = if request.uuid.is_empty() {
         if target.is_none() && !request.hidden { return Err(ApiError::new(ErrorCode::NotFound, "The network is out of range")); }
         let security = if request.hidden {
@@ -263,43 +327,74 @@ async fn update(client: &NmClient, path: &str, settings: &Settings, flags: u32, 
     Ok(())
 }
 
-async fn version(client: &NmClient, path: &str) -> Result<u64, ApiError> {
-    client.proxy(path, IFACE_SETTINGS_CONNECTION).await?.get_property("VersionId").await.map_err(dbus_error)
+// A partial secret read must never be written back as though it were complete.
+// Keep this stricter rule local to credential replacement, not the general connection editor.
+async fn settings_with_secrets(client: &NmClient, path: &str, mut settings: Settings) -> Result<Settings, ApiError> {
+    for section in super::client::secret_sections(&settings) {
+        let secrets: Settings = client.proxy(path, IFACE_SETTINGS_CONNECTION).await?.call("GetSecrets", &(section.as_str(),)).await.map_err(dbus_error)?;
+        for (name, values) in secrets { settings.entry(name).or_default().extend(values); }
+    }
+    Ok(settings)
 }
 
-async fn run(connection: &Connection, client: &NmClient, operation: &Arc<Operation>, prepared: Prepared, request: &Connect) -> Result<Value, ApiError> {
-    let owner: String = Proxy::new(connection, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus").await.map_err(dbus_error)?
-        .call("GetNameOwner", &(BUS_NAME,)).await.map_err(dbus_error)?;
-    connection.object_server().at(AGENT_PATH, ScopedAgent { operation: Arc::clone(operation), owner }).await.map_err(dbus_error)?;
-    let identifier = format!("org.velora.wifi.p{}.op{}", std::process::id(), request.operation);
-    connection.call_method(Some(BUS_NAME), "/org/freedesktop/NetworkManager/AgentManager", Some("org.freedesktop.NetworkManager.AgentManager"), "RegisterWithCapabilities", &(identifier.as_str(), 0u32)).await.map_err(dbus_error)?;
+async fn version(client: &NmClient, path: &str) -> Result<u64, ApiError> {
+    let version = client.proxy(path, IFACE_SETTINGS_CONNECTION).await?.get_property::<u64>("VersionId").await.map_err(dbus_error)?;
+    if version == 0 || version == u64::MAX { return Err(ApiError::new(ErrorCode::Conflict, "This profile does not support safe password updates")); }
+    Ok(version)
+}
 
-    // An explicit replacement is tried in memory; the profile's on-disk password survives a failure.
+async fn run(connection: &Connection, client: &NmClient, operation: &Arc<Operation>, prepared: Prepared, request: &Connect, budget: &mut WorkBudget) -> Result<Value, ApiError> {
     let mut restore = None;
-    if let Some(path) = prepared.path.as_ref().filter(|_| request.password.is_some() || prepared.repair_security) {
-        let old_version = version(client, path).await?;
-        let original = client.settings_with_secrets(path).await?;
-        let mut candidate = original.clone();
-        if prepared.repair_security { candidate.insert(SECURITY.into(), prepared.settings[SECURITY].clone()); }
-        let (key, flags_key) = secret_key(prepared.security);
-        let section = candidate.entry(SECURITY.into()).or_default();
-        // External keyrings retain ownership. The scoped agent supplies their replacement in memory.
-        if values::number(section, flags_key).unwrap_or(0) == 0 {
-            if let Some(password) = &request.password { section.insert(key.into(), owned(password.expose())); }
-            update(client, path, &candidate, 0x2, old_version).await?;
-            if request.password.is_some() { operation.waiting.lock().expect("operation lock").served = true; }
-            restore = Some((path.clone(), original, version(client, path).await?));
-        }
-    }
+    // The profile revision this operation owns. Saving later must write against it, not against
+    // whatever a concurrent editor left behind while the connection was activating.
+    let mut owned_version: Option<u64> = None;
+    let setup = async {
+        let owner: String = Proxy::new(connection, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus").await.map_err(dbus_error)?
+            .call("GetNameOwner", &(BUS_NAME,)).await.map_err(dbus_error)?;
+        connection.object_server().at(AGENT_PATH, ScopedAgent { operation: Arc::clone(operation), owner }).await.map_err(dbus_error)?;
+        let identifier = format!("org.velora.wifi.p{}.op{}", std::process::id(), request.operation);
+        connection.call_method(Some(BUS_NAME), "/org/freedesktop/NetworkManager/AgentManager", Some("org.freedesktop.NetworkManager.AgentManager"), "RegisterWithCapabilities", &(identifier.as_str(), 0u32)).await.map_err(dbus_error)?;
 
+        // An explicit replacement is tried in memory; the profile's on-disk password survives a failure.
+        if let Some(path) = prepared.path.as_ref() {
+            owned_version = version(client, path).await.ok();
+            if request.password.is_some() || prepared.repair_security {
+                let old_version = owned_version.ok_or_else(|| ApiError::new(ErrorCode::Conflict, "This profile does not support safe password updates"))?;
+                let plain = client.settings(path).await?;
+                let (key, flags_key) = secret_key(prepared.security);
+                // Do not even retrieve an external keyring's password to try a replacement.
+                if plain.get(SECURITY).and_then(|section| values::number(section, flags_key)).unwrap_or(0) == 0 {
+                    let original = settings_with_secrets(client, path, plain).await?;
+                    let mut candidate = original.clone();
+                    if prepared.repair_security { candidate.insert(SECURITY.into(), prepared.settings[SECURITY].clone()); }
+                    let section = candidate.entry(SECURITY.into()).or_default();
+                    if let Some(password) = &request.password { section.insert(key.into(), owned(password.expose())); }
+                    update(client, path, &candidate, 0x2, old_version).await?;
+                    if request.password.is_some() { operation.waiting.lock().expect("operation lock").served = true; }
+                    // NM increments VersionId for the update. Reading it again could adopt an intervening
+                    // writer's version and then incorrectly roll that writer back on cancellation.
+                    owned_version = Some(old_version + 1);
+                    restore = Some((path.clone(), original, old_version + 1));
+                }
+            }
+        }
+
+        Ok(())
+    };
+    let setup_result = tokio::select! {
+        biased;
+        result = budget.run(setup, operation.prompting.subscribe()) => result,
+        () = operation.canceled() => Err(ApiError::new(ErrorCode::Canceled, "The connection was canceled")),
+    };
     let activation = async {
+        setup_result?;
         if let Some(path) = &prepared.path {
-            client.activated(|| async {
+            client.activation(|| async {
                 let active: OwnedObjectPath = client.proxy(MANAGER, IFACE_MANAGER).await?.call("ActivateConnection", &(ObjectPath::try_from(path.as_str()).expect("profile path"), ObjectPath::try_from(prepared.device.as_str()).expect("device path"), ObjectPath::try_from(prepared.access_point.as_str()).expect("access point path"))).await.map_err(dbus_error)?;
                 Ok(active.to_string())
             }).await
         } else {
-            client.activated(|| async {
+            client.activation(|| async {
                 let options = HashMap::from([("persist", Variant::from("memory"))]);
                 let (path, active, _): (OwnedObjectPath, OwnedObjectPath, HashMap<String, OwnedVariant>) = client.proxy(MANAGER, IFACE_MANAGER).await?.call("AddAndActivateConnection2", &(&prepared.settings, ObjectPath::try_from(prepared.device.as_str()).expect("device path"), ObjectPath::try_from(prepared.access_point.as_str()).expect("access point path"), options)).await.map_err(dbus_error)?;
                 operation.waiting.lock().expect("operation lock").path = Some(path.to_string());
@@ -309,23 +404,43 @@ async fn run(connection: &Connection, client: &NmClient, operation: &Arc<Operati
     };
     let result = tokio::select! {
         biased;
-        result = activation => result,
+        result = budget.run(activation, operation.prompting.subscribe()) => result,
         () = operation.canceled() => Err(ApiError::new(ErrorCode::Canceled, "The connection was canceled")),
+    };
+    // A reply racing a cancel may report NM success. Do not persist a canceled attempt.
+    let result = {
+        let mut waiting = operation.waiting.lock().expect("operation lock");
+        if *operation.canceled.borrow() {
+            Err(ApiError::new(ErrorCode::Canceled, "The connection was canceled"))
+        } else {
+            waiting.connected = result.is_ok();
+            result
+        }
     };
     let active = match result {
         Ok(active) => active,
         Err(error) => {
-            if let Some((path, original, expected)) = restore { let _ = update(client, &path, &original, 0x2, expected).await; }
+            if let Some((path, original, expected)) = restore { let _ = tokio::time::timeout(WORK_TIMEOUT, update(client, &path, &original, 0x2, expected)).await; }
             return Err(error);
         }
     };
-    operation.waiting.lock().expect("operation lock").connected = true;
     let secret = operation.waiting.lock().expect("operation lock").secret.clone();
-    let save = async {
+    let save = tokio::time::timeout(WORK_TIMEOUT, async {
         if prepared.path.is_some() && secret.is_none() { return Ok(()); }
         let path = operation.waiting.lock().expect("operation lock").path.clone().ok_or_else(|| ApiError::new(ErrorCode::NotFound, NOT_SAVED))?;
-        let expected = version(client, &path).await?;
-        let mut settings = client.settings_with_secrets(&path).await?;
+        // An existing profile is saved against the revision this operation owned before activating,
+        // so a write that landed in between is refused by NetworkManager rather than overwritten.
+        // A profile this operation only just created has no earlier revision to check against.
+        let expected = match owned_version.filter(|_| prepared.path.as_deref() == Some(path.as_str())) {
+            Some(expected) => expected,
+            None => version(client, &path).await?,
+        };
+        let plain = client.settings(&path).await?;
+        let (_, flags_key) = secret_key(prepared.security);
+        if secret.is_some() && plain.get(SECURITY).and_then(|section| values::number(section, flags_key)).unwrap_or(0) != 0 {
+            return Err(ApiError::new(ErrorCode::SecretsRequired, NOT_SAVED));
+        }
+        let mut settings = settings_with_secrets(client, &path, plain).await?;
         if let Some(secret) = secret {
             let (key, flags_key) = secret_key(prepared.security);
             let section = settings.entry(SECURITY.into()).or_default();
@@ -335,7 +450,7 @@ async fn run(connection: &Connection, client: &NmClient, operation: &Arc<Operati
         }
         if prepared.path.is_none() { settings.get_mut("connection").expect("connection section").insert("autoconnect".into(), owned(true)); }
         update(client, &path, &settings, 0x1, expected).await
-    }.await;
+    }).await.unwrap_or_else(|_| Err(ApiError::new(ErrorCode::Timeout, NOT_SAVED)));
     Ok(json!({ "active": active, "saved": save.is_ok(), "warning": if save.is_err() { NOT_SAVED } else { "" } }))
 }
 
@@ -373,5 +488,28 @@ impl ScopedAgent {
     #[zbus(name = "DeleteSecrets")]
     fn delete_secrets(&self, _connection: Settings, _path: ObjectPath<'_>) -> Result<(), AgentError> {
         Err(AgentError::NoSecrets("This agent does not delete saved passwords".into()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn inline_passwords_keep_whitespace_and_utf8_byte_limits() {
+        for (security, password, valid) in [
+            (Security::WpaPsk, "        ".to_string(), true),
+            (Security::WpaPsk, "я".repeat(31) + " ", true),
+            (Security::WpaPsk, "я".repeat(32), false),
+            (Security::WpaPsk, "ab".repeat(32), true),
+            (Security::Sae, " ".to_string(), true),
+            (Security::Sae, "x".repeat(63), true),
+            (Security::Sae, "x".repeat(64), false),
+            (Security::Sae, "я".repeat(32), false),
+            (Security::Sae, String::new(), false),
+            (Security::Sae, "x\0".to_string(), false),
+        ] {
+            assert_eq!(validate_password(security, &Secret::new(password)).is_ok(), valid);
+        }
     }
 }

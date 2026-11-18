@@ -49,7 +49,7 @@ PageScaffold {
             required property var modelData
             required property int index
             order: 2 + Math.min(entry.index, 8)
-            readonly property bool asking: Network.passwordPromptSsid === modelData.ssid
+            readonly property bool asking: Network.passwordPromptKey === modelData.key
 
             Rectangle {
                 width: parent.width
@@ -93,7 +93,7 @@ PageScaffold {
                             contentItem: StyledText {
                                 id: connectText
                                 horizontalAlignment: Text.AlignHCenter
-                                text: Network.wifiConnecting && Network.wifiConnectSsid === entry.modelData.ssid
+                                text: Network.wifiConnecting && Network.wifiConnectKey === entry.modelData.key
                                     ? Translation.tr("Connecting…") : Translation.tr("Connect")
                             }
                         }

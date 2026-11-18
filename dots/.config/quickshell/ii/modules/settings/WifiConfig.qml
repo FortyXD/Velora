@@ -278,7 +278,7 @@ ContentPage {
                         acceptText: Translation.tr("Save")
                         placeholderText: Translation.tr("New password")
                         busy: Network.connectionPending && !Network.awaitingPassword
-                        errorText: Network.wifiConnectSsid === page.current?.ssid || Network.passwordPromptSsid === page.current?.ssid ? Network.wifiErrorMessage : ""
+                        errorText: Network.wifiConnectKey === page.current?.key || Network.passwordPromptKey === page.current?.key ? Network.wifiErrorMessage : ""
                         onAccepted: password => {
                             Network.changePassword(page.current, password);
                         }

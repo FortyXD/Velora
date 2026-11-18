@@ -289,6 +289,7 @@ pub async fn run(options: Options) -> anyhow::Result<()> {
             handle_line(&line, &service, &out);
         }
     }
+    service.wifi.shutdown().await;
     drop(out);
     writer.abort();
     Ok(())

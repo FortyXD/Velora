@@ -3281,6 +3281,7 @@
   "The bridge is unavailable": "Мост недоступен",
   "The cable was disconnected": "Кабель отключён",
   "The connection attempt timed out": "Истекло время подключения",
+  "This profile does not support safe password updates": "Этот профиль не поддерживает безопасное обновление пароля",
   "The connection service is out of date. Run “velora update”.": "Служба подключений устарела. Выполните «velora update».",
   "The connection service isn't installed. Run “velora update”.": "Служба подключений не установлена. Выполните «velora update».",
   "The connection service stopped unexpectedly. Restarting it…": "Служба подключений неожиданно остановилась. Перезапуск…",

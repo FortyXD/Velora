@@ -82,7 +82,12 @@ struct Shared {
     disk: HashMap<String, (Settings, Settings)>,
     versions: HashMap<String, u64>,
     deny_updates: bool,
+    stall_disk_updates: bool,
+    disk_update_started: Arc<tokio::sync::Notify>,
     change_during_secrets: bool,
+    change_after_memory_update: bool,
+    /// A password another client persists while an activation is in progress
+    concurrent_password: Option<String>,
     /// Names of the methods called, without parameters, for tests of what was asked
     calls: Vec<String>,
     /// Secrets queries that should fail as if nothing were stored
@@ -233,6 +238,22 @@ async fn start_activation(connection: Connection, shared: SharedState, profile: 
     connection.object_server().at(active_path.as_str(), object).await.map_err(NmError::ZBus)?;
     let reply = path(&active_path);
     tokio::spawn(async move {
+        {
+            let mut state = shared.lock().expect("test state");
+            if let Some(password) = state.concurrent_password.take() {
+                // Another client saves a different password while this activation is running.
+                state.calls.push("ConcurrentUpdate2".into());
+                let entry = value(password.clone());
+                if let Some((plain, secrets)) = state.profiles.get_mut(&profile) {
+                    secrets.entry("802-11-wireless-security".to_string()).or_default().insert("psk".to_string(), entry.clone());
+                    plain.entry("802-11-wireless-security".to_string()).or_default();
+                }
+                if let Some(disk) = state.disk.get_mut(&profile) {
+                    disk.1.entry("802-11-wireless-security".to_string()).or_default().insert("psk".to_string(), entry);
+                }
+                *state.versions.entry(profile.clone()).or_default() += 1;
+            }
+        }
         tokio::time::sleep(Duration::from_millis(30)).await;
         let server = connection.object_server();
         let Ok(reference) = server.interface::<_, ActiveConnection>(active_path.as_str()).await else { return };
@@ -414,6 +435,15 @@ impl Profile {
         args: HashMap<String, OwnedVariant>,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> Result<HashMap<String, OwnedVariant>, NmError> {
+        let stall = self.shared.lock().expect("test state").stall_disk_updates && flags & 1 != 0;
+        if stall {
+            {
+                let mut shared = self.shared.lock().expect("test state");
+                shared.calls.push("Update2 stalled".into());
+                shared.disk_update_started.notify_one();
+            }
+            std::future::pending::<()>().await;
+        }
         {
             let mut shared = self.shared.lock().expect("test state");
             shared.calls.push(format!("Update2 flags={flags}"));
@@ -425,6 +455,11 @@ impl Profile {
             *shared.versions.entry(self.path.clone()).or_default() += 1;
             // As the real service: what isn't in the update, secrets included, is gone
             shared.profiles.insert(self.path.clone(), (plain, secrets));
+            if flags & 2 != 0 && shared.change_after_memory_update {
+                shared.change_after_memory_update = false;
+                *shared.versions.entry(self.path.clone()).or_default() += 1;
+                shared.profiles.get_mut(&self.path).unwrap().0.get_mut("connection").unwrap().insert("id".into(), value("concurrent-edit"));
+            }
         }
         Self::updated(&emitter).await.map_err(NmError::ZBus)?;
         Ok(HashMap::new())
@@ -721,12 +756,30 @@ impl FakeNm {
         self.shared.lock().expect("test state").disk.len()
     }
 
+    pub async fn wait_for_disk_update(&self) {
+        let started = self.shared.lock().expect("test state").disk_update_started.clone();
+        tokio::time::timeout(Duration::from_secs(10), started.notified()).await.expect("the daemon tried saving");
+    }
+
+    pub fn set_disk_updates_stalled(&self, stalled: bool) {
+        self.shared.lock().expect("test state").stall_disk_updates = stalled;
+    }
+
     pub fn set_updates_denied(&self, denied: bool) {
         self.shared.lock().expect("test state").deny_updates = denied;
     }
 
+    pub fn set_change_after_memory_update(&self, change: bool) {
+        self.shared.lock().expect("test state").change_after_memory_update = change;
+    }
+
     pub fn set_change_during_secrets(&self, change: bool) {
         self.shared.lock().expect("test state").change_during_secrets = change;
+    }
+
+    /// Simulates an unrelated client saving this password over the profile being activated.
+    pub fn set_concurrent_password(&self, password: Option<&str>) {
+        self.shared.lock().expect("test state").concurrent_password = password.map(str::to_string);
     }
 
     pub fn saved_secret(&self, uuid: &str, section: &str, key: &str) -> Option<String> {
