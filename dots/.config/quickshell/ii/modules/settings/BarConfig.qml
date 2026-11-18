@@ -335,6 +335,7 @@ ContentPage {
                                         Repeater {
                                             model: categoryBlock.types
                                             delegate: WidgetChip {
+                                                id: catalogChip
                                                 required property string modelData
                                                 objectName: "barCatalog-" + modelData
                                                 readonly property var meta: BarWidgetCatalog.get(modelData)
@@ -355,7 +356,7 @@ ContentPage {
                                                 onDragMoved: (sceneX, sceneY) => page.dragMove(sceneX, sceneY)
                                                 onDragEnded: (sceneX, sceneY) => page.dragEnd(sceneX, sceneY)
                                                 StyledToolTip {
-                                                    text: parent.meta.description
+                                                    text: catalogChip.meta.description
                                                 }
                                             }
                                         }
