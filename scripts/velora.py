@@ -1043,7 +1043,7 @@ def install(args):
     print("  Components: " + ", ".join(features))
     print(f"  Configuration: {xdg('XDG_CONFIG_HOME', '.config')}")
     print("  Existing files: back up before replacing; restore on linking failure")
-    print("  Dependencies: " + ("keep installed packages and Python environment" if args.skip_packages else "install missing packages and sync the locked Python environment"))
+    print("  Dependencies: " + ("keep installed packages" if args.skip_packages else "install missing packages for the selected components"))
     print("  Bluetooth: " + ("leave system service unchanged (--skip-packages)" if args.skip_packages
                             else "enable service for detected adapter" if bluetooth_adapters_present()
                             else "no adapter detected; leave service unchanged"))
