@@ -161,7 +161,8 @@ Official dependencies come from pacman. AUR packages use **yay** or **paru**; if
 
 | Flag | Behavior |
 | --- | --- |
-| `--skip-aur` | Omit AUR packages. |
+| `--skip-aur` | Omit AUR packages; mutually exclusive with `--with-aur`. |
+| `--with-aur` | Enable AUR packages, overriding a saved `--skip-aur` preference. |
 | `--no-reload` | Keep the current Hyprland session running without a reload. |
 | `--no-updates` | Disable scheduled update checks. |
 | `--login-manager gdm` | Opt into GNOME's graphical login screen; `existing`, `sddm` and `skip` are also available. |

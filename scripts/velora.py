@@ -1114,6 +1114,8 @@ def install_command(binary, args, without):
     theme = getattr(args, "login_theme_choice", getattr(args, "login_theme", None))
     if theme is not None:
         command += ["--login-theme", theme]
+    if getattr(args, "skip_aur", None) is False:
+        command.append("--with-aur")
     for attribute, flag in (("skip_aur", "--skip-aur"), ("skip_packages", "--skip-packages"),
                             ("no_updates", "--no-updates"), ("no_reload", "--no-reload")):
         if getattr(args, attribute, False):
@@ -1362,7 +1364,7 @@ def doctor(args):
         print(f"  Configuration links: {len(stale)} missing or pointing elsewhere, e.g. {stale[0]}; run velora relink")
     else:
         print("  Configuration links: all point to this installation")
-    if failed or repo or fonts_missing or stale or runtime_errors:
+    if failed or repo or aur or fonts_missing or stale or runtime_errors:
         raise VeloraError("Some checks need attention. Run 'velora install --dry-run' to inspect the repair plan.")
 
 
@@ -1373,7 +1375,11 @@ def parser():
         sub = commands.add_parser(name, help=description)
         sub.add_argument("--without", default=None, help="Comma-separated optional features to omit")
         sub.add_argument("--dry-run", action="store_true", help="Show changes without applying them")
-        sub.add_argument("--skip-aur", action="store_true", default=None)
+        aur = sub.add_mutually_exclusive_group()
+        aur.add_argument("--skip-aur", dest="skip_aur", action="store_true", default=None,
+                         help="Omit AUR packages (reuse the saved preference when neither AUR flag is set)")
+        aur.add_argument("--with-aur", dest="skip_aur", action="store_false",
+                         help="Enable AUR packages, overriding a saved --skip-aur preference")
         sub.add_argument("--skip-packages", action="store_true")
         sub.add_argument("--yes", action="store_true", help="Accept the installer plan; package managers still ask normally")
         sub.add_argument("--no-reload", action="store_true")
