@@ -1,33 +1,29 @@
-# Velora 0.2.0
+# Velora 0.2.1
 
-Opt-in AI search, local indexing and desktop assistance, KDE file previews and dialogs, and fixes across panels, displays and installation.
+Desktop tools start faster, long notes use less memory, and the screen recorder sleeps while waiting for work.
 
-## Highlights
+## Desktop tools and Notes
 
-- **Search stays optional.** AI results in the launcher and Lens indexing each have a separate switch, both off by default. Semantic/vector indexing and media analysis are also opt-in. Ordinary application and calculator search remain available.
-- **Local desktop assistant.** Saved conversations, provider connections and explicit, reversible file actions are integrated into the launcher and sidebar. Existing provider and model choices are preserved.
-- **Desktop files and previews.** Quick Look supports images, video, audio, PDF, text and archives. Native KDE file dialogs gain folder creation, and window previews retain their last ready frame during refresh. Dolphin selection marks are off in fresh configurations; existing explicit preferences are preserved. Remembered file-opening choices are reused even when a file manager has cached the chooser, concurrent saves are serialized, and existing MIME associations are preserved.
-- **Panel and display fixes.** Shared icons are centered, click-opened popups stay open, duplicate tray registrations are filtered, workspace previews gain visibility/dismissal options, and display arrangements support snapping and safer output changes.
-- **Installation and updates.** The installer includes the new native services and Qt addon, optional Velora GDM styling, and a graphical updater that survives closing Settings. Advanced battery analytics and tmux mouse links remain opt-in.
-- **First-run and reinstall repairs.** Setup opens once after wallpaper initialization. Moving the source checkout no longer leaves a stale CMake build configuration. Binary packages declare their required OpenSSL ABI.
+- Toolbox, Quick Look, window preview management, wallpaper palettes, screen recording and battery analytics now use Rust helpers. Offline translation starts on demand and works with existing model files.
+- Notes used to create a copy button for every list entry, including those far outside the viewport. In a local test with 1,000 entries it created 10 buttons after the change. CPU time in that test fell from 0.71 to 0.26 seconds and peak memory from 162 to 109 MiB. These figures describe the test workload. Battery life was not measured.
+- In local startup measurements, generating a QR code took 4 ms, down from 52 ms. The offline translator returned its first response in 177 ms, down from 225 ms.
 
-## Validation
+## Windows, settings and notifications
 
-Checked in two Arch Linux QEMU guests: a clean installation and an existing desktop upgrade, using Hyprland 0.57.1, Quickshell 0.3.2 and Qt 6.12. The checks cover GDM login, first-run setup, repeated installation with preserved settings, configuration restoration, graphical updates, authorization cancellation, live window-preview lifecycle, Quick Look, native folder creation, panel layouts and disabled AI defaults.
+- The floating window mode gains compositor controls for the canvas, window frames and captions on Hyprland 0.57.0. Settings adds controls for touchpad gestures and shortcuts.
+- Settings includes display and pointer controls, a microphone monitor, a theme palette editor, notification quiet hours and banner placement. The panel editor, window previews and lock screen also received updates.
 
-The source-install scenarios use `--skip-aur --without assistant,appearance,live-wallpapers`; optional model weights are not downloaded. NetworkManager profile operations use synthetic local profiles. Physical Wi-Fi/Bluetooth, GPU-specific behavior and real model inference require separate hardware/model testing. Rust, Python/QML and native Qt checks run in CI and the guests; logs and screenshots are retained with the release validation evidence.
+## Community fixes
+
+Thanks to @impala-tape for all four contributions.
+
+- Interactive Zsh sessions save and share command history. [#21](https://github.com/FortyXD/Velora/pull/21)
+- The installer and diagnostics honor an explicit `--with-aur` or `--skip-aur` even when a different preference was saved. [#22](https://github.com/FortyXD/Velora/pull/22)
+- Dragging a recording region into a hot corner no longer triggers its action. Cancelling the selection re-enables hot corners. [#23](https://github.com/FortyXD/Velora/pull/23)
+- Wi-Fi password prompts distinguish networks with the same name and different security settings. Editing a saved profile preserves changes made concurrently through NetworkManager. [#24](https://github.com/FortyXD/Velora/pull/24)
 
 ## Install or update
 
-```bash
-sudo pacman -Syu --needed git python
-git clone --recurse-submodules https://github.com/FortyXD/Velora.git ~/Velora
-cd ~/Velora
-./velora install
-```
-
 Existing users can update through Settings → General → Software Update or run `velora update --interactive --channel release`.
 
-For the Arch package, first update Arch with `sudo pacman -Syu`, install the downloaded `.pkg.tar.zst` with `sudo pacman -U`, then run `velora install` as your regular user. Run `sha256sum --check SHA256SUMS` beside the downloaded package to verify it. Log out and back in after updating native desktop components.
-
-See the [installation guide](https://github.com/FortyXD/Velora/blob/v0.2.0/docs/installation.md), [search controls](https://github.com/FortyXD/Velora/blob/v0.2.0/docs/lens.md), and [assistant guide](https://github.com/FortyXD/Velora/blob/v0.2.0/docs/assistant.md).
+For a package install, download the Arch package and `SHA256SUMS` into the same directory, run `sha256sum --check SHA256SUMS`, update Arch with `sudo pacman -Syu` and install the downloaded file with `sudo pacman -U ./velora-*.pkg.tar.zst`. Run `velora install` as your regular user, then log out and back in. [Installation guide](https://github.com/FortyXD/Velora/blob/v0.2.1/docs/installation.md)
