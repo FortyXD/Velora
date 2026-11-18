@@ -3,6 +3,21 @@ setopt auto_pushd pushd_ignore_dups pushd_silent
 setopt auto_list auto_menu auto_param_slash complete_in_word
 typeset -U path PATH
 
+# --- History ---------------------------------------------------------------
+# Keep durable history shared by kitty/tmux/tty shells, not just this session.
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=100000                # entries kept in memory
+SAVEHIST=100000                # entries written to HISTFILE
+
+setopt EXTENDED_HISTORY        # timestamped format; shared durations may be zero
+setopt SHARE_HISTORY           # append commands and import other shells' history
+setopt HIST_EXPIRE_DUPS_FIRST  # expire duplicates before unique entries
+setopt HIST_IGNORE_DUPS        # omit consecutive duplicate commands
+setopt HIST_IGNORE_SPACE       # omit commands starting with a space
+setopt HIST_REDUCE_BLANKS      # strip redundant whitespace before storing
+setopt HIST_VERIFY             # review history expansion before executing it
+# --- End history -----------------------------------------------------------
+
 if [[ -d /opt/anaconda ]]; then
   export OPENSSL_MODULES=/opt/anaconda/lib/ossl-modules
   export CONDA_EXE=/opt/anaconda/bin/conda
