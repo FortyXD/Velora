@@ -6,15 +6,17 @@ import os
 from pathlib import Path
 import signal
 import shutil
+import select
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+from native_helper import binary
 from unittest.mock import patch
 
 PROJECT = Path(__file__).resolve().parents[1]
-BACKEND = PROJECT / "dots/.config/quickshell/ii/scripts/videos/recorder.py"
+BACKEND = PROJECT / "tests/fixtures/legacy/recorder.py"
 SPEC = importlib.util.spec_from_file_location("velora_recorder", BACKEND)
 recorder = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(recorder)
@@ -122,7 +124,7 @@ class RecorderTests(unittest.TestCase):
         self.config.write_text(json.dumps({"screenRecord": self.options}))
 
     def command(self, *args):
-        return [sys.executable, str(BACKEND), *args]
+        return [binary(), "recorder", *args]
 
     def call(self, *args, env=None):
         return subprocess.run(self.command(*args), env=env or self.env, capture_output=True, text=True, timeout=8)
@@ -251,6 +253,28 @@ class RecorderTests(unittest.TestCase):
             owner.cleanup_audio()
         self.assertFalse(any("unload-module" in call.args[0] for call in command.call_args_list))
 
+    def test_watch_sleeps_while_idle_and_observes_external_recording(self):
+        with subprocess.Popen(self.command("watch"), env=self.env, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, bufsize=0) as watcher:
+            try:
+                def state(wanted):
+                    deadline = time.monotonic()+6
+                    observed = []
+                    while (left:=deadline-time.monotonic())>0 and select.select([watcher.stdout],[],[],left)[0]:
+                        line = watcher.stdout.readline()
+                        if not line: break
+                        observed.append(json.loads(line)["state"])
+                        if observed[-1]==wanted: return
+                    self.fail(f"Expected {wanted}, observed {observed}")
+                state("idle")
+                self.assertFalse(select.select([watcher.stdout],[],[],1.2)[0])
+                controller = self.start("--fullscreen","--silent")
+                state("recording")
+                self.stop_capture(controller)
+                state("idle")
+            finally:
+                watcher.terminate()
+
     def test_buffered_container_readiness_uses_encoder_output(self):
         self.options.update(format="mkv", fps=60)
         self.write_config()
@@ -372,46 +396,37 @@ class RecorderTests(unittest.TestCase):
         self.assertIsNone(recorder.identity(pid))
 
     def test_parent_death_before_child_publication_leaves_no_hidden_child(self):
-        for kind in ("selector", "recorder"):
+        # Hold the native child's publication pipe at the same point as Owner.launch,
+        # before state.json is committed and before the owner writes the GO byte.
+        owner_program = """import os, signal, subprocess, sys
+gate = subprocess.Popen([sys.argv[1], "recorder-child-gate", str(os.getpid()), sys.argv[2], sys.argv[3]],
+                        stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+print(gate.pid, flush=True)
+signal.pause()
+"""
+        for kind, program in (("selector", "slurp"), ("recorder", "wf-recorder")):
             with self.subTest(kind=kind):
-                self.runtime = self.root / ("runtime-" + kind)
-                boundary = self.root / ("boundary-" + kind)
-                self.options["mode"] = "region" if kind == "selector" else "screen"
-                self.write_config()
                 ready = self.root / ("ready-" + kind)
-                env = {**self.env, "VELORA_RECORDER_RUNTIME": str(self.runtime), "FAKE_SELECT_WAIT": "1",
-                       "FAKE_CHILD_READY": str(ready)}
-                name = "slurp" if kind == "selector" else "wf-recorder"
-                calls_before = len(self.get_calls(name))
-                process = self.driver(
-                    "original=r.Recorder.publish\n"
-                    "def publish(self, phase, **changes):\n"
-                    "    if changes.get('childKind') == " + repr(kind) + ":\n"
-                    "        pathlib.Path(" + repr(str(boundary)) + ").write_text(str(changes['childPid']))\n"
-                    "        time.sleep(60)\n"
-                    "    return original(self,phase,**changes)\n"
-                    "r.Recorder.publish=publish\n", {**env, "FAKE_STUBBORN": "1", "FAKE_NO_READY": "1"})
-                pid = int(self.wait_file(boundary))
-                # The same-PID gate is alive, but even an INT/TERM-ignoring
-                # target must not execute before publication/GO.
-                self.assertIsNotNone(recorder.identity(pid))
-                time.sleep(.1)
+                env = {**self.env, "FAKE_CHILD_READY": str(ready), "FAKE_STUBBORN": "1", "FAKE_NO_READY": "1"}
+                calls_before = len(self.get_calls(program))
+                with subprocess.Popen([sys.executable, "-c", owner_program, binary(), kind, program],
+                                      env=env, stdout=subprocess.PIPE, text=True) as owner:
+                    try:
+                        pid = int(owner.stdout.readline())
+                        descriptor = os.pidfd_open(pid)
+                        try:
+                            self.assertEqual(Path(f"/proc/{pid}/exe").resolve(), Path(binary()).resolve())
+                            self.assertFalse(ready.exists())
+                            owner.kill()
+                            owner.wait(timeout=3)
+                            self.assertTrue(select.select([descriptor], [], [], 5)[0], "Native child survived owner exit")
+                        finally:
+                            os.close(descriptor)
+                    finally:
+                        if owner.poll() is None:
+                            owner.kill()
                 self.assertFalse(ready.exists())
-                self.assertEqual(len(self.get_calls(name)), calls_before)
-                process.kill(); process.wait(timeout=3)
-                self.wait_dead(pid)
-                self.assertFalse(ready.exists())
-                self.assertEqual(len(self.get_calls(name)), calls_before)
-                self.assertNotIn(recorder.status(self.runtime).get("state"), recorder.ACTIVE)
-                # Next launch can only have its own child, never a hidden original.
-                self.options["mode"] = "screen"
-                self.write_config()
-                next_process = self.start(env=env)
-                state = self.wait_state("recording")
-                self.assertNotEqual(state["childPid"], pid)
-                self.assertIsNone(recorder.identity(pid))
-                self.assertEqual(self.call("stop", env=env).returncode, 0)
-                self.assertEqual(next_process.wait(timeout=6), 0)
+                self.assertEqual(len(self.get_calls(program)), calls_before)
 
     def test_gate_release_keeps_published_identity_across_target_exec(self):
         boundary = self.root / "published-gate"
@@ -657,7 +672,7 @@ class RecorderTests(unittest.TestCase):
         shell = self.root / "qml"
         for relative in ("services", "modules/common/functions"):
             (shell / relative).mkdir(parents=True)
-        source = BACKEND.parents[2] / "services/ScreenRecorder.qml"
+        source = PROJECT / "dots/.config/quickshell/ii/services/ScreenRecorder.qml"
         shutil.copy2(source, shell / "services/ScreenRecorder.qml")
         (shell / "GlobalStates.qml").write_text(
             'pragma Singleton\nimport QtQuick\nimport Quickshell\nSingleton { property bool regionSelectorOpen: false; property bool overlayOpen: false; function closeSidebars() {} }\n')
@@ -665,7 +680,7 @@ class RecorderTests(unittest.TestCase):
             'pragma Singleton\nimport QtQuick\nimport Quickshell\nSingleton { property var options: ({screenRecord:{savePath:""}}) }\n')
         fake = self.root / "qml-record.sh"
         fake.write_text('#!/bin/sh\necho "$1" >> "' + str(self.root / "qml-calls") + '"\n'
-                        'if [ "$1" = status ]; then echo \'{"state":"idle"}\'; fi\n')
+                        'if [ "$1" = watch ]; then echo \'{"state":"idle"}\'; fi\n')
         fake.chmod(0o755)
         (shell / "modules/common/Directories.qml").write_text(
             'pragma Singleton\nimport QtQuick\nimport Quickshell\nSingleton { property string recordScriptPath: '
@@ -730,7 +745,7 @@ Scope {
         self.assertIn("RECORDER_QML_PASS", output)
         calls = (self.root / "qml-calls").read_text().splitlines()
         self.assertTrue(calls)
-        self.assertTrue(all(call in ("status", "stop", "--select-region") for call in calls), calls)
+        self.assertTrue(all(call in ("watch", "stop", "--select-region") for call in calls), calls)
         self.assertEqual(calls.count("--select-region"), 1, calls)
 
     def test_explicit_silent_and_failed_validation(self):

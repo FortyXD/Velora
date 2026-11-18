@@ -63,8 +63,9 @@ before revealing it rather than relying on a translated search query.
 
 ## Troubleshooting and safety
 
-Dependencies: Python 3, `wf-recorder`, `ffmpeg`/`ffprobe`, `slurp`, `hyprctl`, and
-`pactl` (PulseAudio compatibility through PipeWire works). Notifications use
+The native `velora-helper recorder` uses `wf-recorder`, `ffmpeg`/`ffprobe`,
+`slurp`, `hyprctl`, and `pactl` (including PipeWire's PulseAudio compatibility layer).
+The shell receives status changes from a single event-driven watcher. Notifications use
 `notify-send` when available. Unsupported `wf-recorder -t` is deliberately not used.
 
 The last error is visible in the recording settings and notifications. Private,

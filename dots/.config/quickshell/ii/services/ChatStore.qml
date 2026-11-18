@@ -46,7 +46,7 @@ Singleton {
     Timer { id: searchDelay; interval: 200; onTriggered: root.refresh() }
     Process {
         id: process
-        command: ["python3", Quickshell.shellPath("scripts/chat-store.py"), Directories.aiChats]
+        command: [Quickshell.shellPath("scripts/helper"), "chat-store", Directories.aiChats]
         stdinEnabled: true
         onStarted: {
             root.started = true;

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Isolated foreign-toplevel capture. JSON lines in/out; never capture a monitor.
 
-set: {op, windows: [{id, width, height, live, cursor, refresh}]}
+set: {op, windows: [{id, width, height, sourceWidth, sourceHeight, live, cursor, refresh, priority}]}
 frame: {event, id, path, width, height, revision}; errors retain the last frame.
 EOF cancels all children and removes the private runtime directory.
 """
 import asyncio
+from contextlib import asynccontextmanager
 import hashlib
 import io
 import json
@@ -37,6 +38,10 @@ def normalize(windows):
             "id": identifier,
             "width": max(32, min(1024, int(item.get("width", 280)))),
             "height": max(32, min(768, int(item.get("height", 180)))),
+            "sourceWidth": max(0, min(32768, int(item.get("sourceWidth", 0)))),
+            "sourceHeight": max(0, min(32768, int(item.get("sourceHeight", 0)))),
+            "priority": int(item.get("priority", 0)),
+            "generation": int(item.get("generation", 0)),
             "live": bool(item.get("live", True)),
             "cursor": bool(item.get("cursor", False)),
             "refresh": int(item.get("refresh", 0)),
@@ -50,8 +55,10 @@ async def capture(spec, destination, state=None):
         state['spec'] = spec
         state.pop('digest', None)
     source = state.get('source')
-    # Calibrate once; request thumbnail-sized output instead of decoding a half-size
-    # desktop window on every frame. Two spare pixels avoid rounding oscillations.
+    if not source and spec.get('sourceWidth') and spec.get('sourceHeight'):
+        source = (spec['sourceWidth'], spec['sourceHeight'])
+    # Hyprland reports logical dimensions; calibrate from the returned pixels
+    # when output scaling or a recent resize makes that hint inaccurate.
     scale = min(1., (spec['width'] + 2) / source[0], (spec['height'] + 2) / source[1]) if source else .5
     scale = max(.001, scale)
     command = ["grim", "-T", spec["id"], "-s", f"{scale:.8f}", "-l", "0"]
@@ -76,7 +83,7 @@ async def capture(spec, destination, state=None):
             if source is None or any(abs(actual - expected * scale) > 2
                                      for actual, expected in zip(picture.size, source)):
                 source = tuple(value / scale for value in picture.size)
-                state['source'] = source
+            state['source'] = source
             ratio = min(1., spec['width'] / source[0], spec['height'] / source[1])
             size = tuple(max(1, round(value * ratio)) for value in source)
             thumbnail = picture.resize(size, Image.Resampling.LANCZOS) if picture.size != size else picture
@@ -109,15 +116,20 @@ class Broker:
     def __init__(self, directory, capture_fn=None):
         self.directory = Path(directory)
         self.capture_fn = capture_fn or Capture()
-        self.slots = asyncio.Semaphore(2)
-        self.start_lock = asyncio.Lock()
-        self.last_started = 0.
+        self.changed = asyncio.Condition()
+        self.waiting = {}
+        self.priorities = {}
+        self.in_flight = 0
+        self.tokens = 4.
+        self.last_refill = time.monotonic()
+        self.last_start = 0.
         self.specs = {}
         self.tasks = {}
         self.revision = 0
 
     async def set_windows(self, windows):
         wanted = normalize(windows)
+        self.priorities = {key: spec.pop('priority') for key, spec in wanted.items()}
         stopped = []
         for identifier, spec in list(wanted.items()):
             if self.specs.get(identifier) == spec:
@@ -133,10 +145,50 @@ class Broker:
             self.capture_fn.retain(wanted)
         # A changed stream gets a unique filename, so a late decode cannot display
         # a recycled window's frame. Two bounded files per active stream suffice.
-        for identifier, spec in wanted.items():
+        for identifier in sorted(wanted, key=self.priorities.get, reverse=True):
+            spec = wanted[identifier]
             if identifier not in self.tasks:
                 self.revision += 1
                 self.tasks[identifier] = asyncio.create_task(self.stream(spec, self.revision))
+        async with self.changed:
+            self.changed.notify_all()
+
+    @asynccontextmanager
+    async def slot(self, identifier, first_frame):
+        async with self.changed:
+            # Dict insertion order breaks ties, so live windows take turns.
+            self.waiting[identifier] = first_frame
+            try:
+                while True:
+                    next_id = min(self.waiting, key=lambda key: (
+                        not self.waiting[key], -self.priorities.get(key, 0) if self.waiting[key] else 0))
+                    if self.in_flight >= 2 or next_id != identifier:
+                        await self.changed.wait()
+                        continue
+                    now = time.monotonic()
+                    self.tokens = min(4., self.tokens + (now - self.last_refill) * 16)
+                    self.last_refill = now
+                    delay = (1 - self.tokens) / 16
+                    if not first_frame:
+                        delay = max(delay, self.last_start + 1 / 16 - now)
+                    if delay <= 0:
+                        self.tokens -= 1
+                        self.last_start = now
+                        self.in_flight += 1
+                        break
+                    try:
+                        await asyncio.wait_for(self.changed.wait(), delay)
+                    except TimeoutError:
+                        pass
+            finally:
+                del self.waiting[identifier]
+                self.changed.notify_all()
+        try:
+            yield
+        finally:
+            async with self.changed:
+                self.in_flight -= 1
+                self.changed.notify_all()
 
     async def stream(self, spec, generation):
         revision = 0
@@ -149,12 +201,7 @@ class Broker:
                 started = time.monotonic()
                 destination = files[revision % 2]
                 try:
-                    async with self.slots:
-                        # Many visible overview cards share one budget; two requests
-                        # may overlap, but together they start at most 16 captures/s.
-                        async with self.start_lock:
-                            await asyncio.sleep(max(0., self.last_started + 1 / 16 - time.monotonic()))
-                            self.last_started = time.monotonic()
+                    async with self.slot(spec["id"], first_frame=revision == 0):
                         started = time.monotonic()
                         result = await self.capture_fn(spec, destination)
                         width, height = result[:2]
@@ -163,7 +210,7 @@ class Broker:
                     digest = result[2] if len(result) > 2 else hashlib.sha256(destination.read_bytes()).hexdigest()
                     if digest != last_digest:
                         revision += 1
-                        emit({"event": "frame", "id": spec["id"], "path": str(destination),
+                        emit({"event": "frame", "id": spec["id"], "generation": spec["generation"], "path": str(destination),
                               "width": width, "height": height, "revision": f"{generation}-{revision}"})
                         last_digest = digest
                         unchanged = 0

@@ -126,9 +126,6 @@ class InstallerAuditTests(IsolatedTest):
                 self.assertEqual(target.read_text(), timer)
 
     def test_doctor_fails_when_the_native_helper_is_missing(self):
-        python = velora.xdg("XDG_STATE_HOME", ".local/state") / "quickshell/.venv/bin/python"
-        python.parent.mkdir(parents=True)
-        python.touch()
         with patch.object(velora, "font_installed", return_value=True), \
                 patch.object(velora, "package_plan", return_value=([], [])), \
                 patch.object(velora, "stale_links", return_value=[]), \

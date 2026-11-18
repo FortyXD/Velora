@@ -43,7 +43,7 @@ if [[ $EUID -eq 0 ]]; then
   exit 1
 fi
 
-# Packages and the Python environment are managed by scripts/velora.py.
+# Packages and native tools are managed by scripts/velora.py.
 
 record_change() {
   [[ -n ${VELORA_INSTALL_JOURNAL:-} ]] || return 0
@@ -134,7 +134,6 @@ link_item "$repo_root/dots/.local/share/icons/illogical-impulse.svg" "$data_home
 link_item "$repo_root/dots/.local/share/icons/hicolor/scalable/apps/org.velora.Settings.svg" "$data_home/icons/hicolor/scalable/apps/org.velora.Settings.svg"
 link_item "$repo_root/dots/.local/share/applications/org.velora.Settings.desktop" "$data_home/applications/org.velora.Settings.desktop"
 # The Python installer merges Dolphin toolbar additions into the existing XML.
-link_item "$repo_root/dots/.local/share/folis/dolphin-create-archive.py" "$data_home/folis/dolphin-create-archive.py"
 link_item "$repo_root/dots/.local/share/dbus-1/services/org.freedesktop.FileManager1.service" "$data_home/dbus-1/services/org.freedesktop.FileManager1.service"
 if [[ -x /usr/local/racket/bin/drracket ]]; then
   link_item "$repo_root/dots/.local/share/applications/drracket.desktop" "$data_home/applications/drracket.desktop"
@@ -168,7 +167,7 @@ install_generated() {
   mv -- "$tmp" "$dest"
 }
 
-link_item "$repo_root/dots/.local/share/folis/assistant-select.py" "$data_home/folis/assistant-select.py"
+helper="$config_home/quickshell/ii/scripts/helper"
 service_menus="$data_home/kio/servicemenus"
 install_generated "$service_menus/velora-assistant.desktop" <<EOF
 [Desktop Entry]
@@ -180,7 +179,7 @@ X-KDE-ServiceTypes=KonqPopupMenu/Plugin
 Name=Ask Velora
 Name[ru]=Спросить Velora
 Icon=system-search
-Exec=/usr/bin/python3 "$data_home/folis/assistant-select.py" %F
+Exec="$helper" assistant-select %F
 EOF
 install_generated "$service_menus/folis-create-archive.desktop" <<EOF
 [Desktop Entry]
@@ -199,17 +198,16 @@ Actions=zip;tarGz;
 Name=ZIP archive
 Name[ru]=Архив ZIP
 Icon=archive-insert
-Exec=/usr/bin/python3 "$data_home/folis/dolphin-create-archive.py" zip %F
+Exec="$helper" create-archive zip %F
 
 [Desktop Action tarGz]
 Name=tar.gz archive
 Name[ru]=Архив tar.gz
 Icon=archive-insert
-Exec=/usr/bin/python3 "$data_home/folis/dolphin-create-archive.py" tar.gz %F
+Exec="$helper" create-archive tar.gz %F
 EOF
 
 # Toolbox: "Convert to" runs in the background and notifies; the rest opens the toolbox window
-helper="$config_home/quickshell/ii/scripts/helper"
 quick_convert_menu() { # file mime-types target:Name:Name[ru]...
   local file=$1 mimes=$2 actions="" entry key name name_ru body=""
   shift 2

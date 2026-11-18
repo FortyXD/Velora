@@ -13,6 +13,7 @@ SidebarCard {
     }
     NotesContent {
         id: notes
+        pageActive: root.host?.active ?? false
         color: "transparent"
     }
 }

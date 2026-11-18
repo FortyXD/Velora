@@ -57,11 +57,12 @@ curl_error_text() {
 
 # api_get <url>: prints the response body, fails with a readable message
 api_get() {
-    local host body rc
-    host=$(awk -F/ '{print $3}' <<< "$1")
-    body=$(curl --fail --silent --location --compressed \
+    local url=$1 host body rc
+    shift
+    host=$(awk -F/ '{print $3}' <<< "$url")
+    body=$(curl --disable --globoff --proto '=http,https' --proto-redir '=http,https' --fail --silent --location --compressed \
         --connect-timeout 8 --speed-limit 512 --speed-time 10 --max-time 30 \
-        --retry 2 --retry-all-errors -- "$1")
+        --retry 2 --retry-all-errors "$@" -- "$url")
     rc=$?
     [[ $rc -eq 0 ]] || fail "$(curl_error_text "$rc" "$host")"
     printf '%s' "$body"
@@ -73,9 +74,9 @@ fetch_image() {
     local url=$1 dest=$2 host tmp rc video=0 max_time=300
     host=$(awk -F/ '{print $3}' <<< "$url")
     case "${dest,,}" in *.mp4|*.webm|*.mkv|*.mov|*.avi) video=1; max_time=900 ;; esac
-    tmp=$(mktemp "${dest}.part.XXXXXX") || fail "Cannot write to $(dirname "$dest")."
+    tmp=$(mktemp -- "${dest}.part.XXXXXX") || fail "Cannot write to $(dirname "$dest")."
     # --speed-limit aborts a stalled transfer after 10 s instead of hanging forever
-    curl --fail --silent --location \
+    curl --disable --globoff --proto '=http,https' --proto-redir '=http,https' --fail --silent --location \
         --connect-timeout 8 --speed-limit 1024 --speed-time 10 --max-time "$max_time" \
         --retry 2 --retry-all-errors -o "$tmp" -- "$url"
     rc=$?
@@ -94,8 +95,7 @@ fetch_image() {
         rm -f -- "$tmp"
         fail "The file from $host is not a valid image."
     fi
-    chmod 644 -- "$tmp" # mktemp creates it private
-    mv -f -- "$tmp" "$dest"
+    mv -fT -- "$tmp" "$dest" || { rm -f -- "$tmp"; fail "Cannot save the download."; }
 }
 
 # Written into every made loop. Loops without it come from an older make_loop (at most 1440p) and are made again.
@@ -125,18 +125,18 @@ make_loop() {
         rm -f -- "$tmp"
         fail "Couldn't make the video loop."
     fi
-    chmod 644 -- "$tmp"
-    mv -f -- "$tmp" "$dest"
+    mv -fT -- "$tmp" "$dest" || { rm -f -- "$tmp"; fail "Cannot save the video loop."; }
 }
 
 # download_path <extension>: alternates names so the new file never overwrites the wallpaper in use
 download_path() {
-    local dir path current
+    local dir path current extension=${1%%[?#]*}
+    [[ $extension =~ ^[[:alnum:]]{1,8}$ ]] || extension=jpg
     dir="$(get_pictures_dir)/Wallpapers"
     mkdir -p -- "$dir"
-    path="$dir/random_wallpaper.$1"
+    path="$dir/random_wallpaper.$extension"
     current=$(jq -r '.background.wallpaperPath' "$SHELL_CONFIG_FILE" 2>/dev/null)
-    [[ "$path" == "$current" ]] && path="$dir/random_wallpaper-1.$1"
+    [[ "$path" == "$current" ]] && path="$dir/random_wallpaper-1.$extension"
     echo "$path"
 }
 

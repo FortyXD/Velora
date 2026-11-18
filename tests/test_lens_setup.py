@@ -11,6 +11,7 @@ import tempfile
 import time
 import unittest
 from unittest.mock import patch
+import native_helper
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("lens_setup", ROOT / "tools/velora-searchd/python/setup.py")
@@ -43,6 +44,18 @@ class LensSetupTests(unittest.TestCase):
         self.assertFalse(state["installed"])
         self.assertFalse(state["running"])
         self.assertFalse(state["models"])
+
+    def test_native_status_reads_existing_installer_records(self):
+        launcher = ROOT / "dots/.config/quickshell/ii/scripts/lens-service"
+        environment = dict(os.environ, VELORA_HELPER=native_helper.binary())
+        for record in ({}, dict(running=True, stage="models", pid=os.getpid(), identity="stale"),
+                       dict(running=True, stage="models", pid=os.getpid(), identity=setup.identity(os.getpid()),
+                            started_at=103, finished_at=127, steps_total=5, progress={"done": 456}),
+                       dict(running=False, stage="done", started_at=701, finished_at=730)):
+            with self.subTest(record=record):
+                setup.save_state(record)
+                result = subprocess.check_output([launcher, "setup-status"], env=environment)
+                self.assertEqual(json.loads(result), setup.status())
 
     def test_service_build_registration_and_completion(self):
         commands = []
@@ -129,7 +142,7 @@ class LensSetupTests(unittest.TestCase):
     def test_unwritable_setup_location_returns_a_visible_error(self):
         invalid = self.root / "not-a-directory"
         invalid.write_text("fixture")
-        result = subprocess.run(["/usr/bin/python3", str(ROOT / "tools/velora-searchd/python/setup.py"), "status"],
+        result = subprocess.run([native_helper.binary(), "lens-setup-status"],
                                 env={**os.environ, "XDG_STATE_HOME": str(invalid)}, capture_output=True, text=True)
         self.assertEqual(result.returncode, 1)
         self.assertEqual(json.loads(result.stdout)["stage"], "failed")

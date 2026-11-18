@@ -31,6 +31,8 @@ The following components carry their own notices:
 | Autumn wallpaper | Josef Bartoň (JoeyJazz) | Artist permission for Velora; **no commercial use of the artwork by third parties**. [Copyright notice](../dots/.config/quickshell/ii/assets/images/autumn.NOTICE.md) |
 | Komona Sunset wallpaper | David Revoy | CC BY 4.0; [asset notice](../dots/.config/quickshell/ii/assets/images/komona-sunset.NOTICE.md) and [license](CC-BY-4.0.txt) |
 | Mountain wallpaper (dark variant) | Andy Betts; KDE Plasma wallpapers | CC BY-SA 4.0; [asset notice](../dots/.config/quickshell/ii/assets/images/mountain-night.NOTICE.md) and [license](CC-BY-SA-4.0.txt) |
+| Offline translation engine | OpenNMT CTranslate2 and ct2rs | MIT. Versions are pinned in the translator's Cargo.lock. |
+| Translation tokenization and CPU kernels | Google SentencePiece, Ruy and oneDNN | Apache-2.0. Included by the native translator build. |
 
 The complete current wallpaper inventory and its distribution terms are recorded
 in [Wallpaper sources and distribution terms](wallpapers.md).

@@ -61,6 +61,7 @@ repo = [
     "bc",
     "cliphist",
     "cmake",
+    "jsoncpp", # Persistent native window/camera geometry
     "extra-cmake-modules",
     "kio", # Velora KFileWidget toolbar plugin
     "libarchive", # Quick Look archive listings (bsdtar)
@@ -105,7 +106,6 @@ repo = [
     "tesseract-data-rus",
     "wf-recorder",
     "clang",
-    "uv",
     "gtk4",
     "libadwaita",
     "libsoup3",

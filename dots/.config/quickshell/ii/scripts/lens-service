@@ -1,6 +1,10 @@
 #!/bin/sh
 case "${1:-}" in
-    setup-status|setup-start|setup-cancel)
+    setup-status)
+        shift
+        exec "${0%/*}/helper" lens-setup-status "$@"
+        ;;
+    setup-start|setup-cancel)
         action=${1#setup-}
         shift
         source=$(readlink -f -- "$0")

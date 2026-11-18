@@ -10,7 +10,7 @@ permitted**, including when it appears in a screenshot or recording.
 
 ## Re-recording
 
-Use a separate demo account or isolated desktop session with Velora's normal dependencies installed, including its Python environment and Qt application theming. Also install `grim`, `wf-recorder` and `ffmpeg`. The helper below records an existing session; it does not build an isolated session for you.
+Use a separate demo account or isolated desktop session with Velora's normal dependencies installed, including its native helpers and Qt application theming. Also install `grim`, `wf-recorder` and `ffmpeg`. The helper below records an existing session; it does not build an isolated session for you.
 
 When using custom XDG directories for an isolated session, also point every Matugen
 `input_path` and `output_path` at that session: the shipped `~` paths otherwise

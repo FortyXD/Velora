@@ -61,7 +61,7 @@ ApplicationWindow {
     Timer { id: reload; interval: 30; onTriggered: decoder.running = true }
     Process {
         id: decoder
-        command: ["python3", "-I", Quickshell.shellPath("scripts/quicklook.py"), "--directory", Quickshell.env("VELORA_PREVIEW_DIR"), "--page", String(root.page), "--request-id", String(root.requestId), "--", root.currentPath]
+        command: [Quickshell.shellPath("scripts/helper"), "quicklook", "--directory", Quickshell.env("VELORA_PREVIEW_DIR"), "--page", String(root.page), "--request-id", String(root.requestId), "--", root.currentPath]
         stdout: StdioCollector {
             onStreamFinished: {
                 if (!text.trim()) return;

@@ -1,6 +1,15 @@
 #!/bin/sh
 # Runs velora-helper wherever it's installed: the shell's PATH needn't include ~/.local/bin.
-VELORA_SHELL_DIR="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+case "$0" in
+    /*/scripts/helper)
+        if [ -L "$0" ]; then
+            resolved=$(readlink -f "$0") || exit 1
+            VELORA_SHELL_DIR=${resolved%/scripts/helper}
+        else
+            VELORA_SHELL_DIR=${0%/scripts/helper}
+        fi ;;
+    *) VELORA_SHELL_DIR=$(CDPATH= cd -P "$(dirname "$(readlink -f "$0")")/.." && pwd) || exit 1 ;;
+esac
 export VELORA_SHELL_DIR
 if [ -n "${VELORA_HELPER:-}" ]; then
     exec "$VELORA_HELPER" "$@"

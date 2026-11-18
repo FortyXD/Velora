@@ -3,7 +3,7 @@
 # (and costs nothing) while the Ollama server is stopped. `ollama list` would start it.
 # Output: one JSON array, e.g. [{"name":"qwen3.5:latest","size":6594474236}]
 
-# Match local-ollama.py and velora-agentd: one server reads one model store.
+# Match the local-ollama helper and velora-agentd: one server reads one model store.
 # Combining stores advertises models that the launched server cannot load.
 if [[ -n "${OLLAMA_MODELS:-}" ]]; then
     dirs=("$OLLAMA_MODELS/manifests")

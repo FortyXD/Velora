@@ -20,54 +20,54 @@ def center_crop(img, target_w, target_h):
     y2 = y1 + target_h
     return img[y1:y2, x1:x2]
 
-def find_least_busy_region(image_path, region_width=300, region_height=200, screen_width=None, screen_height=None, verbose=False, stride=2, screen_mode="fill", horizontal_padding=50, vertical_padding=50, busiest=False, slot=0, gap=120):
+def find_least_busy_region(image_path, region_width=300, region_height=200, screen_width=None, screen_height=None, verbose=False, stride=2, screen_mode="fill", horizontal_padding=50, vertical_padding=50, busiest=False, slot=0, gap=120, avoid_rects=()):
     img = cv2.cvtColor(load_wallpaper(image_path, screen_width, screen_height, screen_mode), cv2.COLOR_BGR2GRAY)
     h, w = img.shape
     stride = max(1, int(stride) if stride else 1)
-    # Adjust region size if it does not fit given padding
-    if horizontal_padding * 2 >= w or vertical_padding * 2 >= h:
-        # Reduce padding to fit at least a 1x1 region
-        horizontal_padding = max(0, min(horizontal_padding, (w - 1) // 2))
-        vertical_padding = max(0, min(vertical_padding, (h - 1) // 2))
-    max_region_w = w - 2 * horizontal_padding
-    max_region_h = h - 2 * vertical_padding
-    if max_region_w <= 0 or max_region_h <= 0:
-        raise ValueError("Image too small for the specified padding.")
-    if region_width > max_region_w:
-        if verbose:
-            print(f"Requested region_width {region_width} too large; clamping to {max_region_w}")
-        region_width = max_region_w
-    if region_height > max_region_h:
-        if verbose:
-            print(f"Requested region_height {region_height} too large; clamping to {max_region_h}")
-        region_height = max_region_h
+    # Preserve the widget's real size; reduce margins on compact screens.
+    region_width = max(1, min(region_width, w))
+    region_height = max(1, min(region_height, h))
+    horizontal_padding = max(0, min(horizontal_padding, (w - region_width) // 2))
+    vertical_padding = max(0, min(vertical_padding, (h - region_height) // 2))
     # Evaluate all windows in NumPy instead of running a Python loop for every pixel window.
     integral, integral_sq = cv2.integral2(img, sdepth=cv2.CV_64F, sqdepth=cv2.CV_64F)
-    xs = np.arange(horizontal_padding, w - region_width - horizontal_padding + 1, stride)
-    ys = np.arange(vertical_padding, h - region_height - vertical_padding + 1, stride)
+    # Include the far edges and positions touching neighbours, so a narrow but
+    # valid space isn't missed just because it falls between sampled pixels.
+    xs = np.unique(np.clip(np.r_[np.arange(horizontal_padding, w - region_width - horizontal_padding + 1, stride),
+                                w - region_width - horizontal_padding,
+                                [edge for x, y, rw, rh in avoid_rects for edge in (np.floor(x - region_width), np.ceil(x + rw))]],
+                           horizontal_padding, w - region_width - horizontal_padding)).astype(int)
+    ys = np.unique(np.clip(np.r_[np.arange(vertical_padding, h - region_height - vertical_padding + 1, stride),
+                                h - region_height - vertical_padding,
+                                [edge for x, y, rw, rh in avoid_rects for edge in (np.floor(y - region_height), np.ceil(y + rh))]],
+                           vertical_padding, h - region_height - vertical_padding)).astype(int)
     xx, yy = np.meshgrid(xs, ys)
     x2, y2 = xx + region_width, yy + region_height
     area = region_width * region_height
     sums = integral[y2, x2] - integral[yy, x2] - integral[y2, xx] + integral[yy, xx]
     squares = integral_sq[y2, x2] - integral_sq[yy, x2] - integral_sq[y2, xx] + integral_sq[yy, xx]
     variances = np.maximum(0, squares / area - (sums / area) ** 2)
-    candidates = list(zip(variances.ravel().tolist(), xx.ravel().tolist(), yy.ravel().tolist()))
-    if not candidates:
-        return (horizontal_padding, vertical_padding), None
-    # Stable order, so every widget sees the same sequence of spots
-    candidates.sort(key=lambda c: (-c[0] if busiest else c[0], c[2], c[1]))
-    # Slot N is the best spot that keeps a gap from slots 0..N-1, so several widgets don't stack up
-    taken = []
-    best = candidates[0]
-    for _ in range(slot + 1):
-        found = next((c for c in candidates if not any(
-            c[1] < tx2 and c[1] + region_width > tx1 and c[2] < ty2 and c[2] + region_height > ty1
-            for tx1, ty1, tx2, ty2 in taken)), None)
-        if found is None:
-            break  # No room left: share the last spot
-        best = found
-        taken.append((best[1] - gap, best[2] - gap, best[1] + region_width + gap, best[2] + region_height + gap))
-    return (best[1], best[2]), best[0]
+    scores = -variances if busiest else variances
+    taken = list(avoid_rects)
+    for _ in range(max(0, slot) + 1):
+        for clearance in (max(0, gap), 0):
+            overlap = np.zeros_like(variances)
+            for x, y, rw, rh in taken:
+                overlap += (np.maximum(0, np.minimum(x2, x + rw + clearance) - np.maximum(xx, x - clearance))
+                            * np.maximum(0, np.minimum(y2, y + rh + clearance) - np.maximum(yy, y - clearance)))
+            if np.any(overlap == 0):
+                break
+        else:
+            if horizontal_padding or vertical_padding:
+                # Prefer using the screen margins over covering another widget.
+                return find_least_busy_region(image_path, region_width, region_height, screen_width, screen_height,
+                                              verbose, stride, screen_mode, 0, 0, busiest, gap=gap, avoid_rects=taken)
+        # If the screen is genuinely full, minimize overlap. Otherwise rank only
+        # unoccupied windows. argmin preserves the deterministic y/x tie-break.
+        index = np.argmin(np.where(overlap == overlap.min(), scores, np.inf))
+        best_x, best_y = int(xx.flat[index]), int(yy.flat[index])
+        taken.append((best_x, best_y, region_width, region_height))
+    return (best_x, best_y), float(variances.flat[index])
 
 def find_largest_region(image_path, screen_width=None, screen_height=None, verbose=False, stride=2, screen_mode="fill", threshold=100.0, aspect_ratio=1.0, horizontal_padding=50, vertical_padding=50):
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
@@ -269,6 +269,7 @@ def main():
     parser.add_argument("--busiest", action="store_true", help="Find the busiest region instead of the least busy")
     parser.add_argument("--slot", type=int, default=0, help="Take the Nth best region that keeps clear of the regions before it")
     parser.add_argument("--gap", type=int, default=120, help="Space kept between the regions of different slots")
+    parser.add_argument("--avoid-rects", type=json.loads, default=[], help="Occupied widget rectangles as JSON [[x,y,width,height],...]")
     parser.add_argument("--sample-x", type=int, help="Sample a widget at its existing position instead of searching")
     parser.add_argument("--sample-y", type=int, default=0)
     args = parser.parse_args()
@@ -330,7 +331,8 @@ def main():
         vertical_padding=args.vertical_padding,
         busiest=args.busiest,
         slot=max(0, args.slot),
-        gap=args.gap
+        gap=args.gap,
+        avoid_rects=args.avoid_rects
     )
     if args.visual_output:
         draw_region(args.image_path, coords, region_width=args.width, region_height=args.height, screen_width=args.screen_width, screen_height=args.screen_height, screen_mode=args.screen_mode)

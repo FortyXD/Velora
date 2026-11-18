@@ -6,9 +6,8 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 url=$1
 [[ -n "$url" ]] || fail "No image URL given."
+name=$("$(dirname "${BASH_SOURCE[0]}")/../../helper" wallpaper-filename "$url") || fail "Invalid wallpaper URL."
 host=$(awk -F/ '{print $3}' <<< "$url")
-name=$(basename "${url%%\?*}")
-name=$(printf '%b' "${name//%/\\x}") # URL-decode
 dir="$(get_pictures_dir)/Wallpapers"
 mkdir -p -- "$dir"
 
