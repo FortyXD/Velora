@@ -22,11 +22,13 @@ FocusedScrollMouseArea {
     property var actions: ({})
     property bool vertical: false
     property int tier: 0
+    property var editGuide
+    readonly property alias emptySlot: emptyGap
     property bool editing: false
     property real fixedLength: -1 // Set when the center is balanced
     property real outerPadding: 0 // Toward the screen edge
     property real innerPadding: 0 // Toward the center
-    property real spacing: 4
+    property real spacing: vertical ? 8 : 4
     // Where items gather when none of them takes the free space: start, end or center
     property string align: "start"
     property string outerSide: "" // Screen edge of an outer zone: "left", "right", "top" or "bottom"
@@ -148,21 +150,10 @@ FocusedScrollMouseArea {
         }
     }
 
-    Rectangle { // Drop target for an empty zone while editing
-        visible: root.editing && !root.hasContent
-        anchors.centerIn: parent
-        width: 28
-        height: 28
-        radius: 14
-        color: "transparent"
-        border.width: 1
-        border.color: Appearance.colors.colOutline
-        MaterialSymbol {
-            anchors.centerIn: parent
-            text: "add"
-            iconSize: 16
-            color: Appearance.colors.colSubtext
-        }
+    BarInsertionSlot {
+        id: emptyGap
+        guide: root.editGuide
+        vertical: root.vertical
     }
 
     GridLayout {
@@ -199,6 +190,7 @@ FocusedScrollMouseArea {
                 vertical: root.vertical
                 tier: root.tier
                 zoneHovered: root.hovered
+                editGuide: root.editGuide
                 editing: root.editing
                 Layout.fillWidth: root.vertical || fills
                 Layout.fillHeight: root.vertical && fills

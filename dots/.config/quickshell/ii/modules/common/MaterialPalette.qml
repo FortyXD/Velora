@@ -5,6 +5,30 @@ QtObject {
     id: palette
     default property list<QtObject> animations
     property int transitionDuration: 0
+    property var roleOverrides: ({})
+    property var generatedRoles: ({
+        primary: "#cbc4cb", secondary: "#cac5c8", tertiary: "#d1c3c6",
+        on_primary: "#322f34", on_secondary: "#323032", on_tertiary: "#372e30",
+        surface_container: "#201f20", on_surface: "#e6e1e1"
+    })
+    function roleColor(role) {
+        const custom = roleOverrides?.[role];
+        return /^#[0-9a-f]{6}$/i.test(custom) ? custom : generatedRoles[role];
+    }
+    function luminance(value) {
+        const c = Qt.color(value);
+        const linear = v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        return 0.2126 * linear(c.r) + 0.7152 * linear(c.g) + 0.0722 * linear(c.b);
+    }
+    function contrastingInk(background, preferred) {
+        const bg = luminance(background), fg = luminance(preferred);
+        if ((Math.max(bg, fg) + 0.05) / (Math.min(bg, fg) + 0.05) >= 4.5) return preferred;
+        return bg > 0.179 ? "#000000" : "#ffffff";
+    }
+    function accentInk(role) {
+        const ink = generatedRoles["on_" + role];
+        return /^#[0-9a-f]{6}$/i.test(roleOverrides?.[role]) ? contrastingInk(roleOverrides[role], ink) : ink;
+    }
     component ColorTransition: Behavior {
         ColorAnimation {
             duration: palette.transitionDuration
@@ -20,10 +44,10 @@ QtObject {
     property color m3surfaceBright: "#3a3939"
     property color m3surfaceContainerLowest: "#0f0e0e"
     property color m3surfaceContainerLow: "#1c1b1c"
-    property color m3surfaceContainer: "#201f20"
+    property color m3surfaceContainer: roleColor("surface_container")
     property color m3surfaceContainerHigh: "#2b2a2a"
     property color m3surfaceContainerHighest: "#363435"
-    property color m3onSurface: "#e6e1e1"
+    property color m3onSurface: roleColor("on_surface")
     property color m3surfaceVariant: "#49464a"
     property color m3onSurfaceVariant: "#cbc5ca"
     property color m3inverseSurface: "#e6e1e1"
@@ -33,17 +57,17 @@ QtObject {
     property color m3shadow: "#000000"
     property color m3scrim: "#000000"
     property color m3surfaceTint: "#cbc4cb"
-    property color m3primary: "#cbc4cb"
-    property color m3onPrimary: "#322f34"
+    property color m3primary: roleColor("primary")
+    property color m3onPrimary: accentInk("primary")
     property color m3primaryContainer: "#2d2a2f"
     property color m3onPrimaryContainer: "#bcb6bc"
     property color m3inversePrimary: "#615d63"
-    property color m3secondary: "#cac5c8"
-    property color m3onSecondary: "#323032"
+    property color m3secondary: roleColor("secondary")
+    property color m3onSecondary: accentInk("secondary")
     property color m3secondaryContainer: "#4d4b4d"
     property color m3onSecondaryContainer: "#ece6e9"
-    property color m3tertiary: "#d1c3c6"
-    property color m3onTertiary: "#372e30"
+    property color m3tertiary: roleColor("tertiary")
+    property color m3onTertiary: accentInk("tertiary")
     property color m3tertiaryContainer: "#31292b"
     property color m3onTertiaryContainer: "#c1b4b7"
     property color m3error: "#ffb4ab"

@@ -15,22 +15,19 @@ PopupWindow {
     ///////////////////// Properties ////////////////////
     required property bool tasksHovered
     property var appEntry
-    property var requestedEntry
     property Item anchorItem
-    property Item requestedAnchor
     property bool opened: false
+    onAnchorItemChanged: if (!anchorItem && appEntry) close()
 
     WindowPreviewPool {
         id: previewPool
-        active: root.opened && !GlobalStates.screenLocked
-        current: root.requestedEntry?.toplevels ?? []
-        onDisplayedChanged: root.presentReady()
+        active: !!root.appEntry
+        current: root.appEntry?.toplevels ?? []
     }
 
-    function presentReady() {
-        if (!previewPool.displayed.length || !previewPool.current.every(window => previewPool.displayed.includes(window))) return;
-        root.appEntry = root.requestedEntry;
-        root.anchorItem = root.requestedAnchor;
+    function prepare(appEntry, button) {
+        root.appEntry = appEntry;
+        root.anchorItem = button;
         root.anchor.updateAnchor();
     }
 
@@ -38,6 +35,7 @@ PopupWindow {
     function close() { // Closing doesn't animate, not sure if they're just lazy or it's intentional
         marginBehavior.enabled = false;
         root.opened = false;
+        root.appEntry = null;
     }
 
     function open() {
@@ -46,10 +44,8 @@ PopupWindow {
     }
 
     function show(appEntry: var, button: Item) {
-        root.requestedAnchor = button;
-        root.requestedEntry = appEntry;
+        root.prepare(appEntry, button);
         root.open();
-        root.presentReady();
     }
 
     ///////////////////// Internals /////////////////////
@@ -57,7 +53,7 @@ PopupWindow {
     property real visualMargin: 12
     property real ambientShadowWidth: 1
 
-    visible: root.opened && previewPool.displayed.length > 0 && !GlobalStates.screenLocked
+    visible: root.opened && previewPool.windows.length > 0
     color: "transparent"
     implicitWidth: contentItem.implicitWidth + ambientShadowWidth + (visualMargin * 2)
     implicitHeight: contentItem.implicitHeight + ambientShadowWidth + (visualMargin * 2)
@@ -134,11 +130,10 @@ PopupWindow {
                     }
                     delegate: WindowPreview {
                         required property var modelData
-                        visible: previewPool.displayed.includes(modelData)
                         toplevel: modelData
-                        preparing: root.opened && previewPool.current.includes(modelData)
-                        onReadyChanged: previewPool.setReady(modelData, ready)
-                        Component.onCompleted: previewPool.setReady(modelData, ready)
+                        preparing: true
+                        previewWidthConstraint: Math.min(200, Math.max(1, Math.floor(((root.anchor.window?.screen?.width ?? 1280)
+                            - root.visualMargin * 2) / Math.max(1, previewPool.windows.length)) - 30))
                     }
                 }
             }

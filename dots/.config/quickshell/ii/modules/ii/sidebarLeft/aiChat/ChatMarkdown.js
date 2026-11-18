@@ -61,6 +61,6 @@ function parse(value) {
 
 function safeMarkdown(text) {
     // Model images are links; only our own math renderer inserts inline images.
-    return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, "[$1]($2)")
-        .replace(/<\/?(?:img|iframe|object|video|audio)\b[^>]*>/gi, "");
+    return text.replace(/!+(?=\[)/g, "")
+        .replace(/<(?!https?:\/\/|\/?(?:b|strong|i|em|u|s|sub|sup|code|br)\s*\/?>)(?=[a-z/!?])/gi, "&lt;");
 }

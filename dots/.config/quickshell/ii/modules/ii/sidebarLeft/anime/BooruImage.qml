@@ -28,6 +28,7 @@ Button {
     property bool showActions: false
 
     function openExternally(url) {
+        if (!StringUtils.parseWebUrl(url)) return;
         Hyprland.dispatch("keyword cursor:no_warps true")
         Qt.openUrlExternally(url)
         Hyprland.dispatch("keyword cursor:no_warps false")
@@ -75,7 +76,7 @@ Button {
             width: root.rowHeight * modelData.aspect_ratio
             height: root.rowHeight
             fillMode: Image.PreserveAspectFit
-            source: root.manualDownload ? "" : modelData.preview_url // Manual: set once curl has cached it
+            source: root.manualDownload ? "" : (StringUtils.parseWebUrl(modelData.preview_url)?.href ?? "")
 
             layer.enabled: true
             layer.effect: OpacityMask {
@@ -197,13 +198,18 @@ Button {
                             buttonText: Translation.tr("Download")
                             onClicked: {
                                 root.showActions = false;
-                                const targetDir = StringUtils.shellSingleQuoteEscape(FileUtils.trimFileProtocol(root.imageData.is_nsfw ? root.nsfwPath : root.downloadPath));
-                                const target = `${targetDir}/${StringUtils.shellSingleQuoteEscape(root.fileName)}`;
-                                const url = StringUtils.shellSingleQuoteEscape(root.imageData.file_url);
+                                const url = StringUtils.parseWebUrl(root.imageData.file_url);
+                                if (!url) return;
+                                const targetDir = FileUtils.trimFileProtocol(root.imageData.is_nsfw ? root.nsfwPath : root.downloadPath);
                                 Quickshell.execDetached(["bash", "-c",
-                                    `mkdir -p '${targetDir}' && curl -sSL --fail --connect-timeout 8 --speed-limit 1024 --speed-time 10 --retry 2 '${url}' -o '${target}.part' `
-                                    + `&& mv -f '${target}.part' '${target}' && notify-send -a 'Shell' '${Translation.tr("Download complete")}' '${target}' `
-                                    + `|| { rm -f '${target}.part'; notify-send -a 'Shell' -u critical '${Translation.tr("Download failed")}' '${url}'; }`
+                                    'umask 077; if mkdir -p -- "$1" && tmp=$(mktemp -- "$2.part.XXXXXX"); then '
+                                    + 'trap \'rm -f -- "$tmp"\' EXIT; '
+                                    + 'if curl --disable --globoff --proto "=http,https" --proto-redir "=http,https" -sSL --fail '
+                                    + '--connect-timeout 8 --speed-limit 1024 --speed-time 10 --max-time 300 --retry 2 -o "$tmp" -- "$3" '
+                                    + '&& mv -fT -- "$tmp" "$2"; then notify-send -a Shell -- "$4" "$2"; exit; fi; fi; '
+                                    + 'notify-send -a Shell -u critical -- "$5" "$2"',
+                                    "download-image", targetDir, targetDir + "/" + root.fileName, url.href,
+                                    Translation.tr("Download complete"), Translation.tr("Download failed")
                                 ])
                             }
                         }

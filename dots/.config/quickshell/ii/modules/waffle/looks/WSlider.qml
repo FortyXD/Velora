@@ -4,11 +4,16 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell.Widgets
 import qs.modules.common
+import qs.services
 import qs.modules.common.widgets
 
 Slider {
     id: root
 
+    property real defaultValue: NaN
+    property string defaultValueText: from === 0 && to === 1 ? Math.round(defaultValue * 100) + "%" : String(defaultValue)
+    property string defaultHint: Translation.tr("Default: %1").arg(defaultValueText)
+    Accessible.description: reference.valid ? defaultHint : ""
     property real trackWidth: 4
     property string tooltipContent: `${Math.round(value * 100)}`
     property bool scrollable: false
@@ -67,6 +72,16 @@ Slider {
             implicitHeight: root.trackWidth
             width: background.width * (1 - root.visualPosition)
         }
+        SliderReference {
+            id: reference
+            control: root
+            value: root.defaultValue
+            leftInset: handle.diameter / 2
+            rightInset: leftInset
+            height: root.trackWidth + 8
+            ink: Looks.colors.fg1
+            outline: Looks.colors.controlBg
+        }
     }
 
     handle: Circle {
@@ -95,8 +110,9 @@ Slider {
 
         WToolTip {
             id: tooltip
-            extraVisibleCondition: root.pressed
-            text: root.tooltipContent
+            parent: root.pressed ? handle : reference
+            extraVisibleCondition: root.pressed || reference.hovered
+            text: !root.pressed ? root.defaultHint : reference.valid ? root.tooltipContent + "  ·  " + root.defaultHint : root.tooltipContent
             font.pixelSize: Looks.font.pixelSize.larger
             verticalPadding: 3
             horizontalPadding: 8

@@ -61,7 +61,7 @@ class RecordingSettingsLinkTests(unittest.TestCase):
                 'pragma Singleton\nimport Quickshell\nSingleton { property var options: ({screenRecord:{savePath:""}}) }')
             backend = root / 'record.sh'
             backend.write_text('#!/bin/sh\nprintf "%s\\n" "$1" >> ' + json.dumps(str(root / 'backend-calls'))
-                               + '\necho \'{"state":"recording","startedAt":1}\'\n')
+                               + '\necho \'{"state":"recording","startedAt":1}\'\nexec sleep 10\n')
             backend.chmod(0o755)
             (root / 'modules/common/Directories.qml').write_text(
                 'pragma Singleton\nimport Quickshell\nSingleton { property string recordScriptPath: '
@@ -93,7 +93,7 @@ Scope {
 }''', {'PATH': str(root / 'bin') + os.pathsep + os.environ['PATH'], 'QS_SETTINGS_SEARCH': 'inherited search'})
             launch = json.loads((root / 'launch.json').read_text())
             self.assertEqual(launch, dict(args=['-p', str(root / 'settings.qml')], page='tools', section='screen-recording', search=''))
-            self.assertTrue(all(line == 'status' for line in (root / 'backend-calls').read_text().splitlines()))
+            self.assertEqual((root / 'backend-calls').read_text().splitlines(), ['watch'])
 
     @unittest.skipUnless(QS, 'Quickshell runtime is not installed')
     def test_section_reveal_waits_for_page_and_ignores_translation(self):
@@ -109,6 +109,10 @@ Scope {
     id: root
     property bool loaded: false
     property int current: -1
+    readonly property int currentPage: current
+    readonly property var currentPageItem: loaded ? page : null
+    property bool searching: false
+    onLoadedChanged: if (loaded) revealTimer.restart()
     property int reveals: 0
     property var revealedItem: null
     property string failure: ""

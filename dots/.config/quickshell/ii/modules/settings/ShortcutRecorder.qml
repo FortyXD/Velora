@@ -16,10 +16,12 @@ RippleButton {
     property string key: ""
     property bool turnedOff: false
     property bool allowTurnOff: true
+    property bool mouseOnly: false
     property string emptyText: Translation.tr("Record")
     property string hint: ""
     readonly property bool recording: HyprlandKeybinds.activeRecorder === root
     property var heldMods: []
+    property var tapMods: []
 
     signal recorded(var mods, string key)
     signal turnOffRequested()
@@ -29,6 +31,7 @@ RippleButton {
         HyprlandKeybinds.activeRecorder = root;
         HyprlandKeybinds.startCapture();
         root.heldMods = [];
+        root.tapMods = [];
         root.hint = "";
         root.forceActiveFocus();
         idleTimer.restart();
@@ -68,8 +71,10 @@ RippleButton {
             const own = root.modOfKey(event.key);
             if (own && !mods.includes(own)) mods.push(own);
             root.heldMods = KeyUtils.sortMods(mods);
+            root.tapMods = root.heldMods;
             return;
         }
+        root.tapMods = [];
         if (mods.length === 0 && key === "Escape") {
             root.stop();
             return;
@@ -77,6 +82,10 @@ RippleButton {
         if (mods.length === 0 && key === "BackSpace" && root.allowTurnOff) {
             root.stop();
             root.turnOffRequested();
+            return;
+        }
+        if (root.mouseOnly) {
+            root.hint = Translation.tr("Hold modifiers and click a mouse button here");
             return;
         }
         if (!KeyUtils.worksAlone(key) && (mods.length === 0 || (mods.length === 1 && mods[0] === "Shift"))) {
@@ -91,7 +100,40 @@ RippleButton {
         if (!root.recording) return;
         event.accepted = true;
         const own = root.modOfKey(event.key);
+        if (own && root.tapMods.length > 0 && !root.mouseOnly) {
+            const chord = KeyUtils.sortMods(root.tapMods);
+            const key = chord.pop();
+            root.stop();
+            root.recorded(chord, key);
+            return;
+        }
         root.heldMods = KeyUtils.sortMods(KeyUtils.modsFromEvent(event.modifiers).filter(mod => mod !== own));
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        enabled: root.recording
+        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton | Qt.BackButton | Qt.ForwardButton
+        onPressed: event => {
+            const keys = { [Qt.LeftButton]: "mouse:272", [Qt.RightButton]: "mouse:273", [Qt.MiddleButton]: "mouse:274",
+                [Qt.BackButton]: "mouse:275", [Qt.ForwardButton]: "mouse:276" };
+            const mods = KeyUtils.modsFromEvent(event.modifiers);
+            root.tapMods = [];
+            if (mods.length === 0) {
+                root.hint = Translation.tr("Hold modifiers and click a mouse button here");
+                return;
+            }
+            root.stop();
+            root.recorded(mods, keys[event.button]);
+        }
+        onWheel: event => {
+            event.accepted = true;
+            const mods = KeyUtils.modsFromEvent(event.modifiers);
+            root.tapMods = [];
+            if (root.mouseOnly || mods.length === 0 || event.angleDelta.y === 0) return;
+            root.stop();
+            root.recorded(mods, event.angleDelta.y > 0 ? "mouse_down" : "mouse_up");
+        }
     }
 
     Timer { // Hyprland gives the keybinds back after 15 s anyway
@@ -139,7 +181,8 @@ RippleButton {
 
         RowLayout {
             id: content
-            anchors.centerIn: parent
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
             spacing: 6
 
             KeyCombo { // Current shortcut, or the modifiers held while recording

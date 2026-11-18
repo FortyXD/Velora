@@ -85,7 +85,7 @@ Singleton {
         case "session": GlobalStates.sessionOpen = !GlobalStates.sessionOpen; break;
         case "lock": Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "lock", "activate"]); break;
         case "screenshot": Hyprland.dispatch(`hl.dsp.global("quickshell:regionScreenshot")`); break;
-        case "doNotDisturb": Notifications.silent = !Notifications.silent; break;
+        case "doNotDisturb": Notifications.toggleSilent(); break;
         case "powerSaving": PowerSaving.toggle(); break;
         case "nightLight": Hyprsunset.toggleTemperature(); break;
         case "mediaPlayPause": MprisController.activePlayer?.togglePlaying(); break;

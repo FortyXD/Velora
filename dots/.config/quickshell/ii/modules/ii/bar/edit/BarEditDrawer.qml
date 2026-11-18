@@ -29,15 +29,48 @@ Rectangle {
 
     function usable(type) {
         const meta = BarWidgetCatalog.get(type);
-        if (root.vertical && !meta.vertical) return false;
-        if (meta.unique && BarLayout.zoneNames.some(zone => root.layout.zones[zone].some(item => item.type === type))) return false;
-        return true;
+        return !root.vertical || meta.vertical;
+    }
+
+    function placedOfType(type) {
+        for (const zone of BarLayout.zoneNames) {
+            const item = root.layout.zones[zone].find(item => item.type === type);
+            if (item) return {zone: zone, item: item};
+        }
+        return null;
+    }
+
+    function catalogTypes(category) {
+        return Object.keys(BarWidgetCatalog.widgets)
+            .filter(type => BarWidgetCatalog.get(type).category === category && root.usable(type))
+            .sort((a, b) => Number(!!root.placedOfType(b)) - Number(!!root.placedOfType(a))
+                || BarWidgetCatalog.get(a).name.localeCompare(BarWidgetCatalog.get(b).name));
     }
 
     function addWidget(type) {
-        const zone = root.selected?.zone ?? "end";
-        const index = root.selected ? root.selected.index + 1 : -1;
+        const existing = root.placedOfType(type);
+        if (existing) {
+            GlobalStates.barEditSelection = existing.item.uid;
+            return;
+        }
+        const zone = root.view.pickedInsertion?.zone ?? root.selected?.zone ?? "end";
+        const index = root.view.pickedInsertion?.index ?? (root.selected ? root.selected.index + 1 : -1);
         GlobalStates.barEditSelection = BarLayout.insert(root.orientation, type, zone, index);
+    }
+
+    function dragWidget(type, sceneX, sceneY, offsetX, offsetY) {
+        const existing = BarWidgetCatalog.get(type)?.unique ? root.placedOfType(type) : null;
+        if (existing) {
+            for (const zone of root.view.zoneItems) {
+                const host = zone.orderedHosts().find(host => host.uid === existing.item.uid);
+                if (host) {
+                    root.controller.start({mode: "move", uid: host.uid, type: type, host: host, offsetX: offsetX, offsetY: offsetY}, sceneX, sceneY);
+                    return;
+                }
+            }
+            return;
+        }
+        root.controller.start({mode: "add", type: type, offsetX: offsetX, offsetY: offsetY}, sceneX, sceneY);
     }
 
     implicitHeight: header.implicitHeight + 12 + root.horizontalBodyHeight + 28
@@ -245,8 +278,7 @@ Rectangle {
                 StyledText {
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
-                    text: root.selected ? Translation.tr("Add widgets after “%1”, or drag one onto the bar").arg(BarWidgetCatalog.get(root.selected.item.type)?.name ?? "")
-                        : Translation.tr("Add widgets: click to put one at the end, or drag it onto the bar")
+                    text: Translation.tr("Highlighted widgets are already on the bar. Click to configure; drag to add another.")
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     color: Appearance.colors.colSubtext
                 }
@@ -268,7 +300,7 @@ Rectangle {
                             delegate: ColumnLayout {
                                 id: category
                                 required property var modelData
-                                readonly property var types: Object.keys(BarWidgetCatalog.widgets).filter(type => BarWidgetCatalog.get(type).category === category.modelData.id && root.usable(type))
+                                readonly property var types: root.catalogTypes(category.modelData.id)
                                 visible: category.types.length > 0
                                 Layout.fillWidth: true
                                 spacing: 4
@@ -290,11 +322,10 @@ Rectangle {
                                             compact: true
                                             label: meta.name
                                             icon: meta.icon
-                                            pill: !!meta.defaults?.pill
+                                            present: !!root.placedOfType(modelData)
+                                            pill: present
                                             onClicked: root.addWidget(modelData)
-                                            onDragStarted: (sceneX, sceneY, offsetX, offsetY) => root.controller.start({
-                                                "mode": "add", "type": modelData, "offsetX": offsetX, "offsetY": offsetY
-                                            }, sceneX, sceneY)
+                                            onDragStarted: (sceneX, sceneY, offsetX, offsetY) => root.dragWidget(modelData, sceneX, sceneY, offsetX, offsetY)
                                             onDragMoved: (sceneX, sceneY) => root.controller.update(sceneX, sceneY)
                                             onDragEnded: (sceneX, sceneY) => {
                                                 if (sceneX < 0) root.controller.cancel();

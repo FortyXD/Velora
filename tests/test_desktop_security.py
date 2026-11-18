@@ -1,12 +1,16 @@
 """Exercise untrusted desktop content with Qt and executable fakes, without a desktop or network."""
 import json
+from io import BytesIO, StringIO
 import os
 from pathlib import Path
+from native_helper import binary as native_binary
 import re
 import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
+import runpy
 
 PROJECT = Path(__file__).resolve().parents[1]
 SHELL = PROJECT / 'dots/.config/quickshell/ii'
@@ -87,6 +91,121 @@ sys.exit(int(os.environ.get('CURL_EXIT','0')))
 ''')
         curl.chmod(0o755)
         return {**os.environ, 'PATH': str(binary) + ':/usr/bin', 'CALLS': str(self.root / 'calls.json')}
+
+    def test_web_image_cache_tracks_the_current_request_and_uses_private_files(self):
+        (self.root / 'CachedWebImage.qml').write_text(production('modules/common/utils/CachedWebImage.qml'))
+        self.qml('''
+            CachedWebImage { id: cache; cacheDirectory: "/cache"; sourceUrl: "" }
+            function test_lifecycle() {
+                compare(cache.count, 0);
+                cache.sourceUrl = "https://example.invalid/My%20Album.jpg";
+                tryCompare(cache, "count", 1);
+                const first = cache.object;
+                compare(first.filePath, "/cache/" + Qt.md5(cache.sourceUrl));
+                compare(first.command[5], cache.sourceUrl);
+                compare(first.command[7], "=http,https");
+                first.exited(0, 0);
+                verify(cache.fileUrl.toString().endsWith(first.filePath));
+                cache.sourceUrl = "https://example.invalid/second.jpg";
+                verify(cache.object !== first);
+                cache.object.exited(22, 0);
+                compare(cache.fileUrl.toString(), "");
+                cache.sourceUrl = "file:///photos/cover.jpg";
+                compare(cache.count, 0);
+            }
+        ''')
+        destination = self.root / "Charlie's pictures" / 'cover'
+        url = "https://example.invalid/Charlie's%20cover.jpg"
+        env = self.fake_curl()
+        subprocess.run(self.download_command(url, destination), env=env, capture_output=True, check=True)
+        args = json.loads((self.root / 'calls.json').read_text())
+        self.assertEqual(args[-2:], ['--', url])
+        self.assertEqual(args[args.index('--proto-redir') + 1], '=http,https')
+        self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
+
+    def test_notification_markup_keeps_formatting_links_and_image_descriptions(self):
+        (self.root / 'NotificationUtils.qml').write_text('import QtQuick\n' + production('modules/common/functions/NotificationUtils.qml'))
+        with (self.root / 'qmldir').open('a') as f:
+            f.write('\nsingleton NotificationUtils 1.0 NotificationUtils.qml\n')
+        self.qml(r'''
+            function test_body() {
+                const body = '<strong>A &amp; B</strong>\nRead <a href="https://example.org/a?q=1&amp;b=2">here</a>.';
+                compare(NotificationUtils.processNotificationBody(body, "Chat"),
+                        '<b>A &amp; B</b><br/>Read <a href="https://example.org/a?q=1&amp;b=2">here</a>.');
+                const note = '<img alt="Cover" src="https://example.invalid/photo.jpg"/> <a href="file:///notes.txt">Notes</a>';
+                const formatted = NotificationUtils.processNotificationBody(note, "Chat");
+                compare(formatted, "Cover Notes");
+                compare(NotificationUtils.decodeEntities("A &amp; B"), "A & B");
+                compare(NotificationUtils.localImage("https://example.invalid/photo.jpg"), "");
+                compare(NotificationUtils.localImage("image://qsimage/123"), "image://qsimage/123");
+                compare(NotificationUtils.localImage("/Pictures/cover.png"), "/Pictures/cover.png");
+            }
+        ''')
+
+    def test_bar_layout_reviews_and_keeps_only_string_commands(self):
+        (self.root / 'BarLayout.qml').write_text(production('services/BarLayout.qml'))
+        (self.root / 'BarLayoutDefaults.qml').write_text(
+            'pragma Singleton\nimport QtQuick\nQtObject { readonly property var zoneNames: ["center"]; '
+            'readonly property var horizontal: ({zones:{}}); readonly property var vertical: horizontal }')
+        (self.root / 'Config.qml').write_text('pragma Singleton\nimport QtQuick\nQtObject { property var options: ({bar:{}}) }')
+        with (self.root / 'qmldir').open('a') as file:
+            for name in ('BarLayout', 'BarLayoutDefaults'):
+                file.write(f'\nsingleton {name} 1.0 {name}.qml\n')
+        self.qml('''
+            function test_commands() {
+                const layout = {zones:{center:[{type:"customCommand",options:{command:["clock"],clickCommand:"date",interval:5}}]}};
+                const parsed = BarLayout.parse(JSON.stringify(layout));
+                compare(parsed.commands, ["date"]);
+                const options = parsed.layout.zones.center[0].options;
+                verify(!("command" in options));
+                compare(options.clickCommand, "date");
+                compare(options.interval, 5);
+                compare(BarLayout.commandsIn({zones:{center:{}}}), []);
+            }
+        ''')
+
+    def test_screen_requests_wait_for_credentials_and_write_content_to_stdin(self):
+        for name in ('GCloudApi', 'GCloudTranslate', 'GCloudVision'):
+            source = production(f'modules/common/models/gCloud/{name}.qml').replace('import ".."', '')
+            (self.root / f'{name}.qml').write_text('import QtQuick\n' + source)
+        (self.root / 'NestableObject.qml').write_text(production('modules/common/models/NestableObject.qml'))
+        stubs = {
+            'Quickshell': 'function shellPath(name) { return "/shell/" + name }',
+            'GoogleCloud': 'property bool tokenReady; property bool keyError; property bool tokenError; '
+                           'property string token:"fixture-token"; property string projectId:"sample-project"; function load() {}',
+            'Translation': 'property string languageCode:"ru"; function tr(s) { return s }',
+        }
+        for name, content in stubs.items():
+            (self.root / f'{name}.qml').write_text(f'pragma Singleton\nimport QtQuick\nQtObject {{ {content} }}')
+            with (self.root / 'qmldir').open('a') as f:
+                f.write(f'\nsingleton {name} 1.0 {name}.qml\n')
+        self.qml('''
+            GCloudVision { id: vision }
+            GCloudTranslate { id: translate }
+            function test_requests() {
+                vision.annotateImage("file:///pictures/first.png");
+                vision.annotateImage("file:///pictures/my screenshot.png");
+                compare(Probe.jobs.length, 0);
+                GoogleCloud.tokenReady = true;
+                compare(Probe.jobs.length, 1);
+                const job = vision.activeJob;
+                compare(job.command, ["/shell/scripts/helper", "cloud-screen"]);
+                job.started();
+                compare(JSON.parse(job.writes[0]).path, "/pictures/my screenshot.png");
+                compare(JSON.parse(job.writes[0]).token, GoogleCloud.token);
+                verify(!job.stdinEnabled);
+                job.stdout.text = '{"responses":[]}';
+                job.exited(0, 0);
+                compare(vision.state, GCloudApi.Done);
+                translate.translateStrings(["число 50%", "line two"]);
+                const t = translate.activeJob;
+                compare(t.command, job.command);
+                t.started();
+                compare(JSON.parse(t.writes[0]).contents, ["число 50%", "line two"]);
+                t.exited(1, 0);
+                compare(translate.state, GCloudApi.Error);
+            }
+        ''')
 
     def test_remote_image_url_is_not_executed_and_path_with_spaces_works(self):
         marker = self.root / 'injected'
@@ -379,6 +498,156 @@ print(json.dumps({'args':args,'header':pathlib.Path(args[args.index('-H')+1][1:]
 
 
 class DesktopScriptSecurityTests(unittest.TestCase):
+    def test_screen_cloud_transport_uses_fixed_hosts_and_no_intermediate_files(self):
+        import base64
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            image = root / "Sam's screenshot.png"
+            image.write_bytes(b'sample')
+            curl = root / 'curl'
+            curl.write_text("""#!/usr/bin/python3
+import json,os,sys
+from pathlib import Path
+args=sys.argv[1:]
+headers=Path('/dev/fd/3').read_text()
+body=sys.stdin.read()
+assert args[0]=='-q' and '--location' not in args
+assert args[args.index('--proto')+1]=='=https'
+status=os.getenv('CLOUD_STATUS','200')
+if 'grant_type=' in body:
+    Path(os.environ['CLOUD_JWT']).write_text(body.split('&assertion=')[1])
+    print(json.dumps({'access_token':'temporary-token','expires_in':3600}))
+else:
+    print(json.dumps({'headers':headers,'body':json.loads(body),'args':args}))
+print(status,end='')
+""")
+            curl.chmod(0o755)
+            env = {**os.environ, 'PATH':folder + ':' + os.environ['PATH']}
+            def request(cmd, params, **overrides):
+                return subprocess.run([native_binary(), cmd], input=json.dumps(params), text=True,
+                                      capture_output=True, env={**env, **overrides}, timeout=8)
+            for operation, fields, host in [
+                    ('vision', {'path':str(image)}, 'vision.googleapis.com'),
+                    ('translate', {'language':'ru','contents':['Tea & coffee']}, 'translation.googleapis.com')]:
+                params = {**fields, 'operation':operation, 'project':'sample-project','token':'fixture-token'}
+                response = request('cloud-screen', params)
+                self.assertEqual(response.returncode, 0, response.stderr)
+                result = json.loads(response.stdout)
+                self.assertIn('Authorization: Bearer fixture-token', result['headers'])
+                self.assertNotIn('fixture-token', repr(result['args']))
+                self.assertIn('https://' + host + '/', result['args'][-1])
+                if operation=='vision':
+                    self.assertEqual(result['body']['requests'][0]['image']['content'], 'c2FtcGxl')
+                else: self.assertEqual(result['body']['contents'], fields['contents'])
+                denied = request('cloud-screen', params, CLOUD_STATUS='302')
+                self.assertEqual(json.loads(denied.stdout)['error']['code'], 302)
+                self.assertNotEqual(request('cloud-screen', {**params,'token':'invalid\nheader'}).returncode, 0)
+            self.assertEqual(set(root.iterdir()), {curl,image})
+            if shutil.which('openssl'):
+                key = subprocess.check_output(['openssl','genpkey','-algorithm','rsa','-pkeyopt',
+                                               'rsa_keygen_bits:2048'], stderr=subprocess.DEVNULL)
+                jwt_file = root / 'test-token'
+                result = request('cloud-token', {'token_uri':'https://oauth2.googleapis.com/token',
+                    'client_email':'fixture@example.invalid', 'private_key_id':'test',
+                    'private_key':key.decode()}, CLOUD_JWT=str(jwt_file))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout)['token'], 'temporary-token')
+                header, claims, signature = jwt_file.read_text().split('.')
+                public = root/'test.pub'
+                public.write_bytes(subprocess.check_output(['openssl','pkey','-pubout'],input=key))
+                sig = root/'sig'
+                sig.write_bytes(base64.urlsafe_b64decode(signature + '=='))
+                subprocess.run(['openssl','dgst','-sha256','-verify',str(public),'-signature',str(sig)],
+                               input=f'{header}.{claims}'.encode(),check=True,capture_output=True)
+
+    @unittest.skipUnless(shutil.which('cliphist'), 'cliphist is not installed')
+    def test_clipboard_operations_use_ids_and_keep_previews_private(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            db = [shutil.which('cliphist'), '-config-path', str(root / 'config'), '-db-path', str(root / 'fixture.db')]
+            data = b"Charlie's 50% clipboard text"
+            subprocess.run([*db, 'store'], input=data, check=True, capture_output=True)
+            ident = subprocess.check_output([*db, 'list']).split(b'\t', 1)[0].decode()
+            backend = root / 'fixture-cliphist'
+            backend.write_text('#!/bin/sh\nexec cliphist -config-path "$FIXTURE/config" -db-path "$FIXTURE/fixture.db" "$@"\n')
+            copy = root / 'wl-copy'
+            copy.write_text('#!/bin/sh\ncat > "$FIXTURE/copied"\n')
+            paste = root / 'ydotool'
+            paste.write_text('#!/bin/sh\ncat "$FIXTURE/copied" >> "$FIXTURE/pasted"\n')
+            for fake in (backend, copy, paste):
+                fake.chmod(0o755)
+            cmd = ['bash', str(SHELL / 'scripts/clipboard/history.sh'), str(backend)]
+            env = {**os.environ, 'PATH': temp + ':' + os.environ['PATH'], 'FIXTURE': temp}
+            def run(*args):
+                result = subprocess.run([*cmd, *args], env=env, check=True, capture_output=True)
+                self.assertEqual(result.stdout, b'')
+            run('copy', ident)
+            self.assertEqual((root / 'copied').read_bytes(), data)
+            run('paste', '0', ident, ident)
+            self.assertEqual((root / 'pasted').read_bytes(), data * 2)
+            preview = root / 'preview' / 'image'
+            run('preview', ident, str(preview))
+            self.assertEqual(preview.read_bytes(), data)
+            self.assertEqual(preview.stat().st_mode & 0o777, 0o600)
+            run('delete', ident)
+            self.assertEqual(subprocess.check_output([*db, 'list']), b'')
+
+    def test_wallpaper_url_produces_one_private_file_in_pictures(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            scripts = root / 'scripts' / 'random'
+            scripts.mkdir(parents=True)
+            for name in ('common.sh', 'wallpaper_from_url.sh'):
+                shutil.copy(SHELL / 'scripts/colors/random' / name, scripts / name)
+            (scripts.parent.parent / 'helper').symlink_to(native_binary())
+            switchwall = scripts.parent / 'switchwall.sh'
+            switchwall.write_text('#!/bin/sh\nprintf "%s" "$2" > "$FIXTURE/applied"\n')
+            switchwall.chmod(0o755)
+            for name, script in {
+                'xdg-user-dir': 'echo "$FIXTURE/Pictures"',
+                'notify-send': 'echo 1',
+                'magick': 'exit 0',
+                'curl': 'printf "%s\\n" "$@" > "$FIXTURE/args"; while [ "$1" != -o ]; do shift; done; echo image > "$2"',
+            }.items():
+                binary = root / name
+                binary.write_text('#!/bin/sh\n' + script + '\n')
+                binary.chmod(0o755)
+            url = 'https://example.invalid/Albums%2FSummer%20Sky.jpg?view=1'
+            env = {**os.environ, 'FIXTURE': temp, 'PATH': temp + ':' + os.environ['PATH']}
+            subprocess.run(['bash', str(scripts / 'wallpaper_from_url.sh'), url], env=env, check=True, capture_output=True)
+            target = root / 'Pictures' / 'Wallpapers' / 'Albums_Summer Sky.jpg'
+            self.assertEqual(Path((root / 'applied').read_text()), target)
+            self.assertEqual(target.stat().st_mode & 0o777, 0o600)
+            args = (root / 'args').read_text().splitlines()
+            self.assertEqual(args[-2:], ['--', url])
+            self.assertEqual(args[args.index('--proto-redir') + 1], '=http,https')
+
+    def test_daily_wallpaper_key_is_sent_only_over_stdin(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for name, body in {
+                'xdg-user-dir': 'echo "$FIXTURE"',
+                'notify-send': 'echo 1',
+                'magick': 'exit 0',
+                'curl': """case " $* " in
+                    *' --get '*) printf '%s\\n' "$@" > "$FIXTURE/args"; cat > "$FIXTURE/key";
+                        test -z "${NASA_KEY:-}" || exit 1
+                        echo '{"media_type":"image","url":"https://example.invalid/sky.jpg","title":"Sky"}' ;;
+                    *) while [ "$1" != -o ]; do shift; done; echo image > "$2" ;;
+                esac""",
+            }.items():
+                binary = root / name
+                binary.write_text('#!/bin/sh\n' + body + '\n')
+                binary.chmod(0o755)
+            env = {**os.environ, 'FIXTURE': temp, 'XDG_CONFIG_HOME': temp, 'NASA_KEY': 'fixture-nasa-key',
+                   'PATH': temp + ':' + os.environ['PATH']}
+            subprocess.run(['bash', str(SHELL / 'scripts/colors/random/wallpaper_of_the_day.sh'), 'nasa', '14', '--no-apply'],
+                           env=env, check=True, capture_output=True, timeout=8)
+            self.assertEqual((root / 'key').read_text(), 'fixture-nasa-key')
+            args = (root / 'args').read_text().splitlines()
+            self.assertNotIn('fixture-nasa-key', ' '.join(args))
+            self.assertEqual(args[args.index('--data-urlencode') + 1], 'api_key@-')
+
     @unittest.skipUnless(shutil.which('qs'), 'Quickshell is not installed')
     def test_real_latex_renderer_retries_after_missing_binary_and_directory(self):
         with tempfile.TemporaryDirectory(prefix='velora-latex-retry-') as directory:
@@ -574,7 +843,7 @@ ShellRoot {
             python.chmod(0o755)
             result = subprocess.run([str(SHELL / 'services/gCloud/token-from-key-venv.sh')],
                                     input='{"private_key":"private sentinel"}', text=True, capture_output=True,
-                                    env={**os.environ, 'ILLOGICAL_IMPULSE_VIRTUAL_ENV': str(venv)}, timeout=10)
+                                    env={**os.environ, 'VELORA_HELPER': str(python)}, timeout=10)
             self.assertEqual(result.returncode, 0, result.stderr)
             output = json.loads(result.stdout)
             self.assertEqual(output['input'], '{"private_key":"private sentinel"}')

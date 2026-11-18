@@ -16,9 +16,8 @@ WMouseAreaButton {
 
     required property int workspace
     property bool newWorkspace: false
-    property bool droppable: false
-
-    readonly property bool isActiveWorkspace: HyprlandData.activeWorkspace?.id === root.workspace
+    required property bool currentDesktop
+    required property bool keyboardSelected
     readonly property real screenWidth: QsWindow.window?.width ?? 0
     readonly property real screenHeight: QsWindow.window?.height ?? 0
     readonly property real screenAspectRatio: screenWidth / screenHeight
@@ -29,7 +28,8 @@ WMouseAreaButton {
     height: ListView.view?.height ?? 100
     implicitWidth: 244 // for now
 
-    colBackground: ColorUtils.transparentize(Looks.colors.bg2, (isActiveWorkspace || droppable) ? 0 : 1)
+    colBackground: ColorUtils.transparentize(Looks.colors.bg2, currentDesktop ? 0 : 1)
+    borderColor: keyboardSelected ? Looks.colors.accent : (containsMouse ? colBorderHover : colBorder)
     Behavior on color {
         animation: Looks.transition.color.createObject(this)
     }
@@ -114,14 +114,6 @@ WMouseAreaButton {
                     icon: "add"
                 }
             }
-
-            Rectangle {
-                z: 2
-                visible: root.droppable && !root.newWorkspace
-                anchors.fill: parent
-                color: Looks.colors.accent
-                opacity: 0.2
-            }
         }
     }
 
@@ -131,7 +123,7 @@ WMouseAreaButton {
             horizontalCenter: parent.horizontalCenter
             bottom: parent.bottom
         }
-        shown: root.isActiveWorkspace
+        shown: root.currentDesktop
 
         sourceComponent: Rectangle {
             id: activeIndicator

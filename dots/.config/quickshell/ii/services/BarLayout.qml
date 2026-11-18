@@ -15,6 +15,7 @@ Singleton {
     id: root
 
     readonly property list<string> zoneNames: BarLayoutDefaults.zoneNames
+    readonly property list<string> commandKeys: ["command", "clickCommand", "middleClickCommand", "scrollUpCommand", "scrollDownCommand"]
 
     // Published only when the content changes, not on every config reload
     readonly property string horizontalRevision: JSON.stringify(normalize(Config.options.bar.layout, BarLayoutDefaults.horizontal))
@@ -63,8 +64,15 @@ Singleton {
         let zones = {};
         let usedUids = new Set();
         for (const zone of root.zoneNames) {
-            zones[zone] = (source.zones?.[zone] ?? []).filter(item => item && typeof item.type === "string").map((item, index) => {
-                let copy = Object.assign({}, item);
+            const items = source.zones?.[zone];
+            // Undo restores Qt list values as well as JavaScript arrays.
+            zones[zone] = (typeof items?.filter === "function" ? items : []).filter(item => item && typeof item.type === "string").map((item, index) => {
+                let copy = Object.assign(Object.create(null), item);
+                if (copy.options && typeof copy.options === "object") {
+                    copy.options = Object.assign(Object.create(null), copy.options);
+                    for (const key of root.commandKeys)
+                        if (typeof copy.options[key] !== "string") delete copy.options[key];
+                }
                 // Deterministic, so a layout without uids doesn't look changed on every reload
                 if (!copy.uid || usedUids.has(copy.uid)) copy.uid = `${copy.type}-${zone}-${index}`;
                 usedUids.add(copy.uid);
@@ -239,9 +247,11 @@ Singleton {
     function commandsIn(layout) {
         let commands = [];
         for (const zone of root.zoneNames) {
-            for (const item of (layout?.zones?.[zone] ?? [])) {
-                for (const key of ["command", "clickCommand", "middleClickCommand", "scrollUpCommand", "scrollDownCommand"]) {
-                    const command = item.options?.[key];
+            const items = layout?.zones?.[zone];
+            if (typeof items?.filter !== "function") continue;
+            for (const item of items) {
+                for (const key of root.commandKeys) {
+                    const command = item?.options?.[key];
                     if (typeof command === "string" && command.trim().length > 0) commands.push(command);
                 }
             }

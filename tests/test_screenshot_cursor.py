@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import signal
 import subprocess
@@ -293,7 +294,9 @@ Item { property string buttonIcon; property string text; property string descrip
  property bool autoToggle; property bool checked; signal clicked() }
 ''')
         source = (SHELL / 'modules/settings/ToolsConfig.qml').read_text()
-        switch = source.split('objectName: "screenshotShowCursor"', 1)[1].split('\n        }', 1)[0]
+        match = re.search(r'^([ ]*)ConfigSwitch \{\s+objectName: "screenshotShowCursor"(.*?)^\1\}', source, re.M | re.S)
+        self.assertIsNotNone(match)
+        switch = match.group(2)
         write(self.config, json.dumps({'screenSnip': {'savePath': '/tmp/keep-screenshots'}, 'screenRecord': {'audio': 'silent'}}))
         qml = '''import QtQuick
 import Quickshell

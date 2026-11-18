@@ -10,6 +10,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
+import "ChatMarkdown.js" as Markdown
 
 ColumnLayout {
     id: root
@@ -17,7 +18,8 @@ ColumnLayout {
     property bool editing: false
     property bool renderMarkdown: true
     property bool enableMouseSelection: false
-    property var segmentContent: ({})
+    property string segmentContent: ""
+    readonly property string displayContent: root.renderMarkdown ? Markdown.safeMarkdown(root.segmentContent) : root.segmentContent
     property var messageData: {}
     property bool done: true
     property bool forceDisableChunkSplitting: false
@@ -74,6 +76,7 @@ ColumnLayout {
     }
     onEditingChanged: {
         if (!editing) {
+            root.shownText = root.renderedSegmentContent;
             renderLatex()
         } else {
             // console.log("Editing mode enabled", segmentContent)
@@ -81,9 +84,8 @@ ColumnLayout {
         }
     }
 
-    onSegmentContentChanged: {
-        // console.log("Segment content changed: " + segmentContent);
-        renderedSegmentContent = segmentContent;
+    onDisplayContentChanged: {
+        renderedSegmentContent = root.displayContent;
         if (!root.editing && segmentContent) {
             root.renderLatex();
         }
@@ -91,7 +93,7 @@ ColumnLayout {
 
     onRenderedSegmentContentChanged: {
         // console.log("Rendered segment content changed: " + renderedSegmentContent);
-        if (renderedSegmentContent) {
+        if (!root.editing) {
             root.shownText = renderedSegmentContent;
         }
     }
@@ -160,7 +162,7 @@ ColumnLayout {
             selectionColor: Appearance.colors.colSecondaryContainer
             wrapMode: TextEdit.Wrap
             color: root.messageData?.thinking ? Appearance.colors.colSubtext : Appearance.colors.colOnLayer1
-            textFormat: renderMarkdown ? TextEdit.MarkdownText : TextEdit.PlainText
+            textFormat: root.renderMarkdown && !root.editing ? TextEdit.MarkdownText : TextEdit.PlainText
             text: modelData
 
             onTextChanged: {
@@ -169,6 +171,7 @@ ColumnLayout {
             }
 
             onLinkActivated: (link) => {
+                if (!StringUtils.parseWebUrl(link)) return;
                 Qt.openUrlExternally(link)
                 GlobalStates.sidebarLeftOpen = false
             }

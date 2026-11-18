@@ -26,6 +26,7 @@ StyledFlickable {
     function navigateToSection(key) {} // An empty key means this page's root.
 
     property bool pageShown: true // False while another settings page is in front
+    signal searchContentChanged() // Deferred rows became available to settings search
     signal revealCancelled() // The user scrolled, so nothing should pull the page to a revealed item any more
 
     // The page doesn't scroll as a whole: its column gets the window's height (children may fill it),
@@ -39,7 +40,7 @@ StyledFlickable {
 
     // The SettingsScrollPane an item sits in, if any
     function scrollerOf(item) {
-        for (let node = item.parent; node && node !== root; node = node.parent) {
+        for (let node = item; node && node !== root; node = node.parent) {
             if (node.settingsScroller === true) return node;
         }
         return null;
@@ -55,6 +56,7 @@ StyledFlickable {
     // `settingsReveal()` function (folded rows, one of several panels) returns true when it changed.
     function revealItem(item, highlight = true) {
         if (!item) return;
+        if (item.settingsDestination) item = item.settingsDestination;
         let unfolded = false;
         for (let node = item.parent; node && node !== root; node = node.parent) {
             if (typeof node.settingsReveal === "function" && node.settingsReveal()) unfolded = true;

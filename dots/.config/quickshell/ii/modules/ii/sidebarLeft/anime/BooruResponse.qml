@@ -161,6 +161,7 @@ Rectangle {
             Layout.margins: responsePadding
             textFormat: Text.MarkdownText
             onLinkActivated: (link) => {
+                if (!StringUtils.parseWebUrl(link)) return;
                 Qt.openUrlExternally(link)
                 GlobalStates.sidebarLeftOpen = false
             }

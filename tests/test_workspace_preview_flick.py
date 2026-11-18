@@ -133,7 +133,8 @@ class WorkspacePreviewFlickTests(unittest.TestCase):
         self.assertIn('Math.min(720', limit)
         self.assertIn('Math.max(48', limit)
         # Refreshing stays bounded: one frame per second, only for visible windows.
-        self.assertIn('running: windowItem.visible && capture.hasContent && !PowerSaving.cutLivePreviews', popup)
+        self.assertIn('active: root.active || root.preparing', popup)
+        self.assertIn('running: root.wanted && windowItem.visible && capture.hasContent && !PowerSaving.cutLivePreviews', popup)
         self.assertIn('live: false', popup)
 
     def test_the_preview_and_its_setting_are_wired_together(self):

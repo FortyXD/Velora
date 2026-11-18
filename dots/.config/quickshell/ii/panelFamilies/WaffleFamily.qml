@@ -17,7 +17,9 @@ import qs.modules.waffle.sessionScreen
 import qs.modules.waffle.taskView
 
 // Fallbacks
+import qs.modules.ii.appLibrary
 import qs.modules.ii.cheatsheet
+import qs.modules.ii.gestureHint
 import qs.modules.ii.onScreenKeyboard
 import qs.modules.ii.openWith
 import qs.modules.ii.overlay
@@ -39,7 +41,9 @@ Scope {
     PanelLoader { component: WaffleSessionScreen {} }
     PanelLoader { component: WaffleTaskView {} }
 
+    PanelLoader { component: AppLibrary {} }
     PanelLoader { component: Cheatsheet {} }
+    PanelLoader { component: GestureHint {} }
     PanelLoader { component: OnScreenKeyboard {} }
     PanelLoader { component: OpenWith {} }
     PanelLoader { component: Overlay {} }

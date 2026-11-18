@@ -15,6 +15,8 @@ ColumnLayout {
     property string icon: "" // Used by search results
     property string description: ""
     property bool card: true
+    readonly property real naturalCardHeight: sectionContent.implicitHeight + (root.card ? 8 : 0)
+    property real minimumCardHeight: 0
     default property alias contentData: sectionContent.contentData
 
     // Settings search
@@ -73,7 +75,7 @@ ColumnLayout {
 
     Rectangle { // Card
         Layout.fillWidth: true
-        implicitHeight: sectionContent.implicitHeight + sectionContent.anchors.margins * 2
+        implicitHeight: Math.max(root.minimumCardHeight, root.naturalCardHeight)
         radius: Appearance.rounding.normal
         color: root.card ? Appearance.colors.colLayer2 : "transparent"
 

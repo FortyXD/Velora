@@ -102,7 +102,7 @@ Scope {
                     entries.push({
                         text: toplevel.title || TaskbarApps.displayName(appId),
                         checked: toplevel.activated,
-                        action: () => toplevel.activate()
+                        action: () => FreeWindows.activateToplevel(toplevel)
                     });
                 }
                 if (entries.length > 0) entries.push({ type: "separator" });

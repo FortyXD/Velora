@@ -3,6 +3,7 @@ import QtQuick.Layouts
 
 import qs
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 
 RippleButton {
@@ -21,8 +22,9 @@ RippleButton {
 
     PointingHandInteraction {}
     onClicked: {
-        if (url) {
-            Qt.openUrlExternally(url)
+        const link = StringUtils.parseWebUrl(root.url);
+        if (link) {
+            Qt.openUrlExternally(link.href)
             GlobalStates.sidebarLeftOpen = false
         }
     }
@@ -43,7 +45,8 @@ RippleButton {
             StyledText {
                 id: text
                 horizontalAlignment: Text.AlignHCenter
-                text: displayText
+                text: root.displayText
+                textFormat: Text.PlainText
                 color: Appearance.m3colors.m3onSurface
             }
         }

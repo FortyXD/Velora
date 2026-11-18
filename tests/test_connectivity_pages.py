@@ -320,11 +320,11 @@ class SettingsPagesTests(unittest.TestCase):
         target = TOOLS / 'target'
         if not os.environ.get('VELORA_TEST_PREBUILT'):
             subprocess.run([CARGO, 'build', '--quiet', '--manifest-path', str(TOOLS / 'Cargo.toml'),
-                            '-p', 'velora-connectivityd', '-p', 'velora-connectivity-fakes'], check=True, timeout=400)
+                            '-p', 'velora-connectivityd', '-p', 'velora-connectivity-fakes', '-p', 'velora-helper'], check=True, timeout=400)
         cls.daemon = target / 'debug/velora-connectivityd'
         cls.fakes = target / 'debug/velora-connectivity-fakes'
 
-    def run_driver(self, driver, *, settings_page=None, service_overrides=None):
+    def run_driver(self, driver, *, settings_page=None, service_overrides=None, page_sources=None):
         with tempfile.TemporaryDirectory(prefix='velora-pages-') as directory:
             root = Path(directory)
             shell = root / 'shell'
@@ -343,6 +343,8 @@ class SettingsPagesTests(unittest.TestCase):
                 (services / name).unlink(missing_ok=True)
                 (services / name).write_text(source)
             (shell / 'shell.qml').write_text(driver)
+            for name, source in (page_sources or {}).items():
+                (shell / name).write_text(source)
             home = root / 'home'
             home.mkdir()
             # Programs that act on this computer are stood in for
@@ -367,6 +369,7 @@ class SettingsPagesTests(unittest.TestCase):
                                'DBUS_SYSTEM_BUS_ADDRESS': address, 'DBUS_SESSION_BUS_ADDRESS': address,
                                'PATH': f"{tools}:{inherited.get('PATH', '/usr/bin')}",
                                'VELORA_CONNECTIVITYD': str(self.daemon), 'VELORA_NM_VPN_DIRS': '/nonexistent',
+                               'VELORA_HELPER': str(TOOLS / 'target/debug/velora-helper'),
                                'QT_QPA_PLATFORM': 'offscreen', 'QT_QPA_PLATFORMTHEME': 'generic', 'QT_QUICK_BACKEND': 'software', 'FONTCONFIG_FILE': '/etc/fonts/fonts.conf'}
                 if settings_page is not None:
                     environment.update(QS_SETTINGS_PAGE=settings_page, QS_SETTINGS_SECTION='', QS_SETTINGS_SEARCH='')
@@ -850,8 +853,8 @@ ShellRoot {
         self.assert_clean(output)
 
     def test_wifi_deep_link_stays_on_wifi_after_bluetooth_preloads(self):
-        # The full settings window supplies pageShown only after a background page has been built.
-        # A stand-alone page loader cannot catch navigation triggered during that construction.
+        # Use the full host: a stand-alone loader cannot catch navigation or scanning
+        # accidentally triggered by a page while it is being warmed in the background.
         probe = r'''
     Timer {
         property int settled: 0

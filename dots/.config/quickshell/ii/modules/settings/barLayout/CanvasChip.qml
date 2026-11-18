@@ -14,6 +14,16 @@ Item {
     id: root
     required property var itemData
     property bool vertical: false
+    property var editGuide
+    readonly property string uid: itemData.uid
+    readonly property alias editSlot: gap
+    transform: gap.placement
+    BarInsertionSlot {
+        id: gap
+        guide: root.editGuide
+        uid: root.uid
+        vertical: root.vertical
+    }
     property bool selected: false
     property bool dimmed: false
     property color contentColor: Appearance.colors.colOnLayer0
@@ -60,6 +70,7 @@ Item {
         : root.type === "clock" ? 44
         : root.base
     opacity: root.dimmed ? 0.3 : 1
+    Behavior on opacity { NumberAnimation { duration: Appearance.scaledDuration(110); easing.type: Easing.OutCubic } }
 
     Rectangle { // Selection and hover
         anchors.fill: parent

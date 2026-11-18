@@ -121,7 +121,7 @@ PageScaffold {
             spacing: 18
 
             WindowsDemo {
-                free: root.flow.choices.windows !== "tiling"
+                mode: root.flow.choices.windows
             }
             ColumnLayout {
                 Layout.fillWidth: true
@@ -134,7 +134,8 @@ PageScaffold {
                 StyledText {
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
-                    text: root.flow.choices.windows === "tiling"
+                    text: root.flow.choices.windows === "canvas" ? Translation.tr("Super + middle drag pans. Super + scroll zooms. Super + Home fits all windows. Super + End returns to 100%.")
+                        : root.flow.choices.windows === "tiling"
                         ? Translation.tr("New windows share the screen without overlapping. Super+arrows move between them.")
                         : Translation.tr("Windows stay where you put them. Super+arrows snap them to halves of the screen.")
                     color: Appearance.colors.colSubtext
@@ -145,12 +146,13 @@ PageScaffold {
                     spacing: 4
                     Repeater {
                         model: [{ "value": "tiling", "text": Translation.tr("Tiling"), "icon": "view_quilt" },
-                                { "value": "floating", "text": Translation.tr("Free windows"), "icon": "select_window" }]
+                                { "value": "floating", "text": Translation.tr("Free windows"), "icon": "select_window" },
+                                { "value": "canvas", "text": Translation.tr("Infinite canvas"), "icon": "zoom_out_map" }]
                         delegate: RippleButton {
                             id: segment
                             required property var modelData
                             required property int index
-                            toggled: (root.flow.choices.windows === "tiling") === (segment.modelData.value === "tiling")
+                            toggled: root.flow.choices.windows === segment.modelData.value
                             implicitHeight: 40
                             implicitWidth: segmentRow.implicitWidth + 32
                             buttonRadius: height / 2

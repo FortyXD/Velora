@@ -1,5 +1,6 @@
 pragma Singleton
 import Quickshell
+import qs.services
 
 Singleton {
     id: root
@@ -14,7 +15,10 @@ Singleton {
         const keywordsToTypes = {
             'reboot': 'restart_alt',
             'record': 'screen_record',
-            'battery': 'power',
+            'microphone': 'mic',
+            'микрофон': 'mic',
+            'battery': 'battery_std',
+            'заряд': 'battery_std',
             'power': 'power',
             'screenshot': 'screenshot_monitor',
             'welcome': 'waving_hand',
@@ -55,15 +59,14 @@ Singleton {
      * @param { number | string | Date } timestamp 
      * @returns { string }
      */
-    function getFriendlyNotifTimeString(timestamp) {
+    function getFriendlyNotifTimeString(timestamp, now = new Date()) {
         if (!timestamp) return '';
         const messageTime = new Date(timestamp);
-        const now = new Date();
         const diffMs = now.getTime() - messageTime.getTime();
 
         // Less than 1 minute
         if (diffMs < 60000)
-            return 'Now';
+            return Translation.tr("Now");
 
         // Same day - show relative time
         if (messageTime.toDateString() === now.toDateString()) {
@@ -71,21 +74,41 @@ Singleton {
             const diffHours = Math.floor(diffMs / 3600000);
 
             if (diffHours > 0) {
-                return `${diffHours}h`;
+                return Translation.tr("%1 h ago").arg(diffHours);
             } else {
-                return `${diffMinutes}m`;
+                return Translation.tr("%1 min ago").arg(diffMinutes);
             }
         }
 
         // Yesterday
         if (messageTime.toDateString() === new Date(now.getTime() - 86400000).toDateString())
-            return 'Yesterday';
+            return Translation.tr("Yesterday");
 
         // Older dates
         return Qt.formatDateTime(messageTime, "MMMM dd");
     }
 
+    function decodeEntities(text) {
+        const named = {amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: "\u00a0"};
+        return text.replace(/&(amp|lt|gt|quot|apos|nbsp|#\d{1,7}|#x[\da-fA-F]{1,6});/g, (entity, name) => {
+            if (name[0] !== "#") return named[name];
+            const code = name[1] === "x" ? parseInt(name.slice(2), 16) : Number(name.slice(1));
+            return code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff) ? String.fromCodePoint(code) : "\ufffd";
+        });
+    }
+
+    function localImage(value) {
+        const path = String(value ?? "");
+        return /^(?:\/(?!\/)|file:\/\/\/(?!\/)|image:\/\/qsimage\/)/.test(path) ? path : "";
+    }
+
+    function appIcon(value) {
+        const name = String(value ?? "");
+        return /^[^/\\:\x00-\x1f\x7f]+$/.test(name) ? name : localImage(name);
+    }
+
     function processNotificationBody(body, appName) {
+        body = String(body ?? "");
         let processedBody = body
         
         // Clean Chromium-based browsers notifications - remove first line
@@ -104,8 +127,28 @@ Singleton {
             }
         }
 
-        processedBody = processedBody.replace(/<img/gi, '\n\n<img');
-        
-        return processedBody
+        // Rebuild the small notification markup vocabulary before passing it to Qt's text renderer.
+        const tokens = processedBody.match(/<!--[\s\S]*?(?:-->|$)|<\/?[A-Za-z][^<>]*>|[^<]+|</g) ?? [];
+        let linkOpen = false;
+        const html = tokens.map(token => {
+            if (token === "<" || !token.startsWith("<"))
+                return StringUtils.escapeHtml(root.decodeEntities(token)).replace(/\r?\n/g, "<br/>");
+            if (/^<br\s*\/?\s*>$/i.test(token)) return "<br/>";
+            if (/^<\/?(?:b|strong|i|em|u)>$/i.test(token))
+                return token.toLowerCase().replace("strong", "b").replace("em", "i");
+            if (/^<\/?a[\s>]/i.test(token)) {
+                const close = linkOpen ? "</a>" : "";
+                const link = /^<a\s+href\s*=\s*(?:"([^"]*)"|'([^']*)')\s*>$/i.exec(token);
+                const url = link && StringUtils.parseWebUrl(root.decodeEntities(link[1] ?? link[2]));
+                linkOpen = !!url;
+                return close + (url ? '<a href="' + StringUtils.escapeHtml(url.href) + '">' : "");
+            }
+            if (/^<img\s/i.test(token)) {
+                const alt = /\salt\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(token);
+                if (alt) return StringUtils.escapeHtml(root.decodeEntities(alt[1] ?? alt[2]));
+            }
+            return "";
+        }).join("");
+        return html + (linkOpen ? "</a>" : "");
     }
 }

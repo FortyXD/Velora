@@ -46,8 +46,9 @@ class PowerUiTests(unittest.TestCase):
         self.assertEqual(owners, ['shell.qml'])
         settings = (SHELL / 'modules/settings/BatteryConfig.qml').read_text()
         self.assertIn('PowerAnalyticsPanel {', settings)
-        self.assertIn('pageActive: page.pageShown', settings)
-        self.assertIn('!PowerAnalytics.hasLivePower ? "—"', settings)
+        self.assertIn('pageActive: rootPage.pageShown && analyticsBranch.shown', settings)
+        card = (SHELL / 'modules/settings/power/BatteryStatusCard.qml').read_text()
+        self.assertIn('Battery.energyRateAvailable && Number.isFinite(Battery.energyRate)', card)
         popup = (SHELL / 'modules/ii/bar/BatteryPopup.qml').read_text()
         self.assertIn('if (!Battery.energyRateAvailable) return "—";', popup)
 
@@ -168,9 +169,10 @@ QtObject {
             write(root, 'modules/common/widgets/StyledText.qml', 'import QtQuick\nText {}')
             write(root, 'modules/common/widgets/RippleButton.qml', 'import QtQuick\nimport QtQuick.Controls\nButton { property real buttonRadius; property color colBackgroundHover }')
             # The actual collector has separate real-process/fake-sysfs tests.
-            write(root, 'scripts/power/analytics.py', '''import json,signal,sys,time
+            write(root, 'scripts/helper', '''#!/usr/bin/env python3
+import json,signal,sys,time
 from pathlib import Path
-mode=sys.argv[1]
+mode=sys.argv[2]
 p=Path(sys.argv[sys.argv.index('--state-dir')+1])
 log=p.parents[1]/'calls.txt'
 log.parent.mkdir(parents=True,exist_ok=True)
@@ -200,6 +202,7 @@ else:
    print(json.dumps({'latest':latest,'points':[latest] if latest else [],'window_start':now-window,'window_end':now,'sample_count':int(latest is not None),'stats':{}}),flush=True)
   time.sleep(0.15)
 ''')
+            (root / 'scripts/helper').chmod(0o755)
             write(root, 'shell.qml', '''import QtQuick
 import Quickshell
 import "modules/common"

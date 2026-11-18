@@ -35,7 +35,8 @@ AppButton {
         if (root.multiple) {
             root.hoverPreviewRequested()
         } else if (root.appEntry.toplevels.length === 1) {
-            root.appEntry.toplevels[0].activate()
+            root.hoverPreviewDismissed();
+            FreeWindows.activateToplevel(root.appEntry.toplevels[0], true)
         } else {
             TaskbarApps.launch(root.appEntry.appId, 0)
         }

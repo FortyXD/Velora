@@ -74,7 +74,9 @@ WindowDialog {
             text: Translation.tr("Intensity")
             from: 6500
             to: 1200
-            stopIndicatorValues: [5000, to]
+            defaultValue: 5000
+            defaultValueText: "5000 K"
+            stopIndicatorValues: [to]
             value: Config.options.light.night.colorTemperature
             onMoved: Config.options.light.night.colorTemperature = value
             tooltipContent: `${Math.round(value)}K`
@@ -154,6 +156,8 @@ WindowDialog {
                 leftMargin: 4
                 rightMargin: 4
             }
+            defaultValue: 1
+            defaultHint: Translation.tr("Full brightness: %1").arg("100%")
             value: root.brightnessMonitor.brightness
             onMoved: root.brightnessMonitor.setBrightness(value)
         }
@@ -183,6 +187,8 @@ WindowDialog {
                 rightMargin: 4
             }
             from: Hyprsunset.gammaLowerLimit / 100
+            defaultValue: 1
+            defaultValueText: "100%"
             value: Hyprsunset.gamma / 100
             onMoved: Hyprsunset.setGamma(value * 100)
             tooltipContent: `${Math.round(value * 100)}%`

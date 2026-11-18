@@ -16,7 +16,7 @@ import Quickshell.Widgets
 Slider {
     id: root
 
-    property list<real> stopIndicatorValues: [1]
+    property list<real> stopIndicatorValues: [to]
     property list<real> dividerValues: []
     enum Configuration {
         Wavy = 4,
@@ -50,6 +50,12 @@ Slider {
     property real trackDotSize: 3
     property bool usePercentTooltip: true
     property string tooltipContent: usePercentTooltip ? `${Math.round(((value - from) / (to - from)) * 100)}%` : `${Math.round(value)}`
+    property real defaultValue: NaN
+    property string defaultValueText: usePercentTooltip && from === 0 && to === 1
+        ? Math.round(defaultValue * 100) + "%" : String(Number(defaultValue.toFixed(2)))
+    property string defaultHint: Translation.tr("Default: %1").arg(defaultValueText)
+    readonly property bool hasDefault: reference.valid
+    Accessible.description: hasDefault ? defaultHint : ""
     property bool wavy: configuration === StyledSlider.Configuration.Wavy // If true, the progress bar will have a wavy fill effect
     property bool animateWave: true
     property real waveAmplitudeMultiplier: wavy ? 0.5 : 0
@@ -188,12 +194,18 @@ Slider {
 
         // Stop indicators
         Repeater {
-            model: root.stopIndicatorValues
+            model: root.stopIndicatorValues.filter(v => v !== root.defaultValue && v >= Math.min(root.from, root.to) && v <= Math.max(root.from, root.to))
             TrackDot {
                 required property real modelData
                 value: modelData
                 anchors.verticalCenter: parent?.verticalCenter
             }
+        }
+        SliderReference {
+            id: reference
+            control: root
+            value: root.defaultValue
+            height: root.trackWidth + 8
         }
     }
 
@@ -212,8 +224,10 @@ Slider {
         }
 
         StyledToolTip {
-            extraVisibleCondition: root.pressed
-            text: root.tooltipContent
+            parent: root.pressed ? handle : reference
+            extraVisibleCondition: root.pressed || (root.hasDefault && reference.hovered)
+            text: !root.pressed ? root.defaultHint : root.hasDefault
+                ? root.tooltipContent + "  ·  " + root.defaultHint : root.tooltipContent
             font {
                 family: Appearance.font.family.numbers
                 variableAxes: Appearance.font.variableAxes.numbers

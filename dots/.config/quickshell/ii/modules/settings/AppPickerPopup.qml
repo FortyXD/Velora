@@ -6,18 +6,14 @@ import Quickshell.Widgets
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
-import qs.modules.common.functions
 
 /**
  * A searchable list of installed apps in a popup; emits picked(entry) with the desktop entry.
  */
-Popup {
+SettingsPanePopup {
     id: root
-    parent: Overlay.overlay
-    modal: true
-    anchors.centerIn: parent
-    width: Math.min(440, (parent?.width ?? 440) - 40)
-    height: Math.min(520, (parent?.height ?? 520) - 40)
+    width: Math.min(440, Math.max(0, (parent?.width ?? 440) - 40))
+    height: Math.min(520, Math.max(0, (parent?.height ?? 520) - 40))
     padding: 14
     onOpened: {
         searchField.text = "";
@@ -39,7 +35,7 @@ Popup {
 
     background: Rectangle {
         radius: Appearance.rounding.normal
-        color: ColorUtils.applyAlpha(Appearance.colors.colLayer1, 1)
+        color: Appearance.colors.colLayer1Base
         border.width: 1
         border.color: Appearance.colors.colOutlineVariant
     }

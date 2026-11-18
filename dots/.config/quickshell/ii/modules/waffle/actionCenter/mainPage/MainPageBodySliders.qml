@@ -32,6 +32,8 @@ ColumnLayout {
         
         WSlider {
             Layout.fillWidth: true
+            defaultValue: 1
+            defaultHint: Translation.tr("Full brightness: %1").arg("100%")
             value: root.brightnessMonitor?.brightness ?? 0
             scrollable: true
             onMoved: {
@@ -54,6 +56,7 @@ ColumnLayout {
         
         WSlider {
             Layout.fillWidth: true
+            defaultValue: Audio.defaultVolume(Audio.sink)
             value: Audio.sink?.audio?.volume ?? 0
             scrollable: true
             onMoved: {

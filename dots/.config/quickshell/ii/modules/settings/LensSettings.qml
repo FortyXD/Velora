@@ -172,8 +172,6 @@ Item {
 
     Component.onCompleted: {
         Lens.settingsVisible = pageShown;
-        Lens.checkSetup();
-        Lens.refresh();
     }
     Component.onDestruction: Lens.settingsVisible = false
     onPageShownChanged: Lens.settingsVisible = pageShown

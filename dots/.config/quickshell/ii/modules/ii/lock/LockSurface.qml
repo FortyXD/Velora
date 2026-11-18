@@ -7,7 +7,7 @@ import qs.modules.common.panels.lock
 
 /**
  * The real lock screen on one monitor: the shared LockScene with the lock context, keeping the
- * password field focused. The wallpaper behind it is Background.qml's (blurred while locked).
+ * password field focused. Each output draws its wallpaper inside the lock surface.
  */
 MouseArea {
     id: root
@@ -67,6 +67,8 @@ MouseArea {
         id: scene
         anchors.fill: parent
         context: root.context
+        showBackdrop: true
+        playVideo: true
         liveData: true
         startHidden: true
         exiting: GlobalStates.lockExiting

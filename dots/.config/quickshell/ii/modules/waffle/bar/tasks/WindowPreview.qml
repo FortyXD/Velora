@@ -16,14 +16,13 @@ Button {
 
     required property var toplevel
     property bool preparing: false
-    readonly property bool ready: screencopyView.hasContent
     property real previewWidthConstraint: 200
     property real previewHeightConstraint: 110
     padding: 5
     Layout.fillHeight: true
 
     onClicked: {
-        root.toplevel.activate(); // TODO: make this work with those who disable focus on activate because telegram is abusive
+        FreeWindows.activateToplevel(root.toplevel);
     }
 
     background: Rectangle {
@@ -80,15 +79,13 @@ Button {
             Layout.fillHeight: true
             Layout.margins: Looks.radius.large - root.padding
             Layout.topMargin: 0
-            implicitWidth: Math.max(screencopyView.implicitWidth, 80)
-            implicitHeight: screencopyView.implicitHeight
+            implicitWidth: root.previewWidthConstraint
+            implicitHeight: root.previewHeightConstraint
 
             WindowThumbnail {
                 id: screencopyView
                 anchors.centerIn: parent
                 toplevel: root.toplevel
-                retainWhileHidden: true
-                showFallback: false
                 preparing: root.preparing
                 live: !PowerSaving.cutLivePreviews
                 paintCursor: true

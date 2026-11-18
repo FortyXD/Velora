@@ -21,11 +21,12 @@ MaterialShape { // App icon
     property real materialIconSize: implicitSize * materialIconScale
     property real appIconSize: implicitSize * appIconScale
     property real smallAppIconSize: implicitSize * smallAppIconScale
+    property real imageRadius: Appearance.rounding.full
 
     // The icon name may not exist in the theme (or be a stale path): try the theme, then the app's
     // desktop entry. Empty when nothing is found, so a broken "image-missing" icon is never shown.
     readonly property string resolvedAppIcon: {
-        const icon = root.appIcon ?? "";
+        const icon = NotificationUtils.appIcon(root.appIcon);
         if (icon.startsWith("/") || icon.startsWith("file:")) return icon.startsWith("/") ? `file://${icon}` : icon;
         const direct = icon.length > 0 ? Quickshell.iconPath(icon, true) : "";
         if (direct.length > 0) return direct;
@@ -54,7 +55,7 @@ MaterialShape { // App icon
     color: isUrgent ? Appearance.colors.colPrimaryContainer : Appearance.colors.colSecondaryContainer
     Loader {
         id: materialSymbolLoader
-        active: !root.showImage && !root.showAppIcon
+        active: !root.showAppIcon
         anchors.fill: parent
         sourceComponent: MaterialSymbol {
             text: {
@@ -72,7 +73,7 @@ MaterialShape { // App icon
     }
     Loader {
         id: appIconLoader
-        active: !root.showImage && root.showAppIcon
+        active: root.showAppIcon
         anchors.centerIn: parent
         sourceComponent: IconImage {
             id: appIconImage
@@ -105,7 +106,7 @@ MaterialShape { // App icon
                     maskSource: Rectangle {
                         width: notifImage.size
                         height: notifImage.size
-                        radius: Appearance.rounding.full
+                        radius: root.imageRadius
                     }
                 }
             }

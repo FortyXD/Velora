@@ -14,6 +14,11 @@ Singleton {
     property bool ready: false
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
+    signal diskSynced()
+
+    function savedAppearance() {
+        return JSON.parse(configFileView.text()).appearance ?? {};
+    }
 
     // A fresh or example config can have an empty path. The bundled picture is available before
     // setup starts or a palette is generated. Migrate retired bundled assets while preserving
@@ -121,7 +126,9 @@ Singleton {
         onLoaded: {
             root.ensureWallpaperDefault();
             root.ready = true;
+            root.diskSynced();
         }
+        onSaved: root.diskSynced()
         onSaveFailed: error => root.reportSaveFailure()
         onLoadFailed: error => {
             if (error == FileViewError.FileNotFound) {
@@ -209,10 +216,12 @@ Singleton {
                 property JsonObject palette: JsonObject {
                     property string type: "auto" // Allowed: auto, scheme-content, scheme-expressive, scheme-fidelity, scheme-fruit-salad, scheme-monochrome, scheme-neutral, scheme-rainbow, scheme-tonal-spot
                     property string accentColor: ""
+                    property var roleOverrides: ({})
                 }
             }
 
             property JsonObject audio: JsonObject {
+                property bool monitorInSettings: true
                 // Values in %
                 property JsonObject protection: JsonObject {
                     // Prevent sudden bangs
@@ -655,6 +664,12 @@ Singleton {
 
             property JsonObject notifications: JsonObject {
                 property int timeout: 7000
+                property string popupPosition: "auto"
+                property JsonObject quietHours: JsonObject {
+                    property bool enabled: false
+                    property string from: "22:00"
+                    property string to: "07:00"
+                }
                 // Per app, keyed by desktop entry (or app name when there is none):
                 // { "mode": "banners" | "silent" (only in the list) | "off", "bypassDnd": bool }
                 property var apps: ({})

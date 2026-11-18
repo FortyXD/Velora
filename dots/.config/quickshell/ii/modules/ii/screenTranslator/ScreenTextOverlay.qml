@@ -22,7 +22,6 @@ Item {
     required property string screenshotPath
 
     readonly property string wikiLink: "https://ii.clsty.link/en/ii-qs/02usage/#setting-it-up" // TODO: write a page for this
-    readonly property string textColorDetectionCommand: `${Quickshell.shellPath("scripts/helper")} text-color`
 
     property bool loading: true
     property var visionParagraphs: []
@@ -47,7 +46,7 @@ Item {
     }
 
     function reattemptAsNeeded() {
-        if (root.visionParagraphs == [] && GoogleCloud.tokenReady && !GoogleCloud.tokenError) {
+        if (root.error && !root.visionParagraphs.length && GoogleCloud.tokenReady && !GoogleCloud.tokenError) {
             root.error = false;
             cloudVision.annotateImage(root.screenshotPath);
         }
@@ -118,13 +117,15 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: Math.min(root.windowWidth / 2, 800) * root.scaleFactor
                 horizontalAlignment: Text.AlignHCenter
-                textFormat: Text.MarkdownText
+                textFormat: Text.StyledText
                 wrapMode: Text.Wrap
-                text: `**${Translation.tr("Screen Translator")}**\n\n${root.errorMessage}\n\n__[${Translation.tr("See setup instructions on the wiki")}](${root.wikiLink})__`
+                text: "<b>" + StringUtils.escapeHtml(Translation.tr("Screen Translator")) + "</b><br/><br/>"
+                    + StringUtils.escapeHtml(root.errorMessage).replace(/\n/g, "<br/>") + '<br/><br/><a href="' + root.wikiLink + '">'
+                    + StringUtils.escapeHtml(Translation.tr("See setup instructions on the wiki")) + "</a>"
                 font.pixelSize: Appearance.font.pixelSize.small * root.scaleFactor
                 color: root.textColor
                 onLinkActivated: (link) => {
-                    Qt.openUrlExternally(link)
+                    Qt.openUrlExternally(root.wikiLink)
                     GlobalStates.screenTranslatorOpen = false
                 }
 
@@ -310,7 +311,9 @@ Item {
                     runSequence([ //
                         [ //
                             "bash", "-c", //
-                            `magick ${StringUtils.shellSingleQuoteEscape(root.screenshotPath)} +repage -crop ${StringUtils.shellSingleQuoteEscape(ti.unscaledWidth)}x${StringUtils.shellSingleQuoteEscape(ti.unscaledHeight)}+${StringUtils.shellSingleQuoteEscape(ti.unscaledX)}+${StringUtils.shellSingleQuoteEscape(ti.unscaledY)} png:- | ${root.textColorDetectionCommand}`
+                            'set -o pipefail; magick "$1" +repage -crop "$2" png:- | "$3" text-color',
+                            "screen-colors", FileUtils.trimFileProtocol(root.screenshotPath),
+                            `${ti.unscaledWidth}x${ti.unscaledHeight}+${ti.unscaledX}+${ti.unscaledY}`, Quickshell.shellPath("scripts/helper")
                         ],
                         (out => {
                             var colorData = JSON.parse(out);

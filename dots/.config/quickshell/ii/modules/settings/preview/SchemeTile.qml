@@ -11,6 +11,7 @@ import qs.modules.common.functions
 RippleButton {
     id: root
     property string label
+    property bool wrapLabel: false
     property bool selected: false
     property real frameWidth: 96
     property real frameHeight: 60
@@ -18,7 +19,7 @@ RippleButton {
     readonly property color faint: ColorUtils.transparentize(root.ink, 0.6)
     default property alias picture: frame.data
 
-    implicitWidth: Math.max(root.frameWidth + 20, labelText.implicitWidth + 16)
+    implicitWidth: Math.max(root.frameWidth + 20, root.wrapLabel ? 0 : labelText.implicitWidth + 16)
     implicitHeight: root.frameHeight + labelText.implicitHeight + 26
     buttonRadius: Appearance.rounding.normal
     colBackground: root.selected ? Appearance.colors.colSecondaryContainer : "transparent"
@@ -43,6 +44,9 @@ RippleButton {
         StyledText {
             id: labelText
             Layout.alignment: Qt.AlignHCenter
+            Layout.fillWidth: root.wrapLabel
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: root.wrapLabel ? Text.Wrap : Text.NoWrap
             text: root.label
             font.pixelSize: Appearance.font.pixelSize.smaller
             color: root.selected ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer2

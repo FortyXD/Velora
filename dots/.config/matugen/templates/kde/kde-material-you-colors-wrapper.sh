@@ -3,4 +3,4 @@
 # already reflected in colors.json; no second color generator or KWin is needed.
 set -euo pipefail
 config_root="${XDG_CONFIG_HOME:-$HOME/.config}"
-exec /usr/bin/python3 -I "$config_root/quickshell/ii/scripts/colors/kde-theme.py"
+exec "$config_root/quickshell/ii/scripts/helper" kde-theme

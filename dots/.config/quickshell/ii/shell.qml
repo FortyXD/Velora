@@ -62,7 +62,7 @@ ShellRoot {
     IpcHandler {
         target: "windowMode"
         function set(mode: string): void {
-            HyprlandSettings.setWindowMode(mode === "floating" ? "floating" : "tiling");
+            HyprlandSettings.setWindowMode(["floating", "canvas"].includes(mode) ? mode : "tiling");
         }
         function get(): string {
             return HyprlandSettings.windowMode;
@@ -70,6 +70,7 @@ ShellRoot {
     }
 
     Component.onCompleted: {
+        MaterialThemeLoader.syncTerminals = true
         MaterialThemeLoader.reapplyTheme()
         Hyprsunset.load()
         FirstRunExperience.load()
@@ -81,6 +82,7 @@ ShellRoot {
         OnlineWallpapers.load()
         WallpaperOfTheDay.load()
         PowerSaving.load()
+        Idle.load()
         HyprlandMonitors.watch()
         PowerAnalytics.load()
         LiveWallpaper.load()
@@ -88,12 +90,26 @@ ShellRoot {
         HotCorners.load()
         TimerService.load()
         Weather.load()
-        TouchpadGestures.libraryProgress // Listens for gestures from hyprland/gestures.lua
+        TouchpadGestures.overview // Listens for gestures from hyprland/gestures.lua
     }
 
 
     // Panel families
     property list<string> families: ["ii", "waffle"]
+    property string activePanelFamily
+    Binding {
+        target: root
+        property: "activePanelFamily"
+        value: Config.options.panelFamily
+        when: !GlobalStates.screenLocked
+        restoreMode: Binding.RestoreNone
+    }
+    Binding {
+        target: Quickshell
+        property: "watchFiles"
+        value: false
+        when: GlobalStates.screenLocked
+    }
     function cyclePanelFamily() {
         const currentIndex = families.indexOf(Config.options.panelFamily)
         const nextIndex = (currentIndex + 1) % families.length
@@ -103,7 +119,7 @@ ShellRoot {
     component PanelFamilyLoader: LazyLoader {
         required property string identifier
         property bool extraCondition: true
-        active: Config.ready && Config.options.panelFamily === identifier && extraCondition
+        active: Config.ready && root.activePanelFamily === identifier && extraCondition
     }
     
     PanelFamilyLoader {

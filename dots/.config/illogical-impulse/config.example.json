@@ -33,6 +33,7 @@
         },
         "palette": {
             "accentColor": "",
+            "roleOverrides": {},
             "type": "auto"
         },
         "transparency": {
@@ -71,6 +72,7 @@
         "volumeMixer": "~/.config/hypr/hyprland/scripts/launch_first_available.sh \"pavucontrol-qt\" \"pavucontrol\""
     },
     "audio": {
+        "monitorInSettings": true,
         "protection": {
             "enable": false,
             "maxAllowed": 99,
@@ -410,7 +412,13 @@
         "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
     },
     "notifications": {
-        "timeout": 7000
+        "timeout": 7000,
+        "popupPosition": "auto",
+        "quietHours": {
+            "enabled": false,
+            "from": "22:00",
+            "to": "07:00"
+        }
     },
     "osd": {
         "timeout": 1000

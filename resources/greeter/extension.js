@@ -67,7 +67,8 @@ export default class VeloraGreeter extends Extension {
         brand.add_child(new St.Icon({gicon: Gio.icon_new_for_string(`${this.path}/logo.svg`), icon_size: 26}));
         brand.add_child(new St.Label({text: 'Velora', y_align: Clutter.ActorAlign.CENTER}));
         const power = new St.Button({style_class: 'velora-power', can_focus: true,
-            accessible_name: 'Power', child: new St.Icon({icon_name: 'system-shutdown-symbolic', icon_size: 22})});
+            accessible_name: 'Power', child: new St.Icon({icon_name: 'system-shutdown-symbolic', icon_size: 20,
+                x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER})});
         power.connect('clicked', () => Main.panel.statusArea.quickSettings?.menu.toggle());
         dialog.insert_child_at_index(background, 0);
         for (const actor of [clock, brand, power])
@@ -129,13 +130,25 @@ export default class VeloraGreeter extends Extension {
             }
         }
         allocate(view.brand, 32 * scale, 32 * scale, 160 * scale, 32 * scale);
-        let powerY = height - 80 * scale;
-        if (dialog._authPrompt.visible && dialog._authPrompt._inputWell) {
-            const [, inputY] = dialog._authPrompt._inputWell.get_transformed_position();
-            const [, dialogY] = dialog.get_transformed_position();
-            powerY = inputY - dialogY;
+        let powerSize = 40 * scale;
+        let powerX = width / 2 + 160 * scale;
+        let powerY = height - powerSize - 32 * scale;
+        const prompt = dialog._authPrompt;
+        if (prompt.visible && prompt._entry?.visible && prompt.cancelButton) {
+            const [entryX, entryY] = prompt._entry.get_transformed_position();
+            const [entryWidth, entryHeight] = prompt._entry.get_transformed_size();
+            const [backX] = prompt.cancelButton.get_transformed_position();
+            const [backWidth] = prompt.cancelButton.get_transformed_size();
+            const [dialogX, dialogY] = dialog.get_transformed_position();
+            // Mirror the Back button around the entry and share its vertical
+            // centre. The input well also contains warnings and is taller.
+            powerSize = Math.max(32 * scale, backWidth);
+            const gap = Math.max(8 * scale, entryX - backX - backWidth);
+            powerX = entryX - dialogX + entryWidth + gap;
+            powerY = entryY - dialogY + (entryHeight - powerSize) / 2;
         }
-        allocate(view.power, width / 2 + 190 * scale, powerY, 48 * scale, 48 * scale);
+        allocate(view.power, Math.max(8 * scale, Math.min(powerX, width - powerSize - 8 * scale)),
+            Math.max(8 * scale, Math.min(powerY, height - powerSize - 8 * scale)), powerSize, powerSize);
     }
 
     disable() {

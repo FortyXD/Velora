@@ -12,9 +12,11 @@ if status is-interactive
         enable_transience
     end
 
-    # Colors
-    if test -f ~/.local/state/quickshell/user/generated/terminal/sequences.txt
-        cat ~/.local/state/quickshell/user/generated/terminal/sequences.txt
+    if isatty stdout; and not set -q KITTY_WINDOW_ID; and not contains -- "$TERM" linux dumb xterm-kitty
+        set -l state_home "$XDG_STATE_HOME"
+        test -n "$state_home"; or set state_home "$HOME/.local/state"
+        set -l sequences "$state_home/quickshell/user/generated/terminal/sequences.txt"
+        test -r "$sequences"; and cat -- "$sequences"
     end
 
     # Aliases

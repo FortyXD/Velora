@@ -20,6 +20,14 @@ Singleton {
     property string audioTheme: Config.options.sounds.theme
     property real value: sink?.audio?.volume ?? 0
     
+    // WirePlumber stores route gains as linear amplitudes. The desktop sliders use the cubic volume scale.
+    function defaultVolume(node) {
+        if (!node || node.isStream) return 1;
+        const route = node.properties?.[node.isSink ? "device.routes.default-sink-volume" : "device.routes.default-source-volume"];
+        if (route !== undefined && route !== null && Number.isFinite(Number(route))) return Math.cbrt(Number(route));
+        if (node.isSink) return 0.4;
+        return (node.name ?? "").includes(".pci-") ? 0.25 : 1;
+    }
     function friendlyDeviceName(node) {
         return (node?.nickname || node?.description || Translation.tr("Unknown"));
     }
@@ -34,6 +42,7 @@ Singleton {
     function appNodes(isSink) {
         return Pipewire.nodes.values.filter((node) => { // Should be list<PwNode> but it breaks ScriptModel
             return root.correctType(node, isSink) && node.isStream && !root.isCleanMic(node)
+                && !(node.name ?? "").startsWith("velora_settings_monitor_")
         })
     }
     function devices(isSink) {

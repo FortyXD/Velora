@@ -10,7 +10,8 @@ import QtQuick
  */
 Rectangle {
     id: root
-    property bool free: true
+    property string mode: "floating"
+    readonly property var canvasPlaces: [[.03,.18,.30,.35],[.43,.06,.41,.39],[.58,.56,.33,.29]]
     implicitWidth: 240
     implicitHeight: 140
     radius: Appearance.rounding.normal
@@ -22,7 +23,7 @@ Rectangle {
     readonly property var tiledPlaces: [[0.03, 0.05, 0.47, 0.9], [0.52, 0.05, 0.45, 0.43], [0.52, 0.52, 0.45, 0.43]]
     property int opened: 0
 
-    onFreeChanged: replay()
+    onModeChanged: replay()
     Component.onCompleted: replay()
     function replay() {
         root.opened = 0;
@@ -43,7 +44,7 @@ Rectangle {
         delegate: Rectangle {
             id: window
             required property int index
-            readonly property var place: (root.free ? root.freePlaces : root.tiledPlaces)[index]
+            readonly property var place: (root.mode === "canvas" ? root.canvasPlaces : root.mode === "floating" ? root.freePlaces : root.tiledPlaces)[index]
             readonly property bool open: index < root.opened
             x: place[0] * root.width
             y: place[1] * root.height

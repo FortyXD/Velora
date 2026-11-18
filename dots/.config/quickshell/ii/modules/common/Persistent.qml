@@ -154,7 +154,9 @@ Singleton {
             }
 
             property JsonObject notifications: JsonObject {
-                property bool silent: false // Do not disturb
+                property bool silent: false // Manually enabled until switched off
+                property double quietUntil: 0
+                property double skippedScheduleEnd: 0
             }
 
             // What energy saving turned down, so it can be put back after a restart of the shell too

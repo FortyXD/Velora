@@ -276,7 +276,7 @@ QtObject {
 
     function finish(tour) {
         if (root.navigationLocked) return;
-        root.shell("windowMode", "set", root.choices.windows === "floating" ? "floating" : "tiling");
+        root.shell("windowMode", "set", root.choices.windows);
         root.save({ "completed": true, "completedAt": new Date().toISOString() });
         root.finished(tour);
     }

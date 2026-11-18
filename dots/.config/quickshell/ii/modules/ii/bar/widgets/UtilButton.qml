@@ -111,7 +111,7 @@ Loader {
             toggled: Notifications.silent
             iconName: Notifications.silent ? "notifications_paused" : "notifications"
             tooltipText: Notifications.silent ? Translation.tr("Do not disturb is on") : Translation.tr("Do not disturb")
-            onClicked: Notifications.silent = !Notifications.silent
+            onClicked: Notifications.toggleSilent()
         }
     }
 

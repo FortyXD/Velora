@@ -16,15 +16,26 @@ AbstractWidget {
     required property int scaledScreenWidth
     required property int scaledScreenHeight
     required property real wallpaperScale
+    required property Item placementCanvas
     property bool visibleWhenLocked: false
     property var configEntry: Config.options.background.widgets[configEntryName]
     property string placementStrategy: configEntry.placementStrategy
-    // Widgets placed by the wallpaper take turns, each in the next free spot, so they don't stack up
+    // A fixed priority avoids feedback loops. Later widgets avoid the actual
+    // bounds of earlier ones, including widgets using a different strategy.
     readonly property list<string> autoPlacementOrder: ["clock", "weather", "systemMonitor", "media", "calendar", "countdown", "note", "pomodoro"]
-    readonly property int placementSlot: {
-        const widgets = Config.options.background.widgets;
-        const before = root.autoPlacementOrder.slice(0, Math.max(0, root.autoPlacementOrder.indexOf(root.configEntryName)));
-        return before.filter(name => widgets[name]?.enable && widgets[name]?.placementStrategy === root.placementStrategy).length;
+    readonly property string placementObstacles: {
+        if (!root.placementCanvas || root.placementStrategy === "free") return "[]";
+        const priority = root.autoPlacementOrder.indexOf(root.configEntryName);
+        const rectangles = [];
+        for (const loader of root.placementCanvas.children) {
+            const peer = loader.item;
+            if (!loader.shown || !peer || peer === root || !peer.configEntryName) continue;
+            if (peer.placementStrategy !== "free" && root.autoPlacementOrder.indexOf(peer.configEntryName) >= priority) continue;
+            // Target coordinates change once per placement/drag, not on every
+            // animation frame. Loader, size and strategy changes are reactive too.
+            rectangles.push([peer.targetX, peer.targetY, peer.width, peer.height]);
+        }
+        return JSON.stringify(rectangles);
     }
     property real targetX: Math.max(0, Math.min(configEntry.x, scaledScreenWidth - width))
     property real targetY : Math.max(0, Math.min(configEntry.y, scaledScreenHeight - height))
@@ -75,7 +86,9 @@ AbstractWidget {
 
     onWallpaperPathChanged: refreshPlacementIfNeeded()
     onPlacementStrategyChanged: refreshPlacementIfNeeded()
-    onPlacementSlotChanged: refreshPlacementIfNeeded()
+    onPlacementObstaclesChanged: refreshPlacementIfNeeded()
+    onWidthChanged: refreshPlacementIfNeeded()
+    onHeightChanged: refreshPlacementIfNeeded()
     onNeedsColTextChanged: refreshPlacementIfNeeded()
     onScaledScreenWidthChanged: refreshPlacementIfNeeded()
     onScaledScreenHeightChanged: refreshPlacementIfNeeded()
@@ -134,7 +147,7 @@ AbstractWidget {
                 "--height", Math.max(1, Math.round(root.height || 300)),
                 "--horizontal-padding", 100, "--vertical-padding", 100, root.wallpaperPath,
                 ...(root.placementStrategy === "mostBusy" ? ["--busiest"] : []),
-                "--slot", root.placementSlot,
+                "--avoid-rects", root.placementObstacles,
                 ...(root.placementStrategy === "free" ? ["--sample-x", Math.round(root.x), "--sample-y", Math.round(root.y)] : [])];
             root.analysisJob = analysisComponent.createObject(root, {
                 "generation": root.analysisGeneration, "path": root.wallpaperPath, "command": command

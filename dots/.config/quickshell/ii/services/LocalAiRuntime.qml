@@ -69,7 +69,7 @@ Singleton {
     }
     Process {
         id: server
-        command: ["python3", Quickshell.shellPath("scripts/ai/local-ollama.py"), root.useGpu ? "gpu" : "cpu"]
+        command: [Quickshell.shellPath("scripts/helper"), "local-ollama", root.useGpu ? "gpu" : "cpu"]
         onExited: (code, status) => {
             if (root.completion && code === 127) { root.problem = Translation.tr("Ollama is not installed or is not in PATH"); root.finish(false); }
             // Another server can win the port while ours starts. Keep probing it.

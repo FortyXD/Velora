@@ -94,7 +94,7 @@ cd ~/Velora
 ./velora install
 ```
 
-The installer lets you choose optional components and review its plan. It installs dependencies, prepares a locked Python environment, and backs up configuration files before linking them. Existing shell settings are preserved; a failed linking attempt restores the files it changed.
+The installer lets you choose optional components and review its plan. It installs dependencies, builds the native desktop tools, and backs up configuration files before linking them. Existing shell settings are preserved; a failed linking attempt restores the files it changed.
 
 ### 3. Start your desktop
 
@@ -122,7 +122,7 @@ Choose these in the installer, or review your choices later with `./velora compo
 | **Live wallpapers** | Video wallpaper playback through mpvpaper. |
 | **Toolbox** | Media conversion, downloads and document tools. |
 
-Hyprland, Quickshell, required shell services, fonts and the Python environment are handled by the installer. You do not need to install the full dependency list by hand. [All components and requirements →](docs/installation.md)
+Hyprland, Quickshell, required shell services, fonts and native tools are handled by the installer. You do not need to install the full dependency list by hand. [All components and requirements →](docs/installation.md)
 
 ### Build from source
 
@@ -203,13 +203,13 @@ velora update --interactive
 velora update-settings --channel release
 ```
 
-Updates reconcile dependencies and source builds, refresh the locked Python environment, and apply your saved installation choices. Checkout installations require clean, non-diverged Git history. Package installations retain edited runtime templates and save conflicting incoming templates for review.
+Updates reconcile dependencies and source builds, refresh the native helpers, and apply your saved installation choices. Checkout installations require clean, non-diverged Git history. Package installations retain edited runtime templates and save conflicting incoming templates for review.
 
 <details>
 <summary><strong>Maintenance and recovery commands</strong></summary>
 
 ```bash
-velora doctor        # Diagnose tools, packages, and the Python environment
+velora doctor        # Diagnose native tools, packages and shell services
 velora status        # Inspect installation and update state
 velora restore       # List configuration backups
 velora restore ID    # Restore a chosen backup
@@ -238,7 +238,7 @@ If `velora` is not on your PATH yet, use `./velora` from the checkout or `~/.loc
 ```text
 velora                 Installation and maintenance command
 scripts/               Installer, linking, builds, and updates
-dependencies/          Arch dependency components and Python lockfile
+dependencies/          Arch dependency components and system integration files
 packaging/             Arch package recipe template
 dots/.config/          Desktop shell and application configuration
 dots/.local/share/     Desktop integration, assets, and helper scripts

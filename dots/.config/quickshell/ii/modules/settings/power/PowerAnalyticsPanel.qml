@@ -10,10 +10,21 @@ import "ChartMath.js" as ChartMath
 ContentSection {
     id: root
     property bool pageActive: true
-    title: Translation.tr("Power analytics")
+    property int windowSeconds: 1200
+    property string metric: "power"
+    title: Translation.tr("History")
     icon: "monitoring"
-    description: Translation.tr("Battery measurements, not charger input or total laptop power. Positive watts = discharge; negative watts = charging. Gaps mean no measurements, including sleep.")
+    description: PowerAnalytics.enabled ? Translation.tr("Battery measurements, not charger input or total laptop power. Positive watts = discharge; negative watts = charging. Gaps mean no measurements, including sleep.") : ""
 
+    StyledText {
+        visible: !PowerAnalytics.enabled
+        Layout.fillWidth: true
+        Layout.margins: 14
+        text: Translation.tr("History starts when analytics is enabled. Nothing is collected while it is off.")
+        wrapMode: Text.Wrap
+        color: Appearance.colors.colSubtext
+        font.pixelSize: Appearance.font.pixelSize.small
+    }
     StyledText {
         Layout.fillWidth: true
         Layout.margins: 12
@@ -25,12 +36,11 @@ ContentSection {
     }
     Loader {
         Layout.fillWidth: true
-        active: PowerAnalytics.enabled
+        active: root.pageActive && PowerAnalytics.enabled
         visible: active
         sourceComponent: ColumnLayout {
             id: panel
-            property int windowSeconds: 1200
-            property string metric: "power"
+            readonly property int windowSeconds: root.windowSeconds
             property var history: ({ points: [], stats: {}, sample_count: 0, window_start: Date.now() / 1000 - 1200, window_end: Date.now() / 1000 })
             property bool loading: true
             property string readError: ""
@@ -67,7 +77,7 @@ ContentSection {
             Process {
                 id: reader
                 property int activeWindow: 1200
-                command: ["python3", PowerAnalytics.scriptPath, "watch", "--state-dir", PowerAnalytics.stateDirectory,
+                command: [PowerAnalytics.helperPath, "power-analytics", "watch", "--state-dir", PowerAnalytics.stateDirectory,
                     "--window-seconds", String(activeWindow), "--points", "300"]
                 stdout: SplitParser {
                     onRead: data => {
@@ -147,20 +157,20 @@ ContentSection {
                 currentValue: panel.windowSeconds
                 options: [{ label: Translation.tr("20 minutes"), value: 1200 },
                     { label: Translation.tr("1 hour"), value: 3600 }, { label: Translation.tr("8 hours"), value: 28800 }]
-                onSelected: value => panel.windowSeconds = value
+                onSelected: value => root.windowSeconds = value
             }
             AnalyticsSegments {
                 Layout.fillWidth: true
-                currentValue: panel.metric
+                currentValue: root.metric
                 options: [{ label: Translation.tr("Net power"), value: "power" },
                     { label: Translation.tr("Charge"), value: "charge" }, { label: Translation.tr("Voltage"), value: "voltage" }]
-                onSelected: value => panel.metric = value
+                onSelected: value => root.metric = value
             }
             PowerHistoryChart {
                 objectName: "powerHistoryChart"
                 Layout.fillWidth: true
                 history: panel.history
-                metric: panel.metric
+                metric: root.metric
             }
             RowLayout {
                 Layout.fillWidth: true
@@ -204,12 +214,4 @@ ContentSection {
         }
     }
 
-    ConfigSwitch {
-        buttonIcon: "monitoring"
-        text: Translation.tr("Advanced power analytics")
-        description: Translation.tr("Sample every 2 seconds and keep up to 8 hours on this device. Turning this off stops sampling and deletes all recorded measurements.")
-        autoToggle: false
-        checked: Config.options.battery.advancedAnalytics
-        onClicked: Config.options.battery.advancedAnalytics = !checked
-    }
 }

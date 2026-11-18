@@ -15,17 +15,7 @@ Rectangle {
     property bool blur: false
     property string blurText: "Image hidden"
 
-    property string imageDecodePath: Directories.cliphistDecode
-    property string imageDecodeFileName: `${entryNumber}`
-    property string imageDecodeFilePath: `${imageDecodePath}/${imageDecodeFileName}`
-    property string source
-
-    property int entryNumber: {
-        if (!root.entry)
-            return 0;
-        const match = root.entry.match(/^(\d+)\t/);
-        return match ? parseInt(match[1]) : 0;
-    }
+    readonly property string entryNumber: Cliphist.entryId(root.entry)
     property int imageWidth: {
         if (!root.entry)
             return 0;
@@ -47,25 +37,21 @@ Rectangle {
     implicitHeight: imageHeight * scale
     implicitWidth: imageWidth * scale
 
-    Component.onCompleted: {
-        decodeImageProcess.running = true;
-    }
-
-    Process {
-        id: decodeImageProcess
-        command: ["bash", "-c", `[ -f ${imageDecodeFilePath} ] || echo '${StringUtils.shellSingleQuoteEscape(root.entry)}' | ${Cliphist.cliphistBinary} decode > '${imageDecodeFilePath}'`]
-        onExited: (exitCode, exitStatus) => {
-            if (exitCode === 0) {
-                root.source = imageDecodeFilePath;
-            } else {
-                console.error("[CliphistImage] Failed to decode image for entry:", root.entry);
-                root.source = "";
+    Instantiator {
+        id: preview
+        model: root.entryNumber ? [root.entryNumber] : []
+        delegate: Process {
+            id: job
+            required property string modelData
+            property string path
+            property bool ready: false
+            Component.onCompleted: {
+                job.path = Directories.cliphistDecode + "/" + job.modelData + "-" + (++Cliphist.previewSerial);
+                job.exec(Cliphist.historyCommand("preview", [job.modelData, job.path]));
             }
+            onExited: (code, status) => ready = code === 0 && status === 0
+            Component.onDestruction: if (job.path) Quickshell.execDetached(["rm", "-f", "--", job.path])
         }
-    }
-
-    Component.onDestruction: {
-        Quickshell.execDetached(["bash", "-c", `[ -f '${imageDecodeFilePath}' ] && rm -f '${imageDecodeFilePath}'`]);
     }
 
     layer.enabled: true
@@ -81,7 +67,7 @@ Rectangle {
         id: image
         anchors.fill: parent
 
-        source: Qt.resolvedUrl(root.source)
+        source: preview.object?.ready ? Qt.resolvedUrl(preview.object.path) : ""
         fillMode: Image.PreserveAspectFit
         antialiasing: true
         asynchronous: true

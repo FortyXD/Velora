@@ -12,7 +12,8 @@ Singleton {
     // property string cliphistBinary: FileUtils.trimFileProtocol(`${Directories.home}/.cargo/bin/stash`)
     property string cliphistBinary: "cliphist"
     property real pasteDelay: 0.05
-    property string pressPasteCommand: "ydotool key -d 1 29:1 47:1 47:0 29:0"
+    readonly property string historyScript: Quickshell.shellPath("scripts/clipboard/history.sh")
+    property int previewSerial: 0
     property bool sloppySearch: Config.options?.search.sloppy ?? false
     property real scoreThreshold: 0.2
     property list<string> entries: []
@@ -51,22 +52,22 @@ Singleton {
         readProc.running = true
     }
 
+    function entryId(entry) {
+        return /^(\d+)\t/.exec(entry)?.[1] ?? "";
+    }
+
+    function historyCommand(action, args) {
+        return ["bash", root.historyScript, root.cliphistBinary, action, ...args];
+    }
+
     function copy(entry) {
-        if (root.cliphistBinary.includes("cliphist")) // Classic cliphist
-            Quickshell.execDetached(["bash", "-c", `printf '${StringUtils.shellSingleQuoteEscape(entry)}' | ${root.cliphistBinary} decode | wl-copy`]);
-        else { // Stash
-            const entryNumber = entry.split("\t")[0];
-            Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode ${entryNumber} | wl-copy`]);
-        }
+        const id = root.entryId(entry);
+        if (id) Quickshell.execDetached(root.historyCommand("copy", [id]));
     }
 
     function paste(entry) {
-        if (root.cliphistBinary.includes("cliphist")) // Classic cliphist
-            Quickshell.execDetached(["bash", "-c", `printf '${StringUtils.shellSingleQuoteEscape(entry)}' | ${root.cliphistBinary} decode | wl-copy && wl-paste`]);
-        else { // Stash
-            const entryNumber = entry.split("\t")[0];
-            Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode ${entryNumber} | wl-copy; ${root.pressPasteCommand}`]);
-        }
+        const id = root.entryId(entry);
+        if (id) Quickshell.execDetached(root.historyCommand("paste", [String(root.pasteDelay), id]));
     }
 
     function superpaste(count, isImage = false) {
@@ -75,27 +76,23 @@ Singleton {
             if (!isImage) return true;
             return entryIsImage(entry);
         }).slice(0, count)
-        const pasteCommands = [...targetEntries].reverse().map(entry => `printf '${StringUtils.shellSingleQuoteEscape(entry)}' | ${root.cliphistBinary} decode | wl-copy && sleep ${root.pasteDelay} && ${root.pressPasteCommand}`)
-        // Act
-        Quickshell.execDetached(["bash", "-c", pasteCommands.join(` && sleep ${root.pasteDelay} && `)]);
+        const ids = targetEntries.reverse().map(entry => root.entryId(entry)).filter(Boolean);
+        if (ids.length) Quickshell.execDetached(root.historyCommand("paste", [String(root.pasteDelay), ...ids]));
     }
 
-    Process {
-        id: deleteProc
-        property string entry: ""
-        command: ["bash", "-c", `echo '${StringUtils.shellSingleQuoteEscape(deleteProc.entry)}' | ${root.cliphistBinary} delete`]
-        function deleteEntry(entry) {
-            deleteProc.entry = entry;
-            deleteProc.running = true;
-            deleteProc.entry = "";
-        }
-        onExited: (exitCode, exitStatus) => {
-            root.refresh();
+    Component {
+        id: deletion
+        Process {
+            required property string entryId
+            command: root.historyCommand("delete", [entryId])
+            running: true
+            onExited: { root.refresh(); destroy(); }
         }
     }
 
     function deleteEntry(entry) {
-        deleteProc.deleteEntry(entry);
+        const id = root.entryId(entry);
+        if (id) deletion.createObject(root, {entryId: id});
     }
 
     Process {

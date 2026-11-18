@@ -92,9 +92,10 @@ Singleton {
             "description": Translation.tr("Processor, memory, network speed, battery and updates"),
             "options": [
                 { "key": "graphs", "kind": "switch", "icon": "show_chart", "label": Translation.tr("Graphs"), "default": true },
-                { "key": "network", "kind": "switch", "icon": "network_check", "label": Translation.tr("Network speed"), "default": true },
-                { "key": "battery", "kind": "switch", "icon": "battery_full", "label": Translation.tr("Battery"), "default": true },
-                { "key": "updates", "kind": "switch", "icon": "system_update", "label": Translation.tr("Updates"), "default": true }
+                { "key": "network", "kind": "switch", "icon": "network_check", "label": Translation.tr("Network speed"), "default": false },
+                { "key": "battery", "kind": "switch", "icon": "battery_full", "label": Translation.tr("Battery"), "default": false },
+                { "key": "updates", "kind": "switch", "icon": "system_update", "label": Translation.tr("Updates"), "default": false },
+                { "key": "details", "kind": "switch", "icon": "monitoring", "label": Translation.tr("Details"), "default": false }
             ]
         },
         "calendar": {
@@ -140,7 +141,7 @@ Singleton {
             "fill": true, "minHeight": 240, "tabbable": true, "lazy": true,
             "description": Translation.tr("Translates as you type"),
             "options": [
-                { "key": "delay", "kind": "slider", "icon": "hourglass_empty", "label": Translation.tr("Translate after a pause of"), "from": 100, "to": 1500, "step": 50, "unit": "ms", "scope": "path:sidebar.translator.delay" }
+                { "key": "delay", "kind": "slider", "icon": "hourglass_empty", "label": Translation.tr("Translate after a pause of"), "from": 100, "to": 1500, "step": 50, "unit": "ms", "default": 300, "scope": "path:sidebar.translator.delay" }
             ]
         },
         "anime": {
@@ -148,7 +149,7 @@ Singleton {
             "fill": true, "minHeight": 260, "tabbable": true, "lazy": true, "policy": "weeb",
             "description": Translation.tr("Wallhaven and booru image browser"),
             "options": [
-                { "key": "limit", "kind": "slider", "icon": "photo_library", "label": Translation.tr("Images per page"), "from": 5, "to": 100, "step": 5, "scope": "path:sidebar.booru.limit" }
+                { "key": "limit", "kind": "slider", "icon": "photo_library", "label": Translation.tr("Images per page"), "from": 5, "to": 100, "step": 5, "default": 20, "scope": "path:sidebar.booru.limit" }
             ]
         },
         "tabs": {

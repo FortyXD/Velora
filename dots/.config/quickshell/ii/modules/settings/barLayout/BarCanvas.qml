@@ -21,13 +21,14 @@ Item {
     property string selectedUid: ""
     property string draggedUid: ""
     property bool dragging: false
-    property string addZone: ""
+    readonly property alias editGuide: guide
+    onLayoutChanged: guide?.clear()
 
     signal selectRequested(string uid)
     signal chipDragStarted(var item, real sceneX, real sceneY, real offsetX, real offsetY)
     signal chipDragMoved(real sceneX, real sceneY)
     signal chipDragEnded(real sceneX, real sceneY)
-    signal addRequested(string zone)
+    signal addRequested(string zone, int index)
 
     readonly property bool vertical: root.orientation === "vertical"
     readonly property var bar: Config.options.bar
@@ -42,7 +43,6 @@ Item {
     readonly property real sliver: root.vertical ? 104 : 86 // The bit of desktop beside the bar, for the hint and the edge picker
     readonly property real barDepth: root.thickness + root.margin * 2
     readonly property var selected: root.selectedUid.length > 0 ? BarLayout.find(root.layout, root.selectedUid) : null
-    readonly property bool hovered: barHover.hovered
 
     readonly property var zoneItems: [startZone, centerStartZone, centerZone, centerEndZone, endZone]
 
@@ -50,23 +50,9 @@ Item {
         return root.zoneItems.find(item => item.zone === zone) ?? null;
     }
 
-    // The part of the bar nearest to a scene point while dragging, or null when it's off the bar
-    function zoneAt(sceneX, sceneY) {
-        let best = null;
-        let bestDistance = 48;
-        for (const zone of root.zoneItems) {
-            const distance = zone.distanceTo(sceneX, sceneY, 36);
-            if (distance < bestDistance) {
-                best = zone;
-                bestDistance = distance;
-            }
-        }
-        return best;
-    }
-
     function chipFor(uid) {
         for (const zone of root.zoneItems) {
-            const chip = zone.chips().find(chip => chip.itemData.uid === uid);
+            const chip = zone.orderedHosts().find(chip => chip.itemData.uid === uid);
             if (chip) return chip;
         }
         return null;
@@ -99,8 +85,15 @@ Item {
                 animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
             }
 
-            HoverHandler {
-                id: barHover
+            BarInsertionGuide {
+                id: guide
+                zones: root.zoneItems
+                vertical: root.vertical
+                dragging: root.dragging
+                excludedUid: root.draggedUid
+                crossReach: 36
+                alongReach: 48
+                onChosen: (zone, index) => { root.addRequested(zone, index); clear(); }
             }
 
             Rectangle { // The bar itself
@@ -261,13 +254,10 @@ Item {
         islandColor: Appearance.colors.colBarBackground
         selectedUid: root.selectedUid
         draggedUid: root.draggedUid
-        highlighted: root.addZone === zoneItem.zone
-        // Empty parts open up while dragging; every part offers "+" while the pointer is on the bar
-        showSlot: root.dragging ? zoneItem.items.length === 0 : root.hovered
+        editGuide: guide
         onChipClicked: item => root.selectRequested(root.selectedUid === item.uid ? "" : item.uid)
         onChipDragStarted: (item, sceneX, sceneY, offsetX, offsetY) => root.chipDragStarted(item, sceneX, sceneY, offsetX, offsetY)
         onChipDragMoved: (sceneX, sceneY) => root.chipDragMoved(sceneX, sceneY)
         onChipDragEnded: (sceneX, sceneY) => root.chipDragEnded(sceneX, sceneY)
-        onAddRequested: root.addRequested(zoneItem.zone)
     }
 }

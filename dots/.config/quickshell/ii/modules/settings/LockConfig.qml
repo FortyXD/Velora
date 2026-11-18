@@ -333,6 +333,8 @@ ContentPage {
                             text: Translation.tr("Size")
                             from: 0.5
                             to: 2
+                            defaultValue: 1
+                            defaultValueText: "100%"
                             value: page.selectedItem?.size ?? 1
                             valueText: `${Math.round(value * 100)}%`
                             onMoved: LockLayout.setSize(page.selectedId, Math.round(value * 20) / 20)
@@ -519,6 +521,7 @@ ContentPage {
                         usePercentTooltip: false
                         from: 10
                         to: 200
+                        defaultValue: 100
                         value: page.lock.blur.radius
                         valueText: `${Math.round(value)}`
                         onMoved: Config.options.lock.blur.radius = Math.round(value)
@@ -529,6 +532,8 @@ ContentPage {
                         description: Translation.tr("Makes the clock and text easier to read on bright wallpapers")
                         from: 0
                         to: 0.8
+                        defaultValue: 0.3
+                        defaultValueText: "30%"
                         value: page.lock.dim
                         valueText: `${Math.round(value * 100)}%`
                         onMoved: Config.options.lock.dim = Math.round(value * 100) / 100
@@ -539,6 +544,8 @@ ContentPage {
                         usePercentTooltip: false
                         from: 1
                         to: 1.5
+                        defaultValue: 1.1
+                        defaultValueText: "110%"
                         value: page.lock.blur.extraZoom
                         valueText: `${Math.round(value * 100)}%`
                         onMoved: Config.options.lock.blur.extraZoom = Math.round(value * 100) / 100
@@ -654,6 +661,8 @@ ContentPage {
                         usePercentTooltip: false
                         from: 3
                         to: 60
+                        defaultValue: 10
+                        defaultValueText: Translation.tr("%1 s").arg(defaultValue)
                         value: page.lock.clearPasswordAfter
                         valueText: Translation.tr("%1 s").arg(Math.round(value))
                         onMoved: Config.options.lock.clearPasswordAfter = Math.round(value)

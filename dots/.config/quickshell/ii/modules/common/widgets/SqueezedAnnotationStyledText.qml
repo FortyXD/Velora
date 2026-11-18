@@ -67,6 +67,7 @@ Item {
         width: root.rotate90 ? parent.height : parent.width
         text: root.text
         rotation: root.rotate90 ? 90 : 0
+        textFormat: Text.PlainText
 
         renderType: Text.QtRendering
         wrapMode: Text.Wrap

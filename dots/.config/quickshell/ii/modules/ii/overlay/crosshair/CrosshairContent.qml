@@ -70,7 +70,7 @@ Item {
 
     function loadFromCode(code: string): void {
         let args = code.split(";");
-        for (let i = 0; i < args.length; i+= 2) {
+        for (let i = 0; i + 1 < args.length; i += 2) {
             let key = args[i];
             let value = args[i+1];
             let targetKey = root.propertyMap[key];
@@ -80,11 +80,14 @@ Item {
 
             if (targetType === "number") {
                 value = parseFloat(value);
+                if (!Number.isFinite(value)) continue;
             } else if (targetType === "boolean") {
                 value = (value === "1");
             } 
             if (targetKey === "colorCode") {
-                value = "#" + value.slice(0, 6);
+                const rgb = value.slice(0, 6);
+                if (!/^[0-9a-f]{6}$/i.test(rgb)) continue;
+                value = "#" + rgb;
             }
             root[targetKey] = value;
         }

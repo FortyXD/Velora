@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import qs.services
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 import "ChatMarkdown.js" as Markdown
 
@@ -55,6 +56,6 @@ StyledTextArea {
             }
         }
     }
-    onLinkActivated: link => { if (/^https?:\/\//i.test(link)) Qt.openUrlExternally(link); }
+    onLinkActivated: link => { if (StringUtils.parseWebUrl(link)) Qt.openUrlExternally(link); }
     HoverHandler { cursorShape: root.hoveredLink ? Qt.PointingHandCursor : Qt.IBeamCursor }
 }

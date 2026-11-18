@@ -10,7 +10,13 @@ TestCase {
     Component { id: thumbnailFactory; WindowThumbnail { width: 320; height: 180 } }
     Component { id: spyFactory; SignalSpy {} }
     Component { id: poolFactory; WindowPreviewPool {} }
-    function init() { WindowPreviewPolicy.compositorVersion = ""; HyprlandData.identifier = ""; WindowPreviews.frames = ({}); GlobalStates.screenLocked = false; }
+    function init() {
+        GlobalStates.screenLocked = true;
+        WindowPreviewPolicy.compositorVersion = "";
+        HyprlandData.identifier = "";
+        WindowPreviews.cacheLifetime = 30000;
+        GlobalStates.screenLocked = false;
+    }
     function makePreview() {
         const source = createTemporaryObject(sourceFactory, this);
         return createTemporaryObject(thumbnailFactory, this, {toplevel: source});
@@ -94,15 +100,18 @@ TestCase {
     function test_shared_frame_survives_subscriber_changes_and_rejects_closed_windows() {
         const first = WindowPreviews.acquire("ab12", 280, 180, true, false);
         const second = WindowPreviews.acquire("ab12", 280, 180, true, false);
-        WindowPreviews.handle(JSON.stringify({event:"frame", id:"ab12", path:"/frame.png", revision:"1", width:280, height:140}));
+        const generation = WindowPreviews.subscriptions[first].generation;
+        WindowPreviews.handle(JSON.stringify({event:"frame", id:"ab12", generation, path:"/frame.png", revision:"1", width:280, height:140}));
         verify(WindowPreviews.frames.ab12);
         WindowPreviews.update(first, "cd34", 280, 180, true, false);
         verify(WindowPreviews.frames.ab12, "another subscriber still needs this frame");
         WindowPreviews.release(second);
         verify(!WindowPreviews.frames.ab12);
-        WindowPreviews.handle(JSON.stringify({event:"frame", id:"ab12", path:"/late.png", revision:"2", width:280, height:140}));
+        const reopened = WindowPreviews.acquire("ab12", 280, 180, true, false);
+        WindowPreviews.handle(JSON.stringify({event:"frame", id:"ab12", generation, path:"/late.png", revision:"2", width:280, height:140}));
         verify(!WindowPreviews.frames.ab12, "late closed-window results must be discarded");
         WindowPreviews.release(first);
+        WindowPreviews.release(reopened);
     }
     function test_hidden_parent_and_missing_source_stop_capture() {
         WindowPreviewPolicy.readVersion('{"version":"0.56.2"}');
@@ -116,89 +125,65 @@ TestCase {
         view.toplevel = null;
         verify(!view.capturing);
     }
-    function test_return_to_cached_preview_does_not_wait_for_capture() {
+    function test_new_surface_can_paint_cached_pixels_before_a_fresh_capture() {
         WindowPreviewPolicy.compositorVersion = "0.57.0";
         HyprlandData.identifier = "ab12";
-        const view = makePreview();
-        view.retainWhileHidden = true;
+        const source = createTemporaryObject(sourceFactory, this);
+        const first = createTemporaryObject(thumbnailFactory, this, {toplevel:source});
         WindowPreviews.frames = ({ab12: {source: Qt.resolvedUrl("frame-red.png"), width:280, height:140}});
-        tryVerify(() => view.hasContent);
-        const spy = createTemporaryObject(spyFactory, this, {target:view, signalName:"hasContentChanged"});
-        view.visible = false;
-        compare(view.subscription, 0, "a cached image must not keep capturing a hidden window");
-        verify(!WindowPreviews.frames.ab12, "the cache must not depend on the capture file surviving");
-        view.visible = true;
-        verify(view.subscription > 0);
-        compare(spy.count, 0, "returning to a visited window must keep its ready image");
-        compare(grabImage(view).red(160, 90), 255);
+        tryVerify(() => first.hasContent);
+        first.visible = false;
+        compare(Object.keys(WindowPreviews.subscriptions).length, 0);
+        verify(!WindowPreviews.frames.ab12);
+        first.destroy();
+        wait(0);
+
+        const next = createTemporaryObject(thumbnailFactory, this, {toplevel:source});
+        verify(next.hasContent, "a different delegate must be ready on its first render");
+        compare(grabImage(next).red(160, 90), 255);
         WindowPreviews.frames = ({ab12: {source: Qt.resolvedUrl("frame-blue.png"), width:280, height:140}});
-        tryVerify(() => grabImage(view).blue(160, 90) === 255);
-        compare(spy.count, 0);
-        view.visible = false;
-        GlobalStates.screenLocked = true;
-        verify(!view.hasContent, "lock must also clear images of invisible visited windows");
+        tryVerify(() => grabImage(next).blue(160, 90) === 255);
+        next.visible = false;
+        source.closed();
+        verify(!WindowPreviews.cached(source, "ab12"));
+        verify(!next.hasContent);
     }
-    function test_cached_preview_is_invalidated_when_its_window_closes() {
-        WindowPreviewPolicy.compositorVersion = "0.57.0";
-        HyprlandData.identifier = "ab12";
-        const view = makePreview();
-        view.retainWhileHidden = true;
-        WindowPreviews.frames = ({ab12: {source: Qt.resolvedUrl("frame-red.png"), width:280, height:140}});
-        tryVerify(() => view.hasContent);
-        view.visible = false;
-        view.toplevel.closed();
-        verify(!view.hasContent);
-        view.visible = true;
-        compare(view.subscription, 0);
-    }
-    function test_visited_window_pool_is_bounded_and_cleared_on_hide_lock_and_close() {
+    function test_cache_is_bounded_expires_and_drops_locked_or_recycled_handles() {
+        const frame = {source:Qt.resolvedUrl("frame-red.png"), width:280, height:140};
         const windows = [];
-        for (let i = 0; i < 12; ++i) windows.push(createTemporaryObject(sourceFactory, this));
-        ToplevelManager.toplevels.values = windows;
-        const pool = createTemporaryObject(poolFactory, this, {active:true, retainedLimit:2});
-        for (const window of windows) {
-            pool.current = [window];
-            verify(pool.windows.includes(window));
-            verify(pool.windows.length <= 3, "at most two visited windows plus the current one");
+        WindowPreviews.cacheLifetime = 120;
+        for (let i = 0; i < 10; i++) {
+            const window = createTemporaryObject(sourceFactory, this);
+            windows.push(window);
+            WindowPreviews.remember(window, String(i), frame);
         }
-        pool.current = [windows[10]];
-        verify(pool.windows.includes(windows[11]));
-        ToplevelManager.toplevels.values = windows.slice(0, 11);
-        verify(!pool.windows.includes(windows[11]), "closed windows must leave the pool");
+        compare(WindowPreviews.recent.length, 8);
+        verify(!WindowPreviews.cached(windows[0], "0"));
+        verify(!WindowPreviews.cached(windows[9], "8"));
+        verify(WindowPreviews.cached(windows[2], "2"));
+        tryCompare(WindowPreviews, "recent", []);
+        WindowPreviews.remember(windows[9], "9", frame);
+        GlobalStates.screenLocked = true;
+        compare(WindowPreviews.recent.length, 0);
+        GlobalStates.screenLocked = false;
+        verify(!WindowPreviews.cached(windows[9], "9"));
+    }
+    function test_every_card_is_available_while_its_thumbnail_is_pending() {
+        const browser = createTemporaryObject(sourceFactory, this);
+        const terminal = createTemporaryObject(sourceFactory, this);
+        ToplevelManager.toplevels.values = [browser, terminal];
+        const pool = createTemporaryObject(poolFactory, this, {active:true, current:[browser,terminal]});
+        compare(pool.windows, [browser,terminal]);
+        pool.current = [terminal];
+        compare(pool.windows, [terminal]);
         GlobalStates.screenLocked = true;
         compare(pool.windows.length, 0);
         GlobalStates.screenLocked = false;
-        compare(pool.windows.length, 1, "unlock must not restore old cached images");
-        pool.active = false;
+        ToplevelManager.toplevels.values = [browser];
         compare(pool.windows.length, 0);
-    }
-    function test_popup_waits_for_complete_group_and_ignores_superseded_requests() {
-        const browser = createTemporaryObject(sourceFactory, this);
-        const dolphin = createTemporaryObject(sourceFactory, this);
-        const terminal = createTemporaryObject(sourceFactory, this);
-        ToplevelManager.toplevels.values = [browser, dolphin, terminal];
-        const pool = createTemporaryObject(poolFactory, this, {active:true, current:[browser]});
-        compare(pool.displayed.length, 0, "first hover must not expose an unready card");
-        pool.setReady(browser, true);
-        compare(pool.displayed[0], browser);
-        pool.current = [dolphin];
-        compare(pool.displayed[0], browser, "the complete old card stays while the new image loads");
-        pool.current = [terminal];
-        pool.setReady(dolphin, true);
-        compare(pool.displayed[0], browser, "a late result for a skipped icon must not be presented");
-        pool.setReady(terminal, true);
-        compare(pool.displayed[0], terminal);
-        pool.setReady(dolphin, false);
-        pool.current = [browser, dolphin];
-        compare(pool.displayed[0], terminal, "do not show a partial group with a blank second card");
-        pool.setReady(dolphin, true);
-        compare(pool.displayed.length, 2);
-        compare(pool.displayed[0], browser);
-        compare(pool.displayed[1], dolphin);
         pool.active = false;
-        compare(pool.displayed.length, 0);
-        pool.setReady(browser, true);
-        compare(pool.displayed.length, 0, "dismissed requests must never reopen the popup");
+        pool.current = [browser];
+        compare(pool.windows.length, 0);
     }
     function test_preparation_captures_without_showing_a_placeholder() {
         WindowPreviewPolicy.compositorVersion = "0.57.0";

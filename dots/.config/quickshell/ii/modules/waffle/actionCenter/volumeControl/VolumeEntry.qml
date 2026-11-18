@@ -48,6 +48,7 @@ RowLayout {
     WSlider {
         Layout.fillWidth: true
         Layout.rightMargin: 10
+        defaultValue: Audio.defaultVolume(root.node)
         value: root.node?.audio.volume ?? 0
         onMoved: root.node.audio.volume = value
     }

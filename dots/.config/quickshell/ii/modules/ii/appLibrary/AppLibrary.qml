@@ -22,37 +22,6 @@ import Quickshell.Hyprland
 Scope {
     id: root
 
-    // 0 hidden … 1 open. A gesture drives it directly; otherwise it animates to where it should be.
-    property real progress: 0
-    readonly property bool following: TouchpadGestures.libraryProgress >= 0
-    readonly property real target: GlobalStates.appLibraryOpen ? 1 : 0
-
-    onFollowingChanged: if (!following) root.settleTo(root.target)
-    onTargetChanged: if (!following) root.settleTo(root.target)
-    // Set here: a binding on `to` would still hold the previous target when this runs
-    function settleTo(value) {
-        settle.stop();
-        settle.to = value;
-        settle.duration = Appearance.scaledDuration(value > 0 ? 420 : 280);
-        settle.easing.bezierCurve = value > 0 ? Appearance.animationCurves.emphasizedDecel : Appearance.animationCurves.emphasizedAccel;
-        settle.start();
-    }
-    Connections {
-        target: TouchpadGestures
-        function onLibraryProgressChanged() {
-            if (root.following) {
-                settle.stop();
-                root.progress = TouchpadGestures.libraryProgress;
-            }
-        }
-    }
-    NumberAnimation {
-        id: settle
-        target: root
-        property: "progress"
-        easing.type: Easing.BezierSpline
-    }
-
     function launch(entry) {
         GlobalStates.appLibraryOpen = false;
         entry.execute();
@@ -82,7 +51,13 @@ Scope {
             if (GlobalStates.overviewOpen) GlobalStates.appLibraryOpen = false;
         }
         function onAppLibraryOpenChanged() {
-            if (GlobalStates.appLibraryOpen) GlobalStates.overviewOpen = false;
+            if (GlobalStates.appLibraryOpen) {
+                GlobalStates.overviewOpen = false;
+                GlobalStates.searchOpen = false;
+            }
+        }
+        function onSearchOpenChanged() {
+            if (GlobalStates.searchOpen) GlobalStates.appLibraryOpen = false;
         }
     }
 
@@ -99,7 +74,7 @@ Scope {
     ]
 
     // Out at all: then it's shown on the screen it opened on, and stays there
-    readonly property bool showing: root.progress > 0.001 || GlobalStates.appLibraryOpen
+    readonly property bool showing: TouchpadGestures.library.presenting
     property var screen: null
     onShowingChanged: {
         if (!root.showing) return;
@@ -117,6 +92,7 @@ Scope {
         WlrLayershell.namespace: "quickshell:appLibrary"
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: GlobalStates.appLibraryOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        mask: Region { item: GlobalStates.appLibraryOpen ? window.contentItem : null }
         anchors {
             top: true
             bottom: true
@@ -124,8 +100,7 @@ Scope {
             right: true
         }
 
-        readonly property real p: Math.max(0, root.progress)
-        readonly property real shown: Math.min(1, p)
+        readonly property real shown: TouchpadGestures.library.progress
         property int section: 0
         property string query: ""
         readonly property var apps: {
@@ -152,6 +127,7 @@ Scope {
             anchors.fill: parent
             source: backdrop
             visible: backdrop.hasContent
+            opacity: window.shown
             blurEnabled: true
             blurMax: 64
             blur: window.shown
@@ -175,6 +151,11 @@ Scope {
             id: content
             anchors.fill: parent
             opacity: window.shown
+            scale: TouchpadGestures.library.scale
+            transform: Translate {
+                x: TouchpadGestures.library.offsetX * Math.min(320, window.width * 0.4)
+                y: TouchpadGestures.library.offsetY * Math.min(320, window.height * 0.4)
+            }
             focus: true
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Escape) {
@@ -201,10 +182,8 @@ Scope {
                 anchors.bottomMargin: Math.round(window.height * 0.05)
                 spacing: 18
 
-                // Search: slides down a little as it appears
                 Rectangle {
                     Layout.alignment: Qt.AlignHCenter
-                    Layout.topMargin: -16 * (1 - window.shown)
                     implicitWidth: Math.min(520, window.width * 0.5)
                     implicitHeight: 46
                     radius: height / 2
@@ -315,20 +294,8 @@ Scope {
                                 delegate: Item {
                                     id: tile
                                     required property var modelData
-                                    required property int index
                                     width: pages.cell
                                     height: pages.cell + 8
-                                    // Icons gather from the edges toward the middle, ring by ring
-                                    readonly property real ring: {
-                                        const column = index % pages.columns, row = Math.floor(index / pages.columns);
-                                        const dx = (column - (pages.columns - 1) / 2) / Math.max(1, pages.columns / 2);
-                                        const dy = (row - (pages.rows - 1) / 2) / Math.max(1, pages.rows / 2);
-                                        return Math.min(1, Math.hypot(dx, dy) / 1.2);
-                                    }
-                                    readonly property real local: Math.max(0, Math.min(1, (window.p - (1 - tile.ring) * 0.3) / 0.7))
-
-                                    opacity: local
-                                    scale: 1.16 - 0.16 * local
 
                                     RippleButton {
                                         id: tileButton

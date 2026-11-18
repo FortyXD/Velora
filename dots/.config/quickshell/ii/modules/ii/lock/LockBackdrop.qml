@@ -8,8 +8,8 @@ import qs.modules.common.widgets
 import qs.modules.common.functions
 
 /**
- * The lock screen's wallpaper for previews: blurred, zoomed and darkened as in Config.options.lock.
- * A video wallpaper plays here when `playVideo` (the real lock screen does this in Background.qml).
+ * The lock screen and editor share this wallpaper: blurred, zoomed and darkened as in Config.options.lock.
+ * A video wallpaper plays here when `playVideo` is enabled.
  */
 Item {
     id: root
@@ -18,6 +18,10 @@ Item {
     readonly property string path: Config.options.background.wallpaperPath
     readonly property bool isVideo: FileUtils.isVideoPath(root.path)
     readonly property string still: root.isVideo ? Config.options.background.thumbnailPath : root.path
+    readonly property var safety: Config.options.workSafety
+    readonly property bool hideWallpaper: safety.enable.wallpaper
+        && StringUtils.stringListContainsSubstring(path.toLowerCase(), safety.triggerCondition.fileKeywords)
+        && StringUtils.stringListContainsSubstring(Network.networkName.toLowerCase(), safety.triggerCondition.networkNameKeywords)
     clip: true
 
     Item {
@@ -27,7 +31,7 @@ Item {
 
         Image {
             anchors.fill: parent
-            source: root.still.length === 0 ? "" : root.still.startsWith("/") ? `file://${root.still}` : root.still
+            source: root.hideWallpaper || !root.still ? "" : root.still.startsWith("/") ? `file://${root.still}` : root.still
             fillMode: Image.PreserveAspectCrop
             sourceSize.width: Math.min(2560, root.width)
             asynchronous: true
@@ -44,7 +48,7 @@ Item {
         }
         Loader {
             anchors.fill: parent
-            active: root.playVideo && root.isVideo && root.lock.animatedWallpaper && !PowerSaving.pauseLiveWallpaper
+            active: root.playVideo && root.isVideo && !root.hideWallpaper && root.lock.animatedWallpaper && !PowerSaving.pauseLiveWallpaper
             sourceComponent: Video {
                 source: root.path.startsWith("/") ? `file://${root.path}` : root.path
                 autoPlay: true

@@ -11,7 +11,7 @@ import qs.modules.settings.barLayout
 /**
  * Everything about the bar on one page that never scrolls away from the bar itself: a strip of the
  * screen with the bar at its edge stays pinned (beside the page for a vertical bar), with tabs below
- * it. Widgets: the catalog to click or drag onto the bar, and the selected widget's card.
+ * it. Widgets: the catalog to click or drag onto the bar, with a popup for the selected widget.
  * Look, Behavior, and Ready-made bars with sharing each scroll on their own.
  */
 ContentPage {
@@ -34,15 +34,24 @@ ContentPage {
 
     readonly property string orientation: Config.options.bar.vertical ? "vertical" : "horizontal"
     readonly property bool isVertical: page.orientation === "vertical"
+    readonly property alias popupPane: popupArea
+    SettingsPopupArea {
+        id: popupArea
+        parent: page.Window.window?.settingsPageViewport ?? page
+        column: page.isVertical ? editorColumn : null
+    }
     readonly property var layout: page.isVertical ? BarLayout.vertical : BarLayout.horizontal
     readonly property bool isCustom: page.isVertical ? BarLayout.verticalIsCustom : BarLayout.horizontalIsCustom
     readonly property var barStyle: Config.options.bar.style
     property string selectedUid: ""
     property string addZone: "end"
+    property int addIndex: -1
+    onLayoutChanged: addIndex = -1
     property string tab: "widgets"
     onOrientationChanged: page.selectedUid = ""
-    onSelectedUidChanged: if (page.selectedUid.length > 0) page.tab = "widgets" // Its card is there
+    onSelectedUidChanged: if (page.selectedUid.length > 0) page.tab = "widgets"
     readonly property var selected: page.selectedUid.length > 0 ? BarLayout.find(page.layout, page.selectedUid) : null
+    onSelectedChanged: if (page.selected) inspectorPopup.displayedSelection = page.selected
 
     readonly property var zoneInfo: BarLayout.zoneInfo(page.orientation)
 
@@ -50,12 +59,13 @@ ContentPage {
         return page.zoneInfo.find(info => info.zone === zone)?.title ?? zone;
     }
 
-    function usableTypes() {
+    function catalogTypes(category) {
         return Object.keys(BarWidgetCatalog.widgets).filter(type => {
             const meta = BarWidgetCatalog.get(type);
-            if (page.isVertical && !meta.vertical) return false;
-            if (meta.unique && BarLayout.zoneNames.some(zone => page.layout.zones[zone].some(item => item.type === type))) return false;
-            return true;
+            return meta.category === category && (!page.isVertical || meta.vertical);
+        }).sort((a, b) => {
+            const present = Number(!!page.placedOfType(b)) - Number(!!page.placedOfType(a));
+            return present || BarWidgetCatalog.get(a).name.localeCompare(BarWidgetCatalog.get(b).name);
         });
     }
 
@@ -67,7 +77,19 @@ ContentPage {
         return null;
     }
 
+    function activateCatalogType(type) {
+        const placed = page.placedOfType(type);
+        if (placed) page.selectedUid = placed.item.uid;
+        else page.addWidget(type, page.addZone, page.addIndex);
+    }
+
     function addWidget(type, zone, index) {
+        const existing = BarWidgetCatalog.get(type)?.unique ? page.placedOfType(type) : null;
+        if (existing) {
+            BarLayout.move(page.orientation, existing.item.uid, zone, index);
+            page.selectedUid = existing.item.uid;
+            return;
+        }
         page.selectedUid = BarLayout.insert(page.orientation, type, zone, index);
     }
 
@@ -80,6 +102,8 @@ ContentPage {
         ghost.pill = !!state.pill;
         ghost.offsetX = offsetX;
         ghost.offsetY = offsetY;
+        if (state.mode === "add" && meta?.unique)
+            state.uid = page.placedOfType(state.type)?.item.uid ?? "";
         page.dragState = state;
         page.dragMove(sceneX, sceneY);
     }
@@ -87,8 +111,7 @@ ContentPage {
         const local = ghost.parent.mapFromItem(null, sceneX, sceneY);
         ghost.x = local.x - ghost.offsetX;
         ghost.y = local.y - ghost.offsetY;
-        const target = canvas.zoneAt(sceneX, sceneY);
-        for (const zone of canvas.zoneItems) zone.dropIndex = zone === target ? zone.indexAt(sceneX, sceneY) : -1;
+        const target = canvas.editGuide.updateAt(sceneX, sceneY, true);
         // A widget from the bar taken off the strip (into the catalog, say) is removed when let go
         const onStrip = canvas.mapFromItem(null, sceneX, sceneY);
         const slack = 16;
@@ -97,30 +120,44 @@ ContentPage {
     }
     function dragEnd(sceneX, sceneY) {
         const state = page.dragState;
-        const removing = ghost.removing;
-        let target = null;
-        for (const zone of canvas.zoneItems) {
-            if (zone.dropIndex >= 0 && sceneX >= 0) target = { "zone": zone.zone, "index": zone.dropIndex };
-            zone.dropIndex = -1;
-        }
+        if (!state) return;
+        const canceled = sceneX === -1 && sceneY === -1;
+        if (!canceled) page.dragMove(sceneX, sceneY);
+        const guide = canvas.editGuide;
+        const target = guide.target;
+        const removing = !canceled && ghost.removing;
+        const points = guide.capture();
+        const release = ghost.mapToItem(null, ghost.width / 2, ghost.height / 2);
         page.dragState = null;
+        guide.clear();
         ghost.removing = false;
-        if (state?.mode === "move" && removing) {
+        if (canceled) return;
+        if (state.mode === "move" && removing) {
             if (page.selectedUid === state.uid) page.selectedUid = "";
             BarLayout.remove(page.orientation, state.uid);
-            return;
+            guide.settle(points);
+        } else if (target) {
+            let uid = state.uid;
+            if (state.mode === "move") {
+                if (!target.noop) BarLayout.move(page.orientation, uid, target.zone, target.index);
+            } else {
+                page.addWidget(state.type, target.zone, target.index);
+                uid = page.selectedUid;
+            }
+            guide.settle(points, uid, release);
         }
-        if (!state || !target) return;
-        if (state.mode === "move") BarLayout.move(page.orientation, state.uid, target.zone, target.index);
-        else page.addWidget(state.type, target.zone, target.index);
     }
 
     WidgetChip {
         id: ghost
         property real offsetX
         property real offsetY
-        parent: Overlay.overlay
-        visible: page.dragState !== null
+        parent: page.Overlay.overlay ?? page.Window.window?.contentItem ?? page
+        scale: page.dragState ? (removing ? 0.94 : 1.04) : 0.98
+        opacity: page.dragState ? 0.96 : 0
+        visible: opacity > 0
+        Behavior on scale { NumberAnimation { duration: Appearance.scaledDuration(140); easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: Appearance.scaledDuration(100) } }
         enabled: false
         z: 1000
         selected: true
@@ -128,7 +165,7 @@ ContentPage {
 
     Shortcut {
         sequence: StandardKey.Delete
-        enabled: page.enabled && page.selectedUid.length > 0
+        enabled: page.pageShown && page.selectedUid.length > 0
         onActivated: {
             BarLayout.remove(page.orientation, page.selectedUid);
             page.selectedUid = "";
@@ -136,13 +173,33 @@ ContentPage {
     }
     Shortcut {
         sequence: StandardKey.Undo
-        enabled: page.enabled && BarLayout.canUndo
+        enabled: page.pageShown && BarLayout.canUndo
         onActivated: BarLayout.undo()
     }
-    Shortcut {
-        sequence: "Escape"
-        enabled: page.enabled && page.selectedUid.length > 0
-        onActivated: page.selectedUid = ""
+    SettingsPanePopup {
+        id: inspectorPopup
+        objectName: "barWidgetPopup"
+        // Keep the last card intact while the close transition finishes.
+        property var displayedSelection: null
+        pane: page.popupPane
+        width: Math.min(560, Math.max(0, (parent?.width ?? 560) - 32))
+        height: inspector.implicitHeight
+        padding: 0
+        visible: page.pageShown && page.tab === "widgets" && page.selected !== null && page.dragState === null
+        onClosed: {
+            page.selectedUid = "";
+            displayedSelection = null;
+        }
+        background: Item {}
+        contentItem: WidgetInspector {
+            id: inspector
+            orientation: page.orientation
+            selected: inspectorPopup.displayedSelection
+            zoneInfo: page.zoneInfo
+            maximumHeight: Math.max(0, (inspectorPopup.parent?.height ?? 600) - 48)
+            onCloseRequested: page.selectedUid = ""
+            onSelectRequested: uid => page.selectedUid = uid
+        }
     }
 
     GridLayout {
@@ -168,26 +225,29 @@ ContentPage {
 
             BarCanvas {
                 id: canvas
+                objectName: "barLayoutCanvas"
                 anchors.fill: parent
                 orientation: page.orientation
                 layout: page.layout
                 zoneInfo: page.zoneInfo
                 selectedUid: page.selectedUid
-                draggedUid: page.dragState?.mode === "move" ? page.dragState.uid : ""
+                draggedUid: page.dragState?.uid ?? ""
                 dragging: page.dragState !== null
-                addZone: page.addZone
                 onSelectRequested: uid => page.selectedUid = uid
                 onChipDragStarted: (item, sceneX, sceneY, offsetX, offsetY) => page.dragStart({ "mode": "move", "uid": item.uid, "type": item.type, "pill": item.pill }, sceneX, sceneY, offsetX, offsetY)
                 onChipDragMoved: (sceneX, sceneY) => page.dragMove(sceneX, sceneY)
                 onChipDragEnded: (sceneX, sceneY) => page.dragEnd(sceneX, sceneY)
-                onAddRequested: zone => {
+                onAddRequested: (zone, index) => {
+                    page.selectedUid = "";
                     page.addZone = zone;
+                    page.addIndex = index;
                     page.tab = "widgets";
                 }
             }
         }
 
         ColumnLayout {
+            id: editorColumn
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 10
@@ -247,36 +307,25 @@ ContentPage {
 
                     GridLayout {
                         id: widgetsTab
-                        readonly property bool wide: width >= 700
                         anchors.fill: parent
-                        columns: widgetsTab.wide ? 2 : 1
+                        columns: 1
                         columnSpacing: 14
                         rowSpacing: 12
 
                         SettingsScrollPane {
                             id: paletteSection
-                            Layout.row: widgetsTab.wide ? 0 : 1
+                            Layout.row: 0
                             Layout.column: 0
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             spacing: 16
-
-                            ContentSubsection {
-                                title: Translation.tr("Add to")
-                                description: Translation.tr("Click a widget to add it to this part of the bar, or drag it onto any part")
-                                ConfigSelectionArray {
-                                    currentValue: page.addZone
-                                    onSelected: newValue => page.addZone = newValue
-                                    options: page.zoneInfo.map(info => ({ "displayName": info.title, "icon": info.icon, "value": info.zone }))
-                                }
-                            }
 
                             Repeater {
                                 model: BarWidgetCatalog.categories
                                 delegate: ContentSubsection {
                                     id: categoryBlock
                                     required property var modelData
-                                    readonly property var types: page.usableTypes().filter(type => BarWidgetCatalog.get(type).category === modelData.id)
+                                    readonly property var types: page.catalogTypes(modelData.id)
                                     visible: types.length > 0
                                     title: modelData.name
 
@@ -287,14 +336,21 @@ ContentPage {
                                             model: categoryBlock.types
                                             delegate: WidgetChip {
                                                 required property string modelData
+                                                objectName: "barCatalog-" + modelData
                                                 readonly property var meta: BarWidgetCatalog.get(modelData)
+                                                present: !!page.placedOfType(modelData)
                                                 readonly property bool settingsSearchable: true
-                                                readonly property string searchText: `${meta.name} ${meta.description}`
+                                                readonly property string searchText: `${meta.name} ${meta.description} ${(meta.options ?? []).map(option => option.label).join(" ")}`
+                                                function settingsReveal() {
+                                                    const placed = page.placedOfType(modelData);
+                                                    if (placed) page.selectedUid = placed.item.uid;
+                                                    return false;
+                                                }
                                                 compact: true
                                                 label: meta.name
                                                 icon: meta.icon
-                                                pill: !!meta.defaults?.pill
-                                                onClicked: page.addWidget(modelData, page.addZone, -1)
+                                                pill: present
+                                                onClicked: page.activateCatalogType(modelData)
                                                 onDragStarted: (sceneX, sceneY, offsetX, offsetY) => page.dragStart({ "mode": "add", "type": modelData, "pill": !!meta.defaults?.pill }, sceneX, sceneY, offsetX, offsetY)
                                                 onDragMoved: (sceneX, sceneY) => page.dragMove(sceneX, sceneY)
                                                 onDragEnded: (sceneX, sceneY) => page.dragEnd(sceneX, sceneY)
@@ -307,48 +363,7 @@ ContentPage {
                                 }
                             }
 
-                            ContentSection {
-                                id: widgetSettingsSection
-                                icon: "tune"
-                                title: Translation.tr("Widget settings")
-                                description: Translation.tr("Each widget is set up in its card when you select it on the bar; these lead straight to the ones with the most to set.")
 
-                                Repeater {
-                                    model: ["workspaces", "utilButtons", "island", "statusIndicators", "notifications", "sysTray", "weather", "resources", "clock", "leftSidebarButton"]
-                                    delegate: ConfigNavRow {
-                                        id: widgetRow
-                                        required property string modelData
-                                        readonly property var meta: BarWidgetCatalog.get(modelData)
-                                        readonly property var placed: page.placedOfType(modelData)
-                                        visible: !page.isVertical || meta.vertical
-                                        buttonIcon: meta.icon
-                                        title: meta.name
-                                        description: widgetRow.placed ? meta.description : Translation.tr("Not on the bar · click to add it")
-                                        valueText: widgetRow.placed ? page.zoneTitle(widgetRow.placed.zone) : ""
-                                        trailingIcon: widgetRow.placed ? "chevron_right" : "add"
-                                        searchText: `${meta.name} ${meta.description} ${(meta.options ?? []).map(option => option.label).join(" ")}`
-                                        onClicked: {
-                                            page.selectedUid = widgetRow.placed ? widgetRow.placed.item.uid : BarLayout.insert(page.orientation, modelData, page.addZone, -1);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        WidgetInspector {
-                            id: inspector
-                            visible: page.selected !== null && page.dragState === null
-                            Layout.row: 0
-                            Layout.column: widgetsTab.wide ? 1 : 0
-                            Layout.preferredWidth: widgetsTab.wide ? 330 : -1
-                            Layout.fillWidth: !widgetsTab.wide
-                            Layout.alignment: Qt.AlignTop
-                            orientation: page.orientation
-                            selected: page.selected
-                            zoneInfo: page.zoneInfo
-                            maximumHeight: widgetsTab.wide ? tabArea.height : tabArea.height * 0.55
-                            onCloseRequested: page.selectedUid = ""
-                            onSelectRequested: uid => page.selectedUid = uid
                         }
                     }
                 }
@@ -467,6 +482,7 @@ ContentPage {
                             visible: page.barStyle.backgroundOpacity >= 0
                             buttonIcon: "gradient"
                             text: Translation.tr("Opacity")
+                            defaultValue: Appearance.colors.themeBarOpacity
                             value: Math.max(0, page.barStyle.backgroundOpacity)
                             onMoved: Config.options.bar.style.backgroundOpacity = Math.round(value * 100) / 100
                         }
@@ -531,6 +547,8 @@ ContentPage {
                             usePercentTooltip: false
                             from: 0
                             to: 1000
+                            defaultValue: 140
+                            defaultValueText: "140 ms"
                             value: Config.options.bar.autoHide.showWhenPressingSuper.delay
                             valueText: `${Math.round(value)} ms`
                             onMoved: Config.options.bar.autoHide.showWhenPressingSuper.delay = Math.round(value / 10) * 10
@@ -542,6 +560,8 @@ ContentPage {
                             usePercentTooltip: false
                             from: 1
                             to: 20
+                            defaultValue: 2
+                            defaultValueText: "2 px"
                             value: Config.options.bar.autoHide.hoverRegionWidth
                             valueText: `${Math.round(value)} px`
                             onMoved: Config.options.bar.autoHide.hoverRegionWidth = Math.round(value)
@@ -714,7 +734,7 @@ ContentPage {
                                 visible: (pastePreview.pasted?.commands?.length ?? 0) > 0
                                 wrapMode: Text.Wrap
                                 color: Appearance.colors.colError
-                                text: Translation.tr("It runs these commands when you click its widgets. Use it only if you trust them:")
+                                text: Translation.tr("Bar widgets can run the commands below automatically or when you interact with them.")
                             }
                             Repeater {
                                 model: pastePreview.pasted?.commands ?? []
@@ -723,6 +743,7 @@ ContentPage {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WrapAnywhere
                                     text: modelData
+                                    textFormat: Text.PlainText
                                     font.family: Appearance.font.family.monospace
                                     font.pixelSize: Appearance.font.pixelSize.smaller
                                     color: Appearance.colors.colOnLayer1
@@ -780,6 +801,7 @@ ContentPage {
         property real themeValue: 0
         readonly property bool isAuto: !(page.barStyle[sizeSlider.key] >= 0)
         usePercentTooltip: false
+        defaultValue: sizeSlider.themeValue
         value: sizeSlider.isAuto ? sizeSlider.themeValue : page.barStyle[sizeSlider.key]
         valueText: sizeSlider.isAuto ? Translation.tr("Auto") : `${Math.round(sizeSlider.value)}`
         onMoved: Config.options.bar.style[sizeSlider.key] = Math.round(sizeSlider.value)

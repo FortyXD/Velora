@@ -52,7 +52,7 @@ Item {
             buttonIcon: "notifications_paused"
             toggled: Notifications.silent
             onClicked: () => {
-                Notifications.silent = !Notifications.silent;
+                Notifications.toggleSilent();
             }
         }
         NotificationStatusButton {
