@@ -12,8 +12,8 @@ import tempfile
 def copy_source(source, destination, root):
     """Copy source files without developer metadata or machine-specific symlinks."""
     # An extracted source tree may have been built before it is packaged again.
-    # Match the workspace cache exactly; source fixtures may also be named target.
-    if source == root / "tools/target":
+    # The translator builds separately from the workspace. Test fixtures may also be named target.
+    if source in (root / "tools/target", root / "tools/velora-translate/target"):
         return
     if source.is_symlink():
         resolved = source.resolve()
