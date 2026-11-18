@@ -56,3 +56,4 @@ __pycache__/
 
 # Native helper build output (tools/Cargo.lock is kept)
 /tools/target/
+/tools/velora-translate/target/
