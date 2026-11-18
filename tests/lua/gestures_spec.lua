@@ -51,14 +51,38 @@ local library = find(4, "down", nil).action
 library.start({})
 library.update({ delta = { x = 0, y = 160 } })
 library.finish({ cancelled = false })
-check("a live gesture reports its start", events[1] == "gesture:library:begin:0.000", events[1])
+check("a live gesture reports its physical direction", events[1] == "gesture:library:begin:0.000:down", events[1])
 check("then how far it went", events[2] == "gesture:library:update:0.500", events[2])
 check("then that it ended", events[3] == "gesture:library:end:0.500", events[3])
 
-local pinch = find(4, "pinchin", nil).action
-pinch.start({})
+-- Hyprland calls decreasing finger separation PINCH_OUT and repeats the recognition sample.
+local pinch = find(4, "pinchout", nil).action
+pinch.start({ scale = 0.9 })
+pinch.update({ scale = 0.9 })
+check("recognizing a pinch does not jump the grid", events[#events] == "gesture:library:update:0.000")
+pinch.update({ scale = 0.65 })
+check("a pinch reports how far it closed", events[#events] == "gesture:library:update:0.500")
 pinch.update({ scale = 0.75 })
-check("a pinch reports how far it closed", events[5] == "gesture:library:update:0.500", events[5])
+pinch.finish({ cancelled = true })
+check("a reversed pinch can be cancelled", events[#events] == "gesture:library:cancel:0.300")
+pinch.start({ scale = 0.7 })
+pinch.update({ scale = 0.7 })
+check("a fast pinch retains its travel past recognition", events[#events] == "gesture:library:update:0.400")
+
+local spread = find(4, "pinchin", nil).action
+spread.start({ scale = 1.1 })
+spread.update({ scale = 1.3 })
+check("spreading the fingers drives the desktop gesture", events[#events] == "gesture:desktop:update:0.300")
+
+local swipe = gestures.build({ action = "overview", fingers = 4, direction = "vertical" }).action
+swipe.start({ direction = "UP", delta = { x = 0, y = -10 } })
+check("a remapped axis follows the actual direction", events[#events] == "gesture:overview:begin:0.000:up")
+swipe.update({ delta = { x = 0, y = -10 } })
+check("the recognition delta is counted once", events[#events] == "gesture:overview:update:0.031")
+swipe.update({ delta = { x = 0, y = -480 } })
+check("a long swipe stops at the fully open position", events[#events] == "gesture:overview:update:1.000")
+swipe.update({ delta = { x = 0, y = 32 } })
+check("reversal moves immediately from the end stop", events[#events] == "gesture:overview:update:0.900")
 
 local file = io.open(runtime .. "/velora-gestures.json")
 local manifest = file and file:read("a") or ""

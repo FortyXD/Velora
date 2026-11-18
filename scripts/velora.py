@@ -431,7 +431,7 @@ def preflight(args, features):
             if not shutil.which(tool):
                 errors.append(f"Missing command: {tool}. Package installation supports Arch Linux only.")
     for source in ("dots/.config/hypr", "dots/.config/quickshell", "home/.zshrc", "home/.tmux.conf",
-                   "dots/.config/illogical-impulse/config.example.json", "dependencies/python/requirements.txt",
+                   "dots/.config/illogical-impulse/config.example.json", "tools/velora-helper/Cargo.toml",
                    "dependencies/system/70-velora-uinput.rules", "dependencies/system/velora-uinput.conf",
                    "dependencies/system/ydotool-user.conf"):
         if not (ROOT / source).exists():
@@ -515,7 +515,7 @@ def configure_desktop_services(args):
 
 RUNTIME_COMMANDS = {
     "desktop": ("Hyprland", "hyprctl", "qs", "hypridle", "hyprlock", "hyprsunset", "kitty"),
-    "shell": ("python3", "uv", "nmcli", "wpctl", "pw-record", "pw-play", "pactl", "wl-copy", "wl-paste",
+    "shell": ("python3", "nmcli", "wpctl", "pw-record", "pw-play", "pactl", "wl-copy", "wl-paste",
               "cliphist", "ydotool", "ydotoold", "brightnessctl", "ddcutil", "curl", "jq", "magick", "file",
               "notify-send", "kdialog", "gsettings", "secret-tool", "qalc", "fish", "qsb"),
     "applications": ("dolphin", "systemsettings", "plasma-systemmonitor", "foot", "fuzzel", "tmux", "zsh",
@@ -532,24 +532,6 @@ QML_RUNTIME_MODULES = ("QtQuick", "QtQuick/Controls", "QtQuick/Layouts", "QtQuic
                        "Quickshell/Services/Pipewire", "Quickshell/Services/Polkit", "Quickshell/Widgets",
                        "Quickshell/Services/Mpris", "Quickshell/Services/Notifications", "Quickshell/Services/SystemTray",
                        "Quickshell/Services/UPower")
-PYTHON_RUNTIME_CHECK = """
-import importlib, json
-errors = []
-for name in ('PIL.Image', 'cv2', 'numpy', 'psutil', 'click', 'loguru', 'tqdm', 'requests', 'google.auth',
-             'sass', 'setproctitle', 'pywayland', 'materialyoucolor', 'material_color_utilities', 'kde_material_you_colors'):
-    try:
-        importlib.import_module(name)
-    except Exception as error:
-        errors.append(f'{name}: {error}')
-try:
-    import gi
-    gi.require_version('GnomeDesktop', '4.0')
-    gi.require_version('Gtk', '4.0')
-    from gi.repository import GnomeDesktop, Gtk, Gio
-except Exception as error:
-    errors.append(f'GTK/GnomeDesktop introspection: {error}')
-print(json.dumps(errors))
-"""
 
 
 def runtime_problems(features, *, skip_aur=False, qml_root=Path("/usr/lib/qt6/qml")):
@@ -567,21 +549,21 @@ def runtime_problems(features, *, skip_aur=False, qml_root=Path("/usr/lib/qt6/qm
     if "shell" in features:
         if not connection_service():
             problems.append("Missing connection service: velora-connectivityd (shell)")
-        python = xdg("XDG_STATE_HOME", ".local/state") / "quickshell/.venv/bin/python"
-        if not python.is_file():
-            problems.append(f"Missing shell Python environment: {python}")
+        helper = native_helper_path()
+        executable = str(helper) if helper.is_file() else system_tool("velora-helper")
+        if not executable:
+            problems.append("Missing native helper: velora-helper (shell)")
         else:
             try:
-                errors = json.loads(run([python, "-c", PYTHON_RUNTIME_CHECK], capture=True, timeout=60))
-                problems.extend(f"Python: {error}" for error in errors)
-            except (VeloraError, ValueError, TypeError) as error:
-                problems.append(f"Could not verify the shell Python environment: {error}")
+                run([executable, "--version"], capture=True, timeout=5)
+            except VeloraError as error:
+                problems.append(f"Could not start the native shell helper: {error}")
     return problems
 
 
 def verify_runtime(features, args):
     if args.dry_run:
-        print("  Would verify runtime commands, QML modules and the shell's Python/GTK imports.")
+        print("  Would verify runtime commands, QML modules and the native shell helper.")
         return
     problems = runtime_problems(features, skip_aur=args.skip_aur)
     if problems:
@@ -592,7 +574,7 @@ def verify_runtime(features, args):
 
 def install_dependencies(args, features):
     if args.skip_packages:
-        print("Skipping packages, Python environment and system services (--skip-packages).")
+        print("Skipping packages and system services (--skip-packages).")
         return
     sources = getattr(args, "source_packages", [])
     repo, aur = package_plan(features, args.skip_aur, sources)
@@ -624,11 +606,6 @@ def install_dependencies(args, features):
                     run(["makepkg", "-si", "--needed"], cwd=checkout)
             helper = shutil.which("yay") or "yay"
         run([helper, "-S", "--needed", "--", *aur], dry=args.dry_run)
-    venv = xdg("XDG_STATE_HOME", ".local/state") / "quickshell/.venv"
-    if not (venv / "bin/python").exists():
-        run(["uv", "venv", "--python", "3.12", str(venv)], dry=args.dry_run)
-    run(["uv", "pip", "sync", "--python", str(venv / "bin/python"),
-         str(ROOT / "dependencies/python/requirements.txt")], dry=args.dry_run)
     ensure_system_service("power-profiles-daemon", dry=args.dry_run)
     if "shell" in features:
         configure_desktop_services(args)
@@ -722,6 +699,10 @@ def build_file_dialog(*, dry=False):
     if dry:
         print("  Would atomically install the Velora Qt file-dialog addon: " + str(destination))
         return
+    install_shared_library(source, destination)
+
+
+def install_shared_library(source, destination):
     destination.parent.mkdir(parents=True, exist_ok=True)
     # Running Qt applications keep the old inode until they exit.
     with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as output:
@@ -734,6 +715,26 @@ def build_file_dialog(*, dry=False):
             os.replace(temporary, destination)
         finally:
             temporary.unlink(missing_ok=True)
+
+
+
+def build_window_plugin(*, dry=False):
+    source = ROOT / "lib/hypr/libvelora-windows.so"
+    destination = xdg("XDG_DATA_HOME", ".local/share") / "velora/hypr/libvelora-windows.so"
+    if not source.is_file():
+        if not dry and (not shutil.which("pkg-config") or
+                        subprocess.run(["pkg-config", "--exact-version=0.57.0", "hyprland"]).returncode):
+            print("Free Windows will use compositor shortcuts. Canvas needs the Hyprland 0.57.0 development headers.")
+            return
+        build = xdg("XDG_CACHE_HOME", ".cache") / "velora/windows-build"
+        run(["cmake", "--fresh", "-S", ROOT / "tools/velora-windows", "-B", build,
+             "-DCMAKE_BUILD_TYPE=Release"], dry=dry)
+        run(["cmake", "--build", build, "--parallel", "2"], dry=dry)
+        source = build / "libvelora-windows.so"
+    if dry:
+        print(f"  Would install Velora window decorations and canvas: {destination}")
+    else:
+        install_shared_library(source, destination)
 
 
 def preview(paths):
@@ -868,7 +869,9 @@ def relink(args):
     print(f"\nConfiguration linked to {ROOT}. Backup: {backup}\nRestart Quickshell or log in again to load it.")
 
 
-NATIVE_BINARIES = ("velora-helper", "velora-connectivityd", "velora-searchd", "velora-agentd")
+NATIVE_PACKAGES = ("velora-helper", "velora-connectivityd", "velora-searchd", "velora-agentd")
+# The helper crate also builds the commands that use GIO. Install these before its launcher.
+NATIVE_BINARIES = ("velora-desktop-state", *NATIVE_PACKAGES)
 
 
 def native_helper_path(name="velora-helper"):
@@ -884,7 +887,10 @@ def connection_service():
 def native_source_fingerprint():
     """Tie installed binaries to their build inputs, including the desktop release version."""
     files = {ROOT / name for name in ("VERSION", "tools/Cargo.toml", "tools/Cargo.lock")}
-    for name in NATIVE_BINARIES:
+    translator = ROOT / "tools/velora-translate"
+    if translator.is_dir():
+        files.update([translator / "Cargo.toml", translator / "Cargo.lock", *translator.glob("src/**/*.rs")])
+    for name in NATIVE_PACKAGES:
         crate = ROOT / "tools" / name
         files.add(crate / "Cargo.toml")
         files.update(path for path in crate.rglob("*") if path.is_file()
@@ -934,7 +940,7 @@ def build_native_helper(dry=False):
         command = [cargo, "build", "--release", "--locked", "--manifest-path", ROOT / "tools/Cargo.toml"]
         # Build exactly the outputs we install, independent of workspace default-members.
         # Otherwise a cached binary omitted by Cargo's defaults could be stamped current.
-        for name in NATIVE_BINARIES:
+        for name in NATIVE_PACKAGES:
             command.extend(["--package", name])
         run(command, env=dict(os.environ, CARGO_TARGET_DIR=str(target)), dry=dry)
         built = {name: target / "release" / name for name in NATIVE_BINARIES}
@@ -965,6 +971,10 @@ def build_native_helper(dry=False):
     finally:
         for temporary in staged.values():
             temporary.unlink(missing_ok=True)
+    # An existing optional installation can keep both of its downloaded models on upgrade.
+    translate = xdg("XDG_DATA_HOME", ".local/share") / "folis/translate"
+    if all((translate / "models" / pair / "model/model.bin").is_file() for pair in ("en_ru", "ru_en")):
+        run(["bash", ROOT / "dots/.config/quickshell/ii/scripts/translate/setup.sh", "--engine-only"])
     write_json(state_dir() / "native-tools.json", {"source": fingerprint, "binaries": hashes})
 
 
@@ -1053,6 +1063,7 @@ def install(args):
             install_dependencies(args, features)
         build_native_helper(dry=True)
         build_file_dialog(dry=True)
+        build_window_plugin(dry=True)
         configure_greeter(args.login_theme_choice, dry=True)
         install_fonts(dry=True)
         verify_runtime(features, args)
@@ -1081,6 +1092,7 @@ def install(args):
         run(["git", "submodule", "update", "--init", "--recursive"], cwd=ROOT)
     build_native_helper()
     build_file_dialog()
+    build_window_plugin()
     install_fonts()
     verify_runtime(features, args)
     backup = link_configuration(args, without)
@@ -1102,6 +1114,8 @@ def install_command(binary, args, without):
     theme = getattr(args, "login_theme_choice", getattr(args, "login_theme", None))
     if theme is not None:
         command += ["--login-theme", theme]
+    if getattr(args, "skip_aur", None) is False:
+        command.append("--with-aur")
     for attribute, flag in (("skip_aur", "--skip-aur"), ("skip_packages", "--skip-packages"),
                             ("no_updates", "--no-updates"), ("no_reload", "--no-reload")):
         if getattr(args, attribute, False):
@@ -1314,7 +1328,7 @@ def update(args):
 def doctor(args):
     failed = False
     print("Velora diagnostics — Arch Linux")
-    for tool in ("python3", "bash", "git", "pacman", "uv", "Hyprland", "qs", "systemctl"):
+    for tool in ("python3", "bash", "git", "pacman", "Hyprland", "qs", "systemctl"):
         found = shutil.which(tool)
         print(f"  {'OK' if found else 'MISSING'}  {tool}" + (f": {found}" if found else ""))
         failed |= found is None
@@ -1324,8 +1338,6 @@ def doctor(args):
     repo, aur = package_plan(features, skip_aur=skip_aur)
     print("  Missing official packages: " + (", ".join(repo) or "none"))
     print("  Missing AUR packages: " + (", ".join(aur) or "none"))
-    venv = xdg("XDG_STATE_HOME", ".local/state") / "quickshell/.venv/bin/python"
-    print("  Python environment: " + (str(venv) if venv.exists() else "missing; run velora deps"))
     runtime_errors = runtime_problems(features, skip_aur=skip_aur)
     print("  Desktop runtime: " + ("\n    " + "\n    ".join(runtime_errors) if runtime_errors else "commands and libraries available"))
     if "shell" in features:
@@ -1352,7 +1364,7 @@ def doctor(args):
         print(f"  Configuration links: {len(stale)} missing or pointing elsewhere, e.g. {stale[0]}; run velora relink")
     else:
         print("  Configuration links: all point to this installation")
-    if failed or repo or not venv.exists() or fonts_missing or stale or runtime_errors:
+    if failed or repo or aur or fonts_missing or stale or runtime_errors:
         raise VeloraError("Some checks need attention. Run 'velora install --dry-run' to inspect the repair plan.")
 
 
@@ -1363,7 +1375,11 @@ def parser():
         sub = commands.add_parser(name, help=description)
         sub.add_argument("--without", default=None, help="Comma-separated optional features to omit")
         sub.add_argument("--dry-run", action="store_true", help="Show changes without applying them")
-        sub.add_argument("--skip-aur", action="store_true", default=None)
+        aur = sub.add_mutually_exclusive_group()
+        aur.add_argument("--skip-aur", dest="skip_aur", action="store_true", default=None,
+                         help="Omit AUR packages (reuse the saved preference when neither AUR flag is set)")
+        aur.add_argument("--with-aur", dest="skip_aur", action="store_false",
+                         help="Enable AUR packages, overriding a saved --skip-aur preference")
         sub.add_argument("--skip-packages", action="store_true")
         sub.add_argument("--yes", action="store_true", help="Accept the installer plan; package managers still ask normally")
         sub.add_argument("--no-reload", action="store_true")

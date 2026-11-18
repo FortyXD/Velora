@@ -4,7 +4,6 @@ import QtQuick.Layouts
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
-import qs.modules.common.functions
 
 /**
  * Card with everything about the selected widget, shown on the canvas beside it: what it is,
@@ -17,6 +16,7 @@ Rectangle {
     required property var zoneInfo // [{ zone, title, icon }]
     property real maximumHeight: 400
     readonly property var item: root.selected?.item ?? null
+    readonly property string selectedUid: root.item?.uid ?? ""
     readonly property var meta: root.item ? BarWidgetCatalog.get(root.item.type) : null
     readonly property bool horizontal: root.orientation !== "vertical"
     readonly property bool islands: Config.options.bar.style.islands
@@ -25,9 +25,10 @@ Rectangle {
     signal selectRequested(string uid)
 
     implicitWidth: 330
-    implicitHeight: Math.min(root.maximumHeight, header.implicitHeight + flick.contentHeight + 12)
+    implicitHeight: Math.min(root.maximumHeight, header.implicitHeight + flick.contentHeight + 24)
+    onSelectedUidChanged: flick.contentY = 0
     radius: Appearance.rounding.normal
-    color: ColorUtils.applyAlpha(Appearance.colors.colLayer1, 1) // Opaque, so the wallpaper never shows through the text
+    color: Appearance.colors.colLayer1Base
     border.width: 1
     border.color: Appearance.colors.colOutlineVariant
 
@@ -184,10 +185,14 @@ Rectangle {
         clip: true
         contentHeight: body.implicitHeight + 8
         interactive: contentHeight > height
+        ScrollBar.vertical: StyledScrollBar {
+            objectName: "widgetInspectorScrollBar"
+            policy: flick.interactive ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+        }
 
         ColumnLayout {
             id: body
-            width: flick.width
+            width: flick.width - (flick.interactive ? 12 : 0)
             spacing: 10
 
             Choice {

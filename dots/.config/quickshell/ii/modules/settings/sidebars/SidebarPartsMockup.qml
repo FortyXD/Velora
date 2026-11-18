@@ -18,6 +18,7 @@ Rectangle {
     required property string side
     property string selectedUid: ""
     property bool editable: true
+    property var catalogTarget: null
     signal partClicked(string uid)
     signal partRemoved(string uid)
 
@@ -130,6 +131,28 @@ Rectangle {
         return index;
     }
 
+    // The middle of a tab group accepts a page; its top and bottom edges stay available for insertion.
+    function catalogTargetAt(sceneX, sceneY, type) {
+        const p = root.mapFromItem(null, sceneX, sceneY);
+        if (!root.enabled || !root.contains(p)) return null;
+        const tabbable = SidebarCatalog.part(type)?.tabbable;
+        let lineY = root.padding / 2;
+        for (let i = 0; i < cards.count; i++) {
+            const card = cards.itemAt(i);
+            if (!card) continue;
+            const top = root.padding + card.y - column.contentY;
+            const edge = Math.min(16, card.height / 4);
+            if (tabbable && card.type === "tabs" && !card.modelData.hidden && p.y >= top + edge && p.y < top + card.height - edge) {
+                const visibleTop = Math.max(root.padding, top);
+                return {groupUid: card.uid, index: (card.modelData.tabs ?? []).length, pointerY: p.y,
+                    y: visibleTop, height: Math.max(2, Math.min(root.height - root.padding, top + card.height) - visibleTop)};
+            }
+            if (p.y < top + card.height / 2) return {groupUid: "", index: i, pointerY: p.y, y: lineY, height: 3};
+            lineY = Math.max(3, Math.min(root.height - 4, top + card.height + root.gap / 2));
+        }
+        return {groupUid: "", index: root.parts.length, pointerY: p.y, y: lineY, height: 3};
+    }
+
     StyledText {
         visible: root.parts.length === 0
         anchors.centerIn: parent
@@ -141,14 +164,29 @@ Rectangle {
         color: Appearance.colors.colSubtext
     }
 
-    Item {
+    StyledFlickable {
         id: column
+        objectName: "sidebarPreviewScroll"
         anchors {
             fill: parent
             margins: root.padding
         }
+        contentWidth: width
+        contentHeight: Math.max(height, root.parts.reduce((h, part) => h + root.heightOf(part) + root.gap, -root.gap))
+        flickableDirection: Flickable.VerticalFlick
+        boundsBehavior: Flickable.StopAtBounds
+        clip: root.dragUid === ""
+
+        Timer {
+            readonly property real step: !root.catalogTarget ? 0
+                : root.catalogTarget.pointerY < 26 ? -8 : root.catalogTarget.pointerY > root.height - 26 ? 8 : 0
+            running: (step < 0 && column.contentY > 0) || (step > 0 && column.contentY < column.contentHeight - column.height)
+            interval: 20; repeat: true
+            onTriggered: column.contentY = Math.max(0, Math.min(column.contentHeight - column.height, column.contentY + step))
+        }
 
         Repeater {
+            id: cards
             model: root.parts
             delegate: Rectangle {
                 id: card
@@ -196,19 +234,19 @@ Rectangle {
                     property point start
                     property point grabOffset
                     onPressed: mouse => {
-                        start = mapToItem(column, mouse.x, mouse.y);
+                        start = mapToItem(column.contentItem, mouse.x, mouse.y);
                         grabOffset = Qt.point(start.x - card.x, start.y - card.y);
                     }
                     onPositionChanged: mouse => {
                         if (!pressed || !root.editable) return;
-                        const p = mapToItem(column, mouse.x, mouse.y);
+                        const p = mapToItem(column.contentItem, mouse.x, mouse.y);
                         if (!card.dragging && Math.hypot(p.x - start.x, p.y - start.y) < 5) return;
                         const outside = mapToItem(root, mouse.x, mouse.y);
                         const slack = 24;
                         root.dragRemoving = outside.x < -slack || outside.y < -slack || outside.x > root.width + slack || outside.y > root.height + slack;
                         // Inside it only moves up and down; out of it, it follows the pointer
                         root.dragX = root.dragRemoving ? p.x - grabOffset.x : 0;
-                        root.dragY = root.dragRemoving ? p.y - grabOffset.y : Math.max(0, Math.min(column.height - card.height, p.y - grabOffset.y));
+                        root.dragY = root.dragRemoving ? p.y - grabOffset.y : Math.max(0, Math.min(column.contentHeight - card.height, p.y - grabOffset.y));
                         root.dragTarget = root.targetFor(card.uid, root.dragY + card.height / 2);
                         root.dragUid = card.uid;
                     }
@@ -296,6 +334,32 @@ Rectangle {
                         text: card.shown ? Translation.tr("Hide") : Translation.tr("Show")
                     }
                 }
+            }
+        }
+    }
+    Rectangle {
+        id: placement
+        objectName: "sidebarInsertionGuide"
+        visible: root.catalogTarget !== null
+        readonly property bool intoTabs: !!root.catalogTarget?.groupUid
+        x: root.padding
+        y: root.catalogTarget?.y ?? 0
+        width: parent.width - 2 * root.padding
+        height: root.catalogTarget?.height ?? 0
+        radius: intoTabs ? 12 : 2
+        color: intoTabs ? ColorUtils.applyAlpha(Appearance.colors.colPrimary, 0.14) : Appearance.colors.colPrimary
+        border.width: intoTabs ? 2 : 0
+        border.color: Appearance.colors.colPrimary
+        Rectangle {
+            visible: placement.intoTabs
+            anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 5
+            width: hint.implicitWidth + 14; height: hint.implicitHeight + 4; radius: height / 2
+            color: Appearance.colors.colPrimary
+            StyledText {
+                id: hint; anchors.centerIn: parent
+                text: Translation.tr("Into tabs")
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colOnPrimary
             }
         }
     }

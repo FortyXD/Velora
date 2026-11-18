@@ -26,6 +26,12 @@ Singleton {
 
     property bool connectionPending: false
     property string wifiConnectSsid: ""
+    property string wifiConnectKey: ""
+    property string wifiConnectUuid: ""
+    property bool wifiConnectHidden: false
+    property string passwordPromptUuid: ""
+    property string passwordPromptKey: ""
+    property string credentialErrorKey: ""
     property string passwordPromptSsid: ""
     property string credentialErrorSsid: ""
     property string wifiErrorMessage: ""
@@ -54,7 +60,7 @@ Singleton {
     readonly property bool hotspotActive: root.state.hotspotActive ?? false
     readonly property bool airplaneMode: root.state.airplaneMode ?? false
     readonly property bool canShareConnection: (root.state.devices ?? []).some(device => device.supportsAp)
-    readonly property var savedOutOfRange: savedNetworks.filter(saved => !wifiNetworks.some(network => network.ssid === saved.ssid))
+    readonly property var savedOutOfRange: savedNetworks.filter(saved => !wifiNetworks.some(network => network.savedUuid === saved.uuid))
     readonly property var wifiDetails: root.detailsOf(root.state.wifiDetails)
     readonly property var ethernetDetails: root.detailsOf(root.state.ethernetDetails)
     readonly property string networkName: ethernet ? Translation.tr("Ethernet") : (active?.ssid ?? "")
@@ -147,6 +153,10 @@ Singleton {
 
     function activateWifi(parameters): void {
         startConnecting(parameters.ssid);
+        wifiConnectKey = parameters.key ?? "";
+        wifiConnectUuid = parameters.uuid ?? "";
+        wifiConnectHidden = parameters.hidden ?? false;
+        delete parameters.key;
         const operation = root.operationId;
         ConnectivityBackend.call("network.connectWifi", Object.assign({ operation }, parameters), (result, error) => {
             if (operation !== root.operationId) return;
@@ -173,7 +183,10 @@ Singleton {
     }
 
     function connectToHiddenNetwork(ssid: string, password: string, security = password ? "wpa-psk" : "none"): void {
-        if (root.connectionPending && root.awaitingPassword) { root.submitPassword(password); return; }
+        if (root.connectionPending && root.awaitingPassword) {
+            if (root.wifiConnectHidden && ssid === root.wifiConnectSsid) root.submitPassword(password);
+            return;
+        }
         if (!ssid || !wifiEnabled || connectionPending) return;
         activateWifi(Object.assign({ ssid, hidden: true, security }, password ? { password } : {}));
     }
@@ -185,24 +198,31 @@ Singleton {
     }
 
     function targetNetwork() {
-        return wifiNetworks.find(network => network.ssid === wifiConnectSsid) ?? null;
+        return wifiConnectKey ? wifiNetworks.find(network => network.key === wifiConnectKey) ?? null : null;
     }
 
     function beginConnection(network) {
         if (!network || !wifiEnabled || connectionPending || network.active) return;
+        const previous = wifiNetworks.find(item => item.key === passwordPromptKey);
+        if (previous && previous !== network) { previous.askingPassword = false; previous.errorText = ""; }
+        passwordPromptUuid = "";
         // A password is asked for right away, like other systems do, for a new network and for a saved one
         // that never got connected (its profile has no working password)
         if (network.isSecure && !network.known) {
             network.askingPassword = true;
             passwordPromptSsid = network.ssid;
+            passwordPromptKey = network.key;
             wifiErrorMessage = "";
             return;
         }
         passwordPromptSsid = "";
+        passwordPromptKey = "";
+        passwordPromptUuid = "";
         credentialErrorSsid = "";
+        credentialErrorKey = "";
         network.askingPassword = false;
         network.errorText = "";
-        activateWifi({ ssid: network.ssid, bssid: network.bssid, uuid: network.savedUuid });
+        activateWifi({ key: network.key, security: network.securityType, ssid: network.ssid, bssid: network.bssid, uuid: network.savedUuid });
     }
 
     function connectToWifiNetwork(network: WifiAccessPoint): void {
@@ -218,6 +238,7 @@ Singleton {
             return;
         }
         credentialErrorSsid = "";
+        credentialErrorKey = "";
         if (profile.connectionType === "802-11-wireless") activateWifi({ ssid: profile.ssid, uuid: profile.uuid });
         else {
             startConnecting(profile.ssid);
@@ -230,7 +251,14 @@ Singleton {
 
     /** Replaces a saved profile's password and connects with it. */
     function changeProfilePassword(profile: var, password: string): void {
-        if (root.connectionPending && root.awaitingPassword) { root.submitPassword(password); return; }
+        if (root.connectionPending && root.awaitingPassword) {
+            // Only the profile this operation was started for may answer its prompt. The uuid is
+            // frozen at its start: a later snapshot pointing the same access point at another
+            // saved profile must not route this password into that other profile.
+            const owner = root.wifiConnectUuid !== "" ? root.wifiConnectUuid : (root.targetNetwork()?.savedUuid ?? "");
+            if (profile && owner !== "" && profile.uuid === owner) root.submitPassword(password);
+            return;
+        }
         if (!profile || connectionPending || !password) return;
         const accessPoint = wifiNetworks.find(network => network.savedUuid === profile.uuid);
         if (accessPoint) {
@@ -262,10 +290,14 @@ Singleton {
     }
 
     function changePassword(network: WifiAccessPoint, password: string): void {
-        if (root.connectionPending && root.awaitingPassword) { root.submitPassword(password); return; }
+        if (root.connectionPending && root.awaitingPassword) {
+            if (network?.key === root.wifiConnectKey
+                && (!network.savedUuid || !root.wifiConnectUuid || network.savedUuid === root.wifiConnectUuid)) root.submitPassword(password);
+            return;
+        }
         if (!network || connectionPending || !password) return;
         network.errorText = "";
-        activateWifi({ ssid: network.ssid, bssid: network.bssid, uuid: network.savedUuid, password });
+        activateWifi({ key: network.key, security: network.securityType, ssid: network.ssid, bssid: network.bssid, uuid: network.savedUuid, password });
     }
 
     function finishConnection(error): void {
@@ -274,6 +306,8 @@ Singleton {
             const needsPassword = error.code === "wrong_secret" || error.code === "secrets_required";
             const shouldAsk = needsPassword;
             passwordPromptSsid = shouldAsk ? wifiConnectSsid : "";
+            passwordPromptKey = shouldAsk ? wifiConnectKey : "";
+            passwordPromptUuid = shouldAsk ? wifiConnectUuid : "";
             credentialErrorSsid = needsPassword && !shouldAsk ? wifiConnectSsid : "";
             wifiErrorMessage = needsPassword
                 ? (shouldAsk ? Translation.tr("Password rejected. Try again.") : Translation.tr("Saved password was rejected. You can update it below."))
@@ -285,7 +319,10 @@ Singleton {
         } else {
             wifiErrorMessage = "";
             passwordPromptSsid = "";
+            passwordPromptKey = "";
+            passwordPromptUuid = "";
             credentialErrorSsid = "";
+            credentialErrorKey = "";
             if (target) {
                 target.askingPassword = false;
                 target.errorText = "";
@@ -296,20 +333,25 @@ Singleton {
         secretRequest = "";
         awaitingPassword = false;
         wifiConnectSsid = "";
+        wifiConnectKey = "";
+        wifiConnectUuid = "";
+        wifiConnectHidden = false;
     }
 
     function requestPasswordUpdate(): void {
-        const target = wifiNetworks.find(network => network.ssid === credentialErrorSsid);
+        const target = wifiNetworks.find(network => network.key === credentialErrorKey);
         if (!target || !target.savedUuid || connectionPending) return;
         passwordPromptSsid = target.ssid;
+        passwordPromptKey = target.key;
         credentialErrorSsid = "";
+        credentialErrorKey = "";
         target.askingPassword = true;
         target.errorText = "";
         wifiErrorMessage = "";
     }
 
     function cancelPasswordPrompt(): void {
-        const target = targetNetwork() ?? wifiNetworks.find(network => network.ssid === passwordPromptSsid);
+        const target = targetNetwork() ?? wifiNetworks.find(network => network.key === passwordPromptKey);
         const operation = operationId;
         if (target) { target.askingPassword = false; target.errorText = ""; }
         operationId = "";
@@ -317,8 +359,14 @@ Singleton {
         awaitingPassword = false;
         secretRequest = "";
         wifiConnectSsid = "";
+        wifiConnectKey = "";
+        wifiConnectUuid = "";
+        wifiConnectHidden = false;
         passwordPromptSsid = "";
+        passwordPromptKey = "";
+        passwordPromptUuid = "";
         credentialErrorSsid = "";
+        credentialErrorKey = "";
         wifiErrorMessage = "";
         if (operation) ConnectivityBackend.call("network.cancelWifi", { operation }, null);
     }
@@ -329,7 +377,22 @@ Singleton {
             if (name !== "wifiPassword" || data.operation !== root.operationId || !root.connectionPending) return;
             root.awaitingPassword = true;
             root.secretRequest = data.request;
+            // Freeze the operation's owner independently of scan rows: a newly appearing row may
+            // select a different saved profile. For rowless joins the backend UUID is authoritative.
+            if (root.wifiConnectUuid === "" && data.uuid) root.wifiConnectUuid = data.uuid;
+            // An operation that started without a row (from a QR code, for instance) is bound to the
+            // network the backend resolved, so the prompt, retry and stop-waiting land on the right one.
+            if (root.wifiConnectKey === "" && data.ssid) {
+                const resolved = root.wifiNetworks.find(network => network.ssid === data.ssid
+                    && (data.security ? network.securityType === data.security : true)) ?? null;
+                if (resolved) {
+                    root.wifiConnectKey = resolved.key;
+                    if (root.wifiConnectUuid === "") root.wifiConnectUuid = resolved.savedUuid;
+                }
+            }
             root.passwordPromptSsid = root.wifiConnectSsid;
+            root.passwordPromptKey = root.wifiConnectKey;
+            root.passwordPromptUuid = root.wifiConnectUuid;
             root.wifiErrorMessage = data.retry ? Translation.tr("Password rejected. Try again.") : "";
             const target = root.targetNetwork();
             if (target) { target.askingPassword = true; target.errorText = root.wifiErrorMessage; }
@@ -345,17 +408,26 @@ Singleton {
         Quickshell.execDetached(["xdg-open", "https://nmcheck.gnome.org/"]);
     }
 
-    onStateChanged: {
+    onStateChanged: updateNetworks()
+    onWifiConnectKeyChanged: updateNetworks()
+    onPasswordPromptKeyChanged: updateNetworks()
+
+    function updateNetworks(): void {
         // Built aside and assigned once: splice/push on a list property notify every
         // intermediate step, and those steps hold the same network twice
         const networks = root.state.networks ?? [];
         const previous = root.wifiNetworks;
         const next = [];
         for (const network of networks) {
-            const existing = next.find(item => item.ssid === network.ssid)
-                ?? previous.find(item => item.ssid === network.ssid);
+            const key = JSON.stringify([network.ssidHex ?? network.ssid, network.securityType ?? network.security]);
+            const existing = next.find(item => item.key === key)
+                ?? previous.find(item => item.key === key);
             if (existing) existing.lastIpcObject = network;
             if (!next.includes(existing)) next.push(existing ?? apComp.createObject(root, { lastIpcObject: network }));
+        }
+        // Keep the scoped prompt and row alive when an AP temporarily disappears mid-attempt.
+        for (const item of previous) {
+            if (!next.includes(item) && (item.key === root.wifiConnectKey || item.key === root.passwordPromptKey)) next.push(item);
         }
         const gone = previous.filter(item => !next.includes(item));
         if (next.length !== previous.length || next.some((item, index) => item !== previous[index])) root.wifiNetworks = next;

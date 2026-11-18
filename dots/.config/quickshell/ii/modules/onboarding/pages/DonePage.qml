@@ -21,7 +21,7 @@ PageScaffold {
     readonly property var summary: [
         { "step": "layout", "icon": "dashboard", "name": Translation.tr("Desktop"), "value": root.lookNames[root.flow.choices.look] ?? "Velora" },
         { "step": "layout", "icon": "select_window", "name": Translation.tr("Windows"),
-          "value": root.flow.choices.windows === "tiling" ? Translation.tr("Tiling") : Translation.tr("Free windows") },
+          "value": root.flow.choices.windows === "canvas" ? Translation.tr("Infinite canvas") : root.flow.choices.windows === "tiling" ? Translation.tr("Tiling") : Translation.tr("Free windows") },
         { "step": "appearance", "icon": "contrast", "name": Translation.tr("Theme"),
           "value": root.flow.shownTheme === "light" ? Translation.tr("Light") : Translation.tr("Dark") },
         { "step": root.flow.hasExtras ? "install" : "extras", "icon": "download", "name": Translation.tr("Extras"),

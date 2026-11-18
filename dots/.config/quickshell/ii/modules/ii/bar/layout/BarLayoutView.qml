@@ -74,36 +74,22 @@ Item {
         return root.vertical ? p.y : p.x;
     }
 
-    // Where a widget dropped at a point (view coordinates) goes: nearest zone, then between its
-    // widgets. The index doesn't count the widget being moved; `pos` is where to draw the marker.
-    function dropTargetAt(x, y, excludeUid) {
-        const pos = root.vertical ? y : x;
-        let best = null;
-        let bestDistance = Infinity;
-        for (const zone of root.zoneItems) {
-            if (!zone.visible) continue;
-            const start = root.along(zone, 0);
-            const end = root.along(zone, 1);
-            const distance = pos < start ? start - pos : (pos > end ? pos - end : 0);
-            if (distance < bestDistance) {
-                best = zone;
-                bestDistance = distance;
-            }
+    readonly property alias editGuide: insertion
+    property var pickedInsertion: null
+    onLayoutDataChanged: { pickedInsertion = null; insertion?.clear(); }
+    onEditingChanged: if (!editing) { pickedInsertion = null; controller?.cancel(); }
+    BarInsertionGuide {
+        id: insertion
+        zones: root.zoneItems
+        vertical: root.vertical
+        enabled: root.editing
+        dragging: root.controller?.dragging ?? false
+        excludedUid: root.controller?.dragState?.uid ?? ""
+        onChosen: (zone, index) => {
+            GlobalStates.barEditSelection = "";
+            root.pickedInsertion = {zone, index};
+            clear();
         }
-        if (!best) return null;
-        const hosts = best.orderedHosts().filter(host => host.uid !== excludeUid);
-        let index = hosts.length;
-        for (let i = 0; i < hosts.length; i++) {
-            if (pos < root.along(hosts[i], 0.5)) {
-                index = i;
-                break;
-            }
-        }
-        let marker;
-        if (hosts.length === 0) marker = root.along(best, 0.5);
-        else if (index < hosts.length) marker = root.along(hosts[index], 0) - 3;
-        else marker = root.along(hosts[hosts.length - 1], 1) + 3;
-        return { "zone": best.zoneName, "index": index, "pos": marker };
     }
 
     function startEditing() {
@@ -238,6 +224,7 @@ Item {
         layer.enabled: root.textShadow
         layer.effect: ZoneShadow {}
         editing: root.editing
+        editGuide: insertion
         onMenuRequested: (x, y) => root.openMenu(startZone, x, y)
         zoneName: "start"
         items: root.zones.start ?? []
@@ -254,23 +241,19 @@ Item {
         outerSide: root.vertical ? "top" : "left"
         outerPadding: root.edgePadding
         innerPadding: Appearance.rounding.screenRounding
-        spacing: 10
+        spacing: root.vertical ? 8 : 10
     }
 
     Grid {
         id: middleRow
-        anchors {
-            top: root.vertical ? undefined : parent.top
-            bottom: root.vertical ? undefined : parent.bottom
-            left: root.vertical ? parent.left : undefined
-            right: root.vertical ? parent.right : undefined
-        }
+        width: root.vertical ? root.width : implicitWidth
+        height: root.vertical ? implicitHeight : root.height
         x: root.vertical ? 0 : root.middlePosition(width)
         y: root.vertical ? root.middlePosition(height) : 0
         flow: root.vertical ? Grid.TopToBottom : Grid.LeftToRight
         rows: root.vertical ? 5 : 1
         columns: root.vertical ? 1 : 5
-        spacing: 4
+        spacing: root.vertical ? 8 : 4
         verticalItemAlignment: Grid.AlignVCenter
         horizontalItemAlignment: Grid.AlignHCenter
 
@@ -279,6 +262,7 @@ Item {
             layer.enabled: root.textShadow
             layer.effect: ZoneShadow {}
             editing: root.editing
+            editGuide: insertion
             onMenuRequested: (x, y) => root.openMenu(centerStartZone, x, y)
             zoneName: "centerStart"
             items: root.zones.centerStart ?? []
@@ -302,6 +286,7 @@ Item {
             layer.enabled: root.textShadow
             layer.effect: ZoneShadow {}
             editing: root.editing
+            editGuide: insertion
             onMenuRequested: (x, y) => root.openMenu(centerZone, x, y)
             zoneName: "center"
             items: root.zones.center ?? []
@@ -323,6 +308,7 @@ Item {
             layer.enabled: root.textShadow
             layer.effect: ZoneShadow {}
             editing: root.editing
+            editGuide: insertion
             onMenuRequested: (x, y) => root.openMenu(centerEndZone, x, y)
             zoneName: "centerEnd"
             items: root.zones.centerEnd ?? []
@@ -343,6 +329,7 @@ Item {
         layer.enabled: root.textShadow
         layer.effect: ZoneShadow {}
         editing: root.editing
+        editGuide: insertion
         onMenuRequested: (x, y) => root.openMenu(endZone, x, y)
         zoneName: "end"
         items: root.zones.end ?? []
@@ -359,7 +346,7 @@ Item {
         outerSide: root.vertical ? "bottom" : "right"
         outerPadding: root.vertical ? Appearance.rounding.screenRounding : root.edgePadding
         innerPadding: 4
-        spacing: root.vertical ? 4 : 5
+        spacing: root.vertical ? 8 : 5
         align: "end"
     }
 }

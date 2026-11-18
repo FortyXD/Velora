@@ -10,7 +10,7 @@ import unittest
 PROJECT = Path(__file__).resolve().parents[1]
 SHELL = PROJECT / 'dots/.config/quickshell/ii'
 GONE = ('keyring/is_unlocked', 'keyring/try_lookup', 'keyring/unlock', 'toolbox/open.sh', 'toolbox/quick.sh', 'top-apps.sh',
-        'layout_keys.py', 'backlight.py', 'pick-color.sh', 'zoom.sh', 'workspace_action.sh', 'fuzzel-emoji.sh', 'default_apps.py',
+        'folis_toolbox.py', 'layout_keys.py', 'backlight.py', 'pick-color.sh', 'zoom.sh', 'workspace_action.sh', 'fuzzel-emoji.sh', 'default_apps.py',
         'text_color.py', 'text-color-venv', 'find_regions', 'find-regions-venv', 'thumbgen.py', 'thumbgen-venv', 'generate-thumbnails-magick', 'hyprconfigurator')
 
 
@@ -51,27 +51,17 @@ class HelperWiringTests(unittest.TestCase):
         scripts = root / 'videos'
         scripts.mkdir(parents=True, exist_ok=True)
         shutil.copy2(SHELL / 'scripts/videos/record.sh', scripts / 'record.sh')
-        (scripts / 'recorder.py').write_text('import sys; print("python", *sys.argv[1:])\n')
+        shutil.copy2(SHELL / 'scripts/helper', root / 'helper')
         fake = root / 'fake-helper'
         fake.write_text('#!/bin/sh\necho "helper $*"\n')
         fake.chmod(0o755)
-        environment = {'PATH': '/usr/bin:/bin', 'HOME': str(root / 'home')}
-        if helper:
-            environment['VELORA_HELPER'] = str(fake)
-        return subprocess.run([str(scripts / 'record.sh'), *arguments], capture_output=True, text=True, env=environment).stdout.strip()
+        environment = {'PATH': '/usr/bin:/bin', 'HOME': str(root / 'home'), 'VELORA_HELPER': str(fake)}
+        return subprocess.run([str(scripts / 'record.sh'), *arguments], capture_output=True, text=True, env=environment, check=True).stdout.strip()
 
-    def test_the_recorder_status_needs_no_interpreter(self):
+    def test_recording_and_status_use_the_native_controller(self):
         with tempfile.TemporaryDirectory(prefix='velora-record-') as directory:
-            self.assertEqual(self.record_script(Path(directory), 'status'), 'helper recorder-status')
-
-    def test_recording_itself_stays_in_the_script(self):
-        with tempfile.TemporaryDirectory(prefix='velora-record-') as directory:
-            self.assertEqual(self.record_script(Path(directory), '--fullscreen', '--silent'), 'python --fullscreen --silent')
-            self.assertEqual(self.record_script(Path(directory), 'status', '--extra'), 'python status --extra')
-
-    def test_the_recorder_status_works_without_the_helper(self):
-        with tempfile.TemporaryDirectory(prefix='velora-record-') as directory:
-            self.assertEqual(self.record_script(Path(directory), 'status', helper=False), 'python status')
+            for args in [('status',), ('--fullscreen', '--silent'), ('sources',), ('stop',)]:
+                self.assertEqual(self.record_script(Path(directory), *args), 'helper recorder ' + ' '.join(args))
 
     def test_every_file_using_quickshell_imports_it(self):
         # Stand-in singletons in other tests hide this, and only the page's own log shows it at run time

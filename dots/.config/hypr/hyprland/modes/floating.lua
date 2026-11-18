@@ -17,14 +17,13 @@ M.show_desktop = actions.show_desktop
 local TAG = "velora-free" -- Floated by this mode, so tiling can take them back
 
 hl.window_rule({ match = { class = ".*" }, float = true })
-pcall(hl.window_rule, { match = { class = ".*" }, tag = "+" .. TAG })
 
 -- Last size and place of each app, as a Lua table file
 local state_dir = (os.getenv("XDG_STATE_HOME") or ((os.getenv("HOME") or "") .. "/.local/state")) .. "/velora"
 local state_path = state_dir .. "/window-geometry.lua"
 local remembered = {}
 do
-    local chunk = loadfile(state_path)
+    local chunk = loadfile(state_path, "t", {})
     local ok, value = pcall(chunk or function() return {} end)
     if ok and type(value) == "table" then
         remembered = value
@@ -32,7 +31,7 @@ do
 end
 
 local function save()
-    os.execute("mkdir -p '" .. state_dir .. "'")
+    os.execute("mkdir -p -- '" .. state_dir:gsub("'", "'\\''") .. "'")
     local file = io.open(state_path .. ".tmp", "w")
     if not file then
         return
@@ -44,8 +43,15 @@ local function save()
     table.sort(classes)
     file:write("-- Written by hyprland/modes/floating.lua: where each app's window was last closed\nreturn {\n")
     for _, class in ipairs(classes) do
-        local g = remembered[class]
-        file:write(string.format("    [%q] = { x = %d, y = %d, w = %d, h = %d, monitor = %q },\n", class, g.x, g.y, g.w, g.h, g.monitor or ""))
+        file:write(string.format("    [%q] = {", class))
+        for index, g in ipairs(remembered[class]) do
+            if g.w then
+                file:write(string.format("[%d]={x=%d,y=%d,w=%d,h=%d,monitor=%q},", index, g.x, g.y, g.w, g.h, g.monitor or ""))
+            else
+                file:write(string.format("[%d]={},", index))
+            end
+        end
+        file:write("},\n")
     end
     file:write("}\n")
     file:close()
@@ -66,11 +72,13 @@ local function work_area(monitor)
     local reserved = monitor.reserved or {}
     local g = gap()
     local left, top = reserved.left or 0, reserved.top or 0
+    local width, height = monitor.width, monitor.height
+    if (monitor.transform or 0) % 2 == 1 then width, height = height, width end
     return {
         x = monitor.x + left + g,
         y = monitor.y + top + g,
-        w = monitor.width / scale - left - (reserved.right or 0) - g * 2,
-        h = monitor.height / scale - top - (reserved.bottom or 0) - g * 2,
+        w = width / scale - left - (reserved.right or 0) - g * 2,
+        h = height / scale - top - (reserved.bottom or 0) - g * 2,
     }
 end
 
@@ -85,22 +93,20 @@ local function announce(what)
     pcall(function() hl.dispatch(hl.dsp.event("velora:" .. what)) end)
 end
 
-local function place(window, x, y, w, h)
+local function place(window, x, y, w, h, world)
+    local native = hl.plugin and hl.plugin.velora
+    if native and native.place and native.place(window.address, x, y, w, h, world == true) then return end
     hl.dispatch(hl.dsp.window.resize({ x = math.floor(w), y = math.floor(h), window = target(window) }))
     hl.dispatch(hl.dsp.window.move({ x = math.floor(x), y = math.floor(y), window = target(window) }))
 end
 
 local function geometry(window)
-    return { x = window.at.x, y = window.at.y, w = window.size.x, h = window.size.y }
-end
-
-local function has_tag(window, tag)
-    for _, value in ipairs(window.tags or {}) do
-        if value == tag or value == tag .. "*" then
-            return true
-        end
+    local native = hl.plugin and hl.plugin.velora
+    if native and native.geometry then
+        local world = native.geometry(window.address)
+        if world then return world end
     end
-    return false
+    return { x = window.at.x, y = window.at.y, w = window.size.x, h = window.size.y }
 end
 
 -- Small windows are dialogs, popups and tool windows: the rules and the app place those
@@ -108,24 +114,44 @@ local function is_main_window(window)
     return window.class ~= "" and window.size.x >= 320 and window.size.y >= 200 and not window.pinned
 end
 
-local function others_of_class(window)
-    local count = 0
+-- Migrate the single-window records written by earlier releases.
+for class, entry in pairs(remembered) do
+    if type(entry) ~= "table" then remembered[class] = nil
+    elseif entry.w then remembered[class] = { entry } end
+end
+local slots = {}
+local function slot_for(w)
+    if slots[w.address] then return slots[w.address] end
+    local occupied = {}
     for _, other in ipairs(hl.get_windows()) do
-        if other.address ~= window.address and other.class == window.class and other.mapped then
-            count = count + 1
+        if other.address ~= w.address and other.class == w.class and slots[other.address] then
+            occupied[slots[other.address]] = true
         end
     end
-    return count
+    local index = 1
+    while occupied[index] do index = index + 1 end
+    slots[w.address] = index
+    return index
+end
+
+local function on_canvas()
+    local native = hl.plugin and hl.plugin.velora
+    return native and native.active and native.active()
 end
 
 hl.on("window.open", function(window)
-    if not window or not window.floating or (window.fullscreen or 0) ~= 0 or not is_main_window(window) then
+    if not window or not window.monitor or not window.workspace or window.workspace.special or not window.floating or (window.fullscreen or 0) ~= 0 or not is_main_window(window) then
         return
     end
+    local native = hl.plugin and hl.plugin.velora
+    if not native or not native.regular or native.regular(window.address) then
+        pcall(function() hl.dispatch(hl.dsp.window.tag({ tag = "+" .. TAG, window = target(window) })) end)
+    end
+    if on_canvas() then return end
     local area = work_area(window.monitor)
-    local saved = remembered[window.class]
+    local saved = (remembered[window.class] or {})[slot_for(window)]
     -- The first window of an app opens where it was; more of them open stepped aside
-    if saved and others_of_class(window) == 0 and saved.monitor == window.monitor.name then
+    if saved and saved.w and saved.monitor == window.monitor.name then
         local w, h = math.min(saved.w, area.w), math.min(saved.h, area.h)
         local x = math.max(area.x, math.min(saved.x, area.x + area.w - w))
         local y = math.max(area.y, math.min(saved.y, area.y + area.h - h))
@@ -142,7 +168,7 @@ hl.on("window.open", function(window)
     for _ = 1, 8 do
         local taken = false
         for _, other in ipairs(hl.get_windows()) do
-            if other.address ~= window.address and other.workspace.id == window.workspace.id
+            if other.address ~= window.address and other.workspace and other.workspace.id == window.workspace.id
                 and math.abs(other.at.x - x) < step / 2 and math.abs(other.at.y - y) < step / 2 then
                 taken = true
                 break
@@ -166,11 +192,17 @@ hl.on("window.close", function(window)
     local address = window.address
     local was_snapped = snapped[address]
     snapped[address] = nil
-    if not window.floating or (window.fullscreen or 0) ~= 0 or not is_main_window(window) then
+    local index = slots[address]
+    slots[address] = nil
+    if on_canvas() or not window.monitor or not window.workspace or window.workspace.special or not window.floating or (window.fullscreen or 0) ~= 0 or not is_main_window(window) then
         return
     end
     local g = was_snapped and was_snapped.restore or geometry(window)
-    remembered[window.class] = { x = g.x, y = g.y, w = g.w, h = g.h, monitor = window.monitor.name }
+    local entries = remembered[window.class] or {}
+    index = index or 1
+    for i = #entries + 1, index - 1 do entries[i] = {} end
+    remembered[window.class] = entries
+    entries[index] = { x = g.x, y = g.y, w = g.w, h = g.h, monitor = window.monitor.name }
     save()
 end)
 
@@ -184,7 +216,7 @@ local function active()
 end
 
 local function maximized(window)
-    return (window.fullscreen or 0) ~= 0
+    return (window.fullscreen or 0) == 1
 end
 
 -- Zones, as fractions of the work area: x, y, width, height
@@ -206,7 +238,7 @@ M.zones = zones
 
 -- Puts a window (the active one, or `address`) into a zone of its monitor
 function M.snap(zone, address)
-    local window = address and find(address) or active()
+    local window = find(address)
     local fraction = zones[zone]
     if not window or not fraction then
         return
@@ -214,10 +246,13 @@ function M.snap(zone, address)
     if not window.floating then
         hl.dispatch(hl.dsp.window.float({ action = "set", window = target(window) }))
     end
+    if window.fullscreen == 2 then
+        hl.dispatch(hl.dsp.window.fullscreen({ mode = "fullscreen", action = "unset", window = target(window) }))
+    end
     if maximized(window) then
         hl.dispatch(hl.dsp.window.fullscreen({ mode = "maximized", action = "unset", window = target(window) }))
     end
-    local area = work_area(window.monitor)
+    local area = work_area(on_canvas() and hl.get_active_monitor() or window.monitor)
     local g = gap()
     -- A gap between neighbors, none at the edges of the work area
     local x0 = area.x + area.w * fraction[1] + (fraction[1] > 0 and g / 2 or 0)
@@ -235,15 +270,15 @@ function M.unsnap(window)
     snapped[window.address] = nil
     if state then
         local g = state.restore
-        place(window, g.x, g.y, g.w, g.h)
+        place(window, g.x, g.y, g.w, g.h, g.world)
         announce("snap:none")
     end
 end
 
 function M.toggle_maximize(address)
-    local window = address and find(address) or active()
+    local window = find(address)
     if window then
-        hl.dispatch(hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle", window = target(window) }))
+        actions.toggle_maximize(window.address)
         announce("maximize")
     end
 end
@@ -284,7 +319,8 @@ function M.down()
     local window = hl.get_active_window()
     if not window then return end
     local zone = snapped[window.address] and snapped[window.address].zone
-    if maximized(window) then M.toggle_maximize()
+    if window.fullscreen == 2 then hl.dispatch(hl.dsp.window.fullscreen({ mode = "fullscreen", action = "unset", window = target(window) }))
+    elseif maximized(window) then M.toggle_maximize()
     elseif zone == "left" then M.snap("bottom-left")
     elseif zone == "right" then M.snap("bottom-right")
     elseif zone == "top-left" then M.snap("left")
@@ -296,7 +332,10 @@ end
 -- Switching from tiling: the windows already open become free where they are
 hl.on("config.reloaded", function()
     for _, window in ipairs(hl.get_windows()) do
-        if not window.floating and not window.workspace.special and is_main_window(window) then
+        if window.workspace and not window.workspace.special and is_main_window(window) then
+            slot_for(window)
+        end
+        if window.workspace and not window.floating and not window.workspace.special and is_main_window(window) then
             hl.dispatch(hl.dsp.window.float({ action = "set", window = target(window) }))
             pcall(function() hl.dispatch(hl.dsp.window.tag({ tag = "+" .. TAG, window = target(window) })) end)
         end

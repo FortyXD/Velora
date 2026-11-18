@@ -13,7 +13,7 @@ QuickToggleModel {
     icon: toggled ? "notifications_active" : "notifications_paused"
 
     mainAction: () => {
-        Notifications.silent = !Notifications.silent;
+        Notifications.toggleSilent();
     }
 
     tooltipText: Translation.tr("Show notifications")

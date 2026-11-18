@@ -13,6 +13,7 @@ Scope {
 
     PanelWindow {
         id: root
+        objectName: "notificationPopupWindow"
         visible: (Notifications.popupList.length > 0) && !GlobalStates.screenLocked
         screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? null
 
@@ -22,12 +23,13 @@ Scope {
 
         anchors {
             top: true
-            right: true
+            right: NotificationPreferences.right
+            left: !NotificationPreferences.right
             bottom: true
         }
 
         mask: Region {
-            item: listview.contentItem
+            item: popupBounds
         }
 
         color: "transparent"
@@ -35,15 +37,24 @@ Scope {
 
         NotificationListView {
             id: listview
+            objectName: "notificationPopupList"
             anchors {
                 top: parent.top
                 bottom: parent.bottom
-                right: parent.right
-                rightMargin: 4
+                horizontalCenter: parent.horizontalCenter
                 topMargin: 4
+                bottomMargin: 4
             }
             implicitWidth: parent.width - Appearance.sizes.elevationMargin * 2
             popup: true
+            verticalLayoutDirection: NotificationPreferences.top ? ListView.TopToBottom : ListView.BottomToTop
+        }
+        Item {
+            id: popupBounds
+            x: listview.x
+            y: listview.y + (NotificationPreferences.top ? 0 : listview.height - height)
+            width: listview.width
+            height: Math.min(listview.height, Math.max(0, listview.contentHeight))
         }
     }
 }

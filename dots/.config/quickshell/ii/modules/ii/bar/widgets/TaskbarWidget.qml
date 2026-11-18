@@ -18,7 +18,7 @@ Item {
     id: root
     property var host: null
     readonly property bool vertical: host?.vertical ?? false
-    readonly property bool freeWindows: HyprlandSettings.windowMode === "floating"
+    readonly property bool freeWindows: FreeWindows.enabled
     readonly property real buttonSize: 32
 
     implicitWidth: vertical ? buttonSize : row.implicitWidth
@@ -30,8 +30,7 @@ Item {
     }
 
     function addressOf(toplevel) {
-        const address = toplevel?.HyprlandToplevel?.address ?? "";
-        return address.startsWith("0x") ? address : (address.length > 0 ? `0x${address}` : "");
+        return FreeWindows.addressOf(toplevel);
     }
 
     GridLayout {
@@ -56,7 +55,7 @@ Item {
                 readonly property int windowCount: toplevels.length
                 readonly property bool active: toplevels.some(t => t.activated)
                 readonly property bool minimized: windowCount > 0
-                    && toplevels.every(t => (t.HyprlandToplevel?.workspace?.name ?? "").startsWith("special:"))
+                    && toplevels.every(t => FreeWindows.minimized(FreeWindows.workspaceOf(t)))
                 property int lastFocused: -1
 
                 implicitWidth: separator ? (root.vertical ? root.buttonSize : 9) : root.buttonSize
@@ -133,10 +132,7 @@ Item {
                             : (app.lastFocused >= 0 && app.lastFocused < app.windowCount ? app.lastFocused : app.windowCount - 1);
                         app.lastFocused = target;
                         const toplevel = app.toplevels[target];
-                        if (root.freeWindows && (toplevel.HyprlandToplevel?.workspace?.name ?? "").startsWith("special:"))
-                            root.freeAction("restore", root.addressOf(toplevel));
-                        else
-                            toplevel.activate();
+                        FreeWindows.activateToplevel(toplevel);
                     }
                     altAction: () => app.openMenu()
                     middleClickAction: () => TaskbarApps.launch(app.appId, app.windowCount)
@@ -164,7 +160,7 @@ Item {
                         entries.push({ "type": "separator" });
                         if (root.freeWindows) {
                             const toplevel = app.toplevels[Math.max(0, app.toplevels.findIndex(t => t.activated))];
-                            const hidden = (toplevel.HyprlandToplevel?.workspace?.name ?? "").startsWith("special:");
+                            const hidden = FreeWindows.minimized(FreeWindows.workspaceOf(toplevel));
                             entries.push({ "text": hidden ? Translation.tr("Restore") : Translation.tr("Minimize"),
                                 "icon": hidden ? "open_in_new" : "minimize",
                                 "action": () => root.freeAction(hidden ? "restore" : "minimize", root.addressOf(toplevel)) });

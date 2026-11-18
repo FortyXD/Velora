@@ -21,6 +21,9 @@ RowLayout {
     property string buttonIcon: ""
     property string description: ""
     property alias value: slider.value
+    property alias defaultValue: slider.defaultValue
+    property alias defaultValueText: slider.defaultValueText
+    property alias defaultHint: slider.defaultHint
     property alias stopIndicatorValues: slider.stopIndicatorValues
     property bool usePercentTooltip: true
     property real from: 0

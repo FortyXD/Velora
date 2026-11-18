@@ -1,10 +1,8 @@
 import qs.modules.common
-import qs.modules.common.widgets
-import qs.services
 import qs.modules.common.functions
+import qs.modules.common.utils
 import Qt5Compat.GraphicalEffects
 import QtQuick
-import Quickshell.Io
 import Quickshell.Widgets
 
 IconImage {
@@ -13,28 +11,20 @@ IconImage {
     property string displayText
 
     property real size: 32
-    property string downloadUserAgent: Config.options?.networking.userAgent ?? ""
-    property string faviconDownloadPath: Directories.favicons
-    property string domainName: url.includes("vertexaisearch") ? displayText : StringUtils.getDomain(url)
-    property string faviconUrl: `https://www.google.com/s2/favicons?domain=${domainName}&sz=32`
-    property string fileName: `${domainName}.ico`
-    property string faviconFilePath: `${faviconDownloadPath}/${fileName}`
-    property string urlToLoad
-
-    Process {
-        id: faviconDownloadProcess
-        running: false
-        command: ["bash", "-c", `[ -f ${faviconFilePath} ] || curl -s '${root.faviconUrl}' -o '${faviconFilePath}' -L -H 'User-Agent: ${downloadUserAgent}'`]
-        onExited: (exitCode, exitStatus) => {
-            root.urlToLoad = root.faviconFilePath
-        }
+    readonly property string domainName: {
+        const host = StringUtils.parseWebUrl(root.url)?.hostname ?? "";
+        if (host === "vertexaisearch.cloud.google.com")
+            return (StringUtils.parseWebUrl(root.displayText) ?? StringUtils.parseWebUrl("https://" + root.displayText))?.hostname ?? "";
+        return host;
     }
 
-    Component.onCompleted: {
-        faviconDownloadProcess.running = true
+    CachedWebImage {
+        id: favicon
+        sourceUrl: root.domainName ? "https://www.google.com/s2/favicons?domain=" + encodeURIComponent(root.domainName) + "&sz=32" : ""
+        cacheDirectory: Directories.favicons
+        maxBytes: 256 * 1024
     }
-
-    source: Qt.resolvedUrl(root.urlToLoad)
+    source: favicon.fileUrl
     implicitSize: root.size
 
     layer.enabled: true

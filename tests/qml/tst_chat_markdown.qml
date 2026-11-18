@@ -29,6 +29,8 @@ TestCase {
     }
     function test_images_are_links_not_automatic_requests() {
         compare(Markdown.safeMarkdown("![preview](https://example.com/image.png)"),"[preview](https://example.com/image.png)");
+        compare(Markdown.safeMarkdown("![cover][album] and <b>artist</b>"), "[cover][album] and <b>artist</b>");
+        compare(Markdown.safeMarkdown("<https://example.org/album>"), "<https://example.org/album>");
         verify(!Markdown.safeMarkdown('<img src="file:///private">').includes("<img"));
     }
     function test_headings_keep_inline_formatting_and_code_literals() {

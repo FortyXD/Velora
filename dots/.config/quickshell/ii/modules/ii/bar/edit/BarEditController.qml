@@ -7,7 +7,7 @@ import QtQuick
 
 /**
  * Dragging in a bar window while it is edited: widgets already on the bar (move) and widgets from
- * the edit drawer's palette (add). Draws the dragged picture and the drop marker above everything.
+ * the edit drawer's palette (add). The preview follows the pointer above the bar while the guide opens a gap.
  * A widget taken off the bar (into the drawer, say) turns red and is removed when let go.
  * Positions are scene coordinates of the bar window.
  */
@@ -16,7 +16,6 @@ Item {
 
     property var view: null // BarLayoutView of this window
     property var dragState: null // { mode: "move"|"add", uid, type, host, offsetX, offsetY }
-    property var target: null // { zone, index, x } from view.dropTargetAt
     property bool removing: false
     readonly property bool dragging: dragState !== null
 
@@ -42,7 +41,8 @@ Item {
         const slack = 24; // Dropping a bit off the bar still counts
         const overBar = root.view.vertical ? (p.x >= -slack && p.x <= root.view.width + slack)
             : (p.y >= -slack && p.y <= root.view.height + slack);
-        root.target = overBar ? root.view.dropTargetAt(p.x, p.y, root.dragState.mode === "move" ? root.dragState.uid : "") : null;
+        if (overBar) root.view.editGuide.updateAt(sceneX, sceneY, true);
+        else root.view.editGuide.clear();
         const away = slack * 2;
         root.removing = root.dragState.mode === "move" && (root.view.vertical ? (p.x < -away || p.x > root.view.width + away)
             : (p.y < -away || p.y > root.view.height + away));
@@ -52,29 +52,23 @@ Item {
         if (!root.dragState) return;
         root.update(sceneX, sceneY);
         const state = root.dragState;
-        const target = root.target;
+        const guide = root.view.editGuide;
+        const target = guide.target;
         const removing = root.removing;
-        ghostImage.sourceItem = null;
-        root.dragState = null;
-        root.target = null;
-        root.removing = false;
+        const points = guide.capture();
+        const release = ghost.mapToItem(null, ghost.width / 2, ghost.height / 2);
+        root.cancel();
         if (removing) {
-            if (state.host) state.host.dragHidden = false;
             if (GlobalStates.barEditSelection === state.uid) GlobalStates.barEditSelection = "";
             BarLayout.remove(root.view.orientation, state.uid);
-            return;
-        }
-        if (!target) {
-            if (state.host) state.host.dragHidden = false;
-            return;
-        }
-        // The host may be rebuilt by the change; it is no longer referenced after this
-        if (state.mode === "move") {
-            BarLayout.move(root.view.orientation, state.uid, target.zone, target.index);
-            if (state.host) state.host.dragHidden = false;
-            GlobalStates.barEditSelection = state.uid;
-        } else {
-            GlobalStates.barEditSelection = BarLayout.insert(root.view.orientation, state.type, target.zone, target.index);
+            guide.settle(points);
+        } else if (target) {
+            let uid = state.uid;
+            if (state.mode === "move") {
+                if (!target.noop) BarLayout.move(root.view.orientation, uid, target.zone, target.index);
+            } else uid = BarLayout.insert(root.view.orientation, state.type, target.zone, target.index);
+            GlobalStates.barEditSelection = uid;
+            guide.settle(points, uid, release);
         }
     }
 
@@ -82,14 +76,17 @@ Item {
         if (root.dragState?.host) root.dragState.host.dragHidden = false;
         ghostImage.sourceItem = null;
         root.dragState = null;
-        root.target = null;
+        root.view?.editGuide?.clear();
         root.removing = false;
     }
 
     Item {
         id: ghost
         visible: root.dragging
-        opacity: root.removing ? 0.75 : 0.9
+        scale: root.dragging ? (root.removing ? 0.93 : 1.04) : 0.98
+        Behavior on scale { NumberAnimation { duration: Appearance.scaledDuration(140); easing.type: Easing.OutCubic } }
+        opacity: root.removing ? 0.75 : 0.95
+        Behavior on opacity { NumberAnimation { duration: Appearance.scaledDuration(120) } }
         implicitWidth: root.dragState?.mode === "add" ? chip.implicitWidth : ghostImage.width
         implicitHeight: root.dragState?.mode === "add" ? chip.implicitHeight : ghostImage.height
 
@@ -146,16 +143,4 @@ Item {
         }
     }
 
-    Rectangle { // Where the widget will land
-        readonly property bool vertical: root.view?.vertical ?? false
-        readonly property real pos: root.target?.pos ?? 0
-        readonly property point origin: root.view ? root.view.mapToItem(root, vertical ? 0 : pos, vertical ? pos : 0) : Qt.point(0, 0)
-        visible: root.target !== null && root.view !== null
-        x: vertical ? origin.x + 6 : origin.x - width / 2
-        y: vertical ? origin.y - height / 2 : origin.y + 6
-        width: vertical ? (root.view?.width ?? 12) - 12 : 3
-        height: vertical ? 3 : (root.view?.height ?? 12) - 12
-        radius: 2
-        color: Appearance.colors.colPrimary
-    }
 }

@@ -1,7 +1,9 @@
-//! The read-only half of scripts/videos/recorder.py: what the recorder is doing. The shell asks every
-//! second, all the time, so this mustn't start an interpreter. Recording itself stays in the script,
-//! which spends its life waiting for wf-recorder.
+//! State shared by the recorder owner, status queries and orphan recovery.
+pub mod control;
+mod audio;
+mod watch;
 
+use crate::platform::identity;
 use anyhow::Result;
 use serde_json::{json, Map, Value};
 use std::fs;
@@ -28,16 +30,6 @@ fn default_directory() -> PathBuf {
 }
 
 /// A process's start time, or None if it's gone or a zombie: unlike its number, this is never reused.
-fn identity(pid: &Value) -> Option<String> {
-    let pid = pid.as_u64()?;
-    let text = fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
-    let fields: Vec<&str> = text.rsplit_once(')')?.1.split_whitespace().collect();
-    if *fields.first()? == "Z" {
-        return None;
-    }
-    fields.get(19).map(|field| field.to_string())
-}
-
 fn read_state(directory: &Path) -> Map<String, Value> {
     fs::read_to_string(directory.join("state.json")).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default()
 }

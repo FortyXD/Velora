@@ -175,6 +175,38 @@ class ConnectivitySourceTests(unittest.TestCase):
         self.assertGreater(len(messages), 40)
         self.assertEqual(sorted(message for message in messages if message not in russian), [])
 
+    def test_wifi_deep_links_keep_stable_sections_and_bounded_reveal(self):
+        settings = (SHELL / 'settings.qml').read_text()
+        self.assertIn('key: "wifi", group: "connections"', settings)
+        self.assertIn('root.openPage(startKey, Quickshell.env("QS_SETTINGS_SECTION") ?? "")', settings)
+        self.assertIn('node.objectName === title || node.title === title', settings)
+        self.assertIn('revealTimer.attemptsRemaining = 25', settings)
+        self.assertIn('if (--attemptsRemaining > 0) restart()', settings)
+        dialog = (SHELL / 'modules/ii/sidebarRight/wifiNetworks/WifiDialog.qml').read_text()
+        classic = (SHELL / 'modules/ii/sidebarRight/quickToggles/classicStyle/NetworkToggle.qml').read_text()
+        self.assertIn('ConnectivityBackend.openSettings("wifi")', dialog)
+        self.assertIn('ConnectivityBackend.openSettings(Network.ethernet ? "connections" : "wifi")', classic)
+
+    def test_all_wifi_rows_scope_status_to_identity_not_ssid(self):
+        for name in ('modules/settings/network/WifiNetworkRow.qml',
+                     'modules/settings/network/SavedNetworkRow.qml',
+                     'modules/ii/sidebarRight/wifiNetworks/WifiNetworkItem.qml',
+                     'modules/ii/sidebarRight/wifiNetworks/WifiDialog.qml',
+                     'modules/onboarding/pages/NetworkPage.qml'):
+            source = (SHELL / name).read_text()
+            self.assertNotIn('wifiConnectSsid', source, name)
+            self.assertNotIn('passwordPromptSsid', source, name)
+            self.assertNotIn('credentialErrorSsid', source, name)
+
+    def test_saved_row_retry_stays_usable_while_the_password_is_awaited(self):
+        """Password entry is not backend work: the field must not stay busy while the daemon waits."""
+        source = (SHELL / 'modules/settings/network/SavedNetworkRow.qml').read_text()
+        self.assertRegex(source, r'busy: root\.connecting && !Network\.awaitingPassword')
+        # Out-of-range profiles have no access point to carry the message, so the row falls back
+        # to the error of the operation that it owns.
+        self.assertIn('Network.passwordPromptUuid === root.uuid', source)
+        self.assertIn('Network.wifiErrorMessage', source)
+
     def test_the_old_snapshot_script_is_gone(self):
         self.assertFalse((SHELL / 'scripts/network/wifi_snapshot.py').exists())
 

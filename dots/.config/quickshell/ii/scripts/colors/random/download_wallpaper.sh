@@ -27,10 +27,12 @@ NOTIFY_TITLE=${NOTIFY_TITLE:-Online wallpaper}
 
 # Downloads the source and makes the loop at $dest; the source is removed once the loop is made
 make_dest_loop() {
-    local loop_start loop_end loop_fade source_file
+    local loop_start loop_end loop_fade source_file extension
     IFS=: read -r loop_start loop_end loop_fade <<< "$loop"
-    source_file="${dest%.*}.source.${url##*.}"
-    source_file=${source_file%%\?*}
+    extension=${url%%[?#]*}
+    extension=${extension##*.}
+    case ${extension,,} in mp4|webm|mkv|mov|avi) ;; *) extension=mp4 ;; esac
+    source_file="${dest%.*}.source.$extension"
     notify_progress "$NOTIFY_TITLE" "Downloading…"
     [[ -f "$source_file" ]] || fetch_image "$url" "$source_file"
     notify_progress "$NOTIFY_TITLE" "Making it loop…"
@@ -44,7 +46,9 @@ if [[ $upgrade -eq 1 ]]; then
     # Nothing to see unless it works: on any failure (offline, host blocked) the older loop simply stays
     notify_progress() { :; }
     fail() { echo "$1" >&2; exit 1; }
-    exec 9> "${XDG_RUNTIME_DIR:-/tmp}/wallpaper-loop-upgrade.lock"
+    lock_dir="${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/velora"
+    (umask 077; mkdir -p -- "$lock_dir") || exit 1
+    exec 9>> "$lock_dir/wallpaper-loop-upgrade.lock" || exit 1
     flock 9 # One download and encode at a time, however many looks were applied
     loop_is_current "$dest" && exit 0 # Made by an earlier run meanwhile
     make_dest_loop

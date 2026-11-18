@@ -25,6 +25,23 @@ import qs.modules.settings
 ApplicationWindow {
     id: root
     property real contentPadding: 8
+    readonly property alias settingsPageViewport: pageStack
+
+    TransformWatcher { id: popupMapping; a: root.Overlay.overlay; b: root.currentPageItem?.popupPane ?? null }
+    function popupBoundsFor(item) {
+        const pane = popupMapping.b;
+        if (!pane || !item || !popupMapping.a) return null;
+        popupMapping.transform;
+        const x = item.width / 2, y = item.height / 2;
+        if (!pageStack.contains(pageStack.mapFromItem(item, x, y))) return null;
+        const target = pane.contains(pane.mapFromItem(item, x, y)) ? pane : pageStack;
+        const rect = target.mapToItem(popupMapping.a, 0, 0, target.width, target.height);
+        return {
+            width: rect.width, height: rect.height, left: rect.x, top: rect.y,
+            right: popupMapping.a.width - rect.x - rect.width,
+            bottom: popupMapping.a.height - rect.y - rect.height
+        };
+    }
 
     // Pages in sidebar order. `group` only separates them visually, so related pages read as one block.
     // Shell and Hyprland options are mixed freely: a page is about a topic, not about who implements it.
@@ -35,18 +52,6 @@ ApplicationWindow {
             name: Translation.tr("Wi-Fi"),
             description: Translation.tr("Networks nearby, saved networks and your connection"),
             component: "modules/settings/WifiConfig.qml"
-        },
-        {
-            key: "connections", group: "connections", color: "#0A84FF", icon: "lan", hero: false,
-            name: Translation.tr("Network & VPN"),
-            description: Translation.tr("VPN, cable and every other saved connection"),
-            component: "modules/settings/ConnectionsConfig.qml"
-        },
-        {
-            key: "connection-editor", group: "connections", parentKey: "connections", color: "#0A84FF", icon: "edit", hidden: true, hero: false,
-            name: Translation.tr("Edit connection"),
-            description: Translation.tr("Addresses, security, VPN and everything else about one connection"),
-            component: "modules/settings/ConnectionEditorConfig.qml"
         },
         {
             key: "bluetooth", group: "connections", color: "#0A84FF", icon: "bluetooth", hero: false,
@@ -65,6 +70,18 @@ ApplicationWindow {
             name: Translation.tr("Bluetooth settings"),
             description: Translation.tr("This computer's name and visibility, what happens at login, and receiving files"),
             component: "modules/settings/BluetoothOptionsConfig.qml"
+        },
+        {
+            key: "connections", group: "connections", color: "#0A84FF", icon: "lan", hero: false,
+            name: Translation.tr("Network & VPN"),
+            description: Translation.tr("VPN, cable and every other saved connection"),
+            component: "modules/settings/ConnectionsConfig.qml"
+        },
+        {
+            key: "connection-editor", group: "connections", parentKey: "connections", color: "#0A84FF", icon: "edit", hidden: true, hero: false,
+            name: Translation.tr("Edit connection"),
+            description: Translation.tr("Addresses, security, VPN and everything else about one connection"),
+            component: "modules/settings/ConnectionEditorConfig.qml"
         },
         {
             key: "general", group: "basics", color: "#8E8E93", icon: "settings",
@@ -121,7 +138,7 @@ ApplicationWindow {
             component: "modules/settings/SidebarsConfig.qml"
         },
         {
-            key: "notifications", group: "desktop", color: "#FF3B30", icon: "notifications",
+            key: "notifications", group: "desktop", color: "#FF3B30", icon: "notifications", hero: false,
             name: Translation.tr("Notifications"),
             description: Translation.tr("Do not disturb, what each app may show, and popups"),
             component: "modules/settings/NotificationsConfig.qml"
@@ -133,7 +150,7 @@ ApplicationWindow {
             component: "modules/settings/LockConfig.qml"
         },
         {
-            key: "displays", group: "devices", color: "#0A84FF", icon: "desktop_windows",
+            key: "displays", group: "devices", color: "#0A84FF", icon: "desktop_windows", hero: false,
             name: Translation.tr("Displays"),
             description: Translation.tr("Resolution, scale, arrangement, brightness and night light"),
             component: "modules/settings/DisplaysConfig.qml"
@@ -151,19 +168,19 @@ ApplicationWindow {
             component: "modules/settings/ShortcutsConfig.qml"
         },
         {
-            key: "mouse", group: "devices", color: "#8E8E93", icon: "mouse",
+            key: "mouse", group: "devices", color: "#8E8E93", icon: "mouse", hero: false,
             name: Translation.tr("Mouse & Touchpad"),
             description: Translation.tr("Pointer speed, scrolling, gestures and focus"),
             component: "modules/settings/MouseConfig.qml"
         },
         {
-            key: "sound", group: "devices", color: "#FF2D55", icon: "volume_up",
+            key: "sound", group: "devices", color: "#FF2D55", icon: "volume_up", hero: false,
             name: Translation.tr("Sound"),
             description: Translation.tr("Speakers, microphones, each app's volume and system sounds"),
             component: "modules/settings/SoundConfig.qml"
         },
         {
-            key: "battery", group: "devices", color: "#34C759", icon: "battery_android_full",
+            key: "battery", group: "devices", color: "#34C759", icon: "battery_android_full", hero: false,
             name: Translation.tr("Battery & energy"),
             description: Translation.tr("Energy saving, warnings and automatic suspend"),
             component: "modules/settings/BatteryConfig.qml"
@@ -181,9 +198,9 @@ ApplicationWindow {
             component: "modules/settings/AiConfig.qml"
         },
         {
-            key: "tools", group: "system", color: "#FFB800", icon: "screenshot_region",
+            key: "tools", group: "system", color: "#FFB800", icon: "screenshot_region", hero: false,
             name: Translation.tr("Screenshots & Tools"),
-            description: Translation.tr("Region selection, save folders and the overlay"),
+            description: Translation.tr("Screenshots, screen recording, selection and overlay widgets"),
             component: "modules/settings/ToolsConfig.qml"
         },
         {
@@ -226,19 +243,114 @@ ApplicationWindow {
     ]
     property int currentPage: Math.max(0, root.pageIndex(pageStateFile.text().trim())) // Last opened page
     property int pageDirection: 1
-    property bool loadAllPages: false // Search needs every page built
-    // Pages are built one after another in the background once the first one is up, so a click shows a
-    // finished page instead of building it on the spot (that took up to 0.7 s for the heavier pages).
-    // All at once froze the window for seconds, long enough for Hyprland to call it not responding.
+    property bool initialized: false
+    readonly property bool windowUsable: root.visible && root.visibility !== Window.Minimized
+    // A finite, event-driven warmup. Only one unfinished page owns the construction slot;
+    // navigation can take it back, but never forces synchronous incubation.
     property bool backgroundPreload: false
-    property int preloadedPages: 0
-    readonly property bool preloading: (root.loadAllPages || root.backgroundPreload) && root.preloadedPages < root.pages.length
+    property int settledPages: 0
+    property Item loadingPage: null
+    readonly property bool preloading: root.settledPages < root.pages.length
     readonly property bool searching: sidebar.searchText.trim().length > 0
     readonly property var currentPageData: root.pages[root.currentPage]
     // A page may be built after the initial navigation bindings have evaluated.
     property Item currentPageLoader: null
     readonly property Item currentPageItem: root.currentPageLoader?.item ?? null
-    onCurrentPageChanged: currentPageLoader = pageRepeater.itemAt(root.currentPage)
+    onCurrentPageChanged: {
+        root.cancelNavigation();
+        currentPageLoader = pageRepeater.itemAt(root.currentPage);
+        loadingIndicator.restartDelay();
+        Qt.callLater(root.loadNextPage);
+    }
+    onWindowUsableChanged: {
+        // Cancel incubation before the next frame can finish a hidden page.
+        if (!root.windowUsable) root.loadNextPage();
+        else Qt.callLater(root.loadNextPage);
+    }
+    onSearchingChanged: {
+        root.cancelNavigation();
+        if (root.searching) searchView.scheduleRefresh();
+    }
+
+    function loadNextPage() {
+        if (!root.initialized) return;
+        nextPageTimer.stop();
+        if (!Config.ready || !root.windowUsable) {
+            warmupDelay.stop();
+            if (root.loadingPage) {
+                const unfinished = root.loadingPage;
+                root.loadingPage = null;
+                unfinished.active = false;
+            }
+            return;
+        }
+        const selected = root.currentPageLoader;
+        if (!selected) return;
+        if (selected.status === Loader.Null) {
+            if (root.loadingPage && root.loadingPage !== selected) {
+                const unfinished = root.loadingPage;
+                root.loadingPage = null;
+                unfinished.active = false;
+            }
+            root.loadingPage = selected;
+            selected.load();
+            return;
+        }
+        if (root.loadingPage) return;
+        if (!root.backgroundPreload) {
+            if (!warmupDelay.running) warmupDelay.start();
+            return;
+        }
+        // Visible sidebar entries first; nested editors are useful to search but less urgent.
+        for (const hidden of [false, true]) {
+            for (let i = 0; i < root.pages.length; i++) {
+                const loader = pageRepeater.itemAt(i);
+                if (!!root.pages[i].hidden !== hidden || !loader || loader.status !== Loader.Null) continue;
+                root.loadingPage = loader;
+                loader.load();
+                return;
+            }
+        }
+    }
+
+    function pageFinished(loader) {
+        if (root.loadingPage === loader) root.loadingPage = null;
+        let settled = 0;
+        for (let i = 0; i < root.pages.length; i++) {
+            const status = pageRepeater.itemAt(i)?.status;
+            if (status === Loader.Ready || status === Loader.Error) settled++;
+        }
+        root.settledPages = settled;
+        if (loader === root.currentPageLoader) {
+            if (loader.status === Loader.Ready) {
+                Qt.callLater(root.applyPendingNavigation);
+                if (revealTimer.pageIndex === root.currentPage) revealTimer.restart();
+            } else root.cancelNavigation();
+        }
+        if (root.searching) searchView.scheduleRefresh();
+        if (root.windowUsable && root.preloading) nextPageTimer.restart();
+    }
+
+    Connections {
+        target: Config
+        function onReadyChanged() { Qt.callLater(root.loadNextPage); }
+    }
+
+    property var pendingNavigation: null
+    function cancelNavigation() {
+        root.pendingNavigation = null;
+        revealTimer.stop();
+        revealTimer.pageIndex = -1;
+        revealTimer.target = null;
+        revealCheckTimer.stop();
+        root.currentPageItem?.cancelReveal();
+    }
+    function applyPendingNavigation() {
+        const request = root.pendingNavigation;
+        if (!request || request.pageIndex !== root.currentPage || !root.currentPageItem) return;
+        root.pendingNavigation = null;
+        root.currentPageItem.navigateToSection?.(request.sectionKey);
+    }
 
     readonly property var breadcrumbs: {
         if (root.searching) return [{title: Translation.tr("Search"), pageIndex: -1}];
@@ -257,8 +369,8 @@ ApplicationWindow {
     function followBreadcrumb(entry) {
         if (entry.pageIndex < 0) return;
         root.setPage(entry.pageIndex);
-        const page = root.pageItemAt(entry.pageIndex);
-        page?.navigateToSection?.(entry.sectionKey ?? "");
+        root.pendingNavigation = {pageIndex: entry.pageIndex, sectionKey: entry.sectionKey ?? ""};
+        root.applyPendingNavigation();
     }
 
     // Back / forward history
@@ -276,6 +388,7 @@ ApplicationWindow {
     }
 
     function showPage(index) {
+        root.cancelNavigation();
         if (sidebar.searchText.length > 0) sidebar.searchText = "";
         if (index === root.currentPage) return;
         root.pageDirection = index > root.currentPage ? 1 : -1;
@@ -293,6 +406,7 @@ ApplicationWindow {
     }
 
     function goBack() {
+        root.cancelNavigation();
         const page = root.currentPageItem;
         if (page?.canNavigateBack) { page.navigateBack(); return; }
         if (root.historyIndex <= 0) {
@@ -364,7 +478,10 @@ ApplicationWindow {
         property int attemptsRemaining: 25
         interval: 160
         onTriggered: {
+            if (pageIndex !== root.currentPage || root.searching) return;
             const page = root.pageItemAt(pageIndex);
+            // Loading time is not a reveal retry: pageFinished wakes this when incubation ends.
+            if (!page) return;
             const item = target ?? (page ? root.findSection(page, sectionTitle) : null);
             if (!page?.revealItem || !item || item.height <= 0) {
                 // Config/page construction can finish after the initial timer.
@@ -378,29 +495,26 @@ ApplicationWindow {
         }
     }
     Timer {
-        interval: 30
-        repeat: true
-        running: root.preloading
-        onTriggered: {
-            // One page at a time: the next starts when the previous one has finished building
-            if (root.preloadedPages > 0 && pageRepeater.itemAt(root.preloadedPages - 1)?.status === Loader.Loading) return;
-            while (root.preloadedPages < root.pages.length && pageRepeater.itemAt(root.preloadedPages)?.status === Loader.Ready)
-                root.preloadedPages++;
-            root.preloadedPages = Math.min(root.preloadedPages + 1, root.pages.length);
-            if (!root.preloading && root.loadAllPages) searchView.refresh();
-        }
+        id: nextPageTimer
+        interval: 32
+        onTriggered: root.loadNextPage()
     }
     Timer { // Starts the background building once the window has settled
+        id: warmupDelay
         interval: 600
-        running: Config.ready && pageRepeater.itemAt(root.currentPage)?.status === Loader.Ready
-        onTriggered: root.backgroundPreload = true
+        onTriggered: {
+            root.backgroundPreload = true;
+            root.loadNextPage();
+        }
     }
     Timer { // Corrects the position if the page was still settling
         id: revealCheckTimer
         property var page: null
         property var item: null
         interval: 500
-        onTriggered: page?.revealItem(item, false)
+        onTriggered: {
+            if (!root.searching && page === root.currentPageItem) page?.revealItem(item, false);
+        }
     }
     Connections { // Scrolling by hand cancels the correction
         target: revealCheckTimer.page
@@ -424,6 +538,8 @@ ApplicationWindow {
             sidebar.searchText = startSearch;
             sidebar.focusSearch();
         }
+        root.initialized = true;
+        Qt.callLater(root.loadNextPage);
     }
 
     minimumWidth: 760
@@ -457,10 +573,7 @@ ApplicationWindow {
     }
     Shortcut {
         sequences: [StandardKey.Find]
-        onActivated: {
-            if (!sidebar.expanded) sidebar.expandOverride = true;
-            sidebar.focusSearch();
-        }
+        onActivated: sidebar.focusSearch()
     }
     Shortcut {
         sequence: "Escape"
@@ -517,10 +630,10 @@ ApplicationWindow {
             currentPage: root.currentPage
             searching: root.searching
             expanded: expandOverride === undefined ? autoExpanded : expandOverride
+            onExpandRequested: expandOverride = true
             onPageSelected: index => root.setPage(index)
             onSearchAccepted: searchView.acceptFirst()
             onSearchTextChanged: {
-                if (searchText.trim().length > 0) root.loadAllPages = true;
                 searchView.query = searchText;
             }
         }
@@ -639,12 +752,14 @@ ApplicationWindow {
                     id: pageStack
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    clip: true // Translated pages and their input shields must stay below the toolbar.
 
                     Repeater {
                         id: pageRepeater
                         model: root.pages
                         onItemAdded: (index, item) => {
                             if (index === root.currentPage) root.currentPageLoader = item;
+                            Qt.callLater(root.loadNextPage);
                         }
                         onItemRemoved: (index, item) => {
                             if (root.currentPageLoader === item) root.currentPageLoader = null;
@@ -654,43 +769,61 @@ ApplicationWindow {
                             required property int index
                             required property var modelData
                             readonly property bool isCurrent: index === root.currentPage && !root.searching
-                            property bool visited: false
+                            readonly property bool showingContent: isCurrent && status === Loader.Ready
+                            readonly property bool pageActive: showingContent && root.windowUsable
                             property real slide: 0
 
                             anchors.fill: parent
-                            active: Config.ready && (visited || index < root.preloadedPages)
-                            source: modelData.component
-                            // Built in the background without stalling the window; the page being opened is
-                            // finished at once (switching `asynchronous` off completes a running load)
-                            asynchronous: !isCurrent && !root.loadAllPages
+                            active: false
+                            asynchronous: true
                             // Kept visible (but transparent) so search can tell which options are hidden.
                             // Not disabled either: that restyled every control on both pages at each switch.
                             opacity: 0
                             z: isCurrent ? 1 : 0
                             transform: Translate { y: pageLoader.slide }
 
-                            onLoaded: {
-                                item.heroIcon = modelData.icon;
-                                item.heroIconRotation = modelData.iconRotation ?? 0;
-                                if (modelData.hero !== false) item.heroTitle = modelData.name;
-                                item.heroDescription = modelData.description;
-                                item.heroColor = Qt.binding(() => CF.ColorUtils.mix(modelData.color, Appearance.colors.colPrimary, 0.82));
-                                if (item.pageShown !== undefined) item.pageShown = Qt.binding(() => pageLoader.isCurrent);
+                            function load() {
+                                if (source.toString().length === 0) {
+                                    // Initial properties precede Component.onCompleted, so warming a page
+                                    // cannot briefly start Wi-Fi/Bluetooth scans or an AI catalogue refresh.
+                                    setSource(modelData.component, {
+                                        pageShown: Qt.binding(() => pageLoader.pageActive),
+                                        heroIcon: modelData.icon,
+                                        heroIconRotation: modelData.iconRotation ?? 0,
+                                        heroTitle: modelData.hero === false ? "" : modelData.name,
+                                        heroDescription: modelData.description,
+                                        heroColor: Qt.binding(() => CF.ColorUtils.mix(modelData.color, Appearance.colors.colPrimary, 0.82))
+                                    });
+                                }
+                                active = true;
                             }
-                            onIsCurrentChanged: {
-                                if (isCurrent) {
-                                    visited = true;
+                            function retry() {
+                                active = false;
+                                source = "";
+                                root.settledPages = Math.max(0, root.settledPages - 1);
+                                Qt.callLater(root.loadNextPage);
+                            }
+                            onStatusChanged: {
+                                if (status === Loader.Ready || status === Loader.Error) root.pageFinished(pageLoader);
+                            }
+                            Connections {
+                                target: pageLoader.item
+                                function onSearchContentChanged() {
+                                    if (root.searching) searchView.scheduleRefresh();
+                                }
+                            }
+                            onShowingContentChanged: {
+                                if (showingContent) {
                                     exitAnim.stop();
                                     enterAnim.restart();
                                 } else {
                                     enterAnim.stop();
-                                    exitAnim.restart();
+                                    if (opacity > 0) exitAnim.restart();
+                                    else {
+                                        exitAnim.stop();
+                                        slide = 0;
+                                    }
                                 }
-                            }
-                            Component.onCompleted: {
-                                if (!isCurrent) return;
-                                visited = true;
-                                enterAnim.restart();
                             }
 
                             MouseArea { // Pages behind the current one take no clicks, hover or wheel
@@ -715,13 +848,48 @@ ApplicationWindow {
                         }
                     }
 
+                    MaterialLoadingIndicator {
+                        id: loadingIndicator
+                        objectName: "settingsPageLoading"
+                        anchors.centerIn: parent
+                        implicitSize: 32
+                        property bool delayElapsed: false
+                        readonly property bool waiting: root.windowUsable && !root.searching
+                            && root.currentPageLoader?.status !== Loader.Ready && root.currentPageLoader?.status !== Loader.Error
+                        visible: waiting && delayElapsed
+                        loading: visible
+                        function restartDelay() {
+                            delayElapsed = false;
+                            if (waiting) indicatorDelay.restart();
+                            else indicatorDelay.stop();
+                        }
+                        onWaitingChanged: restartDelay()
+                        Timer {
+                            id: indicatorDelay
+                            interval: 120
+                            onTriggered: loadingIndicator.delayElapsed = true
+                        }
+                    }
+
+                    ColumnLayout {
+                        anchors.centerIn: parent
+                        visible: !root.searching && root.currentPageLoader?.status === Loader.Error
+                        spacing: 12
+                        StyledText { text: Translation.tr("Couldn't load this page") }
+                        DialogButton {
+                            Layout.alignment: Qt.AlignHCenter
+                            buttonText: Translation.tr("Retry")
+                            onClicked: root.currentPageLoader.retry()
+                        }
+                    }
+
                     SettingsSearch {
                         id: searchView
                         anchors.fill: parent
                         pages: root.pages
                         pageItemAt: index => root.pageItemAt(index)
                         loading: root.preloading
-                        enabled: root.searching
+                        enabled: root.searching && root.windowUsable
                         visible: opacity > 0
                         opacity: root.searching ? 1 : 0
                         z: 2
@@ -733,6 +901,7 @@ ApplicationWindow {
                             if (item) {
                                 revealTimer.pageIndex = pageIndex;
                                 revealTimer.target = item;
+                                revealTimer.sectionTitle = "";
                                 revealTimer.attemptsRemaining = 25;
                                 revealTimer.restart();
                             }

@@ -95,35 +95,53 @@ palette is applied from Velora's generated colors without requiring KWin or a
 separate theme daemon; disabling Qt application theming still takes precedence.
 
 On Hyprland 0.57.0, window thumbnails use a separate `grim -T` capture broker.
-Stable window IDs distinguish identical titles. Captures are limited to two at a
-time, eight requests per second per window and sixteen starts per second across
-all visible previews. Static windows gradually slow to two polls per second;
-changed content restores the higher rate (with up to 500 ms detection delay).
-The worker requests thumbnail-sized images after its first calibration and skips
-encoding, writing and publishing identical frames. Only two files per window are
-kept. Energy saving takes one frame; hidden, closed and locked previews unsubscribe.
-Frames are private session files and disappear when subscriptions end.
+Stable window IDs distinguish identical titles. The first capture uses the
+window dimensions supplied by Hyprland and corrects for output scaling or
+resizing from the returned image. Two captures can run at once. First frames
+take priority over updates, with the selected Alt+Tab window first. Four
+captures can start in an initial burst. The shared budget then replenishes at
+sixteen starts per second. Moving windows refresh at up to 8 FPS, static windows
+settle at two polls per second, and energy saving takes one frame.
 
-The widget decodes the next image in a hidden buffer, then swaps only complete
-frames. The previous image and its dimensions remain visible during loading or
-errors; waiting updates coalesce to the latest frame. Subscription settings change
-in place without clearing the displayed image. The same widget supplies the
-regular dock and Waffle. While a preview popup remains open, it retains decoded
-images for up to eight previously visited windows, so returning to an app shows
-its last frame immediately while capture resumes. Previously visited inactive
-cards have no capture subscription and keep no capture files.
+Alt+Tab prepares thumbnails on the first keypress. The dock, workspace bar
+and Waffle start preparing on hover. When the popup opens, every window in the
+current group is selectable. Each card shows its own title and icon until its
+image is ready. Moving to another app immediately switches the group. An
+individual capture failure leaves that window selectable while capture retries.
 
-The dock and Waffle never display placeholder icons or blank thumbnail tiles.
-The requested group prepares its images before presentation; the dock starts this
-during its normal hover delay. On first hover the popup waits for a complete frame.
-When moving to another app, the complete previous card (including title, controls
-and position) stays until every image of the new group is ready. Only the latest
-requested group can be presented. Capture errors keep the previous card, and a
-failed first capture leaves the popup closed. Preparation uses the same capture
-budget and is cancelled when the hover is dismissed or the session locks.
-Closing the popup, locking the session or
-closing a source window clears the corresponding retained images. Motion is
-intentionally limited to 8 FPS.
+Decoded images for the eight most recently viewed windows are shared across
+these surfaces for up to 30 seconds after use. Reopening a popup can show its
+last image while a fresh capture runs. A new image replaces the previous one
+after decoding. Identical captures skip encoding and disk writes. Capture
+stops and private frame files are removed when the last subscriber leaves.
+Closing a source window discards its cached image, and locking clears the cache.
 
 See [QEMU scenarios](../tests/qemu/README.md) for guest setup, signed regression
 packages, snapshots, assertions and screenshot collection.
+
+
+### Free windows and the infinite canvas
+
+Choose a window mode under **Settings → Desktop → Windows**. In Free windows,
+use the title bar or Alt+Space to minimize, maximize, restore or close a
+window. The dock, taskbar and Alt+Tab can restore it. Super+Down restores a
+maximized window and minimizes a free window. Super+Z opens snap layouts.
+Each Wayland window can draw its own header or request a Velora title bar.
+Brave and VS Code keep their built-in controls by default. XWayland windows
+use their Motif hints and GTK frame extents. Changing a window's decoration
+preference updates the frame while it is open. Alt+Space offers a per-app override.
+
+On the infinite canvas, the workspaces and monitors look at one shared plane.
+Hold Super and drag the middle mouse button to pan. Super+wheel zooms around
+the pointer. On a touchpad, hold Super and scroll with two fingers to pan or
+pinch to zoom. Super+Home frames the open windows and Super+End returns to
+100%. Super+left drag moves a window and Super+right drag resizes it. A minimap
+appears during navigation. Maximizing uses the active monitor's work area.
+
+The canvas saves each camera and the positions of each application's windows in
+`$XDG_STATE_HOME/velora/windows.json`. Free windows stores its per-window
+geometry in `window-geometry.lua` in the same directory, normally
+`~/.local/state/velora/`. Reopening an application restores its window
+positions. The installer builds the native module for Hyprland
+0.57.0. If the installed compositor has another ABI, Free windows stays
+available through the window menu, panel and shortcuts.

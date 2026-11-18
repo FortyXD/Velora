@@ -15,6 +15,7 @@ Scope {
 
     PanelWindow {
         id: root
+        objectName: "notificationPopupWindow"
         visible: (Notifications.popupList.length > 0) && !GlobalStates.screenLocked
         screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? null
 
@@ -24,12 +25,13 @@ Scope {
 
         anchors {
             top: true
-            right: true
+            right: NotificationPreferences.right
+            left: !NotificationPreferences.right
             bottom: true
         }
 
         mask: Region {
-            item: listview.contentItem
+            item: popupBounds
         }
 
         color: "transparent"
@@ -37,30 +39,32 @@ Scope {
 
         WListView {
             id: listview
-            anchors {
-                bottom: parent.bottom
-                right: parent.right
-                left: parent.left
-            }
+            objectName: "notificationPopupList"
+            anchors.fill: parent
             leftMargin: 16
             rightMargin: 16
             topMargin: 16
             bottomMargin: 16
 
-            height: Math.min(contentItem.height + topMargin + bottomMargin, parent.height)
-            width: parent.width - Appearance.sizes.elevationMargin * 2
+            verticalLayoutDirection: NotificationPreferences.top ? ListView.TopToBottom : ListView.BottomToTop
             
             implicitWidth: 396
             spacing:12
 
             model: ScriptModel {
-                values: Notifications.popupList
+                values: Notifications.popupList.slice().reverse()
             }
             delegate: WSingleNotification {
                 required property var modelData
                 notification: modelData
                 width: ListView.view.width - ListView.view.leftMargin - ListView.view.rightMargin
             }
+        }
+        Item {
+            id: popupBounds
+            width: listview.width
+            height: Math.min(listview.height, Math.max(0, listview.contentHeight) + listview.topMargin + listview.bottomMargin)
+            y: NotificationPreferences.top ? 0 : listview.height - height
         }
     }
 }

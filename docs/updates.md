@@ -46,18 +46,9 @@ See [systemd timer documentation](https://www.freedesktop.org/software/systemd/m
 
 There are no local Velora or Illogical Impulse metapackages. The installer compares the chosen components with `pacman -Qq` and requests only missing packages. Package removals are left to the user. Existing packages continue to receive ordinary Arch/AUR updates through the system's package tools.
 
-## Python dependencies
+## Native desktop tools
 
-`dependencies/python/requirements.in` declares the shell's Python dependencies. `requirements.txt` pins their versions. The installer creates the compatible Python 3.12 environment with uv, then uses `uv pip sync` to match that lockfile.
-
-To update the lockfile as a maintainer:
-
-```bash
-cd dependencies/python
-uv pip compile --python-version 3.12 requirements.in -o requirements.txt
-```
-
-Use `--upgrade` when deliberately updating all pins, or `--upgrade-package NAME` for a selected package. Review and test the resulting changes before committing them. See [uv's locking and synchronization documentation](https://docs.astral.sh/uv/pip/compile/).
+The updater builds the shell helpers using `tools/Cargo.lock` or installs their packaged binaries. The offline translator uses its own Cargo lockfile and reuses existing models in `$XDG_DATA_HOME/folis/translate/models`.
 
 ## GitHub update settings
 

@@ -18,7 +18,7 @@ root = Path.home() / 'Velora/dots/.config/quickshell/ii'
 backup = Path('/tmp/velora-ready-fixture')
 paths = [root / relative for relative in (
     'modules/ii/dock/DockPreviews.qml', 'modules/waffle/bar/tasks/TaskPreview.qml',
-    'modules/waffle/bar/tasks/WindowPreview.qml', 'scripts/window-previews.py')]
+    'modules/waffle/bar/tasks/WindowPreview.qml', 'scripts/helper')]
 config = Path.home() / '.config/illogical-impulse/config.json'
 markers = [Path('/tmp/velora-preview-test-delay'), Path('/tmp/velora-preview-test-fail')]
 if args.restore:
@@ -45,10 +45,14 @@ diagnostics = '''
         const cards = [];
         for (let i = 0; i < testRepeater.count; ++i) {
             const item = testRepeater.itemAt(i);
-            if (item.visible) cards.push({id:item.testPreview.stableId, ready:item.testPreview.hasContent});
+            if (!item?.visible) continue;
+            const preview = item.testPreview;
+            cards.push({id:preview.stableId, ready:preview.hasContent, selectable:item.enabled,
+                matched:previewPool.windows.includes(preview.toplevel),
+                fallback:preview.showFallback && preview.showFallbackIcon});
         }
         return {visible:root.visible, samples:testSamples, invalid:testInvalid,
-            requested:previewPool.current.length, presented:previewPool.displayed.length,
+            requested:previewPool.current.length, presented:previewPool.windows.length,
             preparing:previewPool.active, cards};
     }
     IpcHandler {
@@ -60,7 +64,8 @@ diagnostics = '''
         onTriggered: {
             root.testSamples++;
             const state = root.testState();
-            if (!GlobalStates.screenLocked && state.visible && (!state.cards.length || state.cards.some(card => !card.ready))) {
+            if (!GlobalStates.screenLocked && state.visible && (state.cards.length !== state.presented
+                || state.cards.some(card => !card.selectable || !card.matched || (!card.ready && !card.fallback)))) {
                 root.testInvalid++;
                 console.warn("PREVIEW_INVALID", JSON.stringify(state));
             }
@@ -78,12 +83,17 @@ for path in paths[:2]:
 path = paths[2]
 path.write_text(replace(path.read_text(), '    id: root', '    id: root\n    property alias testPreview: screencopyView'))
 path = paths[3]
-path.write_text(replace(path.read_text(), 'async def capture(spec, destination, state=None):', '''async def capture(spec, destination, state=None):
-    delay = Path('/tmp/velora-preview-test-delay')
-    if delay.exists():
-        await asyncio.sleep(float(delay.read_text()))
-    if Path('/tmp/velora-preview-test-fail').exists():
-        raise RuntimeError('Injected QEMU capture failure')'''))
+shim = backup / 'grim'
+shim.write_text("""#!/bin/sh
+if [ -f /tmp/velora-preview-test-delay ]; then
+    read -r seconds id < /tmp/velora-preview-test-delay
+    if [ -z "$id" ] || [ "$id" = "$2" ]; then sleep "$seconds"; fi
+fi
+[ ! -e /tmp/velora-preview-test-fail ] || exit 1
+exec /usr/bin/grim "$@"
+""")
+shim.chmod(0o755)
+path.write_text(replace(path.read_text(), '#!/bin/sh', f'#!/bin/sh\nif [ "$1" = window-previews ]; then export PATH="{backup}:$PATH"; fi'))
 markers[0].write_text('1.2')
 options = json.loads(config.read_text())
 options['panelFamily'] = 'ii'

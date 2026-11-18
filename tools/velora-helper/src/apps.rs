@@ -143,13 +143,11 @@ fn env_nonempty(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|value| !value.is_empty())
 }
 
-fn config_home() -> PathBuf {
+pub(crate) fn config_home() -> PathBuf {
     env_nonempty("XDG_CONFIG_HOME").map_or_else(|| home().join(".config"), PathBuf::from)
 }
 
-fn data_home() -> PathBuf {
-    env_nonempty("XDG_DATA_HOME").map_or_else(|| home().join(".local/share"), PathBuf::from)
-}
+pub(crate) use crate::platform::{data_home, state_home};
 
 fn split_paths(value: &str) -> Vec<PathBuf> {
     value.split(':').filter(|path| !path.is_empty()).map(PathBuf::from).collect()
@@ -402,7 +400,7 @@ fn url_scheme(uri: &str) -> String {
     if valid { scheme.to_ascii_lowercase() } else { String::new() }
 }
 
-fn unquote(text: &str) -> String {
+pub(crate) fn unquote(text: &str) -> String {
     let bytes = text.as_bytes();
     let mut decoded = Vec::with_capacity(bytes.len());
     let mut position = 0;
@@ -420,7 +418,7 @@ fn unquote(text: &str) -> String {
     String::from_utf8_lossy(&decoded).into_owned()
 }
 
-fn quote(text: &str, safe: &str) -> String {
+pub(crate) fn quote(text: &str, safe: &str) -> String {
     let mut quoted = String::with_capacity(text.len());
     for byte in text.bytes() {
         if byte.is_ascii_alphanumeric() || b"_.-~".contains(&byte) || safe.as_bytes().contains(&byte) {
@@ -430,6 +428,10 @@ fn quote(text: &str, safe: &str) -> String {
         }
     }
     quoted
+}
+
+pub(crate) fn file_uri(path: &Path) -> String {
+    format!("file://{}", quote(&path.to_string_lossy(), "/"))
 }
 
 fn to_path(uri: &str) -> String {
@@ -636,7 +638,7 @@ type Sections = Vec<(String, Vec<String>)>;
 
 /// Sections as ordered lists of raw lines, so rewriting keeps everything else intact. A file that isn't
 /// valid text is an error rather than an empty file: writing would lose what's in it.
-fn read_ini(path: &Path) -> Result<Sections> {
+pub(crate) fn read_ini(path: &Path) -> Result<Sections> {
     let mut sections: Sections = vec![(String::new(), Vec::new())];
     let text = match fs::read_to_string(path) {
         Ok(text) => text,

@@ -58,7 +58,7 @@ class NativeToolsTests(IsolatedTest):
                 patch.object(velora, "run", side_effect=self.fake_build) as run:
             velora.build_native_helper()
         self.assertIn("--locked", run.call_args.args[0])
-        for name in ("velora-helper", "velora-connectivityd"):
+        for name in velora.NATIVE_BINARIES:
             self.assertEqual(velora.native_helper_path(name).read_text(), name)
             self.assertFalse(velora.native_helper_path(f".{name}.new").exists())
 
@@ -72,7 +72,9 @@ class NativeToolsTests(IsolatedTest):
             packages = [command[i + 1] for i, argument in enumerate(command) if argument == "--package"]
             requested.extend(packages)
             # Model a workspace whose default selection omits the already-cached agent.
-            selected = packages or [name for name in velora.NATIVE_BINARIES if name != "velora-agentd"]
+            selected = list(packages or [name for name in velora.NATIVE_PACKAGES if name != "velora-agentd"])
+            if "velora-helper" in selected:
+                selected.append("velora-desktop-state")
             for name in selected:
                 (release / name).write_text("rebuilt " + name)
                 (release / name).chmod(0o755)
@@ -80,7 +82,7 @@ class NativeToolsTests(IsolatedTest):
                 patch.object(velora.shutil, "which", return_value="/usr/bin/cargo"), \
                 patch.object(velora, "run", side_effect=selective_build):
             velora.build_native_helper()
-        self.assertEqual(set(requested), set(velora.NATIVE_BINARIES))
+        self.assertEqual(set(requested), set(velora.NATIVE_PACKAGES))
         self.assertEqual(velora.native_helper_path("velora-agentd").read_text(), "rebuilt velora-agentd")
         self.assertTrue(velora.native_tools_current())
 
@@ -147,7 +149,7 @@ class NativeToolsTests(IsolatedTest):
     def test_updated_sources_invalidate_the_installed_pair(self):
         source = self.base / "source"
         files = {"VERSION":"0.1.3", "tools/Cargo.toml":"workspace", "tools/Cargo.lock":"locked"}
-        for name in velora.NATIVE_BINARIES:
+        for name in velora.NATIVE_PACKAGES:
             files[f"tools/{name}/Cargo.toml"] = "crate"
             files[f"tools/{name}/src/main.rs"] = "old source"
         for name, content in files.items():
@@ -165,7 +167,7 @@ class NativeToolsTests(IsolatedTest):
             velora.build_native_helper()
             self.assertTrue(velora.native_tools_current())
 
-    def test_incomplete_build_keeps_both_old_binaries_and_does_not_record_success(self):
+    def test_incomplete_build_keeps_old_binaries_and_does_not_record_success(self):
         for name in velora.NATIVE_BINARIES:
             binary = velora.native_helper_path(name)
             binary.parent.mkdir(parents=True, exist_ok=True)
@@ -173,7 +175,9 @@ class NativeToolsTests(IsolatedTest):
         def incomplete(command, env=None, **kwargs):
             release = Path(env["CARGO_TARGET_DIR"]) / "release"
             release.mkdir(parents=True)
-            (release / "velora-helper").write_text("new helper")
+            for name in velora.NATIVE_BINARIES:
+                if name != "velora-connectivityd":
+                    (release / name).write_text("new " + name)
         with patch.object(velora, "package_metadata", return_value=None), \
                 patch.object(velora.shutil, "which", return_value="/usr/bin/cargo"), \
                 patch.object(velora, "run", side_effect=incomplete), \
@@ -189,6 +193,7 @@ class NativeToolsTests(IsolatedTest):
         with patch.object(velora, "preflight"), patch.object(velora, "run"), \
                 patch.object(velora, "install_dependencies") as dependencies, \
                 patch.object(velora, "build_native_helper", side_effect=lambda: steps.append("native")), \
+                patch.object(velora, "build_window_plugin"), \
                 patch.object(velora, "build_file_dialog", side_effect=lambda: steps.append("dialog")), \
                 patch.object(velora, "install_fonts"), \
                 patch.object(velora, "verify_runtime", side_effect=lambda *args: steps.append("verify")), \
@@ -404,6 +409,7 @@ class DependencyTests(IsolatedTest):
         args = velora.parser().parse_args(["install", "--yes", "--skip-packages"])
         with patch.object(velora, "run"), patch.object(velora, "preflight"), \
                 patch.object(velora, "build_native_helper"), \
+                patch.object(velora, "build_window_plugin"), \
                 patch.object(velora, "build_file_dialog"), \
                 patch.object(velora, "install_fonts", side_effect=velora.VeloraError("Required fonts are missing")), \
                 patch.object(velora, "link_configuration") as link:
@@ -425,9 +431,6 @@ class DependencyTests(IsolatedTest):
         download.assert_not_called()
 
     def test_doctor_checks_all_families_even_when_the_main_font_is_installed(self):
-        venv = velora.xdg("XDG_STATE_HOME", ".local/state") / "quickshell/.venv/bin/python"
-        venv.parent.mkdir(parents=True)
-        venv.touch()
         with patch.object(velora, "font_installed", side_effect=lambda family: family != "Material Symbols Rounded"), \
                 patch.object(velora, "package_plan", return_value=([], [])), \
                 patch.object(velora, "stale_links", return_value=[]), \
@@ -489,15 +492,14 @@ class InstallerTests(IsolatedTest):
         for name in ("hypr", "quickshell", "kitty", "foot", "fuzzel", "matugen", "fish", "fontconfig", "Kvantum",
                      "kde-material-you-colors", "mpv", "wlogout", "xdg-desktop-portal", "zshrc.d", "tmux", "illogical-impulse"):
             (self.repo / "dots/.config" / name).mkdir(parents=True)
-        files = ["home/.zshrc", "home/.tmux.conf", "dots/.config/starship.toml",
+        files = ["home/.zshrc", "home/.tmux.conf", "dots/.config/starship.toml", "tools/velora-helper/Cargo.toml",
                  "dots/.config/wireplumber/wireplumber.conf.d/51-auto-audio-routes.conf",
                  "dots/.local/share/wireplumber/scripts/folis/prefer-plugged-routes.lua",
                  "dots/.local/share/icons/illogical-impulse.svg",
                  "dots/.local/share/icons/hicolor/scalable/apps/org.velora.Settings.svg",
                  "dots/.local/share/applications/org.velora.Settings.desktop",
                  "dots/.local/share/kxmlgui5/dolphin/dolphinui.rc",
-                 "dots/.local/share/folis/dolphin-create-archive.py",
-                 "dots/.local/share/folis/assistant-select.py",
+                 "dots/.config/quickshell/ii/scripts/helper",
                  "dots/.local/share/dbus-1/services/org.freedesktop.FileManager1.service",
                  "dots/.local/share/applications/drracket.desktop",
                  "dots/.config/quickshell/ii/modules/common/widgets/shapes/ShapeCanvas.qml"]
@@ -603,6 +605,7 @@ class InstallerTests(IsolatedTest):
 
         with patch.object(velora, "ROOT", self.repo), patch.object(velora, "run", side_effect=run), \
              patch.object(velora, "build_native_helper"), \
+             patch.object(velora, "build_window_plugin"), \
              patch.object(velora, "build_file_dialog"), \
              patch.object(velora, "install_fonts"), \
              patch.object(velora, "verify_runtime"), \

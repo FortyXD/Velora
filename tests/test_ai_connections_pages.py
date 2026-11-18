@@ -333,7 +333,7 @@ ShellRoot {
             } else if (root.probeStage === 9) {
                 const page = root.pageItemAt(root.pageIndex("sidebars"));
                 if (!page) return;
-                page.select(page.everyPart[0].part.uid);
+                page.select(SidebarLayout.parts(page.side)[0].uid);
                 root.probeStage = 10;
             } else {
                 const page = root.pageItemAt(root.pageIndex("sidebars"));

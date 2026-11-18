@@ -2,7 +2,7 @@
 """Real Hyprland regression: duplicate titles, workspace changes and capture teardown."""
 import asyncio
 import hashlib
-import importlib.util
+import sys
 import json
 from pathlib import Path
 import subprocess
@@ -11,9 +11,10 @@ import tempfile
 if not Path('/var/lib/velora-qemu-ready').exists():
     raise SystemExit('Only run inside QEMU, through in-session.py')
 root = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location('previews', root / 'dots/.config/quickshell/ii/scripts/window-previews.py')
-module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(module)
+sys.path.insert(0, str(root / 'tests'))
+from preview_broker import PreviewBroker
+helper = Path.home() / '.local/bin/velora-helper'
+
 
 
 async def main():
@@ -25,9 +26,8 @@ async def main():
         events.append(event)
         if event['event'] == 'frame':
             hashes.setdefault(event['id'], set()).add(hashlib.sha256(Path(event['path']).read_bytes()).hexdigest())
-    module.emit = receive
     with tempfile.TemporaryDirectory(dir=Path('/run/user') / str(__import__('os').getuid())) as directory:
-        broker = module.Broker(directory)
+        broker = PreviewBroker(helper, receive)
         try:
             for color in (41, 44):
                 processes.append(subprocess.Popen(['foot', '--app-id=velora-capture-test', '--title=Duplicate title',
@@ -59,14 +59,14 @@ async def main():
             await asyncio.sleep(.3)
             assert sum(e.get('id') == closed for e in events) == count
             await broker.set_windows([])
-            assert not list(Path(directory).iterdir())
+            assert not any(p.exists() for p in broker.frames)
             # A new hover in energy-saving mode produces exactly one real frame.
             start = len(events)
             await broker.set_windows([{**survivor, 'live': False}])
             await asyncio.sleep(.8)
             assert sum(e['event'] == 'frame' for e in events[start:]) == 1
             await broker.set_windows([])
-            assert not list(Path(directory).iterdir())
+            assert not any(p.exists() for p in broker.frames)
             result = {'duplicate_titles': True, 'separate_stable_ids': [s['id'] for s in specs],
                       'workspace_switch': True, 'close_during_capture': True, 'still_frame_count': 1,
                       'cleanup': True, 'frames': sum(e['event'] == 'frame' for e in events)}

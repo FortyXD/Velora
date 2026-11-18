@@ -148,6 +148,8 @@ Item {
                 Layout.fillWidth: true
                 from: 6500
                 to: 1200
+                defaultValue: 5000
+                defaultValueText: "5000 K"
                 value: Config.options.light.night.colorTemperature
                 onMoved: Config.options.light.night.colorTemperature = value
                 tooltipContent: Math.round((value - from) / (to - from) * 100)

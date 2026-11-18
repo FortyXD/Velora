@@ -10,8 +10,9 @@ Item {
     property bool shown: false
     property real horizontalPadding: 10
     property real verticalPadding: 6
+    property real maximumWidth: Infinity
     property alias font: tooltipTextObject.font
-    implicitWidth: tooltipTextObject.implicitWidth + 2 * root.horizontalPadding
+    implicitWidth: Math.min(maximumWidth, tooltipTextObject.implicitWidth + 2 * horizontalPadding)
     implicitHeight: tooltipTextObject.implicitHeight + 2 * root.verticalPadding
 
     property bool isVisible: backgroundRectangle.implicitHeight > 0
@@ -28,7 +29,7 @@ Item {
         border.color: Appearance?.popup.colBorder ?? "transparent"
         radius: Appearance?.popup.smallRadius ?? 7
         opacity: shown ? 1 : 0
-        implicitWidth: shown ? (tooltipTextObject.implicitWidth + 2 * root.horizontalPadding) : 0
+        implicitWidth: shown ? root.implicitWidth : 0
         implicitHeight: shown ? (tooltipTextObject.implicitHeight + 2 * root.verticalPadding) : 0
         clip: true
 
@@ -45,6 +46,7 @@ Item {
         StyledText {
             id: tooltipTextObject
             anchors.centerIn: parent
+            width: Math.max(0, root.implicitWidth - 2 * root.horizontalPadding)
             text: root.text
             font.pixelSize: Appearance?.popup.captionSize ?? 12
             font.hintingPreference: Font.PreferNoHinting // Prevent shaky text

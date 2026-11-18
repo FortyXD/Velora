@@ -93,14 +93,14 @@ Singleton {
     readonly property string animationProfile: root.overrides["shell:animationProfile"] ?? "material"
 
     // "floating": free windows, as on Windows and macOS; "tiling" otherwise (hyprland/window_mode.lua)
-    readonly property string windowMode: root.overrides["shell:windowMode"] === "floating" ? "floating" : "tiling"
+    readonly property string windowMode: ["floating", "canvas"].includes(root.overrides["shell:windowMode"]) ? root.overrides["shell:windowMode"] : "tiling"
     // Windows rearrange under a picture of the screen, which gives way once Hyprland has reloaded
     function setWindowMode(mode) {
         if (mode === root.windowMode) return;
         ThemeTransition.run(token => {
             root.windowModeToken = token;
             root.quickApply = true;
-            if (mode === "floating") root.setMany({ "shell:windowMode": "floating" });
+            if (mode === "floating" || mode === "canvas") root.setMany({ "shell:windowMode": mode });
             else root.reset(["shell:windowMode"]);
         }, true);
     }

@@ -50,6 +50,7 @@ Singleton {
     property int paletteTransitionDuration: 0
     m3colors: MaterialPalette {
         transitionDuration: root.paletteTransitionDuration
+        roleOverrides: Config.options.appearance.palette.roleOverrides
     }
 
     colors: QtObject {
@@ -62,8 +63,8 @@ Singleton {
         property color colLayer0Active: ColorUtils.transparentize(ColorUtils.mix(colLayer0, colOnLayer0, 0.8, root.contentTransparency))
         property color colLayer0Border: ColorUtils.mix(root.m3colors.m3outlineVariant, colLayer0, 0.4)
         // Bar background: its own opacity if set, a see-through default for glass, else the theme's
-        readonly property real barOpacity: Config.options.bar.style.backgroundOpacity >= 0 ? Config.options.bar.style.backgroundOpacity
-            : Config.options.bar.style.glass ? Math.min(0.6, 1 - root.backgroundTransparency) : 1 - root.backgroundTransparency
+        readonly property real themeBarOpacity: Config.options.bar.style.glass ? Math.min(0.6, 1 - root.backgroundTransparency) : 1 - root.backgroundTransparency
+        readonly property real barOpacity: Config.options.bar.style.backgroundOpacity >= 0 ? Config.options.bar.style.backgroundOpacity : themeBarOpacity
         property color colBarBackground: ColorUtils.applyAlpha(colLayer0Base, barOpacity)
         // Layer 1
         property color colLayer1Base: m3colors.m3surfaceContainerLow

@@ -1,15 +1,46 @@
 """Storage acceptance tests; only synthetic conversations in temporary directories."""
 import importlib.util
 import json
+import subprocess
+from native_helper import binary
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location("chat_store", ROOT / "dots/.config/quickshell/ii/scripts/chat-store.py")
+SPEC = importlib.util.spec_from_file_location("chat_store", ROOT / "tests/fixtures/legacy/chat_store.py")
 storage = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(storage)
+
+class NativeStore:
+    def __init__(self, path):
+        self.dir = path
+        self.root = path / "conversations"
+        self.root.mkdir(exist_ok=True)
+
+    def dispatch(self, request):
+        proc = subprocess.run([binary(), "chat-store", self.dir], text=True, capture_output=True,
+                              input=json.dumps({"id":1, **request}) + "\n", check=True)
+        reply = json.loads(proc.stdout)
+        if not reply["ok"]: raise ValueError(reply.get("error"))
+        return reply["result"]
+
+    def path(self, uid):
+        return storage.Store(self.dir).path(uid)
+
+    def save(self, chat):
+        return self.dispatch({"method":"save","params":chat})
+
+    def load(self, uid):
+        return self.dispatch({"method":"load","params":{"id":uid}})
+
+    def listing(self, query=""):
+        return self.dispatch({"method":"list","params":{"query":query}})
+
+    def migrate(self):
+        self.listing()
+
 
 
 class ChatStoreTests(unittest.TestCase):
@@ -17,7 +48,7 @@ class ChatStoreTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.path = Path(self.tmp.name)
-        self.store = storage.Store(self.path)
+        self.store = NativeStore(self.path)
 
     def chat(self, **extra):
         return {"id":"chat-1", "title":"Example", "mode":"assistant", "createdAt":1, "updatedAt":2,
@@ -41,6 +72,7 @@ class ChatStoreTests(unittest.TestCase):
     def test_failed_atomic_replace_preserves_previous_conversation(self):
         self.store.save(self.chat())
         before = self.store.path("chat-1").read_bytes()
+        self.store = storage.Store(self.path)  # Fault-inject the legacy writer; the existing file came from Rust.
         with patch.object(storage.os, "replace", side_effect=OSError("disk full")):
             with self.assertRaises(OSError): self.store.save(self.chat(draft="new"))
         self.assertEqual(self.store.path("chat-1").read_bytes(), before)
@@ -82,6 +114,7 @@ class ChatStoreTests(unittest.TestCase):
         self.assertEqual(json.loads(self.store.path("chat-1").read_text())["version"], 2)
 
     def test_save_fsyncs_file_and_parent_directory(self):
+        self.store = storage.Store(self.path)
         with patch.object(storage.os, "fsync", wraps=storage.os.fsync) as sync:
             self.store.save(self.chat())
         self.assertEqual(sync.call_count, 2)
@@ -116,7 +149,7 @@ class ChatStoreTests(unittest.TestCase):
         self.store.dispatch({"method":"export", "params":{"id":"chat-1", "path":str(exported)}})
         self.assertIn("## User\n\nFind report", exported.read_text())
         for uid in ("../escape", "/absolute", "x/y", ""):
-            with self.assertRaises(ValueError): self.store.path(uid)
+            with self.assertRaises(ValueError): self.store.load(uid)
 
     def test_invalid_file_does_not_hide_other_conversations(self):
         self.store.save(self.chat())

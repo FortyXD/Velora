@@ -13,6 +13,27 @@ import Quickshell.Io
 Singleton {
     id: root
     property string filePath: Directories.generatedMaterialThemePath
+    // Only the desktop shell publishes terminal colors. Settings can run in another process.
+    property bool syncTerminals: false
+    property string lastTerminalOptions: ""
+    onSyncTerminalsChanged: if (syncTerminals) syncTerminalPalette()
+
+    function syncTerminalPalette() {
+        if (!Config.ready) return;
+        let appearance;
+        try { appearance = Config.savedAppearance(); } catch (error) { return; }
+        const theming = appearance.wallpaperTheming;
+        const options = JSON.stringify([theming?.enableTerminal ?? true, theming?.terminalGenerationProps?.forceDarkMode ?? false,
+            appearance.palette?.roleOverrides ?? {}]);
+        if (options === lastTerminalOptions) return;
+        lastTerminalOptions = options;
+        Quickshell.execDetached([Quickshell.shellPath("scripts/colors/applycolor.sh")]);
+    }
+
+    Connections {
+        target: root.syncTerminals ? Config : null
+        function onDiskSynced() { root.syncTerminalPalette(); }
+    }
 
     function reapplyTheme(immediate = false) {
         themeFileView.reload();
@@ -32,14 +53,20 @@ Singleton {
     function applyColors(fileContent, duration = 0) {
         const json = JSON.parse(fileContent)
         Appearance.paletteTransitionDuration = duration
+        const roles = Object.assign({}, Appearance.m3colors.generatedRoles);
         for (const key in json) {
             if (json.hasOwnProperty(key)) {
+                if (roles.hasOwnProperty(key)) {
+                    roles[key] = json[key];
+                    continue;
+                }
                 // Convert snake_case to CamelCase
                 const camelCaseKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase())
                 const m3Key = `m3${camelCaseKey}`
                 Appearance.m3colors[m3Key] = json[key]
             }
         }
+        Appearance.m3colors.generatedRoles = roles;
         
         Appearance.m3colors.darkmode = (Qt.color(json.background).hslLightness < 0.5)
     }

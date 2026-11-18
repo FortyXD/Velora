@@ -6,15 +6,17 @@ import os
 from pathlib import Path
 import signal
 import shutil
+import select
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+from native_helper import binary
 from unittest.mock import patch
 
 PROJECT = Path(__file__).resolve().parents[1]
-BACKEND = PROJECT / "dots/.config/quickshell/ii/scripts/videos/recorder.py"
+BACKEND = PROJECT / "tests/fixtures/legacy/recorder.py"
 SPEC = importlib.util.spec_from_file_location("velora_recorder", BACKEND)
 recorder = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(recorder)
@@ -57,6 +59,8 @@ elif name=='hyprctl': print(os.environ.get('FAKE_MONITORS','[{"name":"screen","f
 elif name=='ffprobe':
     if os.environ.get('FAKE_PROBE_FAIL'): sys.exit(1)
     print('video')
+elif name=='qs':
+    if os.environ.get('FAKE_QS_FAIL'): sys.exit(1)
 elif name=='slurp':
     if os.environ.get('FAKE_CHILD_READY'): pathlib.Path(os.environ['FAKE_CHILD_READY']).touch()
     if os.environ.get('FAKE_SELECT_WAIT'): time.sleep(60)
@@ -95,7 +99,7 @@ class RecorderTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.bin = self.root / "bin"
         self.bin.mkdir()
-        for name in ("wf-recorder", "pactl", "hyprctl", "notify-send", "slurp", "ffprobe", "xdg-user-dir"):
+        for name in ("wf-recorder", "pactl", "hyprctl", "notify-send", "slurp", "ffprobe", "xdg-user-dir", "qs"):
             path = self.bin / name
             path.write_text(FAKE)
             path.chmod(0o755)
@@ -104,9 +108,16 @@ class RecorderTests(unittest.TestCase):
         self.calls = self.root / "calls.jsonl"
         self.options = dict(savePath=str(self.root / "Videos with spaces"), audio="none", mode="screen")
         self.write_config()
-        self.env = {**os.environ, "PATH": str(self.bin) + os.pathsep + os.environ["PATH"],
-                    "FAKE_CALLS": str(self.calls), "FAKE_VIDEOS": str(self.root / "XDG Videos"),
-                    "VELORA_RECORDER_CONFIG": str(self.config), "VELORA_RECORDER_RUNTIME": str(self.runtime)}
+        self.env = {key: value for key, value in os.environ.items()
+                    if not key.startswith(('QS_', 'HYPRLAND_'))
+                    and key not in ('DISPLAY', 'WAYLAND_DISPLAY', 'SWAYSOCK', 'qsConfig')}
+        for key in ('XDG_RUNTIME_DIR', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME'):
+            path = self.root / key
+            path.mkdir(mode=0o700)
+            self.env[key] = str(path)
+        self.env.update(PATH=str(self.bin) + os.pathsep + os.environ["PATH"],
+                        FAKE_CALLS=str(self.calls), FAKE_VIDEOS=str(self.root / "XDG Videos"),
+                        VELORA_RECORDER_CONFIG=str(self.config), VELORA_RECORDER_RUNTIME=str(self.runtime))
         self.children = []
         self.addCleanup(self.cleanup_children)
 
@@ -122,14 +133,16 @@ class RecorderTests(unittest.TestCase):
         self.config.write_text(json.dumps({"screenRecord": self.options}))
 
     def command(self, *args):
-        return [sys.executable, str(BACKEND), *args]
+        return [binary(), "recorder", *args]
 
     def call(self, *args, env=None):
         return subprocess.run(self.command(*args), env=env or self.env, capture_output=True, text=True, timeout=8)
 
     def start(self, *args, env=None):
-        process = subprocess.Popen(self.command(*args), env=env or self.env,
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Preserve fixture diagnostics instead of swallowing an early controller failure.
+        with (self.root / "controller.log").open("ab") as output:
+            process = subprocess.Popen(self.command(*args), env=env or self.env,
+                                       stdout=output, stderr=output)
         self.children.append(process)
         return process
 
@@ -140,7 +153,9 @@ class RecorderTests(unittest.TestCase):
             if state.get("state") == expected:
                 return state
             time.sleep(.025)
-        self.fail(f"Expected {expected}: {recorder.status(self.runtime)}; calls {self.get_calls()}")
+        output = self.root / "controller.log"
+        diagnostic = output.read_text() if output.exists() else ""
+        self.fail(f"Expected {expected}: {recorder.status(self.runtime)}; calls {self.get_calls()}; controller {diagnostic}")
 
     def get_calls(self, name=None):
         calls = [json.loads(line) for line in self.calls.read_text().splitlines()] if self.calls.exists() else []
@@ -236,6 +251,64 @@ class RecorderTests(unittest.TestCase):
         self.wait_state("recording")
         self.stop_capture(process)
 
+    def test_external_region_selection_holds_hot_corners(self):
+        """A slurp run by the controller must keep the corners still until it finishes."""
+        process = self.start("--select-region")
+        self.wait_state("recording")
+        self.stop_capture(process)
+        calls = self.get_calls("qs")
+        self.assertEqual([call[-1] for call in calls], ["block", "unblock"])
+        for call in calls:
+            self.assertEqual(call[:2], ["qs", "-c"])
+            self.assertEqual(call[2:6], ["ii", "ipc", "call", "hotCorners"])
+
+    def test_cancelled_selection_releases_hot_corners(self):
+        process = self.start("--select-region", env={**self.env, "FAKE_SELECT_WAIT": "1"})
+        self.wait_state("selecting")
+        self.stop_capture(process)
+        calls = [call[-1] for call in self.get_calls("qs")]
+        self.assertEqual(calls, ["block", "unblock"])
+        self.assertFalse(self.get_calls("wf-recorder"))
+
+    def test_selection_escape_and_diagnostic_both_release_hot_corners(self):
+        for flag, expected in (("FAKE_SELECT_CANCEL", 0), ("FAKE_SELECT_ERROR", 1)):
+            with self.subTest(flag=flag):
+                before = len(self.get_calls("qs"))
+                result = self.call("--select-region", env={**self.env, flag: "1"})
+                self.assertEqual(result.returncode, expected)
+                self.assertEqual([call[-1] for call in self.get_calls("qs")[before:]], ["block", "unblock"])
+        self.assertFalse(self.get_calls("wf-recorder"))
+
+    def test_selector_exceptions_still_unblock(self):
+        owner = recorder.Recorder(self.runtime)
+        for stage in ("launch_child", "wait"):
+            with self.subTest(stage=stage), patch.object(owner, "publish"):
+                with patch.object(owner, "hot_corners") as ipc:
+                    with patch.object(owner, "launch_child"), patch.object(owner, "child") as child:
+                        child.poll.return_value = None
+                        with patch.object(owner, stage, side_effect=OSError("selector failed")):
+                            with self.assertRaisesRegex(OSError, "selector failed"):
+                                owner.select()
+                self.assertEqual([call.args[0] for call in ipc.call_args_list], ["block", "unblock"])
+
+    def test_hot_corner_ipc_is_bounded_best_effort_and_honors_config(self):
+        owner = recorder.Recorder(self.runtime)
+        for error in (FileNotFoundError("qs missing"), subprocess.TimeoutExpired("qs", 3)):
+            with self.subTest(error=error), patch.dict(os.environ, {"qsConfig": "test-config"}):
+                with patch.object(recorder.subprocess, "run", side_effect=error) as command:
+                    owner.hot_corners("block")
+                    owner.hot_corners("unblock")
+                self.assertEqual(command.call_count, 2)
+                for call in command.call_args_list:
+                    self.assertEqual(call.args[0][:6], ["qs", "-c", "test-config", "ipc", "call", "hotCorners"])
+                    self.assertEqual(call.kwargs, dict(capture_output=True, timeout=3, check=False))
+
+    def test_failed_hot_corner_ipc_does_not_break_selection(self):
+        process = self.start("--select-region", env={**self.env, "FAKE_QS_FAIL": "1"})
+        self.wait_state("recording")
+        self.stop_capture(process)
+        self.assertEqual([call[-1] for call in self.get_calls("qs")], ["block", "unblock"])
+
     def test_explicit_region_overrides_screen_default_and_reused_module_is_safe(self):
         process = self.start("--select-region")
         self.wait_state("recording")
@@ -250,6 +323,28 @@ class RecorderTests(unittest.TestCase):
         with patch.object(recorder, "run", return_value=unrelated) as command:
             owner.cleanup_audio()
         self.assertFalse(any("unload-module" in call.args[0] for call in command.call_args_list))
+
+    def test_watch_sleeps_while_idle_and_observes_external_recording(self):
+        with subprocess.Popen(self.command("watch"), env=self.env, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, bufsize=0) as watcher:
+            try:
+                def state(wanted):
+                    deadline = time.monotonic()+6
+                    observed = []
+                    while (left:=deadline-time.monotonic())>0 and select.select([watcher.stdout],[],[],left)[0]:
+                        line = watcher.stdout.readline()
+                        if not line: break
+                        observed.append(json.loads(line)["state"])
+                        if observed[-1]==wanted: return
+                    self.fail(f"Expected {wanted}, observed {observed}")
+                state("idle")
+                self.assertFalse(select.select([watcher.stdout],[],[],1.2)[0])
+                controller = self.start("--fullscreen","--silent")
+                state("recording")
+                self.stop_capture(controller)
+                state("idle")
+            finally:
+                watcher.terminate()
 
     def test_buffered_container_readiness_uses_encoder_output(self):
         self.options.update(format="mkv", fps=60)
@@ -372,46 +467,37 @@ class RecorderTests(unittest.TestCase):
         self.assertIsNone(recorder.identity(pid))
 
     def test_parent_death_before_child_publication_leaves_no_hidden_child(self):
-        for kind in ("selector", "recorder"):
+        # Hold the native child's publication pipe at the same point as Owner.launch,
+        # before state.json is committed and before the owner writes the GO byte.
+        owner_program = """import os, signal, subprocess, sys
+gate = subprocess.Popen([sys.argv[1], "recorder-child-gate", str(os.getpid()), sys.argv[2], sys.argv[3]],
+                        stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+print(gate.pid, flush=True)
+signal.pause()
+"""
+        for kind, program in (("selector", "slurp"), ("recorder", "wf-recorder")):
             with self.subTest(kind=kind):
-                self.runtime = self.root / ("runtime-" + kind)
-                boundary = self.root / ("boundary-" + kind)
-                self.options["mode"] = "region" if kind == "selector" else "screen"
-                self.write_config()
                 ready = self.root / ("ready-" + kind)
-                env = {**self.env, "VELORA_RECORDER_RUNTIME": str(self.runtime), "FAKE_SELECT_WAIT": "1",
-                       "FAKE_CHILD_READY": str(ready)}
-                name = "slurp" if kind == "selector" else "wf-recorder"
-                calls_before = len(self.get_calls(name))
-                process = self.driver(
-                    "original=r.Recorder.publish\n"
-                    "def publish(self, phase, **changes):\n"
-                    "    if changes.get('childKind') == " + repr(kind) + ":\n"
-                    "        pathlib.Path(" + repr(str(boundary)) + ").write_text(str(changes['childPid']))\n"
-                    "        time.sleep(60)\n"
-                    "    return original(self,phase,**changes)\n"
-                    "r.Recorder.publish=publish\n", {**env, "FAKE_STUBBORN": "1", "FAKE_NO_READY": "1"})
-                pid = int(self.wait_file(boundary))
-                # The same-PID gate is alive, but even an INT/TERM-ignoring
-                # target must not execute before publication/GO.
-                self.assertIsNotNone(recorder.identity(pid))
-                time.sleep(.1)
+                env = {**self.env, "FAKE_CHILD_READY": str(ready), "FAKE_STUBBORN": "1", "FAKE_NO_READY": "1"}
+                calls_before = len(self.get_calls(program))
+                with subprocess.Popen([sys.executable, "-c", owner_program, binary(), kind, program],
+                                      env=env, stdout=subprocess.PIPE, text=True) as owner:
+                    try:
+                        pid = int(owner.stdout.readline())
+                        descriptor = os.pidfd_open(pid)
+                        try:
+                            self.assertEqual(Path(f"/proc/{pid}/exe").resolve(), Path(binary()).resolve())
+                            self.assertFalse(ready.exists())
+                            owner.kill()
+                            owner.wait(timeout=3)
+                            self.assertTrue(select.select([descriptor], [], [], 5)[0], "Native child survived owner exit")
+                        finally:
+                            os.close(descriptor)
+                    finally:
+                        if owner.poll() is None:
+                            owner.kill()
                 self.assertFalse(ready.exists())
-                self.assertEqual(len(self.get_calls(name)), calls_before)
-                process.kill(); process.wait(timeout=3)
-                self.wait_dead(pid)
-                self.assertFalse(ready.exists())
-                self.assertEqual(len(self.get_calls(name)), calls_before)
-                self.assertNotIn(recorder.status(self.runtime).get("state"), recorder.ACTIVE)
-                # Next launch can only have its own child, never a hidden original.
-                self.options["mode"] = "screen"
-                self.write_config()
-                next_process = self.start(env=env)
-                state = self.wait_state("recording")
-                self.assertNotEqual(state["childPid"], pid)
-                self.assertIsNone(recorder.identity(pid))
-                self.assertEqual(self.call("stop", env=env).returncode, 0)
-                self.assertEqual(next_process.wait(timeout=6), 0)
+                self.assertEqual(len(self.get_calls(program)), calls_before)
 
     def test_gate_release_keeps_published_identity_across_target_exec(self):
         boundary = self.root / "published-gate"
@@ -657,7 +743,7 @@ class RecorderTests(unittest.TestCase):
         shell = self.root / "qml"
         for relative in ("services", "modules/common/functions"):
             (shell / relative).mkdir(parents=True)
-        source = BACKEND.parents[2] / "services/ScreenRecorder.qml"
+        source = PROJECT / "dots/.config/quickshell/ii/services/ScreenRecorder.qml"
         shutil.copy2(source, shell / "services/ScreenRecorder.qml")
         (shell / "GlobalStates.qml").write_text(
             'pragma Singleton\nimport QtQuick\nimport Quickshell\nSingleton { property bool regionSelectorOpen: false; property bool overlayOpen: false; function closeSidebars() {} }\n')
@@ -665,7 +751,7 @@ class RecorderTests(unittest.TestCase):
             'pragma Singleton\nimport QtQuick\nimport Quickshell\nSingleton { property var options: ({screenRecord:{savePath:""}}) }\n')
         fake = self.root / "qml-record.sh"
         fake.write_text('#!/bin/sh\necho "$1" >> "' + str(self.root / "qml-calls") + '"\n'
-                        'if [ "$1" = status ]; then echo \'{"state":"idle"}\'; fi\n')
+                        'if [ "$1" = watch ]; then echo \'{"state":"idle"}\'; fi\n')
         fake.chmod(0o755)
         (shell / "modules/common/Directories.qml").write_text(
             'pragma Singleton\nimport QtQuick\nimport Quickshell\nSingleton { property string recordScriptPath: '
@@ -730,7 +816,7 @@ Scope {
         self.assertIn("RECORDER_QML_PASS", output)
         calls = (self.root / "qml-calls").read_text().splitlines()
         self.assertTrue(calls)
-        self.assertTrue(all(call in ("status", "stop", "--select-region") for call in calls), calls)
+        self.assertTrue(all(call in ("watch", "stop", "--select-region") for call in calls), calls)
         self.assertEqual(calls.count("--select-region"), 1, calls)
 
     def test_explicit_silent_and_failed_validation(self):

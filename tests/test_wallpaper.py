@@ -64,7 +64,7 @@ class WallpaperTests(unittest.TestCase):
 @unittest.skipUnless(cv2 is not None, 'Wallpaper analysis needs OpenCV and NumPy')
 class WallpaperAnalysisTests(unittest.TestCase):
     def setUp(self):
-        spec = importlib.util.spec_from_file_location('wallpaper_analysis', SHELL / 'scripts/images/least_busy_region.py')
+        spec = importlib.util.spec_from_file_location('wallpaper_analysis', Path(__file__).parent / 'fixtures/legacy/least_busy_region.py')
         self.analysis = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.analysis)
         self.temp = tempfile.TemporaryDirectory(prefix='velora-wallpaper-analysis-')
@@ -106,6 +106,34 @@ class WallpaperAnalysisTests(unittest.TestCase):
         for a, b in zip(positions, positions[1:]):
             self.assertTrue(abs(a[0] - b[0]) >= 120 or abs(a[1] - b[1]) >= 120)
 
+    def test_different_widget_sizes_and_strategies_avoid_actual_bounds(self):
+        image = np.random.default_rng(82).integers(0, 256, (600, 900, 3), dtype=np.uint8)
+        image[210:500, 340:650] = 20
+        cv2.imwrite(str(self.path), image)
+        occupied = []
+        for width, height, busiest in ((230, 260, False), (200, 200, False), (310, 160, True)):
+            x, y = self.analysis.find_least_busy_region(
+                str(self.path), width, height, stride=10, horizontal_padding=100,
+                vertical_padding=100, busiest=busiest, avoid_rects=occupied)[0]
+            for ox, oy, ow, oh in occupied:
+                self.assertTrue(x + width <= ox or ox + ow <= x or y + height <= oy or oy + oh <= y,
+                                ((x, y, width, height), occupied))
+            occupied.append((x, y, width, height))
+
+    def test_compact_screen_relaxes_spacing_before_covering_a_widget(self):
+        cv2.imwrite(str(self.path), np.zeros((240, 410, 3), dtype=np.uint8))
+        coords, _ = self.analysis.find_least_busy_region(
+            str(self.path), 200, 200, stride=10, horizontal_padding=100, vertical_padding=100,
+            avoid_rects=[(0, 0, 210, 240)])
+        self.assertEqual(coords, (210, 0))
+
+    def test_exact_fit_between_stride_samples(self):
+        cv2.imwrite(str(self.path), np.zeros((100, 209, 3), dtype=np.uint8))
+        coords, _ = self.analysis.find_least_busy_region(
+            str(self.path), 100, 100, stride=10, horizontal_padding=0, vertical_padding=0,
+            avoid_rects=[(0, 0, 103, 100), (203, 0, 6, 100)])
+        self.assertEqual(coords, (103, 0))
+
 
 @unittest.skipUnless(shutil.which('jq') and shutil.which('flock'), 'Wallpaper switching needs jq and flock')
 class WallpaperSwitchTests(unittest.TestCase):
@@ -141,21 +169,29 @@ class WallpaperSwitchTests(unittest.TestCase):
             'identify': 'if [[ "$*" == *%w* ]]; then echo 1920; else echo 1080; fi',
             'bc': 'cat >/dev/null; echo 0',
             'gsettings': 'exit 0',
-            'matugen': 'echo "palette:$(jq -r .background.wallpaperPath "$WALLPAPER_TEST_CONFIG")" >> "$WALLPAPER_TEST_EVENTS"',
-            'python3': 'echo "terminal:$(jq -r .background.wallpaperPath "$WALLPAPER_TEST_CONFIG")" >> "$WALLPAPER_TEST_EVENTS"; echo material',
+            'matugen': 'echo "palette:$(jq -r .background.wallpaperPath "$WALLPAPER_TEST_CONFIG")" >> "$WALLPAPER_TEST_EVENTS"; echo \'{"colors":{"source_color":{"default":{"color":"#336699"}}}}\'',
+            'fake-palette': 'echo "terminal:$(jq -r .background.wallpaperPath "$WALLPAPER_TEST_CONFIG")" >> "$WALLPAPER_TEST_EVENTS"; echo material',
+            'xdg-user-dir': 'printf "%s\\n" "$WALLPAPER_TEST_PICTURES"',
+            'kdialog': 'printf "%s\\n" "$PWD" >> "$WALLPAPER_TEST_PICKER_CALLS"; printf "%s\\n" "$WALLPAPER_TEST_PICKER_IMAGE"; exit "${WALLPAPER_TEST_PICKER_EXIT:-0}"',
         }
         for name, body in helpers.items():
             path = binaries / name
             path.write_text('#!/usr/bin/env bash\n' + body + '\n')
             path.chmod(0o755)
+        (self.root / 'helper').symlink_to(binaries / 'fake-palette')
         self.events = self.root / 'events'
         self.probes = self.root / 'probes'
         self.started = self.root / 'started'
+        self.pictures = self.root / 'Pictures'
+        self.pictures.mkdir()
+        self.picker_calls = self.root / 'picker-calls'
         self.env = {**os.environ, 'PATH': str(binaries) + os.pathsep + os.environ['PATH'],
                     'XDG_CONFIG_HOME': str(self.root / 'config'), 'XDG_STATE_HOME': str(self.root / 'state'),
                     'XDG_CACHE_HOME': str(self.root / 'cache'), 'ILLOGICAL_IMPULSE_VIRTUAL_ENV': str(self.root / 'venv'),
                     'WALLPAPER_TEST_CONFIG': str(self.config), 'WALLPAPER_TEST_EVENTS': str(self.events),
                     'WALLPAPER_TEST_PROBES': str(self.probes), 'WALLPAPER_TEST_STARTED': str(self.started),
+                    'WALLPAPER_TEST_PICTURES': str(self.pictures), 'WALLPAPER_TEST_PICKER_CALLS': str(self.picker_calls),
+                    'WALLPAPER_TEST_PICKER_IMAGE': '', 'WALLPAPER_TEST_PICKER_EXIT': '0',
                     'VELORA_HELPER': ''}  # The scripts, unless a test gives a helper
 
     def start(self, name, *extra, env=None):
@@ -208,6 +244,48 @@ class WallpaperSwitchTests(unittest.TestCase):
         result = subprocess.run(['bash', str(self.script), *args], env=env, capture_output=True, text=True, timeout=5)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return result.stdout
+
+    def test_picker_opens_with_or_without_a_saved_accent(self):
+        image = self.pictures / 'chosen wallpaper.svg'
+        image.write_text('<svg/>')
+        for accent in ('', '#FF6D00'):
+            with self.subTest(accent=accent):
+                config = json.loads(self.config.read_text())
+                config['appearance']['palette']['accentColor'] = accent
+                config['background']['wallpaperPath'] = 'old'
+                self.config.write_text(json.dumps(config))
+                self.picker_calls.unlink(missing_ok=True)
+
+                # The settings button invokes switchwall with no arguments.
+                self.run_switch(env={**self.env, 'WALLPAPER_TEST_PICKER_IMAGE': str(image)})
+
+                self.assertTrue(self.picker_calls.exists(), 'Choose wallpaper did not open the file picker')
+                updated = json.loads(self.config.read_text())
+                self.assertEqual(updated['background']['wallpaperPath'], str(image))
+                self.assertEqual(updated['appearance']['palette']['accentColor'], '')
+
+    def test_cancelled_picker_leaves_theme_and_queued_request_unchanged(self):
+        config = json.loads(self.config.read_text())
+        config['appearance']['palette']['accentColor'] = '#FF6D00'
+        self.config.write_text(json.dumps(config))
+        request = self.root / 'cache/quickshell/wallpaper-request'
+        request.parent.mkdir(parents=True)
+        request.write_text('existing-request')
+        for exit_code in ('0', '1'):
+            with self.subTest(exit_code=exit_code):
+                self.picker_calls.unlink(missing_ok=True)
+                self.run_switch(env={**self.env, 'WALLPAPER_TEST_PICKER_EXIT': exit_code})
+                self.assertTrue(self.picker_calls.exists(), 'Choose wallpaper did not open the file picker')
+                self.assertEqual(json.loads(self.config.read_text()), config)
+                self.assertEqual(request.read_text(), 'existing-request')
+                self.assertFalse(self.events.exists(), 'Cancelling the picker regenerated the theme')
+
+    def test_color_and_mode_changes_do_not_open_the_picker(self):
+        for args in (('--color', '#FF6D00'), ('--mode', 'dark', '--noswitch')):
+            with self.subTest(args=args):
+                self.run_switch(*args, env=self.env)
+                self.assertFalse(self.picker_calls.exists())
+                self.assertEqual(json.loads(self.config.read_text())['background']['wallpaperPath'], 'old')
 
     def test_prepare_changes_nothing_and_commit_puts_the_staged_palette_in_place(self):
         env = self.helper_env()

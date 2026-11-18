@@ -27,18 +27,16 @@ PopupWindow {
     property real controlsHeight: 30
 
     property Item tile: null
-    property Item requestedTile: null
     property bool preparing: false
     property bool shown: false
-    readonly property var toplevels: previewPool.displayed
+    readonly property var toplevels: previewPool.windows
+    readonly property real cardWidth: Math.min(maxPreviewWidth,
+        Math.max(1, Math.floor((width - 2 * (contentArea.margin + previewBackground.padding)) / Math.max(1, toplevels.length)) - previewRow.spacing))
 
     WindowPreviewPool {
         id: previewPool
         active: (root.preparing || root.visible) && !GlobalStates.screenLocked
-        current: root.requestedTile?.toplevels ?? []
-        onDisplayedChanged: {
-            if (displayed.length && current.every(window => displayed.includes(window))) root.tile = root.requestedTile;
-        }
+        current: root.tile?.toplevels ?? []
         onCurrentChanged: if (root.preparing && current.length === 0) root.dismiss()
     }
 
@@ -61,7 +59,7 @@ PopupWindow {
             const tile = root.dock.hoveredTile;
             if (tile && tile.windowCount > 0 && !root.dock.menuOpen) {
                 hideTimer.stop();
-                root.requestedTile = tile;
+                root.tile = tile;
                 root.preparing = true;
                 if (!root.shown) dwellTimer.restart();
             } else {
@@ -83,7 +81,7 @@ PopupWindow {
 
     Timer {
         id: dwellTimer
-        interval: 550
+        interval: 220
         onTriggered: {
             const tile = root.dock.hoveredTile;
             if (!tile || !(tile.windowCount > 0)) return;
@@ -112,7 +110,7 @@ PopupWindow {
         adjustment: PopupAdjustment.None
     }
 
-    visible: previewBackground.opacity > 0 && previewPool.displayed.length > 0
+    visible: previewBackground.opacity > 0 && root.toplevels.length > 0
     color: "transparent"
     implicitWidth: root.dockWindow?.width ?? 1
     implicitHeight: contentArea.implicitHeight
@@ -168,7 +166,7 @@ PopupWindow {
             border.color: Appearance.popup.colBorder
             clip: true
 
-            opacity: root.shown && previewPool.displayed.length > 0 ? 1 : 0
+            opacity: root.shown && root.toplevels.length > 0 ? 1 : 0
             transform: Translate {
                 y: root.shown ? 0 : 8
                 Behavior on y {
@@ -204,20 +202,19 @@ PopupWindow {
                     RippleButton {
                         id: windowButton
                         required property var modelData
-                        visible: root.toplevels.includes(modelData)
-                        Component.onCompleted: previewPool.setReady(modelData, screencopyView.hasContent)
+                        Layout.preferredWidth: root.cardWidth
+                        Layout.minimumWidth: root.cardWidth
+                        Layout.maximumWidth: root.cardWidth
                         Layout.fillHeight: true
                         padding: 0
                         middleClickAction: () => {
                             windowButton.modelData?.close();
                         }
                         onClicked: {
-                            windowButton.modelData?.activate();
+                            FreeWindows.activateToplevel(windowButton.modelData);
                             root.dismiss();
                         }
                         contentItem: ColumnLayout {
-                            implicitWidth: screencopyView.implicitWidth
-                            implicitHeight: screencopyView.implicitHeight
 
                             ButtonGroup {
                                 contentWidth: parent.width - anchors.margins * 2
@@ -249,19 +246,16 @@ PopupWindow {
                             Item {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
-                                implicitHeight: screencopyView.height
-                                implicitWidth: screencopyView.width
+                                implicitHeight: root.maxPreviewHeight
+                                implicitWidth: root.cardWidth
                                 WindowThumbnail {
                                     id: screencopyView
                                     anchors.centerIn: parent
                                     toplevel: windowButton.modelData
-                                    retainWhileHidden: true
-                                    showFallback: false
-                                    preparing: root.preparing && previewPool.current.includes(windowButton.modelData)
-                                    onHasContentChanged: previewPool.setReady(windowButton.modelData, hasContent)
+                                    preparing: root.preparing
                                     live: !PowerSaving.cutLivePreviews
                                     paintCursor: true
-                                    constraintSize: Qt.size(root.maxPreviewWidth, root.maxPreviewHeight)
+                                    constraintSize: Qt.size(root.cardWidth, root.maxPreviewHeight)
                                     layer.enabled: true
                                     layer.effect: OpacityMask {
                                         maskSource: Rectangle {

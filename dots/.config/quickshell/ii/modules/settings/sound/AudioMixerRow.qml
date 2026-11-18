@@ -98,6 +98,7 @@ Rectangle {
             StyledSlider {
                 Layout.fillWidth: true
                 configuration: StyledSlider.Configuration.S
+                defaultValue: 1
                 value: root.node?.audio?.volume ?? 0
                 onMoved: if (root.node?.audio) root.node.audio.volume = value
             }

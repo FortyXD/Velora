@@ -14,6 +14,10 @@ impl Args {
         let mut positional = Vec::new();
         let mut iter = argv.into_iter();
         while let Some(arg) = iter.next() {
+            if arg == "--" {
+                positional.extend(iter);
+                break;
+            }
             if let Some(name) = arg.strip_prefix("--").or_else(|| short_option(&arg)) {
                 let name = name.replace('_', "-"); // The Python scripts used underscores
                 if let Some((name, value)) = name.split_once('=') {

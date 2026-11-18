@@ -34,6 +34,7 @@ StyledPopup {
     keepOpen: leavePanel && panelHovered
     closeImmediately: leavePanel && !panelHovered
     openDelay: 220
+    readonly property bool preparing: hoverEnabled && targetHovered && !dismissed && !closeImmediately
 
     property int workspaceId: 0
     // A flick closes the miniature even when the pointer lands inside it: anyone moving at
@@ -125,7 +126,7 @@ StyledPopup {
 
             Loader {
                 anchors.fill: parent
-                active: root.active
+                active: root.active || root.preparing
 
                 sourceComponent: Item {
                     Repeater {
@@ -169,6 +170,7 @@ StyledPopup {
                                 id: capture
                                 anchors.fill: parent
                                 toplevel: windowItem.modelData
+                                preparing: root.preparing && windowItem.place !== null
                                 constraintSize: windowItem.captureLimit
                                 live: false // One frame on creation, then refreshed by the timer below
                             }
@@ -185,7 +187,7 @@ StyledPopup {
                             Timer { // Keep the windows on display from looking frozen, at a tiny cost
                                 interval: 1000
                                 repeat: true
-                                running: windowItem.visible && capture.hasContent && !PowerSaving.cutLivePreviews
+                                running: root.wanted && windowItem.visible && capture.hasContent && !PowerSaving.cutLivePreviews
                                 onTriggered: capture.captureFrame()
                             }
                             Rectangle { // Hover outline

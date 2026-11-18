@@ -9,7 +9,7 @@
 .velora-clock { color: #f7ddd2; font-size: 88px; font-weight: 600; text-align: center; }
 .velora-date { color: #f7ddd2; font-size: 18px; text-align: center; }
 .velora-brand { color: #ffb692; font-size: 18px; spacing: 10px; }
-.velora-power { background-color: rgba(54,39,32,0.9); color: #ffb692; padding: 12px; border-radius: 26px; }
+.velora-power { background-color: rgba(54,39,32,0.9); color: #ffb692; padding: 0; border-radius: 26px; }
 .velora-power:focus, .velora-power:hover { background-color: #634334; }
 
 .velora-greeter .user-icon { icon-size: 64px; }
@@ -23,3 +23,5 @@
 .velora-greeter.login-dialog .login-dialog-message { margin-top: 12px; }
 .velora-greeter.login-dialog .login-dialog-user-selection-box { padding-top: 0; padding-bottom: 0; }
 .velora-greeter .login-dialog-user-list-item:focus { border-color: #ffb692; box-shadow: inset 0 0 0 2px #ffb692; }
+.velora-greeter .login-dialog-button.next-button { width: 32px; height: 32px; padding: 0; border-radius: 16px; background-color: #ffb692 !important; color: #261812; }
+.velora-greeter .login-dialog-button.next-button StIcon { icon-size: 16px; padding: 0; margin: 0; }

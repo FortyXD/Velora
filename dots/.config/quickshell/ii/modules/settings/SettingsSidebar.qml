@@ -35,8 +35,10 @@ Item {
 
     signal pageSelected(int index)
     signal searchAccepted()
+    signal expandRequested()
 
     function focusSearch() {
+        if (!root.expanded) root.expandRequested();
         searchInput.forceActiveFocus();
         searchInput.selectAll();
     }
@@ -127,7 +129,7 @@ Item {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.IBeamCursor
-                    onClicked: searchInput.forceActiveFocus()
+                    onClicked: root.focusSearch()
                 }
 
                 MaterialSymbol {

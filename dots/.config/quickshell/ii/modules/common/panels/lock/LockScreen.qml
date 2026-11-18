@@ -16,7 +16,7 @@ Scope {
     property alias context: lockContext
     property Component sessionLockSurface: WlSessionLockSurface {
         id: sessionLockSurface
-        color: "transparent"
+        color: Appearance.m3colors.m3surface
         Loader {
             active: GlobalStates.screenLocked
             anchors.fill: parent
@@ -143,6 +143,9 @@ Scope {
         id: lock
         locked: GlobalStates.screenLocked
         surface: root.sessionLockSurface
+        onSecureStateChanged: if (secure) {
+            Quickshell.execDetached([Quickshell.shellPath("scripts/helper"), "lock-recovery", String(Quickshell.processId)]);
+        }
     }
 
     function lock() {

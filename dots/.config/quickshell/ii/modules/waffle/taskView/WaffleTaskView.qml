@@ -23,14 +23,7 @@ Scope {
         Loader {
             id: panelLoader
             required property var modelData
-            active: false
-            Connections {
-                target: GlobalStates
-                function onOverviewOpenChanged() {
-                    if (GlobalStates.overviewOpen)
-                        panelLoader.active = true;
-                }
-            }
+            active: TouchpadGestures.overview.presenting
             sourceComponent: PanelWindow {
                 id: root
                 property string searchingText: ""
@@ -40,7 +33,8 @@ Scope {
 
                 WlrLayershell.namespace: "quickshell:wTaskView"
                 WlrLayershell.layer: WlrLayer.Overlay
-                WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+                WlrLayershell.keyboardFocus: GlobalStates.overviewOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+                mask: Region { item: GlobalStates.overviewOpen ? taskViewContent : null }
                 color: "transparent"
 
                 anchors {
@@ -53,24 +47,16 @@ Scope {
                 TaskViewContent {
                     id: taskViewContent
                     anchors.fill: parent
+                    workspaceId: root.monitor?.activeWorkspace?.id ?? 0
 
-                    Component.onCompleted: {
-                        taskViewContent.forceActiveFocus();
-                    }
+                    focus: GlobalStates.overviewOpen
                     Keys.onPressed: event => {
                         if (event.key === Qt.Key_Escape) {
-                            GlobalStates.overviewOpen = false;
+                            if (choosingDesktop) backToWindows();
+                            else GlobalStates.overviewOpen = false;
+                            event.accepted = true;
                         }
                     }
-
-                    Connections {
-                        target: GlobalStates
-                        function onOverviewOpenChanged() {
-                            if (!GlobalStates.overviewOpen)
-                                taskViewContent.close();
-                        }
-                    }
-                    onClosed: panelLoader.active = false
                 }
             }
         }

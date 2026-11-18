@@ -19,6 +19,8 @@ Item {
     property int tier: 0
     property bool zoneHovered: false
     property bool inPill: false
+    property var editGuide
+    readonly property alias editSlot: gap
     property bool editing: false
     property bool dragHidden: false // The edit overlay is dragging this one
 
@@ -37,10 +39,23 @@ Item {
     // Width that doesn't follow the free space, for balancing the center
     // Smallest length an elastic widget is given (catalog minLength), so it never shrinks to nothing
     readonly property real minLength: elastic ? (meta?.minLength ?? 0) : 0
-    readonly property real rigidLength: !present ? 0 : elastic ? minLength : (vertical ? implicitHeight : implicitWidth)
+    readonly property real rigidLength: !present ? 0 : gap.amount + (elastic ? minLength : (vertical ? implicitHeight : implicitWidth))
+
+    transform: gap.placement
+    Layout.leftMargin: vertical ? 0 : gap.before
+    Layout.rightMargin: vertical ? 0 : gap.after
+    Layout.topMargin: vertical ? gap.before : 0
+    Layout.bottomMargin: vertical ? gap.after : 0
+    BarInsertionSlot {
+        id: gap
+        guide: root.editGuide
+        uid: root.uid
+        vertical: root.vertical
+    }
 
     visible: present
     opacity: dragHidden ? 0.35 : 1
+    Behavior on opacity { NumberAnimation { duration: Appearance.scaledDuration(110); easing.type: Easing.OutCubic } }
     implicitWidth: placeholder && !vertical ? Math.max(28, shown ? loader.implicitWidth : 0) : loader.implicitWidth
     implicitHeight: placeholder && vertical ? Math.max(28, shown ? loader.implicitHeight : 0) : loader.implicitHeight
 
@@ -62,14 +77,19 @@ Item {
     }
 
     Rectangle { // Frame shown while editing: hovered and selected widgets stand out
+        objectName: "barEditFrame"
         readonly property bool selected: GlobalStates.barEditSelection === root.uid
         readonly property bool hovered: GlobalStates.barEditHovered === root.uid
-        visible: root.editing && !root.dragHidden
+        opacity: root.editing && !root.dragHidden && (selected || hovered) ? 1 : 0
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: Appearance.scaledDuration(115); easing.type: Easing.OutCubic } }
         z: 1
-        anchors {
-            fill: parent
-            margins: -2
-        }
+        // Vertical widgets have different natural widths (some also count the
+        // floating bar's margins). Frames use the bar's inner width instead.
+        width: root.vertical ? Math.max(0, Appearance.sizes.baseVerticalBarWidth - 12) : root.width + 4
+        height: root.height + (root.vertical ? 0 : 4)
+        x: (root.width - width) / 2
+        y: root.vertical ? 0 : -2
         radius: Appearance.rounding.small
         color: selected ? ColorUtils.transparentize(Appearance.colors.colPrimary, 0.82)
             : hovered ? ColorUtils.transparentize(Appearance.colors.colOnLayer0, 0.9) : "transparent"

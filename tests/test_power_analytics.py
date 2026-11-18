@@ -9,8 +9,9 @@ import sys
 import tempfile
 import time
 import unittest
+from native_helper import binary
 
-SCRIPT = Path(__file__).resolve().parents[1] / "dots/.config/quickshell/ii/scripts/power/analytics.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "tests/fixtures/legacy/power_analytics.py"
 # Do not leave generated files next to the production script.
 spec = importlib.util.spec_from_file_location("power_analytics", SCRIPT)
 analytics = importlib.util.module_from_spec(spec)
@@ -54,7 +55,7 @@ class PowerAnalyticsTests(unittest.TestCase):
         return sample
 
     def command(self, command, *arguments):
-        return [sys.executable, str(SCRIPT), command, "--state-dir", str(self.state), *arguments]
+        return [binary(), "power-analytics", command, "--state-dir", str(self.state), *arguments]
 
     def start(self, command, *arguments):
         process = subprocess.Popen(self.command(command, *arguments), stdout=subprocess.PIPE,

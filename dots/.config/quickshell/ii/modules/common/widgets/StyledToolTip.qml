@@ -9,7 +9,12 @@ ToolTip {
     property bool extraVisibleCondition: true
     property bool alternativeVisibleCondition: false
 
-    readonly property bool internalVisibleCondition: (extraVisibleCondition && (parent.hovered === undefined || parent?.hovered)) || alternativeVisibleCondition
+    readonly property bool internalVisibleCondition: !!parent && ((extraVisibleCondition && (parent.hovered === undefined || parent.hovered)) || alternativeVisibleCondition)
+    readonly property var paneBounds: visible ? parent?.Window.window?.popupBoundsFor?.(parent) : null
+    leftMargin: margins + (paneBounds?.left ?? 0)
+    rightMargin: margins + (paneBounds?.right ?? 0)
+    topMargin: margins + (paneBounds?.top ?? 0)
+    bottomMargin: margins + (paneBounds?.bottom ?? 0)
     verticalPadding: 6
     horizontalPadding: 10
     background: null
@@ -30,5 +35,6 @@ ToolTip {
         shown: root.internalVisibleCondition
         horizontalPadding: root.horizontalPadding
         verticalPadding: root.verticalPadding
+        maximumWidth: root.paneBounds ? Math.max(0, root.paneBounds.width - 2 * root.margins - root.leftPadding - root.rightPadding) : Infinity
     }
 }

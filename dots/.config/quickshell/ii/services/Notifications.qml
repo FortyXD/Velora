@@ -2,6 +2,7 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 
 import qs.modules.common
+import qs.modules.common.functions
 import qs
 import QtQuick
 import Quickshell
@@ -28,15 +29,21 @@ Singleton {
         })) ?? []
         property bool popup: false
         property bool isTransient: notification?.hints.transient ?? false
-        property string appIcon: notification?.appIcon ?? ""
+        property string appIcon: NotificationUtils.appIcon(notification?.appIcon)
         property string appName: notification?.appName ?? ""
         property string desktopEntry: notification?.desktopEntry ?? ""
         property string body: notification?.body ?? ""
-        property string image: notification?.image ?? ""
+        property string image: NotificationUtils.localImage(notification?.image)
         property string summary: notification?.summary ?? ""
         property double time
         property string urgency: notification?.urgency.toString() ?? "normal"
         property Timer timer
+
+        function release() {
+            timer?.stop();
+            notification?.dismiss();
+            destroy();
+        }
 
         onNotificationChanged: {
             if (notification === null) {
@@ -64,27 +71,25 @@ Singleton {
     }
 
     component NotifTimer: Timer {
-        required property int notificationId
+        required property Notif owner
         interval: 7000
         running: true
-        onTriggered: () => {
-            const index = root.list.findIndex((notif) => notif.notificationId === notificationId);
-            const notifObject = root.list[index];
-            print("[Notifications] Notification timer triggered for ID: " + notificationId + ", transient: " + notifObject?.isTransient);
-            if (notifObject.isTransient) root.discardNotification(notificationId);
-            else root.timeoutNotification(notificationId);
-            destroy()
+        onTriggered: {
+            owner.timer = null;
+            if (owner.isTransient) root.discardNotification(owner.notificationId);
+            else root.timeoutNotification(owner.notificationId);
+            destroy();
         }
     }
 
-    property bool silent: false
+    readonly property bool silent: NotificationPreferences.silent
     property int unread: 0
-    // Do not disturb survives restarts; the settings app reads it from there and changes it over IPC
-    onSilentChanged: if (Persistent.ready && Persistent.states.notifications.silent !== root.silent) Persistent.states.notifications.silent = root.silent
-    Connections {
-        target: Persistent
-        function onReadyChanged() {
-            if (Persistent.ready) root.silent = Persistent.states.notifications.silent;
+    function toggleSilent() { NotificationPreferences.setQuiet(!root.silent); }
+    onSilentChanged: {
+        if (!root.silent) return;
+        for (const n of root.list) {
+            if (n?.popup && !root.ruleFor(root.appKey(n.appName, n.desktopEntry)).bypassDnd)
+                root.timeoutNotification(n.notificationId);
         }
     }
 
@@ -96,13 +101,13 @@ Singleton {
     }
 
     // Apps seen so far: { key: { name, icon, desktopEntry, count, lastSeen } }
-    property var seenApps: ({})
+    property var seenApps: Object.create(null)
     property bool seenAppsLoaded: false
     function rememberApp(key, appName, appIcon, desktopEntry, time = Date.now()) {
         const known = root.seenApps[key];
         root.seenApps[key] = {
             "name": appName || known?.name || key,
-            "icon": appIcon || known?.icon || "",
+            "icon": NotificationUtils.appIcon(appIcon) || known?.icon || "",
             "desktopEntry": desktopEntry || known?.desktopEntry || "",
             "count": (known?.count ?? 0) + 1,
             "lastSeen": Math.max(time, known?.lastSeen ?? 0),
@@ -132,9 +137,11 @@ Singleton {
         path: Directories.notificationAppsPath
         onLoaded: {
             try {
-                root.seenApps = JSON.parse(seenAppsFile.text()) ?? {};
+                const apps = Object.assign(Object.create(null), JSON.parse(seenAppsFile.text()));
+                for (const app of Object.values(apps)) app.icon = NotificationUtils.appIcon(app.icon);
+                root.seenApps = apps;
             } catch (e) {
-                root.seenApps = {};
+                root.seenApps = Object.create(null);
             }
             root.seenAppsLoaded = true;
             root.seedSeenApps();
@@ -153,8 +160,12 @@ Singleton {
 
     IpcHandler {
         target: "notifications"
-        function toggleSilent(): void { root.silent = !root.silent }
-        function setSilent(on: bool): void { root.silent = on }
+        function toggleSilent(): void { root.toggleSilent(); }
+        function setSilent(on: bool): void { NotificationPreferences.setQuiet(on); }
+        function silenceFor(minutes: int): void {
+            if (minutes > 0 && minutes <= 1440) NotificationPreferences.setQuiet(true, minutes);
+        }
+        function previewBanner(): bool { return root.showPreview(); }
         function clearApp(key: string): void { root.discardApp(key) }
         function forgetApp(key: string): void {
             delete root.seenApps[key];
@@ -163,9 +174,42 @@ Singleton {
     }
     property var filePath: Directories.notificationsPath
     property list<Notif> list: []
-    property var popupList: list.filter((notif) => notif?.popup);
-    property bool popupInhibited: (GlobalStates?.sidebarRightOpen ?? false) || silent
-    property var latestTimeForApp: ({})
+    property Notif preview: null
+    readonly property var popupList: {
+        const live = list.filter(notif => notif?.popup);
+        return preview ? [...live, preview] : live;
+    }
+    readonly property bool centerOpen: Config.options.panelFamily !== "waffle" && SidebarLayout.sideOf("notifications") === "left"
+        ? GlobalStates.sidebarLeftOpen : GlobalStates.sidebarRightOpen
+
+    function showPreview() {
+        if (GlobalStates.screenLocked) return false;
+        if (!root.preview) {
+            root.preview = notifComponent.createObject(root, {
+                notificationId: -1, popup: true, time: Date.now(),
+                appName: Translation.tr("Notification preview"), appIcon: "preferences-system-notifications",
+                summary: Translation.tr("Test banner"), body: Translation.tr("Your notifications will appear here.")
+            });
+        }
+        previewTimer.restart();
+        return true;
+    }
+    function clearPreview() {
+        const old = root.preview;
+        root.preview = null;
+        previewTimer.stop();
+        old?.destroy();
+    }
+    Timer {
+        id: previewTimer
+        interval: Math.max(1, Config.options.notifications.timeout)
+        onTriggered: root.clearPreview()
+    }
+    Connections {
+        target: GlobalStates
+        function onScreenLockedChanged() { if (GlobalStates.screenLocked) root.clearPreview(); }
+    }
+    property var latestTimeForApp: Object.create(null)
     Component {
         id: notifComponent
         Notif {}
@@ -202,7 +246,7 @@ Singleton {
     }
 
     function groupsForList(list) {
-        const groups = {};
+        const groups = Object.create(null);
         list.filter(notif => notif).forEach((notif) => { // Destroyed notifications leave null entries for a moment
             if (!groups[notif.appName]) {
                 groups[notif.appName] = {
@@ -239,7 +283,7 @@ Singleton {
         // actionIconsSupported: true
         actionsSupported: true
         bodyHyperlinksSupported: true
-        bodyImagesSupported: true
+        bodyImagesSupported: false
         bodyMarkupSupported: true
         bodySupported: true
         imageSupported: true
@@ -260,18 +304,16 @@ Singleton {
 			root.list = [...root.list, newNotifObject];
 
             // Popup: not for apps set to "only in the list"; apps allowed through do not disturb still pop up
-            const sidebarOpen = GlobalStates?.sidebarRightOpen ?? false;
-            const showPopup = rule.mode !== "silent" && (!root.popupInhibited || (rule.bypassDnd === true && root.silent && !sidebarOpen));
-            if (rule.mode === "silent") root.unread++;
+            const showPopup = rule.mode !== "silent" && !root.centerOpen && (!root.silent || rule.bypassDnd === true);
+            if (!root.centerOpen) root.unread++;
             if (showPopup) {
                 newNotifObject.popup = true;
                 if (notification.expireTimeout != 0) {
-                    newNotifObject.timer = notifTimerComponent.createObject(root, {
-                        "notificationId": newNotifObject.notificationId,
+                    newNotifObject.timer = notifTimerComponent.createObject(newNotifObject, {
+                        "owner": newNotifObject,
                         "interval": notification.expireTimeout < 0 ? (Config?.options.notifications.timeout ?? 7000) : notification.expireTimeout,
                     });
                 }
-                root.unread++;
             }
             root.notify(newNotifObject);
             // console.log(notifToString(newNotifObject));
@@ -284,37 +326,32 @@ Singleton {
     }
 
     function discardNotification(id) {
-        console.log("[Notifications] Discarding notification with ID: " + id);
-        const index = root.list.findIndex((notif) => notif.notificationId === id);
-        const notifServerIndex = notifServer.trackedNotifications.values.findIndex((notif) => notif.id + root.idOffset === id);
-        if (index !== -1) {
-            root.list.splice(index, 1);
-            notifFileView.setText(stringifyList(root.list));
-            triggerListChange()
-        }
-        if (notifServerIndex !== -1) {
-            notifServer.trackedNotifications.values[notifServerIndex].dismiss()
-        }
-        root.discard(id); // Emit signal
+        if (id === -1) { root.clearPreview(); return; }
+        const notif = root.list.find(n => n?.notificationId === id);
+        if (!notif) return;
+        // Dismissing the server object can synchronously report the same closure.
+        root.list = root.list.filter(n => n && n !== notif);
+        notifFileView.setText(stringifyList(root.list));
+        notif.release();
+        root.discard(id);
     }
 
     function discardAllNotifications() {
-        root.list = []
-        triggerListChange()
+        const removed = root.list.slice();
+        root.list = [];
         notifFileView.setText(stringifyList(root.list));
-        notifServer.trackedNotifications.values.forEach((notif) => {
-            notif.dismiss()
-        })
+        for (const notif of removed) notif?.release();
         root.discardAll();
     }
 
     function cancelTimeout(id) {
+        if (id === -1) { previewTimer.stop(); return; }
         const index = root.list.findIndex((notif) => notif.notificationId === id);
-        if (root.list[index] != null)
-            root.list[index].timer.stop();
+        root.list[index]?.timer?.stop();
     }
 
     function timeoutNotification(id) {
+        if (id === -1) { root.clearPreview(); return; }
         const index = root.list.findIndex((notif) => notif.notificationId === id);
         if (root.list[index] != null)
             root.list[index].popup = false;
@@ -322,6 +359,7 @@ Singleton {
     }
 
     function timeoutAll() {
+        root.clearPreview();
         root.popupList.forEach((notif) => {
             root.timeout(notif.notificationId);
         })
@@ -346,10 +384,6 @@ Singleton {
         root.discardNotification(id);
     }
 
-    function triggerListChange() {
-        root.list = root.list.slice(0)
-    }
-
     function refresh() {
         notifFileView.reload()
     }
@@ -367,12 +401,12 @@ Singleton {
                 return notifComponent.createObject(root, {
                     "notificationId": notif.notificationId,
                     "actions": [], // Notification actions are meaningless if they're not tracked by the server or the sender is dead
-                    "appIcon": notif.appIcon,
+                    "appIcon": NotificationUtils.appIcon(notif.appIcon),
                     "appName": notif.appName,
                     "desktopEntry": notif.desktopEntry ?? "",
                     "body": notif.body,
                     // image://qsimage handles belong to the previous session's notifications and are always dead now
-                    "image": (notif.image ?? "").startsWith("image://qsimage/") ? "" : notif.image,
+                    "image": (notif.image ?? "").startsWith("image://qsimage/") ? "" : NotificationUtils.localImage(notif.image),
                     "summary": notif.summary,
                     "time": notif.time,
                     "urgency": notif.urgency,

@@ -19,13 +19,18 @@ Scope {
     id: root
     property bool open: false
     property var screen: null
+    property string targetAddress: ""
     // Where it opened, kept while it's open
     onOpenChanged: root.screen = open ? Quickshell.screens.find(screen => screen.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] : null
 
     GlobalShortcut {
         name: "snapLayoutsToggle"
         description: "Snap layouts for the active window"
-        onPressed: root.open = !root.open && FreeWindows.enabled
+        onPressed: {
+            if (root.open) { root.open = false; return; }
+            root.targetAddress = HyprlandData.windowList.find(w => w.focusHistoryID === 0)?.address ?? "";
+            root.open = FreeWindows.enabled && root.targetAddress.length > 0;
+        }
     }
 
     LazyLoader {
@@ -134,7 +139,7 @@ Scope {
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
                                                 root.open = false;
-                                                FreeWindows.snap(zone.modelData[0]);
+                                                FreeWindows.snap(zone.modelData[0], root.targetAddress);
                                             }
                                         }
                                     }

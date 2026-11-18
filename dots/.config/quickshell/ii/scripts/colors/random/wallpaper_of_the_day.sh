@@ -24,10 +24,12 @@ case $source_name in
         page=$(jq -r '.images[0].copyrightlink // "https://www.bing.com"' <<< "$json")
         ;;
     nasa)
+        export -n NASA_KEY
         # Some days are videos; go back a few days to the latest picture
         for days_back in 0 1 2 3 4 5; do
             day=$(date -d "-$days_back day" +%F)
-            json=$(api_get "https://api.nasa.gov/planetary/apod?api_key=${NASA_KEY:-DEMO_KEY}&date=$day")
+            json=$(printf '%s' "${NASA_KEY:-DEMO_KEY}" | api_get "https://api.nasa.gov/planetary/apod?date=$day" \
+                --get --data-urlencode 'api_key@-')
             if [[ $(jq -r '.media_type // ""' <<< "$json") == image ]]; then
                 url=$(jq -r '.hdurl // .url' <<< "$json")
                 title=$(jq -r '.title // ""' <<< "$json")

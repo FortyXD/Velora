@@ -249,7 +249,8 @@ Singleton {
             preset = Object.assign({}, preset, { "wallpaperAnimations": motion });
             categories = categories.map(category => category === "motion" ? "wallpaperAnimations" : category);
         }
-        const chosen = (categories.length > 0 ? categories : root.categoriesOf(preset)).filter(category => preset[category]);
+        const chosen = (categories.length > 0 ? categories : root.categoriesOf(preset))
+            .filter(category => root.categoryIds.includes(category) && preset[category]);
         if (chosen.length === 0) return;
         root.applyCount++;
         themeTimer.stop();
@@ -413,6 +414,8 @@ Singleton {
         // Shell settings. Every key is written explicitly: keys missing from the file would keep their old value.
         let patch = {};
         for (const category of chosen) root.mergeInto(patch, root.filterConfig(preset[category].config, root.allowedPaths[category]));
+        if (chosen.includes("theme") && !patch.appearance?.palette?.roleOverrides)
+            root.setPath(patch, "appearance.palette.roleOverrides", {});
         // What switchwall would publish, in the same single write
         if (prepared?.wallpaper) {
             root.setPath(patch, "background.wallpaperPath", prepared.wallpaper);
@@ -663,11 +666,23 @@ Singleton {
         return JSON.stringify(preset, null, 4);
     }
 
+    function readPreset(text) {
+        const preset = JSON.parse(text, (key, value) =>
+            ["__proto__", "prototype", "constructor"].includes(key) ? undefined : value);
+        // Pinned apps and their launch commands belong to this machine.
+        const dock = preset?.dockWidgets?.config?.dock;
+        if (dock && typeof dock === "object") {
+            delete dock.pinnedApps;
+            delete dock.pinnedAppCommands;
+        }
+        return preset;
+    }
+
     // Reads a preset from text; returns { preset, commands } or { error }
     function parse(text) {
         let preset;
         try {
-            preset = JSON.parse(text);
+            preset = root.readPreset(text);
         } catch (e) {
             return { "error": Translation.tr("Not valid JSON") };
         }
@@ -678,7 +693,7 @@ Singleton {
 
     function importPreset(preset) {
         const slug = (preset.name ?? "preset").toLowerCase().replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-+|-+$/g, "") || `preset-${Date.now()}`;
-        let copy = Object.assign({}, preset);
+        const copy = root.readPreset(JSON.stringify(preset));
         const wallpaper = copy.wallpaperAnimations?.wallpaper ?? "";
         if (wallpaper && !wallpaper.startsWith("daily:") && !root.isRemote(wallpaper))
             delete copy.wallpaperAnimations.wallpaper; // A local image isn't part of the text, a link is
@@ -703,7 +718,7 @@ Singleton {
                 for (const line of text.split("\n")) {
                     if (line.trim().length === 0) continue;
                     try {
-                        list.push(JSON.parse(line));
+                        list.push(root.readPreset(line));
                     } catch (e) {
                         console.warn("[Presets] Couldn't read a preset:", e);
                     }

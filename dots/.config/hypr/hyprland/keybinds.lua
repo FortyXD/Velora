@@ -8,63 +8,18 @@ local screenshot = [=["${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/$qsConfig/sc
 keymap.begin()
 
 hl.define_submap("global", function()
-    -- Shell. These must stay at the top for consistent behavior.
-    local search_release_armed = {
-        Super_L = false,
-        Super_R = false,
-    }
-
-    local function arm_search_release(key)
-        search_release_armed.Super_L = false
-        search_release_armed.Super_R = false
-        search_release_armed[key] = true
-    end
-
-    -- Alt+Shift switches the keyboard layout when both are released without another key
-    -- in between, so Ctrl+Shift+Alt+X and other Shift+Alt shortcuts keep working.
-    local layout_switch_armed = false
-
     local function interrupt_search_release()
-        search_release_armed.Super_L = false
-        search_release_armed.Super_R = false
-        layout_switch_armed = false
+        keymap.interrupt_modifiers()
     end
-
-    local function switch_layout()
-        -- A layout toggle set in the settings app (kb_options grp:...) is in charge then
-        local options = hl.get_config("input:kb_options") or ""
-        if not tostring(options):find("grp:", 1, true) then
-            hl.dispatch(hl.dsp.exec_cmd("hyprctl switchxkblayout current next"))
-        end
-    end
-
-    local function toggle_search_on_release(key)
-        if not search_release_armed[key] then
-            return
-        end
-
-        interrupt_search_release()
-        hl.dispatch(exec([=[qs -c $qsConfig ipc call search toggle || pkill fuzzel || fuzzel]=]))
-    end
-
-    -- A catchall bind only runs when no regular bind matches. Wrap every other
-    -- shortcut as well, so Super+2/Ctrl+Shift+Alt+X/etc. disarm the standalone-Super
-    -- and Alt+Shift actions before running their original dispatcher.
-    local modifier_keys = { Super_L = true, Super_R = true }
     local function super_aware_bind(modifiers, key, dispatcher, options)
-        if not modifier_keys[key] then
+        if not require("hyprland.modifier_taps").kind(key) then
             local original_dispatcher = dispatcher
             dispatcher = function(...)
-                interrupt_search_release()
-
-                if type(original_dispatcher) == "function" then
-                    return original_dispatcher(...)
-                end
-
+                keymap.interrupt_modifiers()
+                if type(original_dispatcher) == "function" then return original_dispatcher(...) end
                 return hl.dispatch(original_dispatcher)
             end
         end
-
         return h.bind(modifiers, key, dispatcher, options)
     end
 
@@ -75,84 +30,29 @@ hl.define_submap("global", function()
     bind("Ctrl+Alt", "Escape", exec([=[qs -c $qsConfig ipc call assistant stop]=]), {
         id = "assistant.stop", description = "Stop the desktop assistant",
     })
-    keymap.note("", "Super", "Search apps, files and more")
-    bind("Super", "Super_L", function()
-        arm_search_release("Super_L")
-    end, {
-        ignore_mods = true,
-        transparent = true,
+    bind("", "Super", exec([=[qs -c $qsConfig ipc call search toggle || pkill fuzzel || fuzzel]=]), {
+        id = "shell.search", description = "Search apps, files and more",
     })
-    bind("Super", "Super_R", function()
-        arm_search_release("Super_R")
-    end, {
-        ignore_mods = true,
-        transparent = true,
-    })
-    bind("Super", "Super_L", function()
-        toggle_search_on_release("Super_L")
-    end, {
-        ignore_mods = true,
-        release = true,
-        transparent = true,
-    })
-    bind("Super", "Super_R", function()
-        toggle_search_on_release("Super_R")
-    end, {
-        ignore_mods = true,
-        release = true,
-        transparent = true,
-    })
-    hl.bind("catchall", interrupt_search_release, {
-        transparent = true,
-        non_consuming = true,
-    })
-    -- The catchall misses keys pressed while modifiers are held, so every key press that
-    -- isn't a modifier disarms as well. The Alt+Shift layout switch lives here entirely:
-    -- binds on modifier keys also fire when they're released, which re-armed it.
-    -- XKB keycodes: Ctrl 37/105, Shift 50/62, Alt 64/108, Super 133/134.
-    local keycode_kind = { [37] = "ctrl", [105] = "ctrl", [50] = "shift", [62] = "shift", [64] = "alt", [108] = "alt", [133] = "super", [134] = "super" }
-    local held = { ctrl = 0, shift = 0, alt = 0, super = 0 }
-    -- Alt+Tab: the window switcher takes the window under its selection when Alt is let go.
-    -- Hyprland sees that release whichever surface has the keyboard.
-    local switching_windows = false
-    hl.on("input.keyboard.key", function(keycode, _, pressed)
-        local kind = keycode_kind[keycode]
-        if not kind then
-            if pressed == 1 then
-                interrupt_search_release()
-            end
-            return
+    bind("Alt", "Shift", function()
+        if not tostring(hl.get_config("input:kb_options") or ""):find("grp:", 1, true) then
+            hl.dispatch(hl.dsp.exec_cmd("hyprctl switchxkblayout current next"))
         end
-        if pressed == 1 then
-            held[kind] = held[kind] + 1
-            if (kind == "alt" or kind == "shift") and held.alt > 0 and held.shift > 0 and held.ctrl == 0 and held.super == 0 then
-                layout_switch_armed = true
-            elseif kind == "ctrl" or kind == "super" then
-                layout_switch_armed = false
-            end
-        else
-            held[kind] = math.max(0, held[kind] - 1)
-            if kind == "alt" and held.alt == 0 and switching_windows then
-                switching_windows = false
-                hl.dispatch(hl.dsp.global("quickshell:windowSwitcherCommit"))
-            end
-            if (kind == "alt" or kind == "shift") and layout_switch_armed then
-                layout_switch_armed = false
-                switch_layout()
-            end
+    end, { id = "keyboard.layout", description = "Switch keyboard layout" })
+    -- Alt+Tab's selection is committed when its trigger modifiers are released.
+    local switching_windows = false
+    local switch_mod = nil
+    local modifier_codes = { [37] = "Ctrl", [105] = "Ctrl", [50] = "Shift", [62] = "Shift",
+        [64] = "Alt", [108] = "Alt", [133] = "Super", [134] = "Super" }
+    hl.on("input.keyboard.key", function(keycode, _, pressed)
+        local commit = switch_mod == nil or modifier_codes[keycode] == switch_mod
+        if pressed ~= 1 and commit and switching_windows then
+            switching_windows = false
+            hl.dispatch(hl.dsp.global("quickshell:windowSwitcherCommit"))
         end
     end)
-    keymap.note("Alt", "Shift", "Switch keyboard layout")
-    bind("Ctrl", "Super_L", interrupt_search_release)
-    bind("Ctrl", "Super_R", interrupt_search_release)
-    bind("Super", "mouse:272", interrupt_search_release)
-    bind("Super", "mouse:273", interrupt_search_release)
-    bind("Super", "mouse:274", interrupt_search_release)
-    bind("Super", "mouse:275", interrupt_search_release)
-    bind("Super", "mouse:276", interrupt_search_release)
-    bind("Super", "mouse:277", interrupt_search_release)
-    bind("Super", "mouse_up", interrupt_search_release)
-    bind("Super", "mouse_down", interrupt_search_release)
+    for _, key in ipairs({ "mouse:272", "mouse:273", "mouse:274", "mouse:275", "mouse:276", "mouse:277", "mouse_up", "mouse_down" }) do
+        h.bind("", key, interrupt_search_release, { ignore_mods = true, transparent = true, non_consuming = true })
+    end
 
     bind("", "Super_L", hl.dsp.global("quickshell:workspaceNumber"), {
         ignore_mods = true,
@@ -246,18 +146,39 @@ hl.define_submap("global", function()
 
     keymap.group("windows", "Window management", "select_window")
     -- Free windows (Settings → Desktop → Windows) snap with Super+arrows instead of moving focus
-    local free = require("hyprland.window_mode").current() == "floating" and require("hyprland.modes.floating") or nil
+    local mode = require("hyprland.window_mode").current()
+    local free = mode ~= "tiling" and require("hyprland.modes.floating") or nil
+    if mode == "canvas" then
+        local function camera(action)
+            return function()
+                local plugin = hl.plugin.velora
+                if plugin and plugin.camera then plugin.camera(action) end
+            end
+        end
+        bind("Super", "Home", camera("fit"), { id = "canvas.fit", description = "Fit all windows on the canvas" })
+        bind("Super", "End", camera("reset"), { id = "canvas.reset", description = "Return canvas zoom to 100%" })
+    end
     bind("Super", "Q", hl.dsp.window.close(), { id = "window.close", description = "Close window" })
     bind("Alt", "F4", hl.dsp.window.close())
     bind("Super+Shift+Alt", "Q", exec([=[hyprctl kill]=]), { id = "window.kill", description = "Force quit an app (click its window)" })
     bind("Super+Alt", "Space", hl.dsp.window.float(), { id = "window.float", description = free and "Tile or free window" or "Float or tile window" })
     bind("Alt", "Tab", function()
         switching_windows = true
+        switch_mod = keymap.current_mods("window.switch_next")[1]
         hl.dispatch(hl.dsp.global("quickshell:windowSwitcherNext"))
+        if keymap.is_modifier_tap("window.switch_next") then
+            switching_windows = false
+            hl.dispatch(hl.dsp.global("quickshell:windowSwitcherCommit"))
+        end
     end, { id = "window.switch_next", description = "Switch between windows", repeating = true })
     bind("Alt+Shift", "Tab", function()
         switching_windows = true
+        switch_mod = keymap.current_mods("window.switch_previous")[1]
         hl.dispatch(hl.dsp.global("quickshell:windowSwitcherPrevious"))
+        if keymap.is_modifier_tap("window.switch_previous") then
+            switching_windows = false
+            hl.dispatch(hl.dsp.global("quickshell:windowSwitcherCommit"))
+        end
     end, { id = "window.switch_previous", description = "Switch between windows, backwards", repeating = true })
     -- Alt+Esc while switching: back out; the rest of the time the keys reach the app
     bind("Alt", "Escape", function()
@@ -282,45 +203,35 @@ hl.define_submap("global", function()
     bind("Super", "F", hl.dsp.window.fullscreen({ mode = "fullscreen" }), { id = "window.fullscreen", description = "Fullscreen" })
     bind("Super+Alt", "F", hl.dsp.window.fullscreen_state({ internal = 0, client = 3 }), { id = "window.fullscreen_spoof", description = "Fullscreen inside the window only" })
     bind("Super", "P", hl.dsp.window.pin(), { id = "window.pin", description = "Pin window on all workspaces" })
-    if not free then
-        keymap.note("Super", "Arrows", "Focus window in a direction")
-        keymap.note("Super+Shift", "Arrows", "Move window in a direction")
-    end
-    keymap.note("Super", "mouse:272", "Drag to move window")
-    keymap.note("Super", "mouse:273", "Drag to resize window")
-    bind("Super", "mouse:272", hl.dsp.window.drag(), { mouse = true })
+    bind("Super", "mouse:272", hl.dsp.window.drag(), { mouse = true, id = "window.drag", description = "Drag to move window" })
     bind("Super", "mouse:274", hl.dsp.window.drag(), { mouse = true })
-    bind("Super", "mouse:273", hl.dsp.window.resize(), { mouse = true })
+    bind("Super", "mouse:273", hl.dsp.window.resize(), { mouse = true, id = "window.drag_resize", description = "Drag to resize window" })
     if not free then
-        bind("Super", "Left", hl.dsp.focus({ direction = "l" }))
-        bind("Super", "Right", hl.dsp.focus({ direction = "r" }))
-        bind("Super", "Up", hl.dsp.focus({ direction = "u" }))
-        bind("Super", "Down", hl.dsp.focus({ direction = "d" }))
+        bind("Super", "Left", hl.dsp.focus({ direction = "l" }), { id = "window.focus_left", description = "Focus window left" })
+        bind("Super", "Right", hl.dsp.focus({ direction = "r" }), { id = "window.focus_right", description = "Focus window right" })
+        bind("Super", "Up", hl.dsp.focus({ direction = "u" }), { id = "window.focus_up", description = "Focus window up" })
+        bind("Super", "Down", hl.dsp.focus({ direction = "d" }), { id = "window.focus_down", description = "Focus window down" })
     end
     bind("Super", "BracketLeft", hl.dsp.focus({ direction = "l" }))
     bind("Super", "BracketRight", hl.dsp.focus({ direction = "r" }))
     if not free then
-        bind("Super+Shift", "Left", hl.dsp.window.move({ direction = "l" }))
-        bind("Super+Shift", "Right", hl.dsp.window.move({ direction = "r" }))
-        bind("Super+Shift", "Up", hl.dsp.window.move({ direction = "u" }))
-        bind("Super+Shift", "Down", hl.dsp.window.move({ direction = "d" }))
+        bind("Super+Shift", "Left", hl.dsp.window.move({ direction = "l" }), { id = "window.move_left", description = "Move window left" })
+        bind("Super+Shift", "Right", hl.dsp.window.move({ direction = "r" }), { id = "window.move_right", description = "Move window right" })
+        bind("Super+Shift", "Up", hl.dsp.window.move({ direction = "u" }), { id = "window.move_up", description = "Move window up" })
+        bind("Super+Shift", "Down", hl.dsp.window.move({ direction = "d" }), { id = "window.move_down", description = "Move window down" })
     end
     bind("Super", "Semicolon", hl.dsp.layout("splitratio -0.1"), { repeating = true })
     bind("Super", "Apostrophe", hl.dsp.layout("splitratio +0.1"), { repeating = true })
     bind("Ctrl+Super", "Backslash", hl.dsp.window.resize({ x = 640, y = 480 }))
 
     keymap.group("workspaces", "Workspace switching", "space_dashboard")
-    keymap.note("Super", "1-0", "Go to workspace")
-    keymap.note("Super+Alt", "1-0", "Send window to workspace")
-    keymap.note("Super", "Scroll", "Next or previous workspace")
-    keymap.note("Ctrl+Super", "Left/Right", "Workspace to the left or right")
 
     -- Workspace numbers use raw keycodes so they work in any keyboard layout
     local number_keycodes = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }
     local keypad_keycodes = { 87, 88, 89, 83, 84, 85, 79, 80, 81, 90 }
     for workspace, keycode in ipairs(number_keycodes) do
-        bind("Super", "code:" .. keycode, exec("~/.config/quickshell/$qsConfig/scripts/helper workspace workspace " .. workspace))
-        bind("Super+Alt", "code:" .. keycode, exec("~/.config/quickshell/$qsConfig/scripts/helper workspace movetoworkspacesilent " .. workspace))
+        bind("Super", "code:" .. keycode, exec("~/.config/quickshell/$qsConfig/scripts/helper workspace workspace " .. workspace), { id = "workspace.go_" .. workspace, description = "Go to workspace " .. workspace })
+        bind("Super+Alt", "code:" .. keycode, exec("~/.config/quickshell/$qsConfig/scripts/helper workspace movetoworkspacesilent " .. workspace), { id = "workspace.send_" .. workspace, description = "Send window to workspace " .. workspace })
     end
     for workspace, keycode in ipairs(keypad_keycodes) do
         bind("Super", "code:" .. keycode, exec("~/.config/quickshell/$qsConfig/scripts/helper workspace workspace " .. workspace), {
@@ -343,16 +254,16 @@ hl.define_submap("global", function()
     bind("Super+Shift", "Page_Up", hl.dsp.window.move({ workspace = "r-1", follow = true }))
     bind("Ctrl+Super+Shift", "Right", hl.dsp.window.move({ workspace = "r+1", follow = true }))
     bind("Ctrl+Super+Shift", "Left", hl.dsp.window.move({ workspace = "r-1", follow = true }))
-    bind("Ctrl+Super", "Right", hl.dsp.focus({ workspace = "r+1" }))
-    bind("Ctrl+Super", "Left", hl.dsp.focus({ workspace = "r-1" }))
+    bind("Ctrl+Super", "Right", hl.dsp.focus({ workspace = "r+1" }), { id = "workspace.right", description = "Workspace to the right" })
+    bind("Ctrl+Super", "Left", hl.dsp.focus({ workspace = "r-1" }), { id = "workspace.left", description = "Workspace to the left" })
     bind("Ctrl+Super+Alt", "Right", hl.dsp.focus({ workspace = "m+1" }))
     bind("Ctrl+Super+Alt", "Left", hl.dsp.focus({ workspace = "m-1" }))
     bind("Super", "Page_Down", hl.dsp.focus({ workspace = "+1" }))
     bind("Super", "Page_Up", hl.dsp.focus({ workspace = "-1" }))
     bind("Ctrl+Super", "Page_Down", hl.dsp.focus({ workspace = "r+1" }))
     bind("Ctrl+Super", "Page_Up", hl.dsp.focus({ workspace = "r-1" }))
-    bind("Super", "mouse_up", hl.dsp.focus({ workspace = "+1" }))
-    bind("Super", "mouse_down", hl.dsp.focus({ workspace = "-1" }))
+    bind("Super", "mouse_up", hl.dsp.focus({ workspace = "+1" }), { id = "workspace.next", description = "Go to the next workspace" })
+    bind("Super", "mouse_down", hl.dsp.focus({ workspace = "-1" }), { id = "workspace.previous", description = "Go to the previous workspace" })
     bind("Ctrl+Super", "mouse_up", hl.dsp.focus({ workspace = "r+1" }))
     bind("Ctrl+Super", "mouse_down", hl.dsp.focus({ workspace = "r-1" }))
     bind("Ctrl+Super", "BracketLeft", hl.dsp.focus({ workspace = "-1" }))
@@ -426,9 +337,9 @@ hl.define_submap("global", function()
         description = "Shut down",
     })
 
-    -- Virtual machine passthrough submap. Not remappable: its exit key is fixed below.
+    -- Virtual machine passthrough. The emergency exit stays Super+Alt+F1.
     bind("Super+Alt", "F1", exec([=[notify-send 'Entered Virtual Machine submap' 'Keybinds disabled. Hit Super+Alt+F1 to escape' -a 'Hyprland' && hyprctl dispatch 'hl.dsp.submap("virtual-machine")']=]), {
-        description = "Pass all keys to the focused app (VMs, games)",
+        id = "session.passthrough", description = "Pass all keys to the focused app (VMs, games)",
     })
     hl.define_submap("virtual-machine", function()
         h.bind("Super+Alt", "F1", exec([=[notify-send 'Exited Virtual Machine submap' 'Keybinds re-enabled' -a 'Hyprland' && hyprctl dispatch 'hl.dsp.submap("global")']=]))

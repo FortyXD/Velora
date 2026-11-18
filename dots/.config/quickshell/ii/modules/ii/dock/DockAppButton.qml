@@ -78,7 +78,7 @@ DockTile {
         let target = activeIndex >= 0 ? (activeIndex + 1) % root.windowCount
             : (root.lastFocused >= 0 && root.lastFocused < root.windowCount ? root.lastFocused : root.windowCount - 1);
         root.lastFocused = target;
-        root.toplevels[target].activate();
+        FreeWindows.activateToplevel(root.toplevels[target], root.windowCount === 1);
     }
 
     onMiddleClicked: {

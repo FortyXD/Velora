@@ -16,10 +16,12 @@ import qs.modules.settings.preview
  */
 ColumnLayout {
     id: root
+    property Item popupPane
     required property var part
     required property string side
     property var group: null // The tabs part this is a page of
     property string selectedUid: ""
+    property bool showHeader: true
     signal selectRequested(string uid)
 
     readonly property bool selected: root.selectedUid === root.part.uid
@@ -49,6 +51,7 @@ ColumnLayout {
     // ---- What it is ----
 
     RowLayout {
+        visible: root.showHeader
         Layout.fillWidth: true
         spacing: 12
         Item {
@@ -250,6 +253,7 @@ ColumnLayout {
             usePercentTooltip: false
             from: spec.from ?? 0
             to: spec.to ?? 1
+            defaultValue: spec.default ?? NaN
             value: SidebarLayout.optionValue(root.part, spec) ?? from
             valueText: spec.unit === "%" ? (value > 0 ? `${Math.round(value * 100)}%` : Translation.tr("Auto"))
                 : spec.unit ? `${Math.round(value)} ${spec.unit}` : `${Math.round(value)}`
@@ -349,6 +353,7 @@ ColumnLayout {
                 usePercentTooltip: false
                 from: 2
                 to: 8
+                defaultValue: 5
                 value: Config.options.sidebar.quickToggles.android.columns
                 valueText: `${Math.round(value)}`
                 onMoved: Config.options.sidebar.quickToggles.android.columns = Math.round(value)
@@ -531,6 +536,8 @@ ColumnLayout {
             }
             AppPickerPopup {
                 id: appPicker
+                objectName: "sidebarAppPicker"
+                pane: root.popupPane
                 title: Translation.tr("Add an app to the quick tools")
                 excludedIds: toolsColumn.items.filter(id => id.startsWith("app:")).map(id => id.slice(4))
                 onPicked: entry => toolsColumn.setItems([...toolsColumn.items, `app:${entry.id}`])

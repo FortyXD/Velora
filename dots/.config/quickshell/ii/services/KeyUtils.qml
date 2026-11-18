@@ -72,19 +72,28 @@ Singleton {
         let name = (key ?? "").toString();
         const code = /^code:(\d+)$/i.exec(name);
         if (code && root.scanCodeNames[parseInt(code[1])]) name = root.scanCodeNames[parseInt(code[1])];
-        const aliases = { "PRIOR": "PAGE_UP", "NEXT": "PAGE_DOWN", "ENTER": "RETURN" };
+        const aliases = { "PRIOR": "PAGE_UP", "NEXT": "PAGE_DOWN", "ENTER": "RETURN",
+            "SUPER_L": "SUPER", "SUPER_R": "SUPER", "CONTROL_L": "CTRL", "CONTROL_R": "CTRL", "CONTROL": "CTRL",
+            "ALT_L": "ALT", "ALT_R": "ALT", "SHIFT_L": "SHIFT", "SHIFT_R": "SHIFT" };
         name = name.toUpperCase();
         return aliases[name] ?? name;
     }
 
     function comboKey(mods, key) {
-        return `${root.sortMods(mods).join("+").toUpperCase()}|${root.normalizeKey(key)}`;
+        let normalized = root.normalizeKey(key);
+        let sorted = root.sortMods(mods);
+        const modifier = root.modOrder.find(mod => mod.toUpperCase() === normalized);
+        if (modifier) {
+            sorted = root.sortMods([...sorted, modifier]);
+            normalized = sorted.pop().toUpperCase();
+        }
+        return `${sorted.join("+").toUpperCase()}|${normalized}`;
     }
 
     // Lua writes combos as "SUPER+SHIFT|S" already; this resolves keycodes in them the same way
     function normalizeComboString(combo) {
         const [mods, key] = combo.split("|");
-        return `${mods}|${root.normalizeKey(key)}`;
+        return root.comboKey(root.modOrder.filter(mod => mods.split("+").includes(mod.toUpperCase())), key);
     }
 
     function modLabel(mod) {

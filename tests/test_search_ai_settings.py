@@ -18,7 +18,7 @@ ShellRoot {
     property bool failed: false
     property bool capturing: false
     property real savedScroll: 0
-    TestCase { id: input; name: "SettingsInteractions"; when: false }
+    TestCase { id: input; name: "SettingsInteractions"; when: false; windowShown: window.visible }
     function check(value, message) { if (!value) { failed = true; console.log("CHECK_FAIL " + message); } }
     function find(item, name) { if (item.objectName === name) return item; for (const child of item.children ?? []) { const found = find(child,name); if (found) return found; } return null; }
     function capturePage(name, after) { capturing = true; capture.grabToImage(result => { result.saveToFile("ARTIFACTS/" + name + ".png"); if (after) after(); capturing = false; }); }
@@ -33,6 +33,7 @@ ShellRoot {
         dropdown.pick({kind:"option",option:dropdown.options.find(option => option.value === value)});
     }
     FloatingWindow {
+        id: window
         implicitWidth: 960; implicitHeight: 850; visible: true
         Rectangle {
             id: capture; width: parent.width; height: parent.height; color: Appearance.colors.colLayer0Base
@@ -260,7 +261,7 @@ import qs.modules.common.widgets
 ShellRoot {
     id: root
     property bool failed: false
-    TestCase { id: input; name: "DropdownDismissal"; when: false }
+    TestCase { id: input; name: "DropdownDismissal"; when: false; windowShown: window.visible }
     function check(value, message) { if (!value) { failed = true; console.log("CHECK_FAIL " + message); } }
     function popupFor(control) {
         if (control.popup) return control.popup;
@@ -302,6 +303,7 @@ ShellRoot {
         popup.close(); input.wait(250);
     }
     FloatingWindow {
+        id: window
         implicitWidth: 800; implicitHeight: 600; visible: true
         Item {
             id: surface; anchors.fill: parent

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 — 2026-11-18
+
+- Toolbox, Quick Look, thumbnail management, recording, wallpaper palettes and battery analytics now use native Rust helpers. The sidebar's offline translator runs on demand and reuses its installed models.
+- Notes creates copy buttons for the visible list entries and releases them when hidden. Long notes still support editing, selection and autosave.
+- Added compositor window controls and touchpad gestures. Settings includes revised device, sound and notification controls, quiet hours and a theme palette editor. The lock screen, panel editor and window previews have also been updated.
+- Interactive Zsh sessions share persistent history (#21). Explicit AUR choices override saved installer preferences and diagnostics report missing requested AUR packages (#22).
+- Region recording suppresses hot corners until selection ends (#23). Wi-Fi credential prompts distinguish networks with different security settings, and concurrent profile changes are preserved (#24).
+
 ## 0.2.0 — 2026-11-13
 
 - Fix repeated “Open with” prompts: save before opening, reuse remembered apps, preserve existing MIME associations and serialize concurrent changes.

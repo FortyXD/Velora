@@ -91,7 +91,7 @@ class DefaultWallpaperTests(unittest.TestCase):
                     default property list<QtObject> content
                     property var path; property bool printErrors; property bool watchChanges; property bool blockWrites
                     property string value; property int writes; property int reloads
-                    signal fileChanged(); signal adapterUpdated(); signal loaded(); signal saveFailed(int error); signal loadFailed(int error)
+                    signal fileChanged(); signal adapterUpdated(); signal loaded(); signal saved(); signal saveFailed(int error); signal loadFailed(int error)
                     function reload() { reloads++; } function writeAdapter() { writes++; }
                     function setText(value) { this.value=value; writes++; } function text() { return value; }
                 }''')

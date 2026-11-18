@@ -42,7 +42,7 @@ Scope {
     }
 
     function build() {
-        const free = HyprlandSettings.windowMode === "floating";
+        const free = HyprlandSettings.windowMode !== "tiling";
         let list = [
             { "id": "search", "title": Translation.tr("Search and overview"),
               "text": Translation.tr("Type the name of an app to open it. Below are all your workspaces and windows. Super+Tab opens the same panel."),

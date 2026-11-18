@@ -36,7 +36,7 @@ ContentPage {
 
     function generate() {
         if (page.text.trim().length === 0) return;
-        makeJob.start(["qr-encode", page.text, "--out", `${page.workDir}/qr.png`, "--size", "12"]);
+        makeJob.start(["qr-encode", "--out", `${page.workDir}/qr.png`, "--size", "12", "--", page.text]);
     }
 
     // Files from the Dolphin menu or a drop are scanned for codes

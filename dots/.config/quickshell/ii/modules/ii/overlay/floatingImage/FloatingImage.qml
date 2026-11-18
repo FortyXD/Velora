@@ -83,6 +83,7 @@ StyledOverlayWidget {
 
             ImageDownloaderProcess {
                 id: imageDownloader
+                allowLocalFile: true
                 filePath: Qt.resolvedUrl(Directories.tempImages + "/" + Qt.md5(root.imageSource))
                 sourceUrl: root.imageSource
 

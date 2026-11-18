@@ -57,6 +57,9 @@ ContentPage {
     readonly property list<string> layoutCodes: root.layoutsValue.split(",").map(code => code.trim()).filter(code => code.length > 0)
     readonly property string kbOptions: HyprlandSettings.get("input:kb_options", "")
     readonly property string switchOption: root.kbOptions.split(",").find(option => option.startsWith("grp:")) ?? ""
+    readonly property var layoutBind: HyprlandKeybinds.binds.find(bind => bind.id === "keyboard.layout") ?? null
+    readonly property bool defaultLayoutShortcut: !root.layoutBind || (!root.layoutBind.disabled
+        && KeyUtils.comboKey(root.layoutBind.mods, root.layoutBind.key) === KeyUtils.comboKey(["Alt"], "Shift"))
 
     function invalidLayouts(text) {
         if (Object.keys(root.knownLayouts).length === 0) return [];
@@ -138,6 +141,7 @@ ContentPage {
         : ({ "caps:escape": "Esc", "caps:ctrl_modifier": "Ctrl", "caps:backspace": "⌫", "caps:none": "—" })[root.capsOption] ?? "Caps Lock"
 
     function setSwitchOption(grpOption) {
+        if (grpOption === "") HyprlandKeybinds.reset("keyboard.layout");
         let options = root.kbOptions.split(",").map(option => option.trim()).filter(option => option.length > 0 && !option.startsWith("grp:"));
         if (grpOption.length > 0) options.push(grpOption);
         HyprlandSettings.set("input:kb_options", options.join(","));
@@ -410,7 +414,10 @@ ContentPage {
         ContentSubsection {
             enabled: HyprlandSettings.ready
             title: Translation.tr("Switch layouts with")
-            description: root.switchOption === "" ? Translation.tr("Tap Alt+Shift. Shortcuts that hold Shift and Alt together still work.")
+            description: root.switchOption === "" ? (root.defaultLayoutShortcut
+                ? Translation.tr("Tap Alt+Shift. Shortcuts that hold Shift and Alt together still work.")
+                : root.layoutBind?.disabled ? Translation.tr("Turned off")
+                : Translation.tr("Current shortcut: %1").arg(KeyUtils.comboText(root.layoutBind.mods, root.layoutBind.key)))
                 : root.switchOption === "grp:alt_shift_toggle" ? Translation.tr("This XKB toggle blocks every shortcut with both Shift and Alt. Pick the first Alt + Shift instead.")
                 : ""
             Flow {
@@ -431,7 +438,7 @@ ContentPage {
                         label: switchTile.modelData.keys.join(" + ")
                         frameWidth: 130
                         frameHeight: 52
-                        selected: root.switchOption === switchTile.modelData.value
+                        selected: root.switchOption === switchTile.modelData.value && (switchTile.modelData.value !== "" || root.defaultLayoutShortcut)
                         onClicked: root.setSwitchOption(switchTile.modelData.value)
                         Row {
                             anchors.centerIn: parent

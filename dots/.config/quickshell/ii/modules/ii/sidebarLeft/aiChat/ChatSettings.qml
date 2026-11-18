@@ -73,6 +73,7 @@ Popup {
                 StyledSlider {
                     Layout.fillWidth: true; enabled: !SidebarChat.busy
                     from: 0; to: Ai.getModel()?.api_format === "gemini" ? 2 : 1
+                    defaultValue: 0.5
                     stepSize: 0.1; value: Ai.temperature
                     usePercentTooltip: false; tooltipContent: value.toFixed(1)
                     onMoved: Ai.setTemperature(value)

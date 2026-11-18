@@ -20,32 +20,22 @@ class RuntimeTests(IsolatedTest):
             path = self.qml / name / "qmldir"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.touch()
-        self.python = self.base / "state/quickshell/.venv/bin/python"
-        self.python.parent.mkdir(parents=True)
-        self.python.touch()
 
-    def test_missing_command_qml_plugin_and_gnome_typelib_are_all_reported(self):
+    def test_missing_command_and_qml_plugin_are_reported(self):
         (self.qml / "QtMultimedia/qmldir").unlink()
-        with patch.object(velora, "system_tool", side_effect=lambda name: None if name == "nmcli" else f"/usr/bin/{name}"), \
-                patch.object(velora, "run", return_value=json.dumps(["GTK/GnomeDesktop introspection: namespace unavailable"])):
+        with patch.object(velora, "system_tool", side_effect=lambda name: None if name == "nmcli" else f"/usr/bin/{name}"), patch.object(velora, "run"):
             errors = velora.runtime_problems(self.features, qml_root=self.qml)
-        self.assertEqual(len(errors), 3)
-        self.assertIn("Missing command: nmcli (shell)", errors)
-        self.assertIn("Missing QML module: QtMultimedia", errors)
-        self.assertIn("Python: GTK/GnomeDesktop introspection: namespace unavailable", errors)
+        self.assertCountEqual(errors, ["Missing command: nmcli (shell)", "Missing QML module: QtMultimedia"])
 
-    def test_successful_check_uses_the_locked_environment_instead_of_path_python(self):
-        with patch.object(velora, "system_tool", return_value="/usr/bin/tool"), \
-                patch.object(velora, "run", return_value="[]") as run:
+    def test_native_helper_runs_without_a_shell_venv(self):
+        with patch.object(velora, "system_tool", return_value="/usr/bin/tool"), patch.object(velora, "run") as run:
             self.assertEqual(velora.runtime_problems(self.features, qml_root=self.qml), [])
-        self.assertEqual(run.call_args.args[0][0], self.python)
-        self.assertIn("gi.require_version('GnomeDesktop', '4.0')", run.call_args.args[0][2])
+            self.assertEqual(run.call_args.args[0], ["/usr/bin/tool", "--version"])
 
-    def test_broken_python_environment_fails_even_when_its_interpreter_exists(self):
-        with patch.object(velora, "system_tool", return_value="/usr/bin/tool"), \
-                patch.object(velora, "run", side_effect=velora.VeloraError("missing shared library")):
+    def test_missing_shared_library_is_reported(self):
+        with patch.object(velora, "system_tool", return_value="/usr/bin/tool"), patch.object(velora, "run", side_effect=velora.VeloraError("missing shared library")):
             errors = velora.runtime_problems(self.features, qml_root=self.qml)
-        self.assertTrue(any("missing shared library" in error for error in errors))
+        self.assertTrue(any("missing shared library" in e for e in errors))
 
     def test_omitted_components_and_skipped_aur_do_not_require_optional_tools(self):
         with patch.object(velora, "system_tool", return_value=None):
@@ -57,6 +47,7 @@ class RuntimeTests(IsolatedTest):
         args = velora.parser().parse_args(["install", "--yes", "--skip-packages"])
         with patch.object(velora, "preflight"), patch.object(velora, "run"), \
                 patch.object(velora, "build_native_helper"), \
+                patch.object(velora, "build_window_plugin"), \
                 patch.object(velora, "build_file_dialog"), \
                 patch.object(velora, "install_fonts"), \
                 patch.object(velora, "runtime_problems", return_value=["Missing QML module: QtMultimedia"]), \
@@ -77,15 +68,14 @@ class RuntimeTests(IsolatedTest):
         probe.assert_not_called()
 
     @unittest.skipUnless(LUA, "Lua is not installed")
-    def test_hyprland_uses_the_same_python_environment_for_custom_state_directories(self):
+    def test_hyprland_does_not_export_an_obsolete_python_environment(self):
         script = PROJECT / "dots/.config/hypr/hyprland/env.lua"
         code = 'hl = {env = function(key, value) if key == "ILLOGICAL_IMPULSE_VIRTUAL_ENV" then print(value) end end}; '
         code += f'dofile({json.dumps(str(script))})'
         for state in ("", str(self.base / "custom state")):
             env = {**os.environ, "HOME": str(self.base / "home"), "XDG_STATE_HOME": state}
             result = subprocess.run([LUA, "-e", code], env=env, text=True, capture_output=True, check=True)
-            expected = (self.base / "custom state" if state else self.base / "home/.local/state") / "quickshell/.venv"
-            self.assertEqual(result.stdout.strip(), str(expected))
+            self.assertEqual(result.stdout.strip(), '')
 
 
 class DesktopServiceTests(IsolatedTest):

@@ -21,19 +21,18 @@ WMouseAreaButton {
     required property int maxWidth
 
     property var hyprlandClient: HyprlandData.clientForToplevel(root.toplevel)
-    property string address: hyprlandClient?.address
+    readonly property string address: hyprlandClient?.address ?? ""
+    signal moveRequested()
 
-    property string iconName: AppSearch.guessIcon(hyprlandClient?.class)
+    property string iconName: AppSearch.guessIcon(hyprlandClient?.class ?? "")
 
-    color: drag.active ? ColorUtils.transparentize(Looks.colors.bg1Base) : (containsMouse ? Looks.colors.bg1Base : Looks.colors.bgPanelFooterBackground)
-    borderColor: ColorUtils.transparentize(Looks.colors.bg2Border, drag.active ? 1 : 0)
+    color: containsMouse ? Looks.colors.bg1Base : Looks.colors.bgPanelFooterBackground
+    borderColor: activeFocus ? Looks.colors.accent : Looks.colors.bg2Border
     radius: Looks.radius.xLarge
 
     property real titleBarImplicitHeight: titleBar.implicitHeight
-    property bool scaleSize: true
-    property size openedSize: WindowLayout.scaleWindow(hyprlandClient, maxWidth, maxHeight);
+    property size openedSize: hyprlandClient ? WindowLayout.scaleWindow(hyprlandClient, maxWidth, maxHeight) : Qt.size(0, 0)
     property size fullSize: Qt.size(hyprlandClient?.size[0] ?? maxWidth, hyprlandClient?.size[1] ?? maxHeight)
-    property size size: scaleSize ? openedSize : fullSize
     implicitWidth: Math.max(Math.round(contentItem.implicitWidth), 138)
     implicitHeight: Math.round(contentItem.implicitHeight)
 
@@ -44,15 +43,11 @@ WMouseAreaButton {
             height: root.background.height
             Rectangle {
                 radius: root.background.radius
-                anchors {
-                    fill: parent
-                    topMargin: root.drag.active ? root.titleBarImplicitHeight : 0
-                }
+                anchors.fill: parent
             }
         }
     }
-    property bool droppable: false
-    scale: (root.pressedButtons & Qt.LeftButton || root.Drag.active) ? (droppable ? 0.4 : 0.95) : 1
+    scale: (root.pressedButtons & Qt.LeftButton) ? 0.95 : 1
     Behavior on scale {
         NumberAnimation {
             id: scaleAnim
@@ -65,12 +60,23 @@ WMouseAreaButton {
         Hyprland.dispatch(`closewindow address:${root.hyprlandClient?.address}`);
     }
 
+    function focusWindow() {
+        if (address) TouchpadGestures.leaveOverview(`hl.dsp.focus({ window = "address:${address}" })`);
+    }
+
+    activeFocusOnTab: true
+    Keys.onPressed: event => {
+        if (event.key === Qt.Key_Menu || (event.key === Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier))) {
+            windowMenu.popup();
+            event.accepted = true;
+        }
+    }
+    Keys.onReturnPressed: focusWindow()
+    Keys.onEnterPressed: focusWindow()
     acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
     onClicked: event => {
         if (event.button === Qt.LeftButton) {
-            GlobalStates.overviewOpen = false;
-            Hyprland.dispatch(`focuswindow address:${root.hyprlandClient?.address}`);
-            GlobalStates.overviewOpen = false;
+            root.focusWindow();
         } else if (event.button === Qt.MiddleButton) {
             root.closeWindow();
             event.accepted = true;
@@ -91,7 +97,6 @@ WMouseAreaButton {
 
         RowLayout {
             id: titleBar
-            opacity: root.drag.active ? 0 : 1
             spacing: 8
             WAppIcon {
                 Layout.leftMargin: 10
@@ -117,16 +122,9 @@ WMouseAreaButton {
         WindowThumbnail {
             Layout.fillHeight: true
             Layout.alignment: Qt.AlignHCenter
-            implicitWidth: Math.round(root.size.width)
-            implicitHeight: Math.round(root.size.height)
-            constraintSize: Qt.size(Math.round(root.size.width), Math.round(root.size.height))
-
-            Behavior on implicitWidth {
-                animation: Looks.transition.enter.createObject(this)
-            }
-            Behavior on implicitHeight {
-                animation: Looks.transition.enter.createObject(this)
-            }
+            implicitWidth: Math.round(root.openedSize.width)
+            implicitHeight: Math.round(root.openedSize.height)
+            constraintSize: root.openedSize
 
             toplevel: root.toplevel ?? null
             live: true
@@ -135,11 +133,19 @@ WMouseAreaButton {
 
     WMenu {
         id: windowMenu
+        objectName: "taskWindowMenu"
         downDirection: true
 
         Action {
-            enabled: root.hyprlandClient?.floating
-            property bool isPinned: root.hyprlandClient?.pinned
+            enabled: root.address.length > 0
+            icon.name: "desktop"
+            text: Translation.tr("Move window to desktop")
+            onTriggered: root.moveRequested()
+        }
+
+        Action {
+            enabled: root.hyprlandClient?.floating ?? false
+            property bool isPinned: root.hyprlandClient?.pinned ?? false
             icon.name: isPinned ? "checkmark" : "empty"
             text: Translation.tr("Show this window on all desktops")
             onTriggered: {

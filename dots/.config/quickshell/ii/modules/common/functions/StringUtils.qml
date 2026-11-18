@@ -24,6 +24,17 @@ Singleton {
         return match ? match[1] : null;
     }
 
+    function parseWebUrl(value) {
+        const text = String(value ?? "");
+        if (!/^https?:\/\//i.test(text) || /[\s\\\x00-\x1f\x7f]/.test(text)) return null;
+        try {
+            const url = new URL(text);
+            return url.hostname && !url.username && !url.password ? url : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
     /**
      * Returns the base url of the passed in url or null
      * @param { string } url

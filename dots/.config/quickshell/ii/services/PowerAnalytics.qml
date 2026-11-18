@@ -14,7 +14,7 @@ Singleton {
     property bool loaded: false
     readonly property bool enabled: Config.ready && Config.options.battery.advancedAnalytics
     readonly property string stateDirectory: `${FileUtils.trimFileProtocol(Directories.state)}/user/power-analytics`
-    readonly property string scriptPath: Quickshell.shellPath("scripts/power/analytics.py")
+    readonly property string helperPath: Quickshell.shellPath("scripts/helper")
     property var latest: null
     property string error: ""
     property real clock: Date.now() / 1000
@@ -56,7 +56,7 @@ Singleton {
     }
     Process {
         id: collector
-        command: ["python3", root.scriptPath, "collect", "--state-dir", root.stateDirectory]
+        command: [root.helperPath, "power-analytics", "collect", "--state-dir", root.stateDirectory]
         stderr: SplitParser { onRead: data => root.error = data.slice(0, 400) }
         onExited: (exitCode, exitStatus) => {
             if (!root.enabled) root.erasePending = true;
@@ -69,7 +69,7 @@ Singleton {
     }
     Process {
         id: eraser
-        command: ["python3", root.scriptPath, "clear", "--state-dir", root.stateDirectory]
+        command: [root.helperPath, "power-analytics", "clear", "--state-dir", root.stateDirectory]
         stderr: SplitParser { onRead: data => root.error = data.slice(0, 400) }
         onExited: (exitCode, exitStatus) => {
             if (exitCode === 0) {
@@ -94,7 +94,7 @@ Singleton {
         onTriggered: {
             root.clock = Date.now() / 1000;
             // A watcher cannot track a file before the collector creates its directory.
-            snapshot.reload();
+            if (!root.latest || root.clock - root.latest.timestamp >= 5) snapshot.reload();
         }
     }
     FileView {

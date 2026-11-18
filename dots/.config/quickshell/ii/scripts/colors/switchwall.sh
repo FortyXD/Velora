@@ -15,7 +15,7 @@ THEME_CACHE="$XDG_CACHE_HOME/velora/theme"
 REQUEST_DIR="$CACHE_DIR/wallpaper-requests"
 
 # The native helper (tools/velora-helper) stages palettes ahead and replaces the Python scripts.
-# VELORA_HELPER picks another one; set to an empty value, the Python scripts are used.
+# VELORA_HELPER can override the executable or disable staged palette generation.
 if [[ -n "${VELORA_HELPER+set}" ]]; then
     HELPER="$VELORA_HELPER"
 else
@@ -160,7 +160,7 @@ categorize_wallpaper() {
 }
 
 # Works out what a switch needs: the next wallpaper and its frame, where its colors come from
-# (palette_source for the helper, matugen_args / generate_colors_material_args for the scripts)
+# (palette_source for the helper, matugen_args for direct palette generation)
 # and the light/dark mode. Changes nothing yet.
 plan_switch() {
     next_wallpaper="" next_thumbnail="" reset_restore=""
@@ -180,7 +180,6 @@ plan_switch() {
 
     if [[ "$color_flag" == "1" ]]; then
         matugen_args+=(color hex "$color")
-        generate_colors_material_args=(--color "$color")
         palette_source=(--color "$color")
         # A new picture or video together with a fixed accent: switch to it, take colors from the accent
         if [[ -n "$imgpath" && -z "$noswitch_flag" && -f "$imgpath" ]]; then
@@ -258,7 +257,6 @@ plan_switch() {
 
             if [ -n "$thumbnail" ] && [ -f "$thumbnail" ]; then
                 matugen_args+=(image "$thumbnail")
-                generate_colors_material_args=(--path "$thumbnail")
                 palette_source=(--image "$thumbnail")
                 reset_restore=1
             else
@@ -268,7 +266,6 @@ plan_switch() {
             fi
         else
             matugen_args+=(image "$imgpath")
-            generate_colors_material_args=(--path "$imgpath")
             palette_source=(--image "$imgpath")
             # Update wallpaper path in config
             next_wallpaper="$imgpath"
@@ -292,10 +289,7 @@ plan_switch() {
         terminal_mode="dark"
     fi
     matugen_args+=(--mode "$mode_flag")
-    generate_colors_material_args+=(--mode "$terminal_mode")
-    [[ -n "$type_flag" ]] && matugen_args+=(--type "$type_flag") && generate_colors_material_args+=(--scheme "$type_flag")
-    generate_colors_material_args+=(--termscheme "$terminalscheme" --blend_bg_fg)
-    generate_colors_material_args+=(--cache "$STATE_DIR/user/generated/color.txt")
+    [[ -n "$type_flag" ]] && matugen_args+=(--type "$type_flag")
 
     # Check if app and shell theming is enabled in config
     theming="1"
@@ -310,9 +304,9 @@ plan_switch() {
         harmony=$(jq -r '.appearance.wallpaperTheming.terminalGenerationProps.harmony' "$SHELL_CONFIG_FILE")
         harmonize_threshold=$(jq -r '.appearance.wallpaperTheming.terminalGenerationProps.harmonizeThreshold' "$SHELL_CONFIG_FILE")
         term_fg_boost=$(jq -r '.appearance.wallpaperTheming.terminalGenerationProps.termFgBoost' "$SHELL_CONFIG_FILE")
-        [[ "$harmony" != "null" && -n "$harmony" ]] && generate_colors_material_args+=(--harmony "$harmony") && terminal_args+=(--harmony "$harmony")
-        [[ "$harmonize_threshold" != "null" && -n "$harmonize_threshold" ]] && generate_colors_material_args+=(--harmonize_threshold "$harmonize_threshold") && terminal_args+=(--harmonize-threshold "$harmonize_threshold")
-        [[ "$term_fg_boost" != "null" && -n "$term_fg_boost" ]] && generate_colors_material_args+=(--term_fg_boost "$term_fg_boost") && terminal_args+=(--term-fg-boost "$term_fg_boost")
+        [[ "$harmony" != "null" && -n "$harmony" ]] && terminal_args+=(--harmony "$harmony")
+        [[ "$harmonize_threshold" != "null" && -n "$harmonize_threshold" ]] && terminal_args+=(--harmonize-threshold "$harmonize_threshold")
+        [[ "$term_fg_boost" != "null" && -n "$term_fg_boost" ]] && terminal_args+=(--term-fg-boost "$term_fg_boost")
     fi
     return 0
 }
@@ -347,19 +341,18 @@ commit_switch() {
     else
         # Decode/fade only after colors have been generated, so widgets can interpolate
         # the new palette during the picture transition instead of jumping afterward.
-        matugen "${matugen_args[@]}"
+        local source_color
+        source_color=$(matugen "${matugen_args[@]}" --json hex -q | jq -er '.colors.source_color.default.color')
         [[ -z "$no_publish" ]] && publish_wallpaper
-        source "$(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate"
-        # Write to a temp file first so a failure can't leave material_colors.scss empty
-        material_scss="$STATE_DIR"/user/generated/material_colors.scss
-        if python3 "$SCRIPT_DIR/generate_colors_material.py" "${generate_colors_material_args[@]}" \
-            > "$material_scss.tmp"; then
+        local material_scss="$STATE_DIR/user/generated/material_colors.scss"
+        local palette_helper="${HELPER:-$SCRIPT_DIR/../helper}"
+        if [[ -n "$source_color" ]] && "$palette_helper" terminal-colors --source "$source_color" --mode "$terminal_mode" \
+            --scheme "${type_flag:-scheme-tonal-spot}" --termscheme "$terminalscheme" --blend-bg-fg "${terminal_args[@]}" > "$material_scss.tmp"; then
             mv -f "$material_scss.tmp" "$material_scss"
         else
             rm -f "$material_scss.tmp"
             notify-send -a "Wallpaper switcher" -u critical "Color generation failed" "Kept the previous terminal colors."
         fi
-        deactivate
     fi
     "$SCRIPT_DIR"/applycolor.sh
 
@@ -369,7 +362,7 @@ commit_switch() {
 
 # What --commit and --post need from --prepare
 request_vars=(imgpath mode_flag type_flag terminal_mode color_flag color next_wallpaper next_thumbnail reset_restore
-    keep_shader_flag accent_change requested_accent theming staged matugen_args generate_colors_material_args)
+    keep_shader_flag accent_change requested_accent theming staged matugen_args terminal_args terminalscheme)
 
 save_request() {
     mkdir -p "$REQUEST_DIR"
@@ -410,7 +403,6 @@ main() {
     next_thumbnail=""
     reset_restore=""
     matugen_args=()
-    generate_colors_material_args=()
 
     get_type_from_config() {
         jq -r '.appearance.palette.type' "$SHELL_CONFIG_FILE" 2>/dev/null || echo "auto"
@@ -425,12 +417,7 @@ main() {
 
     detect_scheme_type_from_image() {
         local img="$1"
-        if [[ -n "$HELPER" ]] && "$HELPER" scheme-for-image "$img" 2>/dev/null | tr -d '\n'; then
-            return
-        fi
-        source "$(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate"
-        "$SCRIPT_DIR"/scheme_for_image.py "$img" 2>/dev/null | tr -d '\n'
-        deactivate
+        "${HELPER:-$SCRIPT_DIR/../helper}" scheme-for-image "$img"
     }
 
     # A prepared request: put it in place, or run its app theming
@@ -544,10 +531,11 @@ main() {
         type_flag="auto"
     fi
 
-    # Only prompt for wallpaper if not using --color and not using --noswitch and no imgpath set
-    if [[ -z "$imgpath" && -z "$color_flag" && -z "$noswitch_flag" ]]; then
+    # A saved accent must not suppress the picker; only an explicit color request does.
+    if [[ -z "$imgpath" && -z "$noswitch_flag" && ( -z "$color_flag" || -z "$accent_change" ) ]]; then
         cd "$(xdg-user-dir PICTURES)/Wallpapers/showcase" 2>/dev/null || cd "$(xdg-user-dir PICTURES)/Wallpapers" 2>/dev/null || cd "$(xdg-user-dir PICTURES)" || return 1
-        imgpath="$(kdialog --getopenfilename . --title 'Choose wallpaper')"
+        imgpath="$(kdialog --getopenfilename . --title 'Choose wallpaper')" || return 0
+        [[ -n "$imgpath" ]] || return 0
     fi
 
     # Keep config and palette writes in one order. A request made while another

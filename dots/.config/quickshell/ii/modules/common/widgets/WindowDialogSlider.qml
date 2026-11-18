@@ -13,6 +13,9 @@ Column {
     property alias text: sliderName.text
     property alias from: sliderWidget.from
     property alias to: sliderWidget.to
+    property alias defaultValue: sliderWidget.defaultValue
+    property alias defaultValueText: sliderWidget.defaultValueText
+    property alias defaultHint: sliderWidget.defaultHint
     property alias value: sliderWidget.value
     property alias tooltipContent: sliderWidget.tooltipContent
     property alias stopIndicatorValues: sliderWidget.stopIndicatorValues

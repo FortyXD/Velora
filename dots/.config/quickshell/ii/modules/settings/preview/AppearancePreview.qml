@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import QtQuick.Effects
 import Qt5Compat.GraphicalEffects as GE
 import qs.services
@@ -16,7 +17,7 @@ MiniScreen {
     id: root
 
     readonly property real bu: mockup.bu
-    readonly property real rounding: HyprlandSettings.get("decoration:rounding", 18) * root.bu
+    readonly property real rounding: HyprlandSettings.get("decoration:rounding", 16) * root.bu
     readonly property real borderSize: HyprlandSettings.get("general:border_size", 1)
     readonly property bool shadows: HyprlandSettings.get("decoration:shadow:enabled", true) === true
     readonly property real shadowRange: HyprlandSettings.get("decoration:shadow:range", 20) * root.bu
@@ -38,83 +39,74 @@ MiniScreen {
     }
 
     radius: Appearance.rounding.small
+    // Keep the wallpaper decoded as the settings sidebar and its columns resize.
+    wallpaperItem.sourceSize: Qt.size(1120, 0)
 
     WindowMock {
-        x: root.area.x + root.area.width * 0.06
-        y: root.area.y + root.area.height * 0.09
-        width: root.area.width * 0.5
-        height: root.area.height * 0.6
+        x: root.area.x + root.area.width * 0.08
+        y: root.area.y + root.area.height * 0.12
+        width: root.area.width * 0.53
+        height: root.area.height * 0.56
         focused: false
 
-        Column { // A terminal
-            x: 12 * root.bu
-            y: 12 * root.bu
-            spacing: 3 * root.bu
+        Column {
+            x: Math.max(7, parent.width * 0.08)
+            y: Math.max(6, parent.height * 0.10)
+            spacing: 3
             Repeater {
-                model: ["~ ❯ ls", "Documents  Music", "Pictures  Videos", "~ ❯ _"]
+                model: ["~ ❯ ls", "Documents  Music", "Pictures   Videos"]
                 delegate: StyledText {
                     required property string modelData
                     required property int index
                     text: modelData
                     font.family: Appearance.font.family.monospace
-                    font.pixelSize: Math.max(7, 12 * root.bu)
-                    color: index === 0 || index === 3 ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer1
+                    font.pixelSize: Math.max(7, Math.min(14, 14 * root.bu))
+                    color: index === 0 ? Appearance.colors.colPrimary : Appearance.colors.colSubtext
                 }
             }
         }
     }
 
     WindowMock {
-        x: root.area.x + root.area.width * 0.36
-        y: root.area.y + root.area.height * 0.3
-        width: root.area.width * 0.56
-        height: root.area.height * 0.6
+        x: root.area.x + root.area.width * 0.35
+        y: root.area.y + root.area.height * 0.34
+        width: root.area.width * 0.55
+        height: root.area.height * 0.55
         focused: true
 
-        Column { // A note in your fonts
-            x: 14 * root.bu
-            y: 12 * root.bu
-            width: parent.width - 28 * root.bu
-            spacing: 4 * root.bu
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: Math.round(Math.min(parent.width, parent.height) * 0.12)
+            spacing: 1
             StyledText {
-                width: parent.width
-                text: Translation.tr("Hello there")
-                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                text: Translation.tr("Aa")
                 font.family: Appearance.font.family.title
-                font.pixelSize: Math.max(9, 20 * root.bu)
-                color: Appearance.colors.colOnLayer1
+                font.pixelSize: Math.max(18, Math.min(58, parent.height * 0.60))
+                font.weight: Font.DemiBold
+                color: Appearance.colors.colOnLayer2
             }
             StyledText {
-                width: parent.width
-                text: Translation.tr("This is how your windows look. Change something below and watch it here.")
-                wrapMode: Text.Wrap
-                maximumLineCount: 3
-                elide: Text.ElideRight
+                Layout.fillWidth: true
+                text: Appearance.font.family.main
                 font.family: Appearance.font.family.main
-                font.pixelSize: Math.max(7, 12 * root.bu)
+                font.pixelSize: Math.max(8, Math.min(14, parent.height * 0.17))
                 color: Appearance.colors.colSubtext
+                elide: Text.ElideRight
             }
-            Rectangle {
-                width: 64 * root.bu
-                height: 20 * root.bu
-                radius: height / 2
-                color: Appearance.colors.colPrimary
-                StyledText {
-                    anchors.centerIn: parent
-                    text: "OK"
-                    font.pixelSize: Math.max(7, 11 * root.bu)
-                    color: Appearance.colors.colOnPrimary
-                }
-            }
-            Item { width: 1; height: 6 * root.bu }
-            Repeater { // A hint of more content
-                model: [0.9, 0.75, 0.82, 0.5]
-                delegate: Rectangle {
-                    required property real modelData
-                    width: parent.width * modelData
-                    height: 6 * root.bu
-                    radius: height / 2
-                    color: ColorUtils.transparentize(Appearance.colors.colOnLayer1, 0.85)
+            Row {
+                Layout.topMargin: 3
+                spacing: 2
+                Repeater {
+                    model: [Appearance.colors.colPrimary, Appearance.colors.colSecondary, Appearance.colors.colTertiary]
+                    Rectangle {
+                        required property color modelData
+                        width: Math.max(8, root.area.width * 0.070)
+                        height: Math.max(4, 7 * root.bu)
+                        radius: height / 2
+                        color: modelData
+                    }
                 }
             }
         }

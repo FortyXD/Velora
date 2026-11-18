@@ -183,6 +183,7 @@ MouseArea {
                 contentItem: WText {
                     id: actionButtonText
                     text: actionButton.text
+                    textFormat: Text.PlainText
                     font.pixelSize: Looks.font.pixelSize.large
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.Wrap
@@ -195,6 +196,7 @@ MouseArea {
         Layout.fillWidth: true
         elide: Text.ElideRight
         text: root.notification?.summary
+        textFormat: Text.PlainText
         font.pixelSize: Looks.font.pixelSize.large
     }
 
@@ -205,14 +207,11 @@ MouseArea {
         verticalAlignment: Text.AlignTop
         wrapMode: Text.Wrap
         maximumLineCount: root.expanded ? 100 : 1
-        text: {
-            if (root.expanded)
-                return `<style>img{max-width:${summaryText.width}px; align: right}</style>` + `${NotificationUtils.processNotificationBody(root.notification.body, root.notification.appName || root.notification.summary).replace(/\n/g, "<br/>")}`;
-            return NotificationUtils.processNotificationBody(root.notification.body, root.notification.appName || root.notification.summary).replace(/\n/g, "<br/>");
-        }
+        text: NotificationUtils.processNotificationBody(root.notification.body, root.notification.appName || root.notification.summary)
         color: Looks.colors.subfg
-        textFormat: root.expanded ? Text.RichText : Text.StyledText
+        textFormat: Text.StyledText
         onLinkActivated: link => {
+            if (!StringUtils.parseWebUrl(link)) return;
             Qt.openUrlExternally(link);
             GlobalStates.sidebarRightOpen = false;
         }

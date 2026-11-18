@@ -10,7 +10,8 @@ import qs.modules.common.widgets
 
 /**
  * Processor, memory and swap with their recent history, network speed, battery and updates
- * (options: graphs, network, battery, updates). Network speed is only measured while it's in sight.
+ * (options: graphs, network, battery, updates, details). Extras are opt-in.
+ * Network speed is only measured while it's in sight.
  */
 Rectangle {
     id: root
@@ -18,10 +19,20 @@ Rectangle {
     readonly property var options: root.host?.options ?? {}
     readonly property bool live: root.host?.active ?? false
 
-    readonly property bool measuresNetwork: root.live && (root.options.network ?? true)
-    onMeasuresNetworkChanged: NetworkSpeed.users += root.measuresNetwork ? 1 : -1
-    Component.onCompleted: if (root.measuresNetwork) NetworkSpeed.users += 1
-    Component.onDestruction: if (root.measuresNetwork) NetworkSpeed.users -= 1
+    readonly property bool showNetwork: root.options.network ?? false
+    readonly property bool showBattery: (root.options.battery ?? false) && Battery.available
+    readonly property bool showUpdates: (root.options.updates ?? false) && Updates.available && Updates.count > 0
+    readonly property bool showDetails: root.options.details ?? false
+    readonly property bool measuresNetwork: root.live && root.showNetwork
+    property bool networkRegistered: false
+    function updateNetworkSubscription() {
+        if (root.networkRegistered === root.measuresNetwork) return;
+        NetworkSpeed.users += root.measuresNetwork ? 1 : -1;
+        root.networkRegistered = root.measuresNetwork;
+    }
+    onMeasuresNetworkChanged: root.updateNetworkSubscription()
+    Component.onCompleted: root.updateNetworkSubscription()
+    Component.onDestruction: if (root.networkRegistered) NetworkSpeed.users -= 1
 
     implicitHeight: column.implicitHeight + 20
     radius: Appearance.rounding.normal
@@ -64,21 +75,23 @@ Rectangle {
         }
 
         Flow {
+            objectName: "systemExtras"
+            visible: root.showNetwork || root.showBattery || root.showUpdates || root.showDetails
             Layout.fillWidth: true
             spacing: 6
 
             InfoChip {
-                visible: root.options.network ?? true
+                visible: root.showNetwork
                 symbol: "arrow_downward"
                 text: NetworkSpeed.format(NetworkSpeed.downloadRate)
             }
             InfoChip {
-                visible: root.options.network ?? true
+                visible: root.showNetwork
                 symbol: "arrow_upward"
                 text: NetworkSpeed.format(NetworkSpeed.uploadRate)
             }
             InfoChip {
-                visible: (root.options.battery ?? true) && Battery.available
+                visible: root.showBattery
                 symbol: Battery.isCharging ? "battery_charging_full" : Battery.isLow ? "battery_alert" : "battery_full"
                 text: {
                     const percent = `${Math.round(Battery.percentage * 100)}%`;
@@ -88,7 +101,7 @@ Rectangle {
                 }
             }
             InfoChip {
-                visible: (root.options.updates ?? true) && Updates.available && Updates.count > 0
+                visible: root.showUpdates
                 symbol: "system_update"
                 text: Translation.tr("%1 updates").arg(Updates.count)
                 emphasized: Updates.updateAdvised
@@ -98,6 +111,7 @@ Rectangle {
                 }
             }
             InfoChip {
+                visible: root.showDetails
                 symbol: "monitoring"
                 text: Translation.tr("Details")
                 onClicked: {
@@ -117,6 +131,7 @@ Rectangle {
         property list<real> history: []
         property string detail: ""
         Layout.fillWidth: true
+        Layout.fillHeight: true
         Layout.preferredWidth: 1
         implicitHeight: resourceColumn.implicitHeight + 12
         radius: Appearance.rounding.small

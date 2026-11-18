@@ -21,11 +21,11 @@ RippleButton {
 
     PointingHandInteraction {}
     onClicked: {
-        let url = Config.options.search.engineBaseUrl + root.query;
+        let query = root.query;
         for (let site of (Config?.options?.search.excludedSites ?? [])) {
-            url += ` -site:${site}`;
+            query += ` -site:${site}`;
         }
-        Qt.openUrlExternally(url);
+        Qt.openUrlExternally(Config.options.search.engineBaseUrl + encodeURIComponent(query));
         GlobalStates.sidebarLeftOpen = false;
     }
 
@@ -46,6 +46,7 @@ RippleButton {
                 id: text
                 horizontalAlignment: Text.AlignHCenter
                 text: root.query
+                textFormat: Text.PlainText
                 color: Appearance.m3colors.m3onSurface
             }
         }

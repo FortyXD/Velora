@@ -54,9 +54,9 @@ These system package/service changes are outside configuration-file rollback. To
 2. Display configuration paths and the planned package, backup, and update behavior.
 3. Install missing official packages with `pacman -Syu --needed`, including `bluez` and `bluez-utils` for the shell's Bluetooth controls. Using `-Syu` avoids refreshing Arch's databases without a full system upgrade. A package counts as installed when another package provides it, such as `curl-git` for `curl`. If an adapter is detected, enable and start `bluetooth.service`; otherwise leave its service state unchanged. Discovery and pairing are not enabled automatically.
 4. Install missing AUR packages with yay or paru. If needed, build yay from `https://aur.archlinux.org/yay.git` using makepkg. Use `--skip-aur` to omit this step.
-5. Create the shell's Python 3.12 environment with uv and synchronize the committed lockfile.
+5. Build the native shell tools from their Cargo lockfile or install their packaged binaries. Existing offline translation models are reused on update.
 6. Refresh the font cache and verify every default font family. Missing Google Sans Flex, Material Symbols Rounded, Space Grotesk and Readex Pro are downloaded from Google's font repositories into `$XDG_DATA_HOME/fonts/velora-*` (by default `~/.local/share/fonts/`), together with their licenses. This also runs with `--skip-aur`. JetBrains Mono Nerd Font, Hack Nerd Font, Noto Sans, Noto Sans CJK and Noto Color Emoji are required official packages. The Japanese and Korean CJK families provide the welcome screen's multilingual greetings. The installer checks the downloaded font's family before copying it, refreshes the cache again, and stops before changing configuration if a required family is still missing.
-7. Check runtime commands for the selected components, the Qt/QML modules imported by both shell styles, and the locked Python environment's real imports. This includes GTK and the `GnomeDesktop 4.0` API used for wallpaper thumbnails. A failure stops installation before configuration linking.
+7. Check runtime commands for the selected components, the Qt/QML modules imported by both shell styles, and the native shell helper. A failure stops installation before configuration linking.
 8. Initialize Git submodules, back up existing configuration targets, create links, and install Dolphin integrations.
 9. Register `~/.local/bin/velora`, the Update Velora launcher, and the user update timer.
 10. Reload a running Hyprland session unless `--no-reload` is set.
@@ -79,12 +79,15 @@ The package managers are still interactive when `--yes` is passed. The option ac
 ```bash
 ./velora install --skip-packages      # Relink and register maintenance tools
 ./velora relink                       # After moving or renaming the checkout: point every link at it again
-./velora install --skip-aur           # Official packages and Python environment
+./velora install --skip-aur           # Official packages and native tools
+./velora install --with-aur           # Enable AUR packages even after a saved --skip-aur
 ./velora install --no-reload          # Apply files without reloading Hyprland
 ./velora install --no-updates         # Disable scheduled update checks
 ./velora deps                         # Reconcile dependencies without relinking
 ./velora doctor                       # Inspect missing dependencies, tools and stale links
 ```
+
+For `install`, `deps` and `doctor`, `--skip-aur` and `--with-aur` are mutually exclusive. With neither flag, the saved AUR preference is reused (AUR enabled by default). `install` saves the resolved choice for later installs and updates; `deps` and `doctor` can override it for that invocation.
 
 Old `illogical-impulse-*` metapackages are no longer built or maintained by Velora. The installer does not automatically remove packages from your system. On an older installation, inspect the metapackages and their removal transaction yourself; avoid recursive dependency removal if the desktop still needs those packages.
 
@@ -97,7 +100,7 @@ velora restore
 velora restore BACKUP_ID
 ```
 
-If linking or registration fails, the installer immediately restores journaled configuration files. Installed packages, Python environment changes, and external application settings are outside this file rollback. A successful installation can be restored later with the same command. Later target files are moved into the backup's `before-restore-*` directory rather than discarded.
+If linking or registration fails, the installer immediately restores journaled configuration files. Installed packages and external application settings are outside this file rollback. A successful installation can be restored later with the same command. Later target files are moved into the backup's `before-restore-*` directory rather than discarded.
 
 Older Folis backups remain in `~/.local/state/folis/backups/`. They are kept as-is and are not listed by the new journal-based restore command.
 
@@ -109,9 +112,8 @@ Older Folis backups remain in `~/.local/state/folis/backups/`. They are kept as-
 | An AUR build fails | Read the makepkg/helper output, fix the reported dependency, or rerun with `--skip-aur`. |
 | Bluetooth adapter was connected after installation | Run `./velora deps` to enable `bluetooth.service`; `--skip-packages` skips system service setup. |
 | A package download fails | Check network access and Arch mirrors, then rerun the installer. |
-| Python environment setup fails | Read uv's error. Check network access and build prerequisites, then run `velora deps`. |
 | Text, icons or spacing look wrong | Run `velora doctor` to see each missing font family, then `velora deps` to repair it. Log out and back in so running Qt apps reload their fonts. `--skip-packages` requires the official font packages to be installed already. |
-| Wallpaper previews fail or a Qt page does not load | Run `velora doctor`; its runtime checks name missing QML modules, Python packages and GTK/GnomeDesktop typelibs. Run `velora deps` to repair them. |
+| Wallpaper previews fail or a Qt page does not load | Run `velora doctor`; its runtime checks name missing QML modules and native tools. Run `velora deps` to repair them. |
 | Network, sound or the virtual keyboard does not work | Run `velora doctor` to inspect the relevant services. Run `velora deps` and log in again. With an existing alternative network manager, switch to NetworkManager before using Velora's network controls. |
 | The update timer cannot start | Log into the user session, then run `systemctl --user enable --now velora-update.timer`. |
 | `velora` is not found | Run `./velora` from the checkout or use `~/.local/bin/velora`; add `~/.local/bin` to PATH. |
@@ -123,7 +125,7 @@ Older Folis backups remain in `~/.local/state/folis/backups/`. They are kept as-
 
 The installer respects `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, and `XDG_STATE_HOME`. With the default values, configuration is under `~/.config`, data under `~/.local/share`, and maintenance state under `~/.local/state/velora`.
 
-Hyprland and the installer both select the Python environment at `$XDG_STATE_HOME/quickshell/.venv`, defaulting to `~/.local/state/quickshell/.venv`.
+The optional offline translator keeps its engine and models in `$XDG_DATA_HOME/folis/translate`.
 
 ## Automatic source builds
 

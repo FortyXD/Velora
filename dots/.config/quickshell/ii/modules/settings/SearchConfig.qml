@@ -355,7 +355,7 @@ SettingsDetailPage {
             anchors.fill: parent
             currentTab: root.tab
             enabled: z === 1
-            pageShown: root.pageShown
+            pageShown: root.pageShown && (root.tab === "files" || root.tab === "indexing")
             z: root.tab === "files" || root.tab === "indexing" ? 1 : 0
 
             onTabRequested: key => root.tab = key

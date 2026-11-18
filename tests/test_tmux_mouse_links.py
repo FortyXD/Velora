@@ -5,6 +5,7 @@ HOME, feeds it synthetic SGR mouse events through a pseudo terminal and records
 openers with a fake `xdg-open`. Nothing here touches the developer's desktop:
 no input is injected into an existing client and no real browser is launched.
 """
+from native_helper import binary
 import fcntl
 import json
 import os
@@ -42,9 +43,9 @@ class TmuxMouseLinksTests(unittest.TestCase):
                    'sys.stdout.flush();time.sleep(60)\n')
         with tempfile.TemporaryDirectory(prefix='velora-tmux-links-') as name:
             root = Path(name)
-            scripts = root / '.config/tmux/scripts'
+            scripts = root / '.config/quickshell/ii/scripts'
             scripts.mkdir(parents=True)
-            shutil.copy2(CONFIG / 'scripts/open-link.py', scripts / 'open-link.py')
+            shutil.copy2(CONFIG.parent / 'quickshell/ii/scripts/helper', scripts / 'helper')
             (root / 'bin').mkdir()
             (root / 'bin/xdg-open').write_text(
                 '#!/usr/bin/python3\nimport sys,json,os\n'
@@ -56,7 +57,7 @@ class TmuxMouseLinksTests(unittest.TestCase):
                                             + (CONFIG / 'mouse-links.conf').read_text())
             log = root / 'clicked.jsonl'
             env = {**os.environ, 'HOME': str(root), 'TERM': 'xterm-256color',
-                   'PATH': str(root / 'bin') + ':/usr/bin:/bin', 'CLICK_LOG': str(log)}
+                   'PATH': str(root / 'bin') + ':/usr/bin:/bin', 'CLICK_LOG': str(log), 'VELORA_HELPER': binary()}
             env.pop('XDG_CONFIG_HOME', None)
             env.pop('TMUX', None)
             socket = str(root / 'socket')
@@ -122,18 +123,32 @@ class TmuxMouseLinksTests(unittest.TestCase):
                 os.close(master)
 
     def test_helper_opens_only_http_targets_without_shell_expansion(self):
-        helper = CONFIG / 'scripts/open-link.py'
-        namespace = {'__name__': 'open_link'}
-        exec(compile(helper.read_text(), str(helper), 'exec'), namespace)
-        clicked_url, in_line = namespace['clicked_url'], namespace['url_in_line']
-        self.assertEqual(clicked_url(['hhttps://example.org/a?x=1&y=2']), 'https://example.org/a?x=1&y=2')
-        for unsafe in ('hfile:///tmp/a', 'wjavascript:alert(1)', 'hhttps://example.org/\ntext', 'h'):
-            self.assertIsNone(clicked_url([unsafe]), unsafe)
-        self.assertEqual(in_line('Привет https://example.org/pr/12 потом', 10), 'https://example.org/pr/12')
-        self.assertEqual(in_line('中文 https://example.org/a', 6), 'https://example.org/a')
-        self.assertEqual(in_line('See (https://example.org/a).', 10), 'https://example.org/a')
-        self.assertEqual(in_line('https://example.org/a  https://example.org/b', 25), 'https://example.org/b')
-        self.assertIsNone(in_line('https://example.org/a    none', 25))
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            opener = root / 'xdg-open'
+            opener.write_text('#!/bin/sh\nprintf "%s" "$1" > "$CLICK_LOG"\n')
+            opener.chmod(0o755)
+            log = root / 'clicked'
+            env = {**os.environ, 'PATH': str(root), 'CLICK_LOG': str(log)}
+            def click(*args):
+                log.unlink(missing_ok=True)
+                result = subprocess.run([binary(), 'tmux-open-link', *args], env=env)
+                if result.returncode:
+                    return None
+                for _ in range(100):
+                    if log.exists() and log.stat().st_size:
+                        return log.read_text()
+                    time.sleep(.01)
+                self.fail('xdg-open did not receive the URL')
+            self.assertEqual(click('hhttps://example.org/a?x=1&y=2'), 'https://example.org/a?x=1&y=2')
+            for arg in ('hfile:///tmp/a', 'wjavascript:alert(1)', 'hhttps://example.org/\ntext', 'h'):
+                self.assertIsNone(click(arg), arg)
+            for line, column, url in [('Привет https://example.org/pr/12 потом', 10, 'https://example.org/pr/12'),
+                                      ('中文 https://example.org/a', 6, 'https://example.org/a'),
+                                      ('See (https://example.org/a).', 10, 'https://example.org/a'),
+                                      ('https://example.org/a  https://example.org/b', 25, 'https://example.org/b'),
+                                      ('https://example.org/a    none', 25, None)]:
+                self.assertEqual(click('l' + line, 'x' + str(column), 'p0'), url)
 
 
 if __name__ == '__main__':

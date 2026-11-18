@@ -40,6 +40,8 @@ Rectangle {
             visible: active
             active: Config.options.sidebar.quickSliders.showBrightness
             sourceComponent: QuickSlider {
+                defaultValue: 1
+                defaultHint: Translation.tr("Full brightness: %1").arg("100%")
                 materialSymbol: "light_mode"
                 secondaryMaterialSymbol: "wb_twilight"
                 stopIndicatorValues: Hyprsunset.gamma !== 100 && root.brightnessMonitor?.brightness !== 0 ? [0.3 + root.brightnessMonitor?.brightness * 0.7] : []
@@ -73,6 +75,7 @@ Rectangle {
             sourceComponent: QuickSlider {
                 materialSymbol: "volume_up"
                 enabled: !!Audio.sink?.audio
+                defaultValue: Audio.defaultVolume(Audio.sink)
                 value: Audio.sink?.audio?.volume ?? 0
                 onMoved: {
                     if (Audio.sink?.audio) Audio.sink.audio.volume = value
@@ -90,6 +93,7 @@ Rectangle {
             sourceComponent: QuickSlider {
                 materialSymbol: "mic"
                 enabled: !!Audio.source?.audio
+                defaultValue: Audio.defaultVolume(Audio.source)
                 value: Audio.source?.audio?.volume ?? 0
                 onMoved: {
                     if (Audio.source?.audio) Audio.source.audio.volume = value

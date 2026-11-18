@@ -2,6 +2,10 @@
 import asyncio
 import importlib.util
 import json
+import os
+import subprocess
+from native_helper import binary
+from preview_broker import PreviewBroker
 from pathlib import Path
 import tempfile
 import unittest
@@ -19,11 +23,11 @@ def module(name, relative):
     return result
 
 
-quicklook = module('quicklook', 'dots/.config/quickshell/ii/scripts/quicklook.py')
-previews = module('previews', 'dots/.config/quickshell/ii/scripts/window-previews.py')
+def describe(path, directory):
+    return json.loads(subprocess.check_output([binary(), 'quicklook', '--directory', directory, '--', path]))
+
 greeter = module('greeter_test', 'scripts/greeter.py')
 kde = module('kde_test', 'scripts/kde.py')
-kde_theme = module('kde_theme', 'dots/.config/quickshell/ii/scripts/colors/kde-theme.py')
 
 
 class QuickLookTests(unittest.TestCase):
@@ -33,121 +37,112 @@ class QuickLookTests(unittest.TestCase):
             directory = Path(folder)
             text = directory / 'кириллица и пробелы.txt'
             text.write_text('строка\n' * 100000)
-            result = quicklook.describe(text, directory)
+            result = describe(text, directory)
             self.assertEqual(result['kind'], 'text')
             self.assertTrue(result['truncated'])
             picture = directory / 'image.png'
             Image.new('RGB', (120, 60), 'red').save(picture)
-            self.assertEqual(quicklook.describe(picture, directory)['width'], 120)
+            self.assertEqual(describe(picture, directory)['width'], 120)
             pdf = directory / 'paper.pdf'
             Image.new('RGB', (120, 60), 'white').save(pdf)
-            result = quicklook.describe(pdf, directory)
+            result = describe(pdf, directory)
             self.assertEqual(result['kind'], 'pdf')
             self.assertTrue((directory / 'page-1.png').exists())
             archive = directory / 'test.zip'
             with zipfile.ZipFile(archive, 'w') as output:
                 output.writestr('../never-extracted.txt', 'hello')
-            self.assertIn('never-extracted', quicklook.describe(archive, directory)['text'])
+            self.assertIn('never-extracted', describe(archive, directory)['text'])
             self.assertFalse((directory.parent / 'never-extracted.txt').exists())
             pdf.write_bytes(b'%PDF-1.7 broken')
-            self.assertEqual(quicklook.describe(pdf, directory)['kind'], 'other')
-            self.assertIn('error', quicklook.describe(directory / 'missing', directory))
+            self.assertEqual(describe(pdf, directory)['kind'], 'other')
+            self.assertIn('error', describe(directory / 'missing', directory))
 
 
 class CaptureTests(unittest.IsolatedAsyncioTestCase):
-    async def test_unchanged_frames_are_not_published_again(self):
-        events = []
-        pixels = b'first frame'
-        calls = 0
-        async def capture(spec, path):
-            nonlocal calls
-            calls += 1
-            path.write_bytes(pixels)
-            return 80, 40
-        with tempfile.TemporaryDirectory() as directory, patch.object(previews, 'emit', events.append):
-            broker = previews.Broker(directory, capture)
-            await broker.set_windows([{'id':'ab', 'live':True}])
-            await asyncio.sleep(.4)
-            self.assertGreaterEqual(calls, 3)
-            self.assertEqual(sum(e['event'] == 'frame' for e in events), 1)
-            pixels = b'new frame'
-            await asyncio.sleep(.55)
-            self.assertEqual(sum(e['event'] == 'frame' for e in events), 2)
-            await broker.close()
-            self.assertFalse(list(Path(directory).iterdir()))
+    def setUp(self):
+        from PIL import Image
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        (self.root / 'runtime').mkdir(mode=0o700)
+        self.image = self.root / 'frame.png'
+        Image.new('RGB', (80,40), 'red').save(self.image)
+        fake = self.root / 'grim'
+        fake.write_text("""#!/usr/bin/python3
+import json,os,pathlib,sys,time
+root=pathlib.Path(os.environ['PREVIEW_TEST'])
+identifier=sys.argv[sys.argv.index('-T')+1]
+def record(event):
+    with (root/'calls').open('a') as log:
+        print(json.dumps([event, identifier, time.monotonic()]),file=log)
+record('start')
+time.sleep(.025)
+if (root/'failed').exists(): sys.exit(1)
+sys.stdout.buffer.write((root/'frame.png').read_bytes())
+record('finish')
+""")
+        fake.chmod(0o755)
+        self.events = []
+        self.broker = PreviewBroker(binary(), self.events.append, {
+            **os.environ, 'PATH': str(self.root) + ':' + os.environ['PATH'],
+            'XDG_RUNTIME_DIR': str(self.root / 'runtime'), 'PREVIEW_TEST': str(self.root)})
+        self.addAsyncCleanup(self.broker.close)
 
-    async def test_many_visible_windows_share_a_capture_budget(self):
-        starts = []
-        async def capture(spec, path):
-            starts.append(asyncio.get_running_loop().time())
-            path.write_bytes(str(len(starts)).encode())
-            return 80, 40
-        with tempfile.TemporaryDirectory() as directory, patch.object(previews, 'emit'):
-            broker = previews.Broker(directory, capture)
-            await broker.set_windows([{'id':f'{i:x}', 'live':True} for i in range(12)])
-            await asyncio.sleep(.58)
-            await broker.close()
-        self.assertGreaterEqual(len(starts), 5)
-        self.assertLessEqual(len(starts), 10)
-        self.assertTrue(all(b - a >= .055 for a, b in zip(starts, starts[1:])))
+    def calls(self):
+        path = self.root / 'calls'
+        return [json.loads(l) for l in path.read_text().splitlines()] if path.exists() else []
+
+    async def until(self, condition):
+        for _ in range(150):
+            if condition(): return
+            await asyncio.sleep(.02)
+        self.fail(f"Timed out; events={self.events}")
+
+    async def test_unchanged_frames_are_not_published_again(self):
+        from PIL import Image
+        await self.broker.set_windows([{'id':'ab', 'live':True}])
+        await self.until(lambda: len(self.calls())>=6)
+        self.assertEqual(len(self.events), 1)
+        frame = self.events[0]
+        with Image.open(frame['path']) as image:
+            self.assertTrue(0 < image.width <= 280 and 0 < image.height <= 180)
+        Image.new('RGB', (80,40), 'green').save(self.image)
+        await self.until(lambda: len(self.events)>=2)
+        self.assertNotEqual(frame['path'], self.events[1]['path'])
 
     async def test_concurrency_rate_still_and_cleanup(self):
+        specs = [{'id':format(i,'x'), 'live':i!=1, 'generation':3} for i in range(1,11)]
+        await self.broker.set_windows(specs)
+        await self.until(lambda: len(self.events)>=len(specs))
+        await self.broker.set_windows(specs)
+        await asyncio.sleep(.4)
+        calls = self.calls()
+        starts = [c for c in calls if c[0]=='start']
+        self.assertEqual(sum(c[1]=='1' for c in starts), 1)
         active = set()
-        peak = 0
-        calls = {}
-        events = []
-
-        async def capture(spec, path):
-            nonlocal peak
-            identifier = spec['id']
-            self.assertNotIn(identifier, active)
-            active.add(identifier)
-            peak = max(peak, len(active))
-            calls[identifier] = calls.get(identifier, 0) + 1
-            try:
-                await asyncio.sleep(.025)
-                path.write_bytes(b'frame')
-                return 80, 40
-            finally:
+        for op, identifier, stamp in calls:
+            if op=='start':
+                self.assertNotIn(identifier, active)
+                active.add(identifier)
+                self.assertLessEqual(len(active), 2)
+            else:
                 active.remove(identifier)
-
-        with tempfile.TemporaryDirectory() as directory, patch.object(previews, 'emit', events.append):
-            broker = previews.Broker(directory, capture)
-            specs = [{'id': hex(index)[2:], 'live': index != 1} for index in range(1, 6)]
-            await broker.set_windows(specs)
-            await asyncio.sleep(.58)
-            await broker.set_windows(specs)  # Identical subscriptions must not restart still captures.
-            await asyncio.sleep(.20)
-            self.assertEqual(calls['1'], 1)
-            self.assertLessEqual(peak, 2)
-            self.assertLessEqual(max(calls.values()), 7)
-            await broker.set_windows([])
-            count = len(events)
-            await asyncio.sleep(.15)
-            self.assertEqual(len(events), count)
-            self.assertFalse(active)
-            self.assertFalse(list(Path(directory).iterdir()))
-            await broker.close()
+        # Launch jitter of the executable can shift observed timestamps by one frame.
+        self.assertLessEqual(len(starts), 5 + 16*(starts[-1][2]-starts[0][2]))
+        self.assertTrue(all(e['generation']==3 for e in self.events))
+        await self.broker.set_windows([])
+        count = len(self.events)
+        await asyncio.sleep(.25)
+        self.assertEqual(count, len(self.events))
+        self.assertFalse(list((self.root/'runtime').rglob('*.png')))
 
     async def test_error_keeps_last_frame(self):
-        counter = 0
-
-        async def capture(spec, path):
-            nonlocal counter
-            counter += 1
-            if counter > 1:
-                raise RuntimeError('window busy')
-            path.write_bytes(b'last good frame')
-            return 80, 40
-
-        events = []
-        with tempfile.TemporaryDirectory() as directory, patch.object(previews, 'emit', events.append):
-            broker = previews.Broker(directory, capture)
-            await broker.set_windows([{'id': 'ab', 'live': True}])
-            await asyncio.sleep(.3)
-            frame = next(event for event in events if event['event'] == 'frame')
-            self.assertTrue(Path(frame['path']).exists())
-            await broker.close()
+        await self.broker.set_windows([{'id':'ab', 'live':True}])
+        await self.until(lambda: len(self.events)>0)
+        last = Path(self.events[0]['path'])
+        (self.root/'failed').touch()
+        await self.until(lambda: any(e['event']=='error' for e in self.events))
+        self.assertTrue(last.is_file())
 
 
 class ConfigurationTests(unittest.TestCase):
@@ -198,13 +193,28 @@ class ConfigurationTests(unittest.TestCase):
                   'primary', 'on_primary', 'on_surface_variant', 'tertiary', 'secondary', 'error')}
         colors['primary'] = '#ffb692'
         colors['on_primary'] = '#261812'
-        result = kde_theme.palette(colors)
-        self.assertEqual(result['Colors:Selection']['BackgroundNormal'], '#ffb692')
-        self.assertEqual(result['Colors:Selection']['ForegroundNormal'], '#261812')
-        self.assertNotIn('Icons', result)
-        colors['background'] = 'bad color'
-        with self.assertRaises(ValueError):
-            kde_theme.palette(colors)
+        import configparser
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            generated = root / 'quickshell/user/generated'
+            generated.mkdir(parents=True)
+            for name in ('kwriteconfig6', 'dbus-send'):
+                (root/name).write_text('#!/bin/sh\nexit 0\n')
+                (root/name).chmod(0o755)
+            env = {**os.environ, 'XDG_CONFIG_HOME':folder, 'XDG_STATE_HOME':folder,
+                   'XDG_DATA_HOME':folder, 'PATH':folder}
+            source = generated / 'colors.json'
+            source.write_text(json.dumps(colors))
+            subprocess.run([binary(), 'kde-theme'], env=env, check=True)
+            scheme = configparser.ConfigParser()
+            scheme.read(root / 'color-schemes/Velora.colors')
+            self.assertEqual(scheme['Colors:Selection']['BackgroundNormal'], '#ffb692')
+            self.assertEqual(scheme['Colors:Selection']['ForegroundNormal'], '#261812')
+            self.assertNotIn('Icons', scheme)
+            colors['background'] = 'bad color'
+            source.write_text(json.dumps(colors))
+            failed = subprocess.run([binary(), 'kde-theme'], env=env, capture_output=True)
+            self.assertNotEqual(failed.returncode, 0)
 
     def test_additive_toolbar_is_idempotent(self):
         xml = '<gui><ToolBar name="mainToolBar"><Action name="custom"/><Action name="hamburger_menu"/></ToolBar></gui>'

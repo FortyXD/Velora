@@ -4,7 +4,6 @@ pragma ComponentBehavior: Bound
 import Quickshell
 import Quickshell.Io
 import QtQuick
-import QtPositioning
 
 import qs.modules.common
 import qs.modules.common.functions
@@ -67,7 +66,11 @@ Singleton {
     function load() {
         if (root.loaded) return;
         root.loaded = true;
-        cacheFile.reload();
+        if (Config.ready) cacheFile.reload();
+    }
+    Connections {
+        target: Config
+        function onReadyChanged() { if (Config.ready) cacheFile.reload(); }
     }
 
     function getData() { // Kept for older callers
@@ -85,15 +88,26 @@ Singleton {
         root.findPlace();
     }
 
-    onWantedChanged: if (root.loaded && root.wanted && !root.busy) root.refresh()
-    onUseUSCSChanged: if (root.loaded) refetchTimer.restart()
-    onCityChanged: if (root.loaded) refetchTimer.restart()
-    onAutomaticChanged: if (root.loaded) refetchTimer.restart()
+    readonly property bool scheduled: root.loaded && root.cacheRead && Config.ready && root.wanted
+    onScheduledChanged: {
+        if (scheduled && (!root.hasData || Date.now() - root.updatedAt > root.fetchInterval)) root.refresh();
+    }
+    onUseUSCSChanged: if (scheduled) refetchTimer.restart()
+    onCityChanged: if (scheduled) refetchTimer.restart()
+    onAutomaticChanged: {
+        if (!automatic && agentWait.running) {
+            agentWait.stop();
+            root.placeWithoutGps();
+        } else if (!automatic && gps.running) {
+            gps.running = false;
+        } else if (scheduled) refetchTimer.restart();
+    }
 
     Timer {
         id: refetchTimer
         interval: 1500 // Typing a city changes it on every key
         onTriggered: {
+            if (!root.scheduled) return;
             if (root.busy) refetchTimer.restart();
             else root.refresh();
         }
@@ -102,7 +116,7 @@ Singleton {
     // Steady refresh; after a failure the retries come first
     Timer {
         id: refreshTimer
-        running: root.loaded && root.wanted && !root.busy && !retryTimer.running
+        running: root.scheduled && !root.busy && !retryTimer.running
         repeat: true
         interval: root.fetchInterval
         onTriggered: root.refresh()
@@ -124,7 +138,7 @@ Singleton {
             return;
         }
         const gpsFresh = root.lastGps && Date.now() - root.lastGps.time < 30 * 60 * 1000;
-        if (root.automatic && positionSource.valid && !gpsFresh) {
+        if (root.automatic && !gpsFresh) {
             gps.ask();
             return;
         }
@@ -560,55 +574,43 @@ Singleton {
     Request { id: openMeteoRequest }
     Request { id: wttrRequest; json: false }
 
-    // GPS: one fix per ask, given up after 25 s
-    QtObject {
+    // GeoClue can block even while constructing a location source. Keep it outside the UI process.
+    Process {
         id: gps
-        property bool waiting: false
         property bool agentStarted: false
+        command: [Quickshell.shellPath("scripts/helper"), "weather-location"]
+        stdout: StdioCollector { id: coordinates }
         function ask() {
-            gps.waiting = true;
             if (!gps.agentStarted) {
-                // The GeoClue agent is only needed for this, so it's started here instead of at login
                 gps.agentStarted = true;
-                Quickshell.execDetached(["bash", "-c", "~/.config/hypr/hyprland/scripts/start_geoclue_agent.sh"]);
+                Quickshell.execDetached(["bash", FileUtils.trimFileProtocol(Directories.config) + "/hypr/hyprland/scripts/start_geoclue_agent.sh"]);
                 agentWait.restart();
                 return;
             }
-            positionSource.update(25000);
-            gpsTimeout.restart();
+            gps.running = true;
         }
-        function done(ok) {
-            if (!gps.waiting) return;
-            gps.waiting = false;
-            gpsTimeout.stop();
-            if (ok) {
-                const c = positionSource.position.coordinate;
-                const moved = !root.lastGps || Math.abs(root.lastGps.lat - c.latitude) + Math.abs(root.lastGps.lon - c.longitude) > 0.05;
-                root.lastGps = { "lat": c.latitude, "lon": c.longitude, "name": moved ? "" : root.lastGps.name, "time": Date.now() };
-                root.setPlace(c.latitude, c.longitude, root.lastGps.name, "gps");
-            } else {
-                root.placeWithoutGps();
+        onExited: code => {
+            if (!root.busy) return;
+            let fix = null;
+            if (code === 0 && root.automatic) {
+                try { fix = JSON.parse(coordinates.text); } catch (error) {}
             }
+            if (!Number.isFinite(fix?.lat) || !Number.isFinite(fix?.lon)
+                || Math.abs(fix.lat) > 90 || Math.abs(fix.lon) > 180) {
+                root.placeWithoutGps();
+                return;
+            }
+            const moved = !root.lastGps || Math.abs(root.lastGps.lat - fix.lat) + Math.abs(root.lastGps.lon - fix.lon) > 0.05;
+            root.lastGps = { lat: fix.lat, lon: fix.lon, name: moved ? "" : root.lastGps.name, time: Date.now() };
+            root.setPlace(fix.lat, fix.lon, root.lastGps.name, "gps");
         }
     }
     Timer {
         id: agentWait
         interval: 2000
-        onTriggered: gps.ask()
-    }
-    Timer {
-        id: gpsTimeout
-        interval: 27000
-        onTriggered: gps.done(false)
-    }
-    PositionSource {
-        id: positionSource
-        active: false
-        onPositionChanged: {
-            if (position.latitudeValid && position.longitudeValid) gps.done(true);
-        }
-        onSourceErrorChanged: {
-            if (sourceError !== PositionSource.NoError) gps.done(false);
+        onTriggered: {
+            if (root.automatic) gps.running = true;
+            else root.placeWithoutGps();
         }
     }
 
@@ -656,17 +658,14 @@ Singleton {
         watchChanges: !root.loaded // The settings app follows what the shell writes
         onFileChanged: cacheFile.reload()
         onLoaded: {
-            if (root.loaded && root.cacheRead) return; // The shell only reads it once, at start
+            if (!Config.ready || (root.loaded && root.cacheRead)) return;
             root.restore(cacheFile.text());
             if (!root.loaded) return;
             root.cacheRead = true;
-            // Fresh enough data is shown at once; the next fetch comes on schedule
-            if (root.wanted && (!root.hasData || Date.now() - root.updatedAt > root.fetchInterval)) root.refresh();
         }
         onLoadFailed: error => {
-            if (!root.loaded || root.cacheRead) return;
+            if (!Config.ready || !root.loaded || root.cacheRead) return;
             root.cacheRead = true;
-            if (root.wanted) root.refresh();
         }
     }
 

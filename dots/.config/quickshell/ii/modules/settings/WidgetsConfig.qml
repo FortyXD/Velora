@@ -437,6 +437,7 @@ ContentPage {
                 }
                 ConfigSlider {
                     text: Translation.tr("Font weight")
+                    defaultValue: 350
                     value: Config.options.background.widgets.clock.digital.font.weight
                     usePercentTooltip: false
                     buttonIcon: "format_bold"
@@ -447,6 +448,7 @@ ContentPage {
                 }
                 ConfigSlider {
                     text: Translation.tr("Font size")
+                    defaultValue: 90
                     value: Config.options.background.widgets.clock.digital.font.size
                     usePercentTooltip: false
                     buttonIcon: "format_size"
@@ -457,6 +459,7 @@ ContentPage {
                 }
                 ConfigSlider {
                     text: Translation.tr("Font width")
+                    defaultValue: 100
                     value: Config.options.background.widgets.clock.digital.font.width
                     usePercentTooltip: false
                     buttonIcon: "fit_width"
@@ -467,6 +470,7 @@ ContentPage {
                 }
                 ConfigSlider {
                     text: Translation.tr("Font roundness")
+                    defaultValue: 0
                     value: Config.options.background.widgets.clock.digital.font.roundness
                     usePercentTooltip: false
                     buttonIcon: "line_curve"

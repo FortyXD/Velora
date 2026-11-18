@@ -9,7 +9,7 @@ import Quickshell
 import Quickshell.Io
 
 /**
- * Offline English <-> Russian translation with CTranslate2 (scripts/translate/nmt_server.py),
+ * Offline English <-> Russian translation with the native CTranslate2 worker,
  * plus optional refinement by a local Ollama model.
  * The translation server only runs while it's being used: it's stopped after a short idle period.
  */
@@ -18,7 +18,7 @@ Singleton {
 
     readonly property var languages: ({ "en": "English", "ru": "Russian" })
     readonly property string dataDir: FileUtils.trimFileProtocol(StandardPaths.standardLocations(StandardPaths.GenericDataLocation)[0]) + "/folis/translate"
-    readonly property string pythonPath: `${root.dataDir}/venv/bin/python`
+    readonly property string enginePath: `${root.dataDir}/bin/velora-translate`
     readonly property string scriptDir: FileUtils.trimFileProtocol(`${Directories.scriptPath}/translate`)
     property int idleTimeout: 120000
     property int refineTimeout: 180000
@@ -149,7 +149,7 @@ Singleton {
 
     Process {
         id: server
-        command: [root.pythonPath, `${root.scriptDir}/nmt_server.py`]
+        command: [root.enginePath]
         stdinEnabled: true
         // Also covers a server that fails to start: no request may wait forever
         onRunningChanged: if (!running) root.failPending()
@@ -168,7 +168,7 @@ Singleton {
 
     Process {
         id: checkProc
-        command: ["bash", "-c", `test -x '${root.pythonPath}' && test -f '${root.dataDir}/models/en_ru/model/model.bin' && test -f '${root.dataDir}/models/ru_en/model/model.bin'`]
+        command: ["sh", "-c", 'test -x "$1" && test -f "$2/models/en_ru/model/model.bin" && test -f "$2/models/ru_en/model/model.bin"', "velora", root.enginePath, root.dataDir]
         onExited: (exitCode, exitStatus) => {
             root.installed = exitCode === 0;
             root.checked = true;

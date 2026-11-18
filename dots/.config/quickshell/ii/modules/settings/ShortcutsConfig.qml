@@ -14,7 +14,7 @@ import qs.modules.settings.keyboard
 ContentPage {
     id: root
 
-    property string filter: ""
+    property alias filter: filterField.text
 
     // ---- The keyboard: which keys do something together with the modifiers picked on it ----
     property var shortcutMods: ["Super"]
@@ -88,6 +88,28 @@ ContentPage {
     }
     Component.onCompleted: root.refreshModels()
 
+    // Populate a few rows per frame, including during search. One budget shared by all
+    // groups prevents several independent group timers from building hundreds together.
+    property int rowBudget: 0
+    readonly property int rowCount: root.groupIds.reduce((count, id) => count + (root.groupUids[id]?.length ?? 0), 0)
+    function rowOffset(id) {
+        let offset = 0;
+        for (const group of root.groupIds) {
+            if (group === id) break;
+            offset += root.groupUids[group]?.length ?? 0;
+        }
+        return offset;
+    }
+    Timer {
+        interval: 16
+        repeat: true
+        running: root.rowBudget < root.rowCount && (root.ApplicationWindow.window?.windowUsable ?? root.visible)
+        onTriggered: {
+            root.rowBudget = Math.min(root.rowBudget + 4, root.rowCount);
+            root.searchContentChanged();
+        }
+    }
+
     function normalize(text) {
         return (text ?? "").toString().toLowerCase().replace(/ё/g, "е");
     }
@@ -144,7 +166,6 @@ ContentPage {
                         selectionColor: Appearance.colors.colSecondaryContainer
                         font.family: Appearance.font.family.main
                         font.pixelSize: Appearance.font.pixelSize.small
-                        onTextChanged: root.filter = text
                     }
                     RippleButton {
                         visible: filterField.text.length > 0
@@ -168,10 +189,12 @@ ContentPage {
                 onClicked: Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "cheatsheet", "open"])
             }
             PillButton {
-                visible: HyprlandKeybinds.changedCount > 0
+                objectName: "resetShortcutsButton"
+                enabled: HyprlandKeybinds.changedCount > 0
                 iconName: "restart_alt"
-                text: Translation.tr("Reset all")
+                text: Translation.tr("Reset to defaults")
                 onClicked: HyprlandKeybinds.resetAll()
+                StyledToolTip { text: Translation.tr("Restore the shortcuts shipped with this build. Shortcuts added here will be removed.") }
             }
         }
 
@@ -356,16 +379,19 @@ ContentPage {
             id: groupSection
             required property string modelData
             required property int index
-            // Hundreds of rows at once froze the settings window for 0.4 s, so each group fills in a moment
-            // after the one before it; settings search needs them all right away
-            property bool rowsReady: ApplicationWindow.window?.loadAllPages ?? false
-            Timer {
-                interval: 20 * (groupSection.index + 1)
-                running: !groupSection.rowsReady
-                onTriggered: groupSection.rowsReady = true
-            }
             readonly property var info: root.groupInfo(modelData)
             readonly property var uids: root.groupUids[modelData] ?? []
+            readonly property int shownRows: Math.max(0, Math.min(uids.length, root.rowBudget - root.rowOffset(modelData)))
+            function appendRows() {
+                while (shortcutRows.count < shownRows) shortcutRows.append({shortcutUid: uids[shortcutRows.count]});
+            }
+            onUidsChanged: {
+                shortcutRows.clear();
+                appendRows();
+            }
+            onShownRowsChanged: appendRows()
+            Component.onCompleted: appendRows()
+            ListModel { id: shortcutRows }
             readonly property bool anyMatch: root.filter.length === 0 || uids.some(uid => root.matches(uid))
             readonly property bool isCustom: modelData === "custom"
 
@@ -375,11 +401,11 @@ ContentPage {
             description: isCustom ? Translation.tr("Shortcuts you added. Ones defined in custom/keybinds.lua show up here too.") : ""
 
             Repeater {
-                model: groupSection.rowsReady ? groupSection.uids : []
+                model: shortcutRows
                 delegate: ShortcutRow {
-                    required property string modelData
-                    uid: modelData
-                    visible: root.matches(modelData)
+                    required property string shortcutUid
+                    uid: shortcutUid
+                    visible: root.matches(shortcutUid)
                 }
             }
 

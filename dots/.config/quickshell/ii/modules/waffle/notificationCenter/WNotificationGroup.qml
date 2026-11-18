@@ -123,6 +123,7 @@ MouseArea {
                 horizontalAlignment: Text.AlignLeft
                 elide: Text.ElideRight
                 text: root.notificationGroup?.appName ?? ""
+                textFormat: Text.PlainText
             }
 
             // NotificationHeaderButton { // TODO: More notification functionality needed so we can have this button

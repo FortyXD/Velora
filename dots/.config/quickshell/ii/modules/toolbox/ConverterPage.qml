@@ -419,6 +419,8 @@ ContentPage {
             to: 100
             usePercentTooltip: false
             valueText: `${Math.round(value)}`
+            defaultValue: 85
+            defaultValueText: "85%"
             value: page.imageQuality
             onMoved: page.imageQuality = Math.round(value)
         }

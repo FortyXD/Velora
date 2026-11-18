@@ -20,7 +20,7 @@ Singleton {
 
     // Both sidebars, cleaned up together: a part allowed once in the shell stays where it's met first,
     // the right sidebar before the left. Compared as text, so lists only change when their content does.
-    readonly property string revision: JSON.stringify(root.normalizeBoth(root.given("right"), root.given("left")))
+    readonly property string revision: JSON.stringify(root.normalizeBoth(root.given("right"), root.given("left"))) ?? '{"right":[],"left":[]}'
     readonly property var layouts: JSON.parse(root.revision)
     readonly property var right: root.layouts.right
     readonly property var left: root.layouts.left
@@ -101,13 +101,17 @@ Singleton {
     }
     function findType(type, layouts = root.layouts) {
         for (const side of root.sides) {
-            for (const part of layouts[side] ?? []) {
-                if (part.type === type) return { "side": side, "group": null, "part": part };
-                const tab = (part.tabs ?? []).find(tab => tab.type === type);
-                if (tab) return { "side": side, "group": part, "part": tab };
+            for (const [index, part] of (layouts[side] ?? []).entries()) {
+                if (part.type === type) return { "side": side, "index": index, "group": null, "part": part };
+                const tabIndex = (part.tabs ?? []).findIndex(tab => tab.type === type);
+                if (tabIndex >= 0) return { "side": side, "index": tabIndex, "group": part, "part": part.tabs[tabIndex] };
             }
         }
         return null;
+    }
+
+    function catalogPart(side, type) {
+        return root.findType(type, { [side]: root.parts(side) }) ?? root.findType(type);
     }
 
     // Turned off elsewhere: the assistant and the image browser by their policies, sliders without any slider
@@ -191,7 +195,7 @@ Singleton {
     function insert(side, type, index = -1, groupUid = "") {
         const meta = SidebarCatalog.part(type);
         if (!meta) return "";
-        const existing = root.findType(type);
+        const existing = root.catalogPart(side, type);
         if (existing && meta.limit === "shell") {
             root.move(existing.part.uid, side, index, groupUid);
             return existing.part.uid;

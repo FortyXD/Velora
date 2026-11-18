@@ -164,7 +164,7 @@ async fn save_refusal_and_concurrent_edits_keep_a_successful_connection() {
 async fn an_incomplete_saved_profile_is_repaired_without_deletion() {
     let (_bus, nm, mut daemon) = setup().await;
     nm.add_wifi_profile("incomplete", b"Home", "", "", 0).await.unwrap();
-    let reply = daemon.call("network.connectWifi", json!({"operation":"repair", "ssid":"Home", "uuid":"incomplete", "password":"new-password"})).await;
+    let reply = daemon.call("network.connectWifi", json!({"operation":"repair", "ssid":"Home", "bssid":"00:00:00:00:00:01", "uuid":"incomplete", "password":"new-password"})).await;
     assert_eq!(reply["ok"], true, "{reply}");
     assert_eq!(nm.saved_secret("incomplete", SECURITY, "psk").as_deref(), Some("new-password"));
     assert_eq!(nm.setting("incomplete", SECURITY, "key-mgmt").unwrap().downcast_ref::<&str>().unwrap(), "wpa-psk");
@@ -190,15 +190,15 @@ async fn hidden_networks_keep_their_exact_name_and_selected_security() {
 
 #[tokio::test]
 async fn owned_secret_flags_are_preserved_for_psk_and_wep() {
-    for (key_mgmt, key, flags) in [("wpa-psk", "psk", "psk-flags"), ("none", "wep-key0", "wep-key-flags")] {
+    for (key_mgmt, key, flags, ownership) in [("wpa-psk", "psk", "psk-flags", 1u32), ("wpa-psk", "psk", "psk-flags", 2u32), ("none", "wep-key0", "wep-key-flags", 1u32)] {
         let (_bus, nm, mut daemon) = setup().await;
-        let security = Props::from([("key-mgmt".into(), value(key_mgmt)), (key.into(), value("1234567890")), (flags.into(), value(1u32))]);
+        let security = Props::from([("key-mgmt".into(), value(key_mgmt)), (key.into(), value("1234567890")), (flags.into(), value(ownership))]);
         nm.add_secret_profile("owned", b"Home", security).await.unwrap();
         let reply = daemon.call("network.connectWifi", json!({"operation":"owned", "ssid":"Home", "uuid":"owned", "password":"1234567890"})).await;
         assert_eq!(reply["ok"], true, "{reply}");
         assert_eq!(reply["result"]["saved"], false);
-        assert_eq!(nm.setting("owned", SECURITY, flags).unwrap().downcast_ref::<u32>().unwrap(), 1);
-        assert!(!nm.calls().iter().any(|call| call.starts_with("Update2")));
+        assert_eq!(nm.setting("owned", SECURITY, flags).unwrap().downcast_ref::<u32>().unwrap(), ownership);
+        assert!(!nm.calls().iter().any(|call| call.starts_with("Update2") || call.starts_with("GetSecrets")));
         no_disruption(&nm);
     }
 }
@@ -259,5 +259,157 @@ async fn the_scoped_agent_rejects_other_callers_and_never_saves_or_deletes_secre
     assert!(reply.is_err());
     assert_eq!(daemon.call("network.cancelWifi", json!({"operation":"scoped"})).await["result"]["canceled"], true);
     assert_eq!(daemon.wait_response(id).await["error"]["code"], "canceled");
+    no_disruption(&nm);
+}
+
+#[tokio::test]
+async fn an_open_lookalike_never_takes_the_secure_rows_profile_or_password() {
+    let (_bus, nm, mut daemon) = setup().await;
+    nm.add_wifi_profile("secure", b"Home", "wpa-psk", "old-password", 100).await.unwrap();
+    nm.add_access_point(b"Home", "00:00:00:00:00:02", 99, 0).await.unwrap();
+    let state = daemon.wait_network("separate security identities", |state| state["networks"].as_array().is_some_and(|rows| rows.len() == 2 && rows.iter().any(|row| row["savedUuid"] == "secure"))).await;
+    let rows = state["networks"].as_array().unwrap();
+    assert_eq!(rows.iter().find(|row| row["securityType"] == "none").unwrap()["savedUuid"], "");
+    assert_eq!(rows.iter().find(|row| row["securityType"] == "wpa-psk").unwrap()["savedUuid"], "secure");
+    let reply = daemon.call("network.connectWifi", json!({"operation":"secure-row", "ssid":"Home", "bssid":"00:00:00:00:00:01", "security":"wpa-psk", "uuid":"secure"})).await;
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(nm.saved_secret("secure", SECURITY, "psk").as_deref(), Some("old-password"));
+    let mismatch = daemon.call("network.connectWifi", json!({"operation":"wrong-ap", "ssid":"Home", "bssid":"00:00:00:00:00:02", "security":"wpa-psk", "password":"marker-password"})).await;
+    assert_eq!(mismatch["error"]["code"], "not_found", "{mismatch}");
+    no_disruption(&nm);
+}
+
+#[tokio::test]
+async fn a_password_prompt_can_outlive_the_backend_work_deadline() {
+    let (_bus, nm, mut daemon) = setup().await;
+    nm.set_outcome(Outcome::AskPassword { requests: 1 });
+    let id = daemon.send("network.connectWifi", json!({"operation":"patient", "ssid":"Home"})).await;
+    let request = prompt(&mut daemon).await;
+    tokio::time::sleep(std::time::Duration::from_secs(61)).await;
+    assert_eq!(daemon.call("network.submitWifiPassword", json!({"operation":"patient", "request":request["request"], "password":"patient-password"})).await["result"]["accepted"], true);
+    assert_eq!(daemon.wait_response(id).await["result"]["saved"], true);
+    no_disruption(&nm);
+}
+
+#[tokio::test]
+async fn a_stalled_save_warns_without_canceling_a_successful_connection() {
+    let (_bus, nm, mut daemon) = setup().await;
+    nm.set_disk_updates_stalled(true);
+    let id = daemon.send("network.connectWifi", json!({"operation":"save-timeout", "ssid":"Home", "password":"timeout-password"})).await;
+    nm.wait_for_disk_update().await;
+    assert_eq!(daemon.call("network.cancelWifi", json!({"operation":"save-timeout"})).await["result"]["canceled"], false);
+    let reply = daemon.wait_message_for("bounded save warning", std::time::Duration::from_secs(65), |message| message["type"] == "response" && message["id"] == id).await;
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["result"]["saved"], false, "{reply}");
+    assert_eq!(reply["result"]["warning"], "Connected, but the password could not be saved");
+    assert!(nm.calls().contains(&"Update2 stalled".into()));
+    no_disruption(&nm);
+}
+
+#[tokio::test]
+async fn replacement_preserves_other_nm_secrets_and_permissions() {
+    let (_bus, nm, mut daemon) = setup().await;
+    let settings = std::collections::HashMap::from([
+        ("connection".into(), Props::from([("uuid".into(), value("multi")), ("id".into(), value("Home")), ("type".into(), value("802-11-wireless")), ("permissions".into(), value(vec!["user:fixture:"]))])),
+        ("802-11-wireless".into(), Props::from([("ssid".into(), value(b"Home".to_vec()))])),
+        (SECURITY.into(), Props::from([("key-mgmt".into(), value("wpa-psk")), ("psk".into(), value("old-password"))])),
+        ("802-1x".into(), Props::from([("private-key-password".into(), value("other-marker"))])),
+    ]);
+    nm.add_profile(settings).await.unwrap();
+    let reply = daemon.call("network.connectWifi", json!({"operation":"preserve", "ssid":"Home", "uuid":"multi", "password":"new-password"})).await;
+    assert_eq!(reply["result"]["saved"], true, "{reply}");
+    assert_eq!(nm.saved_secret("multi", "802-1x", "private-key-password").as_deref(), Some("other-marker"));
+    assert_eq!(Vec::<String>::try_from(nm.setting("multi", "connection", "permissions").unwrap()).unwrap(), vec!["user:fixture:"]);
+    no_disruption(&nm);
+}
+
+#[tokio::test]
+async fn missing_secret_reads_do_not_silently_erase_a_saved_password() {
+    let (_bus, nm, mut daemon) = setup().await;
+    nm.add_wifi_profile("saved", b"Home", "wpa-psk", "old-password", 100).await.unwrap();
+    nm.set_secrets_unavailable(true);
+    let reply = daemon.call("network.connectWifi", json!({"operation":"read-error", "ssid":"Home", "uuid":"saved", "password":"new-password"})).await;
+    assert_eq!(reply["ok"], false, "{reply}");
+    assert_eq!(nm.saved_secret("saved", SECURITY, "psk").as_deref(), Some("old-password"));
+    assert!(!nm.calls().iter().any(|call| call.starts_with("Update2")));
+    no_disruption(&nm);
+}
+
+#[tokio::test]
+async fn eof_rolls_back_pending_replacements_but_never_disconnects_success() {
+    for pending in [true, false] {
+        let (_bus, nm, mut daemon) = setup().await;
+        nm.add_wifi_profile("saved", b"Home", "wpa-psk", "old-password", 100).await.unwrap();
+        if pending { nm.set_outcome(Outcome::Wait); }
+        let id = daemon.send("network.connectWifi", json!({"operation":"eof", "ssid":"Home", "uuid":"saved", "password":"new-password"})).await;
+        if pending {
+            daemon.wait_network("the pending replacement", |state| state["profiles"].as_array().is_some_and(|rows| rows.iter().any(|row| row["activeState"] == 1))).await;
+            assert_eq!(nm.secret("saved", SECURITY, "psk").as_deref(), Some("new-password"));
+        } else {
+            assert_eq!(daemon.wait_response(id).await["result"]["saved"], true);
+        }
+        assert!(daemon.close_stdin().await.0.success());
+        let expected = if pending { "old-password" } else { "new-password" };
+        assert_eq!(nm.secret("saved", SECURITY, "psk").as_deref(), Some(expected));
+        assert_eq!(nm.saved_secret("saved", SECURITY, "psk").as_deref(), Some(expected));
+        no_disruption(&nm);
+    }
+}
+
+#[tokio::test]
+async fn existing_external_credentials_need_neither_rewrite_nor_warning() {
+    let (_bus, nm, mut daemon) = setup().await;
+    let security = Props::from([("key-mgmt".into(), value("wpa-psk")), ("psk-flags".into(), value(1u32))]);
+    nm.add_secret_profile("owned", b"Home", security).await.unwrap();
+    let reply = daemon.call("network.connectWifi", json!({"operation":"existing", "ssid":"Home", "uuid":"owned"})).await;
+    assert_eq!(reply["result"]["saved"], true, "{reply}");
+    assert_eq!(reply["result"]["warning"], "");
+    assert!(!nm.calls().iter().any(|call| call.starts_with("Update2") || call.starts_with("GetSecrets")));
+    no_disruption(&nm);
+}
+
+#[tokio::test]
+async fn a_concurrent_password_saved_during_activation_is_never_overwritten() {
+    let (_bus, nm, mut daemon) = setup().await;
+    nm.add_wifi_profile("saved", b"Home", "wpa-psk", "old-password", 100).await.unwrap();
+    // Another client persists its own password while this operation is activating.
+    nm.set_concurrent_password(Some("other-client-password"));
+    let reply = daemon.call("network.connectWifi", json!({"operation":"race", "ssid":"Home", "uuid":"saved", "password":"new-password"})).await;
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["result"]["saved"], false, "{reply}");
+    assert_eq!(reply["result"]["warning"], "Connected, but the password could not be saved");
+    assert_eq!(nm.secret("saved", SECURITY, "psk").as_deref(), Some("other-client-password"));
+    assert_eq!(nm.saved_secret("saved", SECURITY, "psk").as_deref(), Some("other-client-password"));
+    assert!(nm.calls().iter().any(|call| call == "ConcurrentUpdate2"), "{:?}", nm.calls());
+    no_disruption(&nm);
+}
+
+#[tokio::test]
+async fn a_password_typed_during_activation_does_not_replace_a_concurrent_save() {
+    let (_bus, nm, mut daemon) = setup().await;
+    nm.add_wifi_profile("saved", b"Home", "wpa-psk", "old-password", 1).await.unwrap();
+    nm.set_concurrent_password(Some("other-client-password"));
+    nm.set_outcome(Outcome::AskPassword { requests: 1 });
+    let id = daemon.send("network.connectWifi", json!({"operation":"typed-race", "ssid":"Home", "uuid":"saved"})).await;
+    let request = prompt(&mut daemon).await;
+    assert_eq!(daemon.call("network.submitWifiPassword", json!({"operation":"typed-race", "request": request["request"], "password":"typed-password"})).await["result"]["accepted"], true);
+    let reply = daemon.wait_response(id).await;
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["result"]["saved"], false, "{reply}");
+    assert_eq!(reply["result"]["warning"], "Connected, but the password could not be saved");
+    assert_eq!(nm.secret("saved", SECURITY, "psk").as_deref(), Some("other-client-password"));
+    no_disruption(&nm);
+}
+
+#[tokio::test]
+async fn rollback_does_not_adopt_a_concurrent_writers_version() {
+    let (_bus, nm, mut daemon) = setup().await;
+    nm.add_wifi_profile("saved", b"Home", "wpa-psk", "old-password", 100).await.unwrap();
+    nm.set_change_after_memory_update(true);
+    nm.set_outcome(Outcome::Fail { device_reason: 8, active_reason: 3 });
+    let reply = daemon.call("network.connectWifi", json!({"operation":"concurrent", "ssid":"Home", "uuid":"saved", "password":"new-password"})).await;
+    assert_eq!(reply["error"]["code"], "wrong_secret", "{reply}");
+    assert_eq!(nm.setting("saved", "connection", "id").unwrap().downcast_ref::<&str>().unwrap(), "concurrent-edit");
+    assert_eq!(nm.saved_secret("saved", SECURITY, "psk").as_deref(), Some("old-password"));
     no_disruption(&nm);
 }

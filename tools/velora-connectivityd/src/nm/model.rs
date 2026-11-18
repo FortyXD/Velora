@@ -35,12 +35,15 @@ const SEC_KEY_OWE: i64 = 0x800;
 const SEC_KEY_OWE_TM: i64 = 0x1000;
 const SEC_KEY_SUITE_B: i64 = 0x2000;
 
+/// Access points of one network, as (object path, properties).
+type AccessPoints<'a> = Vec<(String, &'a Props)>;
+
 const CAPABILITY_WPA: i64 = 0x10;
 const CAPABILITY_RSN: i64 = 0x20;
 const CAPABILITY_AP: i64 = 0x40;
 
 /// The ways a Wi-Fi network can ask to be joined, in the shell's terms.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Security {
     None,
@@ -114,6 +117,13 @@ pub fn best_security(ap_flags: i64, wpa_flags: i64, rsn_flags: i64, device_capab
         return Security::None;
     }
     Security::Unknown
+}
+
+/// WPA2 profiles can still join a WPA2/WPA3 transition AP; not an SAE-only or open lookalike.
+pub fn security_compatible(profile: Security, advertised: Security, flags: i64) -> bool {
+    profile == advertised
+        || (profile == Security::WpaPsk && advertised == Security::Sae && flags & SEC_KEY_PSK != 0)
+        || (matches!(profile, Security::DynamicWep | Security::Leap) && advertised == Security::Wep)
 }
 
 /// The protocols an access point advertises, in the words `nmcli` uses: "WPA2 WPA3", "WEP", or nothing.
@@ -537,7 +547,7 @@ pub fn snapshot(objects: &Objects, profiles: &BTreeMap<String, Settings>, vpn_pl
         .collect();
     devices.sort_by(|a, b| a.interface.cmp(&b.interface));
 
-    // A Wi-Fi device's access points, grouped per name on that device
+    // A name alone is not an identity: an open lookalike must not borrow a secure profile.
     let saved: Vec<(String, &Settings)> = profiles
         .iter()
         .filter(|(_, settings)| {
@@ -551,16 +561,25 @@ pub fn snapshot(objects: &Objects, profiles: &BTreeMap<String, Settings>, vpn_pl
         let Some(wireless) = interface(objects, &device.path, IFACE_WIRELESS) else { continue };
         let capabilities = values::number(wireless, "WirelessCapabilities").unwrap_or(0);
         let active_ap = values::path(wireless, "ActiveAccessPoint");
-        let mut by_ssid: BTreeMap<Vec<u8>, Vec<(String, &Props)>> = BTreeMap::new();
+        let mut by_ssid: BTreeMap<(Vec<u8>, Security), AccessPoints<'_>> = BTreeMap::new();
         for ap_path in values::strings(wireless, "AccessPoints") {
             let Some(ap) = interface(objects, &ap_path, IFACE_AP) else { continue };
             let Some(ssid) = values::bytes(ap, "Ssid").filter(|ssid| !ssid.is_empty()) else { continue };
-            by_ssid.entry(ssid).or_default().push((ap_path, ap));
+            let security = best_security(values::number(ap, "Flags").unwrap_or(0), values::number(ap, "WpaFlags").unwrap_or(0), values::number(ap, "RsnFlags").unwrap_or(0), capabilities);
+            by_ssid.entry((ssid, security)).or_default().push((ap_path, ap));
         }
-        for (ssid, access_points) in by_ssid {
-            let candidates: Vec<&(String, &Settings)> =
-                saved.iter().filter(|(_, settings)| profile_ssid(settings).as_deref() == Some(ssid.as_slice())).collect();
+        for ((ssid, security_type), access_points) in by_ssid {
+            let candidates: Vec<&(String, &Settings)> = saved.iter().filter(|(_, settings)| {
+                profile_ssid(settings).as_deref() == Some(ssid.as_slice()) && access_points.iter().any(|(_, ap)| {
+                    security_compatible(profile_security(settings), security_type, values::number(ap, "WpaFlags").unwrap_or(0) | values::number(ap, "RsnFlags").unwrap_or(0))
+                })
+            }).collect();
             let chosen = pick_profile(&candidates, &active_states);
+            // A transition AP and an SAE-only AP may share the strongest security type.
+            // Once a profile is chosen, never steer its WPA2 password to the SAE-only AP.
+            let access_points: Vec<_> = access_points.into_iter().filter(|(_, ap)| chosen.is_none_or(|(_, settings)| {
+                security_compatible(profile_security(settings), security_type, values::number(ap, "WpaFlags").unwrap_or(0) | values::number(ap, "RsnFlags").unwrap_or(0))
+            })).collect();
             // A profile tied to one access point reads its signal from that one
             let pinned = chosen
                 .and_then(|(_, settings)| settings.get("802-11-wireless"))
@@ -605,7 +624,7 @@ pub fn snapshot(objects: &Objects, profiles: &BTreeMap<String, Settings>, vpn_pl
                 active: active_ap.as_deref() == Some(ap_path),
                 saved_credentials: security.is_empty() || chosen.is_some_and(|(_, settings)| settings.contains_key("802-11-wireless-security")),
                 security,
-                security_type: best_security(flags, wpa, rsn, capabilities),
+                security_type,
                 never_used: chosen.is_some_and(|(_, settings)| profile_timestamp(settings) == 0),
                 saved_uuid: chosen_uuid,
                 device: device.path.clone(),
@@ -817,6 +836,28 @@ mod tests {
     }
 
     #[test]
+    fn same_name_different_security_never_borrows_a_saved_profile() {
+        let mut objects = base();
+        add_wifi_device(&mut objects, &["/ap/open", "/ap/psk", "/ap/sae"], "/", 30);
+        add_ap(&mut objects, "/ap/open", b"Home", "00:00:00:00:00:01", 99, 0);
+        add_ap(&mut objects, "/ap/psk", b"Home", "00:00:00:00:00:02", 60, PSK);
+        add_ap(&mut objects, "/ap/sae", b"Home", "00:00:00:00:00:03", 80, SEC_KEY_SAE);
+        let profiles = BTreeMap::from([("/c/1".into(), wifi_profile("secure", b"Home", 5, Some("wpa-psk")))]);
+        let result = snapshot(&objects, &profiles, &[]);
+        assert_eq!(result.networks.len(), 3);
+        for network in &result.networks {
+            assert_eq!(network.saved_uuid, if network.security_type == Security::WpaPsk { "secure" } else { "" });
+        }
+    }
+
+    #[test]
+    fn wpa2_profiles_remain_usable_on_transition_but_not_sae_only_aps() {
+        assert!(security_compatible(Security::WpaPsk, Security::Sae, SEC_KEY_SAE | SEC_KEY_PSK));
+        assert!(!security_compatible(Security::WpaPsk, Security::Sae, SEC_KEY_SAE));
+        assert!(!security_compatible(Security::None, Security::WpaPsk, SEC_KEY_PSK));
+    }
+
+    #[test]
     fn the_connected_access_point_wins_over_a_stronger_one() {
         let mut objects = base();
         add_wifi_device(&mut objects, &["/ap/1", "/ap/2"], "/ap/1", 100);
@@ -880,9 +921,21 @@ mod tests {
         let mut objects = base();
         add_wifi_device(&mut objects, &["/ap/1"], "/", 30);
         add_ap(&mut objects, "/ap/1", b"Home", "00:00:00:00:00:01", 40, PSK);
-        let profiles = BTreeMap::from([("/c/1".to_string(), wifi_profile("never", b"Home", 0, None))]);
+        let profiles = BTreeMap::from([("/c/1".to_string(), wifi_profile("never", b"Home", 0, Some("wpa-psk")))]);
         let result = snapshot(&objects, &profiles, &[]);
         assert!(result.networks[0].never_used);
+        // A security section is not proof that credentials exist or have ever worked.
+        assert_eq!(result.networks[0].saved_uuid, "never");
+    }
+
+    #[test]
+    fn an_incomplete_or_open_profile_does_not_claim_a_secured_network() {
+        let mut objects = base();
+        add_wifi_device(&mut objects, &["/ap/1"], "/", 30);
+        add_ap(&mut objects, "/ap/1", b"Home", "00:00:00:00:00:01", 40, PSK);
+        let profiles = BTreeMap::from([("/c/1".to_string(), wifi_profile("open", b"Home", 0, None))]);
+        let result = snapshot(&objects, &profiles, &[]);
+        assert_eq!(result.networks[0].saved_uuid, "");
         assert!(!result.networks[0].saved_credentials);
     }
 

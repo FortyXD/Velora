@@ -11,18 +11,14 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
 
-/**
- * While four fingers move toward the overview or spread toward the desktop, a hint near the bottom of the
- * screen says what's coming and fills its ring with the fingers' progress; once past the point it says
- * "let go", and it answers with a pop when it happens (services/TouchpadGestures.qml).
- */
+// Showing the desktop changes real windows on release. Preview its threshold under the fingers.
 Scope {
     id: root
     readonly property string action: TouchpadGestures.hintAction
     readonly property real amount: Math.max(0, Math.min(1, TouchpadGestures.hintProgress / TouchpadGestures.hintAt))
     readonly property bool ready: TouchpadGestures.hintProgress >= TouchpadGestures.hintAt
     property var screen: null
-    onActionChanged: if (root.action.length > 0 && !root.screen) root.screen = Quickshell.screens.find(screen => screen.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0]
+    onActionChanged: if (root.action.length > 0) root.screen = Quickshell.screens.find(screen => screen.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0]
 
     // Kept built: a gesture can't wait for it
     PanelWindow {
@@ -41,6 +37,8 @@ Scope {
 
         StyledRectangularShadow {
             target: pill
+            opacity: pill.opacity
+            scale: pill.scale
         }
         Rectangle {
             id: pill
@@ -56,9 +54,15 @@ Scope {
             // Comes up with the fingers, pops when it happens
             opacity: root.action.length > 0 ? Math.min(1, TouchpadGestures.hintProgress * 6) : 0
             scale: TouchpadGestures.hintDone ? 1.08 : 0.86 + 0.14 * root.amount
-            Behavior on opacity { NumberAnimation { duration: 180 } }
-            Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-            Behavior on color { ColorAnimation { duration: 160 } }
+            Behavior on opacity {
+                enabled: TouchpadGestures.activeAction !== "desktop"
+                NumberAnimation { duration: Appearance.scaledDuration(180) }
+            }
+            Behavior on scale {
+                enabled: TouchpadGestures.activeAction !== "desktop"
+                NumberAnimation { duration: Appearance.scaledDuration(160); easing.type: Easing.OutCubic }
+            }
+            Behavior on color { ColorAnimation { duration: Appearance.scaledDuration(160) } }
 
             RowLayout {
                 id: row
@@ -78,7 +82,7 @@ Scope {
                     }
                     MaterialSymbol {
                         anchors.centerIn: parent
-                        text: root.action === "desktop" ? "desktop_windows" : "grid_view"
+                        text: "desktop_windows"
                         iconSize: 18
                         color: root.ready ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer0
                     }
@@ -86,7 +90,7 @@ Scope {
                 ColumnLayout {
                     spacing: 0
                     StyledText {
-                        text: root.action === "desktop" ? Translation.tr("Show the desktop") : Translation.tr("Overview")
+                        text: Translation.tr("Show the desktop")
                         font.weight: Font.DemiBold
                         color: root.ready ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer0
                     }
@@ -98,13 +102,6 @@ Scope {
                     }
                 }
             }
-        }
-    }
-    // Gone: pinned to the next screen it's needed on
-    Connections {
-        target: TouchpadGestures
-        function onHintActionChanged() {
-            if (TouchpadGestures.hintAction.length === 0) Qt.callLater(() => { if (TouchpadGestures.hintAction.length === 0) root.screen = null; });
         }
     }
 }

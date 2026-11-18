@@ -14,11 +14,15 @@ jobs:
   arch-package:
     runs-on: ubuntu-latest
     container: archlinux:base-devel
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
     permissions:
       contents: write
     steps:
       - name: Install build tools
-        run: pacman -Syu --noconfirm --needed git python python-pillow sudo github-cli rust openssl cmake extra-cmake-modules qt6-base kio dbus bubblewrap nodejs jq poppler libarchive ttf-dejavu
+        run: pacman -Syu --noconfirm --needed git python python-pillow sudo github-cli rust openssl glib2 cmake extra-cmake-modules qt6-base kio hyprland jsoncpp lua wayland libei pkgconf dbus bubblewrap nodejs jq poppler libarchive ttf-dejavu zsh
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.release_tag || github.ref }}

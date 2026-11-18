@@ -14,6 +14,7 @@ Item {
     property bool vertical: false
     property int tier: 0
     property bool zoneHovered: false
+    property var editGuide
     property bool editing: false
 
     readonly property bool pill: segment?.pill ?? false
@@ -90,19 +91,12 @@ Item {
         columns: root.vertical ? 1 : -1
         // A pill centers its row like BarGroup; a bare widget spans the bar's thickness and is
         // centered by the layout itself, which rounds the same way the zone layouts always have
-        anchors {
-            verticalCenter: root.vertical ? undefined : parent.verticalCenter
-            horizontalCenter: root.vertical ? parent.horizontalCenter : undefined
-            left: root.vertical ? undefined : parent.left
-            right: root.vertical ? undefined : parent.right
-            top: root.vertical ? parent.top : undefined
-            bottom: root.vertical ? parent.bottom : undefined
-            margins: root.padding
-        }
-        height: root.vertical ? root.height - root.padding * 2 : (root.pill ? implicitHeight : root.height)
-        width: root.vertical ? (root.pill ? implicitWidth : root.width) : root.width - root.padding * 2
+        x: root.vertical ? (root.width - width) / 2 : root.padding
+        y: root.vertical ? root.padding : (root.height - height) / 2
+        height: root.vertical ? Math.max(0, root.height - root.padding * 2) : (root.pill ? implicitHeight : root.height)
+        width: root.vertical ? (root.pill ? implicitWidth : root.width) : Math.max(0, root.width - root.padding * 2)
         columnSpacing: 4
-        rowSpacing: root.verticalSeparators ? 25 : 12
+        rowSpacing: root.verticalSeparators ? 25 : root.vertical ? 8 : 12
 
         Repeater {
             id: repeater
@@ -115,6 +109,7 @@ Item {
                 tier: root.tier
                 zoneHovered: root.zoneHovered
                 inPill: root.pill
+                editGuide: root.editGuide
                 editing: root.editing
             }
         }

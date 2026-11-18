@@ -13,7 +13,7 @@ import qs.modules.common.panels.lock
  *   context      LockContext on the real lock screen; null elsewhere (nothing can be typed or pressed)
  *   liveData     real music, notifications, battery…; off in the settings app, which shows examples
  *   editing      outlines, dragging with guides; parts without content show a placeholder
- *   showBackdrop draws the blurred wallpaper itself (the real lock screen has Background.qml for that)
+ *   showBackdrop draws the wallpaper inside this surface
  */
 Item {
     id: root

@@ -137,12 +137,19 @@ RippleButton {
 
     Popup {
         id: popup
+        objectName: "choicePopup"
+        readonly property var paneBounds: visible ? root.Window.window?.popupBoundsFor?.(root) : null
         x: Math.min(0, root.width - width)
         y: root.height + 6
-        width: root.popupWidth
-        height: Math.min(popupColumn.implicitHeight + topPadding + bottomPadding, root.popupMaxHeight)
+        width: Math.min(root.popupWidth, paneBounds ? Math.max(0, paneBounds.width - 2 * margins) : Infinity)
+        height: Math.min(popupColumn.implicitHeight + topPadding + bottomPadding, root.popupMaxHeight,
+                         paneBounds ? Math.max(0, paneBounds.height - 2 * margins) : Infinity)
         padding: 6
         margins: 8
+        leftMargin: margins + (paneBounds?.left ?? 0)
+        rightMargin: margins + (paneBounds?.right ?? 0)
+        topMargin: margins + (paneBounds?.top ?? 0)
+        bottomMargin: margins + (paneBounds?.bottom ?? 0)
         focus: true
         // The trigger handles its own click; closing on press would reopen it on release.
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent

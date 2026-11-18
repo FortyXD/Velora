@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
 import Quickshell.Io
@@ -6,15 +7,37 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.functions
 import qs.modules.common.widgets
+import qs.modules.settings.tools
 
-ContentPage {
+SettingsDetailPage {
     id: root
+    readonly property Item popupPane: root
+    sectionTitles: ({
+        screenshots: Translation.tr("Screenshots"),
+        "screen-recording": Translation.tr("Screen recording"),
+        selection: Translation.tr("Screen selection"),
+        overlay: Translation.tr("Overlay")
+    })
 
+    readonly property var recording: Config.options.screenRecord
+    readonly property var snip: Config.options.screenSnip
+    readonly property var selector: Config.options.regionSelector
+    readonly property var audioOptions: [
+        { value: "none", displayName: Translation.tr("No audio"), icon: "volume_off" },
+        { value: "system", displayName: Translation.tr("System sound"), icon: "volume_up" },
+        { value: "microphone", displayName: Translation.tr("Microphone only"), icon: "mic" },
+        { value: "both", displayName: Translation.tr("System + microphone"), icon: "mic_external_on" }
+    ]
+    readonly property string audioLabel: audioOptions.find(option => option.value === recording.audio)?.displayName ?? recording.audio
+    readonly property bool needsSources: pageShown && tab === "screen-recording" && recording.audio !== "none"
     property var recordingSources: []
+    onNeedsSourcesChanged: if (needsSources) sourceProcess.running = true
+
     function sourceChoices(monitor, selected) {
-        let choices = [{ value: "", displayName: Translation.tr("Follow system default"), icon: "settings_suggest" }];
+        const choices = [{ value: "", displayName: Translation.tr("Follow system default"), icon: "settings_suggest" }];
         for (const source of recordingSources) {
-            if (source.monitor === monitor) choices.push({ value: source.value, displayName: source.displayName, icon: monitor ? "speaker" : "mic" });
+            if (source.monitor === monitor)
+                choices.push({ value: source.value, displayName: source.displayName, icon: monitor ? "speaker" : "mic" });
         }
         if (selected && !choices.some(item => item.value === selected))
             choices.push({ value: selected, displayName: Translation.tr("Unavailable device: %1").arg(selected), icon: "warning" });
@@ -23,7 +46,6 @@ ContentPage {
     Process {
         id: sourceProcess
         command: [Directories.recordScriptPath, "sources"]
-        running: true
         stdout: StdioCollector {
             onStreamFinished: {
                 try { root.recordingSources = JSON.parse(text); }
@@ -32,354 +54,408 @@ ContentPage {
         }
     }
 
-    function folderUrl(path) {
-        return path.length > 0 ? `file://${path.replace(/^~/, FileUtils.trimFileProtocol(Directories.home))}` : Directories.home;
-    }
-
-    FolderDialog {
-        id: folderDialog
-        property var onPicked: null
-        onAccepted: if (folderDialog.onPicked) folderDialog.onPicked(FileUtils.trimFileProtocol(decodeURIComponent(selectedFolder.toString())))
-    }
     function pickFolder(current, callback) {
-        folderDialog.currentFolder = root.folderUrl(current);
+        const path = FileUtils.trimFileProtocol(current || Directories.home).replace(/^~/, FileUtils.trimFileProtocol(Directories.home));
+        folderDialog.currentFolder = "file://" + path.split("/").map(encodeURIComponent).join("/");
         folderDialog.onPicked = callback;
         folderDialog.open();
     }
-
+    FolderDialog {
+        id: folderDialog
+        property var onPicked: null
+        onAccepted: if (onPicked) onPicked(FileUtils.trimFileProtocol(decodeURIComponent(selectedFolder.toString())))
+    }
     FileDialog {
         id: imageDialog
         nameFilters: [Translation.tr("Images (*.png *.jpg *.jpeg *.gif *.webp *.svg)"), Translation.tr("All files (*)")]
         onAccepted: Config.options.overlay.floatingImage.imageSource = FileUtils.trimFileProtocol(decodeURIComponent(selectedFile.toString()))
     }
 
-    ContentSection {
-        icon: "screenshot_frame_2"
-        title: Translation.tr("Screen selection")
-        description: Translation.tr("Used for screenshots, recording a region and Google Lens")
+    component CardGrid: GridLayout {
+        Layout.fillWidth: true
+        columns: width >= 490 ? 2 : 1
+        uniformCellWidths: true
+        uniformCellHeights: true
+        columnSpacing: 12; rowSpacing: 10
+    }
+    component PreviewPair: GridLayout {
+        id: pair
+        required property SettingsBranch branch
+        required property string scene
+        required property string controlsTitle
+        required property string controlsIcon
+        default property alias controls: controlsSection.contentData
+        Layout.fillWidth: true
+        columns: width >= 590 ? 2 : 1
+        uniformCellWidths: true
+        columnSpacing: 16; rowSpacing: 12
+        // Explicit layout children keep the default property available for the settings rows.
+        children: [
+            ContentSection {
+                Layout.minimumWidth: 0; Layout.preferredWidth: 1; Layout.alignment: Qt.AlignTop
+                title: Translation.tr("Preview"); icon: "preview"; card: false
+                ToolsPreview {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: pair.columns === 2 ? Math.max(144, controlsSection.naturalCardHeight) : 164
+                    scene: pair.scene; shown: root.pageShown && pair.branch.shown; showReplay: true
+                }
+            },
+            ContentSection {
+                id: controlsSection
+                Layout.minimumWidth: 0; Layout.preferredWidth: 1; Layout.alignment: Qt.AlignTop
+                minimumCardHeight: pair.columns === 2 ? 144 : 0
+                title: pair.controlsTitle; icon: pair.controlsIcon
+            }
+        ]
+    }
+    component ToolChoice: ConfigComboRow {
+        id: choice
+        property bool compact: false
+        Layout.minimumWidth: 0
+        Layout.preferredWidth: 1
+        maximumWidth: compact ? 178 : 345
+        dropdown.displayIcon: compact ? "" : (choice.dropdown.currentOption?.icon ?? "")
+    }
 
-        ContentSubsection {
-            title: Translation.tr("Hint target regions")
-            ConfigRow {
-                uniform: true
+    component CaptureShortcut: ConfigNavRow {
+        id: shortcut
+        required property string shortcutId
+        readonly property var binding: HyprlandKeybinds.bindMap[shortcutId]
+        visible: !!binding
+        title: Translation.tr(binding?.description ?? "")
+        Accessible.name: title
+        Accessible.description: binding?.disabled ? Translation.tr("Off") : binding ? KeyUtils.comboText(binding.mods, binding.key) : ""
+        searchText: title + " " + Accessible.description
+        onClicked: {
+            const window = root.ApplicationWindow.window;
+            const editor = window.pageItemAt(window.pageIndex("shortcuts"));
+            if (editor) editor.filter = "";
+            window.openPage("shortcuts", "shortcutRow-" + shortcutId);
+        }
+        contentItem: RowLayout {
+            spacing: 12
+            ConfigIconTile { icon: shortcut.buttonIcon }
+            StyledText {
+                Layout.fillWidth: true; text: shortcut.title; wrapMode: Text.WordWrap
+                font.pixelSize: Appearance.font.pixelSize.small; color: Appearance.colors.colOnLayer2
+            }
+            KeyCombo {
+                visible: !!shortcut.binding && !shortcut.binding.disabled
+                mods: shortcut.binding?.mods ?? []
+                key: shortcut.binding?.key ?? ""
+                pixelSize: Appearance.font.pixelSize.smaller
+            }
+            StyledText {
+                visible: shortcut.binding?.disabled ?? false
+                text: Translation.tr("Off"); color: Appearance.colors.colSubtext
+            }
+            MaterialSymbol { text: "chevron_right"; iconSize: 18; color: Appearance.colors.colSubtext }
+        }
+    }
+
+    Item {
+        Layout.fillWidth: true; Layout.fillHeight: true
+        SettingsBranch {
+            id: overview
+            key: "overview"; page: root
+            ContentSection {
+                title: Translation.tr("Screen capture"); icon: "screenshot"; card: false
+                CardGrid {
+                    ToolCard {
+                        branch: screenshots; scene: "screenshot"; buttonIcon: "screenshot"
+                        summary: root.snip.savePath ? Translation.tr("Clipboard and folder") : Translation.tr("Clipboard only")
+                    }
+                    ToolCard {
+                        objectName: "screen-recording" // Stable shortcut from the bar, in every language.
+                        branch: recorder; scene: "recording"; buttonIcon: "videocam"
+                        summary: ScreenRecorder.active ? ScreenRecorder.tooltip
+                            : [root.recording.format.toUpperCase(), root.recording.fps + " FPS", root.audioLabel].join(" · ")
+                    }
+                }
+            }
+            ContentSection {
+                title: Translation.tr("Desktop tools"); icon: "construction"; card: false
+                CardGrid {
+                    ToolCard {
+                        branch: selection; scene: "selection"; buttonIcon: "select_window"; pictureHeight: 118
+                        summary: Config.options.search.imageSearch.useCircleSelection ? Translation.tr("Circle to Search") : Translation.tr("Rectangular selection")
+                    }
+                    ToolCard {
+                        branch: overlay; scene: "overlay"; buttonIcon: "layers"; pictureHeight: 118
+                        summary: Translation.tr("Crosshair and floating image")
+                    }
+                }
+            }
+            ContentSection {
+                title: Translation.tr("Capture shortcuts"); icon: "keyboard"
+                CaptureShortcut { id: shotKeys; shortcutId: "tools.screenshot_region"; buttonIcon: "screenshot_region" }
+                CaptureShortcut { id: filmKeys; shortcutId: "tools.record_region"; buttonIcon: "videocam" }
+                ConfigNavRow {
+                    visible: !shotKeys.binding && !filmKeys.binding
+                    buttonIcon: "keyboard"; title: Translation.tr("Keyboard shortcuts")
+                    onClicked: root.ApplicationWindow.window?.openPage("shortcuts")
+                }
+            }
+        }
+
+        SettingsBranch {
+            id: screenshots
+            key: "screenshots"; page: root
+            PreviewPair {
+                scene: "screenshot"; branch: screenshots
+                controlsTitle: Translation.tr("Screenshot options"); controlsIcon: "screenshot"
                 ConfigSwitch {
-                    buttonIcon: "select_window"
-                    text: Translation.tr('Windows')
-                    checked: Config.options.regionSelector.targetRegions.windows
-                    onCheckedChanged: {
-                        Config.options.regionSelector.targetRegions.windows = checked;
-                    }
+                    objectName: "screenshotShowCursor"
+                    buttonIcon: "arrow_selector_tool"
+                    text: Translation.tr("Show cursor in screenshots")
+                    description: Translation.tr("Include the pointer in screen and region captures")
+                    autoToggle: false
+                    checked: Config.options.screenSnip.showCursor
+                    onClicked: Config.options.screenSnip.showCursor = !checked
                 }
                 ConfigSwitch {
-                    buttonIcon: "right_panel_open"
-                    text: Translation.tr('Layers')
-                    checked: Config.options.regionSelector.targetRegions.layers
-                    onCheckedChanged: {
-                        Config.options.regionSelector.targetRegions.layers = checked;
+                    buttonIcon: "save"
+                    text: Translation.tr("Save screenshots to a folder")
+                    description: checked ? "" : Translation.tr("Otherwise they are only copied to the clipboard")
+                    autoToggle: false
+                    checked: root.snip.savePath.length > 0
+                    onClicked: {
+                        if (checked) Config.options.screenSnip.savePath = "";
+                        else root.pickFolder(Directories.pictures, path => Config.options.screenSnip.savePath = path);
                     }
                 }
             }
-            ConfigSwitch {
-                buttonIcon: "nearby"
-                text: Translation.tr('Content')
-                description: Translation.tr("Could be images or parts of the screen that have some containment. Might not always be accurate. This is done with an image processing algorithm run locally and no AI is used.")
-                checked: Config.options.regionSelector.targetRegions.content
-                onCheckedChanged: {
-                    Config.options.regionSelector.targetRegions.content = checked;
+            ContentSection {
+                ConfigNavRow {
+                    visible: root.snip.savePath.length > 0
+                    buttonIcon: "folder"; title: Translation.tr("Screenshot folder")
+                    description: root.snip.savePath; trailingIcon: "folder_open"
+                    onClicked: root.pickFolder(root.snip.savePath, path => Config.options.screenSnip.savePath = path)
+                }
+                SettingsBranchLink {
+                    branch: selection; buttonIcon: "screenshot_region"
+                    detail: Translation.tr("Guides and suggested regions")
                 }
             }
         }
 
-        ContentSubsection {
-            title: Translation.tr("Google Lens")
-            ConfigSelectionArray {
-                currentValue: Config.options.search.imageSearch.useCircleSelection ? "circle" : "rectangles"
-                onSelected: newValue => {
-                    Config.options.search.imageSearch.useCircleSelection = (newValue === "circle");
+        SettingsBranch {
+            id: recorder
+            key: "screen-recording"; page: root
+            PreviewPair {
+                branch: recorder; scene: "recording"
+                controlsTitle: Translation.tr("Capture area and timing"); controlsIcon: "videocam"
+                ToolChoice {
+                    compact: true
+                    icon: "screenshot_region"; text: Translation.tr("Capture area")
+                    currentValue: root.recording.mode
+                    options: [
+                        { value: "region", displayName: Translation.tr("Region"), description: Translation.tr("Select an area before recording. Esc cancels."), icon: "screenshot_region" },
+                        { value: "screen", displayName: Translation.tr("Focused screen"), description: Translation.tr("Record the entire active monitor."), icon: "desktop_windows" }
+                    ]
+                    onSelected: value => Config.options.screenRecord.mode = value
                 }
-                options: [
-                    { icon: "activity_zone", value: "rectangles", displayName: Translation.tr("Rectangular selection") },
-                    { icon: "gesture", value: "circle", displayName: Translation.tr("Circle to Search") }
-                ]
+                ToolChoice {
+                    compact: true
+                    icon: "timer"; text: Translation.tr("Start delay")
+                    description: Translation.tr("The countdown follows area selection.")
+                    currentValue: root.recording.delay
+                    options: [
+                        { value: 0, displayName: Translation.tr("No delay") },
+                        { value: 3, displayName: Translation.tr("3 seconds") },
+                        { value: 5, displayName: Translation.tr("5 seconds") },
+                        { value: 10, displayName: Translation.tr("10 seconds") }
+                    ]
+                    onSelected: value => Config.options.screenRecord.delay = value
+                }
+            }
+            ContentSection {
+                visible: ScreenRecorder.active || ScreenRecorder.error.length > 0
+                title: Translation.tr("Recording status"); icon: "videocam"
+                ConfigNavRow {
+                    visible: ScreenRecorder.active; buttonIcon: "stop_circle"
+                    title: ScreenRecorder.tooltip
+                    description: Translation.tr("The file is finalized before recording is reported as saved.")
+                    onClicked: ScreenRecorder.stop()
+                }
+                ContentSubsection {
+                    visible: ScreenRecorder.error.length > 0
+                    title: Translation.tr("Last recording error"); description: ScreenRecorder.error
+                }
+            }
+            ContentSection {
+                title: Translation.tr("Recording audio"); icon: "audio_file"
+                ToolChoice {
+                    icon: "graphic_eq"; text: Translation.tr("Audio source")
+                    description: Translation.tr("Recording uses the devices selected at the start.")
+                    currentValue: root.recording.audio; options: root.audioOptions
+                    onSelected: value => Config.options.screenRecord.audio = value
+                }
+                ToolChoice {
+                    visible: ["system", "both"].includes(root.recording.audio)
+                    icon: "speaker"; text: Translation.tr("System audio device")
+                    currentValue: root.recording.systemSource
+                    options: root.sourceChoices(true, root.recording.systemSource)
+                    description: !sourceProcess.running && dropdown.currentOption?.icon === "warning"
+                        ? Translation.tr("A disconnected selected device causes an error, never a silent fallback.") : ""
+                    onSelected: value => Config.options.screenRecord.systemSource = value
+                }
+                ToolChoice {
+                    visible: ["microphone", "both"].includes(root.recording.audio)
+                    icon: "mic"; text: Translation.tr("Microphone device")
+                    currentValue: root.recording.microphoneSource
+                    options: root.sourceChoices(false, root.recording.microphoneSource)
+                    description: !sourceProcess.running && dropdown.currentOption?.icon === "warning"
+                        ? Translation.tr("A disconnected selected device causes an error, never a silent fallback.") : ""
+                    onSelected: value => Config.options.screenRecord.microphoneSource = value
+                }
+                ConfigNavRow {
+                    visible: root.recording.audio !== "none"
+                    buttonIcon: "refresh"; title: Translation.tr("Refresh audio devices"); trailingIcon: ""
+                    onClicked: sourceProcess.running = true
+                }
+            }
+            ContentSection {
+                title: Translation.tr("Video file"); icon: "movie"
+                description: Translation.tr("Changes apply to the next recording.")
+                ToolChoice {
+                    icon: "speed"; text: Translation.tr("Frame rate"); currentValue: root.recording.fps
+                    options: [
+                        { value: 30, displayName: "30 FPS", description: Translation.tr("Lower CPU and disk use") },
+                        { value: 60, displayName: "60 FPS", description: Translation.tr("Smoother motion") }
+                    ]
+                    onSelected: value => Config.options.screenRecord.fps = value
+                }
+                ToolChoice {
+                    icon: "high_quality"; text: Translation.tr("Video quality"); currentValue: root.recording.quality
+                    options: [
+                        { value: "high", displayName: Translation.tr("High quality (CRF 18)") },
+                        { value: "balanced", displayName: Translation.tr("Balanced (CRF 23)") },
+                        { value: "small", displayName: Translation.tr("Smaller files (CRF 28)") }
+                    ]
+                    onSelected: value => Config.options.screenRecord.quality = value
+                }
+                ToolChoice {
+                    icon: "video_file"; text: Translation.tr("Recording format"); currentValue: root.recording.format
+                    options: [
+                        { value: "mp4", displayName: "MP4", description: Translation.tr("Plays on most devices") },
+                        { value: "mkv", displayName: "MKV", description: Translation.tr("More resilient if recording is interrupted") }
+                    ]
+                    onSelected: value => Config.options.screenRecord.format = value
+                }
+                ConfigNavRow {
+                    buttonIcon: "folder"; title: Translation.tr("Recording folder")
+                    description: ScreenRecorder.savePath; trailingIcon: "folder_open"
+                    onClicked: root.pickFolder(ScreenRecorder.savePath, path => Config.options.screenRecord.savePath = path)
+                }
+                ConfigNavRow {
+                    buttonIcon: "video_library"; title: Translation.tr("Open recordings folder"); trailingIcon: "open_in_new"
+                    description: ScreenRecorder.file
+                    onClicked: ScreenRecorder.openFolder()
+                }
             }
         }
 
-        ConfigSwitch {
-            buttonIcon: "point_scan"
-            text: Translation.tr("Show aim lines")
-            description: Translation.tr("For rectangular selection")
-            checked: Config.options.regionSelector.rect.showAimLines
-            onCheckedChanged: {
-                Config.options.regionSelector.rect.showAimLines = checked;
+        SettingsBranch {
+            id: selection
+            key: "selection"; page: root
+            PreviewPair {
+                scene: "selection"; branch: selection
+                controlsTitle: Translation.tr("Selection guides"); controlsIcon: "gesture"
+                ToolChoice {
+                    compact: true
+                    icon: "image_search"; text: Translation.tr("Google Lens")
+                    searchText: [text, Translation.tr("Rectangular selection"), Translation.tr("Circle to Search")].join(" ")
+                    currentValue: Config.options.search.imageSearch.useCircleSelection ? "circle" : "rectangles"
+                    options: [
+                        { icon: "activity_zone", value: "rectangles", displayName: Translation.tr("Rectangle") },
+                        { icon: "gesture", value: "circle", displayName: Translation.tr("Circle") }
+                    ]
+                    onSelected: value => Config.options.search.imageSearch.useCircleSelection = value === "circle"
+                }
+                ConfigSwitch {
+                    buttonIcon: "point_scan"; text: Translation.tr("Show aim lines")
+                    description: Translation.tr("For rectangular selection"); autoToggle: false
+                    checked: root.selector.rect.showAimLines
+                    onClicked: Config.options.regionSelector.rect.showAimLines = !checked
+                }
             }
-        }
-
-        ContentSubsection {
-            title: Translation.tr("Circle selection")
-            ConfigRow {
-                uniform: true
+            ContentSection {
+                icon: "select_window"; title: Translation.tr("Hint target regions")
+                ConfigSwitch {
+                    buttonIcon: "select_window"; text: Translation.tr("Window outlines"); autoToggle: false
+                    checked: root.selector.targetRegions.windows
+                    onClicked: Config.options.regionSelector.targetRegions.windows = !checked
+                }
+                ConfigSwitch {
+                    buttonIcon: "dock_to_right"; text: Translation.tr("Panels and overlays"); autoToggle: false
+                    checked: root.selector.targetRegions.layers
+                    onClicked: Config.options.regionSelector.targetRegions.layers = !checked
+                }
+                ConfigSwitch {
+                    buttonIcon: "image"; text: Translation.tr("Content regions"); autoToggle: false
+                    description: Translation.tr("Detect images and other areas on the device.")
+                    checked: root.selector.targetRegions.content
+                    onClicked: Config.options.regionSelector.targetRegions.content = !checked
+                }
+            }
+            ContentSection {
+                icon: "gesture"; title: Translation.tr("Circle selection")
                 ConfigSpinBox {
-                    icon: "eraser_size_3"
-                    text: Translation.tr("Stroke width")
-                    value: Config.options.regionSelector.circle.strokeWidth
-                    from: 1
-                    to: 20
-                    stepSize: 1
-                    onValueChanged: {
-                        Config.options.regionSelector.circle.strokeWidth = value;
-                    }
+                    icon: "eraser_size_3"; text: Translation.tr("Stroke width")
+                    value: root.selector.circle.strokeWidth; from: 1; to: 20; stepSize: 1
+                    onValueChanged: Config.options.regionSelector.circle.strokeWidth = value
                 }
                 ConfigSpinBox {
-                    icon: "screenshot_frame_2"
-                    text: Translation.tr("Padding")
-                    value: Config.options.regionSelector.circle.padding
-                    from: 0
-                    to: 100
-                    stepSize: 5
-                    onValueChanged: {
-                        Config.options.regionSelector.circle.padding = value;
-                    }
-                }
-            }
-        }
-    }
-
-    ContentSection {
-        objectName: "screen-recording" // Stable, language-independent settings deep link
-        icon: "videocam"
-        title: Translation.tr("Screen recording")
-        description: Translation.tr("Applies to the recording button. Explicit region, screen and sound shortcuts override only their own mode. Changes apply to the next recording.")
-
-        ContentSubsection {
-            title: Translation.tr("Capture area")
-            description: Translation.tr("Screen records the focused monitor. Region lets you select an area; Esc cancels.")
-            ConfigSelectionArray {
-                currentValue: Config.options.screenRecord.mode
-                onSelected: value => Config.options.screenRecord.mode = value
-                options: [
-                    { value: "region", displayName: Translation.tr("Region"), icon: "screenshot_region" },
-                    { value: "screen", displayName: Translation.tr("Focused screen"), icon: "desktop_windows" }
-                ]
-            }
-        }
-        ContentSubsection {
-            title: Translation.tr("Recording audio")
-            description: Translation.tr("Microphone is used only when explicitly selected. System sound follows the playback device at the start; changing devices mid-recording is not supported.")
-            ConfigSelectionArray {
-                currentValue: Config.options.screenRecord.audio
-                onSelected: value => Config.options.screenRecord.audio = value
-                options: [
-                    { value: "none", displayName: Translation.tr("Silent"), icon: "volume_off" },
-                    { value: "system", displayName: Translation.tr("System sound"), icon: "speaker" },
-                    { value: "microphone", displayName: Translation.tr("Microphone only"), icon: "mic" },
-                    { value: "both", displayName: Translation.tr("System + microphone"), icon: "mic_external_on" }
-                ]
-            }
-        }
-        ContentSubsection {
-            visible: ["system", "both"].includes(Config.options.screenRecord.audio)
-            title: Translation.tr("System audio device")
-            ConfigSelectionArray {
-                currentValue: Config.options.screenRecord.systemSource
-                options: root.sourceChoices(true, Config.options.screenRecord.systemSource)
-                onSelected: value => Config.options.screenRecord.systemSource = value
-            }
-        }
-        ContentSubsection {
-            visible: ["microphone", "both"].includes(Config.options.screenRecord.audio)
-            title: Translation.tr("Microphone device")
-            ConfigSelectionArray {
-                currentValue: Config.options.screenRecord.microphoneSource
-                options: root.sourceChoices(false, Config.options.screenRecord.microphoneSource)
-                onSelected: value => Config.options.screenRecord.microphoneSource = value
-            }
-        }
-        ConfigNavRow {
-            buttonIcon: "refresh"
-            title: Translation.tr("Refresh audio devices")
-            description: Translation.tr("A disconnected selected device causes an error, never a silent fallback.")
-            onClicked: sourceProcess.running = true
-        }
-        ContentSubsection {
-            title: Translation.tr("Frame rate")
-            description: Translation.tr("60 FPS is smoother but uses more CPU and disk space. 30 FPS is recommended for everyday recording.")
-            ConfigSelectionArray {
-                currentValue: Config.options.screenRecord.fps
-                onSelected: value => Config.options.screenRecord.fps = value
-                options: [ { value: 30, displayName: "30 FPS" }, { value: 60, displayName: "60 FPS" } ]
-            }
-        }
-        ContentSubsection {
-            title: Translation.tr("Video quality")
-            description: Translation.tr("H.264 software encoding. Higher quality means larger files; all modes use the same fast encoder preset.")
-            ConfigSelectionArray {
-                currentValue: Config.options.screenRecord.quality
-                onSelected: value => Config.options.screenRecord.quality = value
-                options: [
-                    { value: "high", displayName: Translation.tr("High quality (CRF 18)") },
-                    { value: "balanced", displayName: Translation.tr("Balanced (CRF 23)") },
-                    { value: "small", displayName: Translation.tr("Smaller files (CRF 28)") }
-                ]
-            }
-        }
-        ContentSubsection {
-            title: Translation.tr("Recording format")
-            description: Translation.tr("MP4 is widely compatible. MKV is more resilient to interrupted recording. Always stop normally to finish saving.")
-            ConfigSelectionArray {
-                currentValue: Config.options.screenRecord.format
-                onSelected: value => Config.options.screenRecord.format = value
-                options: [ { value: "mp4", displayName: "MP4" }, { value: "mkv", displayName: "MKV" } ]
-            }
-        }
-        ContentSubsection {
-            title: Translation.tr("Start delay")
-            description: Translation.tr("Starts after area selection. Press the recording button again to cancel the countdown.")
-            ConfigSelectionArray {
-                currentValue: Config.options.screenRecord.delay
-                onSelected: value => Config.options.screenRecord.delay = value
-                options: [
-                    { value: 0, displayName: Translation.tr("No delay") },
-                    { value: 3, displayName: Translation.tr("3 seconds") },
-                    { value: 5, displayName: Translation.tr("5 seconds") },
-                    { value: 10, displayName: Translation.tr("10 seconds") }
-                ]
-            }
-        }
-        ConfigNavRow {
-            buttonIcon: "folder"
-            title: Translation.tr("Recording folder")
-            description: ScreenRecorder.savePath
-            trailingIcon: "folder_open"
-            onClicked: root.pickFolder(ScreenRecorder.savePath, path => Config.options.screenRecord.savePath = path)
-        }
-        ConfigNavRow {
-            buttonIcon: "folder_open"
-            title: Translation.tr("Open recordings folder")
-            description: ScreenRecorder.file || ScreenRecorder.savePath
-            onClicked: ScreenRecorder.openFolder()
-        }
-        ConfigNavRow {
-            visible: ScreenRecorder.active
-            buttonIcon: "stop_circle"
-            title: ScreenRecorder.tooltip
-            description: Translation.tr("The file is finalized before recording is reported as saved.")
-            onClicked: ScreenRecorder.stop()
-        }
-        ContentSubsection {
-            visible: ScreenRecorder.error.length > 0
-            title: Translation.tr("Last recording error")
-            description: ScreenRecorder.error
-        }
-    }
-
-    ContentSection {
-        icon: "screenshot"
-        title: Translation.tr("Screenshots")
-        description: Translation.tr("Cursor visibility and screenshot storage")
-
-        ConfigSwitch {
-            objectName: "screenshotShowCursor"
-            buttonIcon: "arrow_selector_tool"
-            text: Translation.tr("Show cursor in screenshots")
-            description: Translation.tr("Include the pointer in screen and region captures")
-            autoToggle: false
-            checked: Config.options.screenSnip.showCursor
-            onClicked: Config.options.screenSnip.showCursor = !checked
-        }
-        ConfigSwitch {
-            buttonIcon: "screenshot"
-            text: Translation.tr("Save screenshots to a folder")
-            description: Translation.tr("Otherwise they are only copied to the clipboard")
-            autoToggle: false
-            checked: Config.options.screenSnip.savePath.length > 0
-            onClicked: {
-                if (checked) Config.options.screenSnip.savePath = "";
-                else root.pickFolder(FileUtils.trimFileProtocol(Directories.pictures), path => Config.options.screenSnip.savePath = path);
-            }
-        }
-        ConfigNavRow {
-            visible: Config.options.screenSnip.savePath.length > 0
-            buttonIcon: "folder"
-            title: Translation.tr("Screenshots")
-            description: Config.options.screenSnip.savePath
-            trailingIcon: "folder_open"
-            onClicked: root.pickFolder(Config.options.screenSnip.savePath, path => Config.options.screenSnip.savePath = path)
-        }
-    }
-
-    ContentSection {
-        icon: "select_window"
-        title: Translation.tr("Overlay")
-        description: Translation.tr("Floating widgets opened with Super+G")
-
-        ConfigSwitch {
-            buttonIcon: "high_density"
-            text: Translation.tr("Enable opening zoom animation")
-            checked: Config.options.overlay.openingZoomAnimation
-            onCheckedChanged: {
-                Config.options.overlay.openingZoomAnimation = checked;
-            }
-        }
-        ConfigSwitch {
-            buttonIcon: "texture"
-            text: Translation.tr("Darken screen")
-            checked: Config.options.overlay.darkenScreen
-            onCheckedChanged: {
-                Config.options.overlay.darkenScreen = checked;
-            }
-        }
-
-        ContentSubsection {
-            title: Translation.tr("Crosshair")
-            description: Translation.tr("Press Super+G to open the overlay and pin the crosshair")
-            ConfigTextRow {
-                monospace: true
-                placeholderText: Translation.tr("Crosshair code (in Valorant's format)")
-                value: Config.options.crosshair.code
-                onValueChanged: {
-                    Config.options.crosshair.code = value;
-                }
-            }
-            RippleButtonWithIcon {
-                Layout.leftMargin: 12
-                Layout.bottomMargin: 6
-                buttonRadius: Appearance.rounding.full
-                colBackground: Appearance.colors.colSecondaryContainer
-                colBackgroundHover: Appearance.colors.colSecondaryContainerHover
-                colRipple: Appearance.colors.colSecondaryContainerActive
-                materialIcon: "open_in_new"
-                mainText: Translation.tr("Open editor")
-                onClicked: {
-                    Qt.openUrlExternally(`https://www.vcrdb.net/builder?c=${Config.options.crosshair.code}`);
-                }
-                StyledToolTip {
-                    text: "www.vcrdb.net"
+                    icon: "screenshot_frame_2"; text: Translation.tr("Padding")
+                    value: root.selector.circle.padding; from: 0; to: 100; stepSize: 5
+                    onValueChanged: Config.options.regionSelector.circle.padding = value
                 }
             }
         }
 
-        ContentSubsection {
-            title: Translation.tr("Floating image")
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 0
+        SettingsBranch {
+            id: overlay
+            key: "overlay"; page: root
+            PreviewPair {
+                scene: "overlay"; branch: overlay
+                controlsTitle: Translation.tr("Opening the overlay"); controlsIcon: "layers"
+                ConfigSwitch {
+                    buttonIcon: "animation"; text: Translation.tr("Enable opening zoom animation"); autoToggle: false
+                    checked: Config.options.overlay.openingZoomAnimation
+                    onClicked: Config.options.overlay.openingZoomAnimation = !checked
+                }
+                ConfigSwitch {
+                    buttonIcon: "texture"; text: Translation.tr("Darken screen"); autoToggle: false
+                    description: Translation.tr("Floating widgets opened with Super+G")
+                    checked: Config.options.overlay.darkenScreen
+                    onClicked: Config.options.overlay.darkenScreen = !checked
+                }
+            }
+            ContentSection {
+                title: Translation.tr("Crosshair"); icon: "center_focus_strong"
                 ConfigTextRow {
-                    placeholderText: Translation.tr("Image file or link")
-                    description: Translation.tr("Press Enter to apply")
-                    wrapMode: TextEdit.NoWrap
+                    icon: "code"; label: Translation.tr("Crosshair code"); monospace: true
+                    placeholderText: Translation.tr("Crosshair code (in Valorant's format)")
+                    value: Config.options.crosshair.code
+                    onValueChanged: Config.options.crosshair.code = value
+                }
+                ConfigNavRow {
+                    title: Translation.tr("Open editor"); buttonIcon: "edit"; trailingIcon: "open_in_new"
+                    description: Translation.tr("Press Super+G to open the overlay and pin the crosshair")
+                    onClicked: Qt.openUrlExternally("https://www.vcrdb.net/builder?c=" + encodeURIComponent(Config.options.crosshair.code))
+                }
+            }
+            ContentSection {
+                title: Translation.tr("Floating image"); icon: "image"
+                ConfigTextRow {
+                    label: Translation.tr("Image file or link"); icon: "link"
+                    description: Translation.tr("Press Enter to apply"); wrapMode: TextEdit.NoWrap
                     value: Config.options.overlay.floatingImage.imageSource
                     onEditingFinished: Config.options.overlay.floatingImage.imageSource = value.trim()
                 }
-                RippleButtonWithIcon {
-                    Layout.rightMargin: 12
-                    Layout.alignment: Qt.AlignVCenter
-                    implicitHeight: 40
-                    buttonRadius: Appearance.rounding.full
-                    colBackground: Appearance.colors.colSecondaryContainer
-                    colBackgroundHover: Appearance.colors.colSecondaryContainerHover
-                    colRipple: Appearance.colors.colSecondaryContainerActive
-                    materialIcon: "image"
-                    mainText: Translation.tr("Choose file")
+                ConfigNavRow {
+                    buttonIcon: "image"; title: Translation.tr("Choose an image"); trailingIcon: "folder_open"
                     onClicked: imageDialog.open()
                 }
             }

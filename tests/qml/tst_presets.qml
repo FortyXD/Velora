@@ -16,6 +16,13 @@ Item {
                 theme: {config: {}, mode: "dark", accent: "#112233"},
                 wallpaperAnimations: {config: {}, wallpaper: wallpaper} };
         }
+        function test_import_keeps_dock_appearance_and_local_pins_separate() {
+            const config = {dock: {height: 68, pinnedApps: ["test.viewer"], pinnedAppCommands: {"test.viewer": ["sample-viewer"]}}};
+            const preset = Presets.readPreset(JSON.stringify({name: "A portable look", dockWidgets: {config: config}}));
+            compare(preset.dockWidgets.config.dock.height, 68);
+            verify(!("pinnedApps" in preset.dockWidgets.config.dock));
+            verify(!("pinnedAppCommands" in preset.dockWidgets.config.dock));
+        }
         function finishProcess(object, code) {
             object.running = false;
             object.exited(code, 0);

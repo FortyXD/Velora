@@ -99,6 +99,7 @@ Item {
 
             StyledSlider {
                 id: slider
+                defaultValue: Audio.defaultVolume(root.node)
                 value: root.node?.audio.volume ?? 0
                 onMoved: {
                     if (root.node?.audio) root.node.audio.volume = value

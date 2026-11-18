@@ -96,9 +96,11 @@ class InstallerAuditTests(IsolatedTest):
         recipe = source / "packaging/arch/PKGBUILD.in"
         recipe.parent.mkdir(parents=True)
         shutil.copyfile(PROJECT / "packaging/arch/PKGBUILD.in", recipe)
-        cache = source / "tools/target/debug/build-cache"
-        cache.parent.mkdir(parents=True)
-        cache.write_text("generated compiler output")
+        caches = ("tools/target", "tools/velora-translate/target")
+        for directory in caches:
+            cache = source / directory / "debug/build-cache"
+            cache.parent.mkdir(parents=True)
+            cache.write_text("generated compiler output")
         fixture = source / "tools/velora-helper/tests/target/fixture"
         fixture.parent.mkdir(parents=True)
         fixture.write_text("test source data")
@@ -106,7 +108,8 @@ class InstallerAuditTests(IsolatedTest):
         builds.prepare_package(source, build,
                                {"version": "0.1.0", "source_revision": "a" * 40}, velora.run)
         snapshot = build / "snapshot/velora"
-        self.assertFalse((snapshot / "tools/target").exists())
+        for directory in caches:
+            self.assertFalse((snapshot / directory).exists())
         self.assertEqual((snapshot / fixture.relative_to(source)).read_text(), "test source data")
 
     def test_enabling_updates_repairs_a_missing_or_stale_timer(self):
@@ -126,9 +129,6 @@ class InstallerAuditTests(IsolatedTest):
                 self.assertEqual(target.read_text(), timer)
 
     def test_doctor_fails_when_the_native_helper_is_missing(self):
-        python = velora.xdg("XDG_STATE_HOME", ".local/state") / "quickshell/.venv/bin/python"
-        python.parent.mkdir(parents=True)
-        python.touch()
         with patch.object(velora, "font_installed", return_value=True), \
                 patch.object(velora, "package_plan", return_value=([], [])), \
                 patch.object(velora, "stale_links", return_value=[]), \

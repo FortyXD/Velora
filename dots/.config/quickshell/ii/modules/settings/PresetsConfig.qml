@@ -121,13 +121,13 @@ ContentPage {
                         sourceComponent: ShaderWallpaperView {
                             name: card.shaderName
                             colors: card.preset.wallpaperAnimations?.config?.background?.shaderWallpaper?.colors ?? []
-                            running: card.hovered
+                            running: page.pageShown && card.hovered
                             fps: 24
                         }
                     }
                     Loader {
                         anchors.fill: parent
-                        active: card.hovered && card.previewVideo.length > 0
+                        active: page.pageShown && card.hovered && card.previewVideo.length > 0
                         sourceComponent: Video {
                             source: card.previewVideo
                             autoPlay: true
@@ -226,6 +226,7 @@ ContentPage {
                                 Layout.fillWidth: true
                                 elide: Text.ElideRight
                                 text: Translation.tr(card.preset.name)
+                                textFormat: Text.PlainText
                                 font.pixelSize: Appearance.font.pixelSize.normal
                                 color: card.expanded ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
                             }
@@ -248,6 +249,7 @@ ContentPage {
                             Layout.fillWidth: true
                             wrapMode: Text.Wrap
                             text: Translation.tr(card.preset.description ?? "")
+                            textFormat: Text.PlainText
                             font.pixelSize: Appearance.font.pixelSize.smaller
                             color: Appearance.colors.colSubtext
                         }
@@ -557,13 +559,14 @@ ContentPage {
                 wrapMode: Text.Wrap
                 color: importSection.pasted?.error ? Appearance.colors.colError : Appearance.colors.colOnLayer1
                 text: importSection.pasted?.error ?? Translation.tr("“%1” is ready to import.").arg(importSection.pasted?.preset?.name ?? "")
+                textFormat: Text.PlainText
             }
             StyledText {
                 Layout.fillWidth: true
                 visible: (importSection.pasted?.commands?.length ?? 0) > 0
                 wrapMode: Text.Wrap
                 color: Appearance.colors.colError
-                text: Translation.tr("Its bar runs these commands when you click its widgets. Import it only if you trust them:")
+                text: Translation.tr("Bar widgets can run the commands below automatically or when you interact with them.")
             }
             Repeater {
                 model: importSection.pasted?.commands ?? []
@@ -572,6 +575,7 @@ ContentPage {
                     Layout.fillWidth: true
                     wrapMode: Text.WrapAnywhere
                     text: modelData
+                    textFormat: Text.PlainText
                     font.family: Appearance.font.family.monospace
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     color: Appearance.colors.colOnLayer1

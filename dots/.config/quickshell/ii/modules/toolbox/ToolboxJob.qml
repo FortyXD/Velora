@@ -2,21 +2,16 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-/**
- * Runs one command of scripts/toolbox/folis_toolbox.py and reports its JSON events.
- * Stopping it (cancel) sends SIGTERM; the script then stops its own child tools.
- */
+// The native helper streams JSON events and owns the external tools for this job.
 Process {
     id: root
 
     signal event(var data)
     signal finishedAll()
 
-    readonly property string script: Quickshell.shellPath("scripts/toolbox/folis_toolbox.py")
-
     function start(args) {
         root.running = false;
-        root.command = ["/usr/bin/python3", "-I", root.script, ...args];
+        root.command = [Quickshell.shellPath("scripts/helper"), "toolbox", ...args];
         root.running = true;
     }
 

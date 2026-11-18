@@ -265,7 +265,7 @@ ContentPage {
                                 anchors.fill: parent
                                 name: shaderTile.modelData.id
                                 colors: shaderTile.current && Config.options.background.shaderWallpaper.colors.length === 0 ? [] : shaderTile.modelData.colors
-                                running: shaderTile.hovered || shaderTile.current // Only what you look at moves
+                                running: root.pageShown && (shaderTile.hovered || shaderTile.current)
                                 fps: 24
                             }
                             MaterialSymbol {
@@ -316,6 +316,8 @@ ContentPage {
             usePercentTooltip: false
             from: 0.25
             to: 3
+            defaultValue: 1
+            defaultValueText: "100%"
             value: Config.options.background.shaderWallpaper.speed
             valueText: `${Math.round(value * 100)}%`
             onMoved: Config.options.background.shaderWallpaper.speed = Math.round(value * 20) / 20

@@ -1,20 +1,38 @@
 [package]
 name = "velora-helper"
+default-run = "velora-helper"
 version = "0.1.0"
 edition = "2021"
 description = "Fast native helpers for the Velora desktop: wallpaper palettes, theme staging and widget placement"
 license = "GPL-3.0-only"
 publish = false
 
+[[bin]]
+name = "velora-desktop-state"
+path = "src/desktop_state.rs"
+
 [dependencies]
 anyhow = "1"
-image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif", "bmp", "tiff"] }
+base64 = "0.22"
+gio = { version = "0.21", default-features = false }
+url = "2"
+unicode-width = "0.2"
+crc32fast = "1"
+chrono = "0.4"
+regex = "1"
+sha2 = "0.10"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif", "bmp", "tiff", "ico", "pnm", "tga"] }
 fast_image_resize = { version = "6", features = ["image"] }
 libc = "0.2"
 material-colors = "0.5"
 md-5 = "0.10"
 png = "0.18"
 roxmltree = "0.20"
+rustix = { version = "1", features = ["fs", "process"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+zbus = { version = "6", default-features = false, features = ["tokio", "proxy"] }
 serde = "1"
 serde_json = { version = "1", features = ["preserve_order"] }
 toml = "0.8"
+tempfile = "3"
+tokio = { version = "1", features = ["rt", "macros", "io-std", "io-util", "process", "signal", "time"] }

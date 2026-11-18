@@ -14,6 +14,7 @@ ConfigSlider {
 
     enabled: HyprlandSettings.ready
     usePercentTooltip: false
+    defaultValue: root.fallback
     value: HyprlandSettings.get(root.option, root.fallback)
     valueText: root.integer ? `${Math.round(root.value)}` : root.value.toFixed(root.decimals)
     onMoved: {

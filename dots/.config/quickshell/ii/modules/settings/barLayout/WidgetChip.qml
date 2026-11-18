@@ -16,6 +16,8 @@ Rectangle {
     property string label
     property string icon
     property bool selected: false
+    property bool present: false // This exact widget is already on the bar
+    readonly property bool highlighted: root.selected || root.present
     property bool pill: false
     property bool unknown: false
     property int hideAt: 0
@@ -56,12 +58,18 @@ Rectangle {
         MaterialSymbol {
             text: root.removing ? "delete" : root.unknown ? "error" : root.icon
             iconSize: root.compact ? 16 : 18
-            fill: root.selected ? 1 : 0
+            fill: root.highlighted ? 1 : 0
             color: root.contentColor
         }
         StyledText {
             text: root.label
             font.pixelSize: root.compact ? Appearance.font.pixelSize.smaller : Appearance.font.pixelSize.small
+            color: root.contentColor
+        }
+        MaterialSymbol {
+            visible: root.present
+            text: "check"
+            iconSize: 14
             color: root.contentColor
         }
         MaterialSymbol {

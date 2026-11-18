@@ -13,7 +13,13 @@ The recording indicator and timer start only after encoder/muxer initialization;
 - **Area:** region selection (default), or the focused monitor. Escape cancels region
   selection. Explicit region actions use the shell's region picker; the default
   button uses `slurp`. Both accept logical coordinates, including scaled monitors
-  and monitors to the left of the primary display.
+  and monitors to the left of the primary display. Hot corners stay held aside for the
+  whole selection — while the picker is open, through the handoff to the encoder, and
+  while an external `slurp` runs — and re-arm only after the pointer actually leaves
+  the corner, so finishing a selection in a corner never opens a sidebar. The external
+  selector's hold is best-effort IPC (using `qsConfig`, or `ii` by default) and expires
+  after two minutes if its controller is killed before releasing it. Expiry uses the
+  same bounded cursor check and leave-before-reentry guard; it does not poll the pointer.
 - **Audio:** silent, system sound (default), microphone only, or system + microphone.
   Unlike the previous illogical-impulse button, the microphone is **not enabled by
   default**. Select both explicitly to restore that behavior. A muted device records
@@ -63,8 +69,9 @@ before revealing it rather than relying on a translated search query.
 
 ## Troubleshooting and safety
 
-Dependencies: Python 3, `wf-recorder`, `ffmpeg`/`ffprobe`, `slurp`, `hyprctl`, and
-`pactl` (PulseAudio compatibility through PipeWire works). Notifications use
+The native `velora-helper recorder` uses `wf-recorder`, `ffmpeg`/`ffprobe`,
+`slurp`, `hyprctl`, and `pactl` (including PipeWire's PulseAudio compatibility layer).
+The shell receives status changes from a single event-driven watcher. Notifications use
 `notify-send` when available. Unsupported `wf-recorder -t` is deliberately not used.
 
 The last error is visible in the recording settings and notifications. Private,

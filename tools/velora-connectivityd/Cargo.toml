@@ -20,5 +20,6 @@ zbus = { version = "6", default-features = false, features = ["tokio", "proxy", 
 zeroize = "1"
 
 [dev-dependencies]
+tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 velora-connectivity-fakes = { path = "../velora-connectivity-fakes" }

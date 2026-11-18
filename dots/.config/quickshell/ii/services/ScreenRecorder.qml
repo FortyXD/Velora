@@ -106,11 +106,11 @@ Singleton {
     }
     Process {
         id: stateProcess
-        command: [Directories.recordScriptPath, "status"]
-        stdout: StdioCollector {
-            onStreamFinished: {
+        command: [Directories.recordScriptPath, "watch"]
+        stdout: SplitParser {
+            onRead: line => {
                 try {
-                    const state = JSON.parse(text);
+                    const state = JSON.parse(line);
                     root.phase = state.state || "idle";
                     root.startedAt = state.startedAt || 0;
                     root.file = state.file || "";
@@ -119,12 +119,12 @@ Singleton {
                 } catch (e) { console.warn("Recorder status:", e); }
             }
         }
+        onExited: retry.restart()
     }
     Component.onCompleted: refresh()
     Timer {
-        interval: 1000
-        running: true
-        repeat: true
+        id: retry
+        interval: 3000
         onTriggered: root.refresh()
     }
 }

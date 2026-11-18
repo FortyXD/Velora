@@ -51,7 +51,7 @@ pub fn run() -> Result<()> {
     let proc_root = std::env::var_os("VELORA_PROC").map_or_else(|| PathBuf::from("/proc"), PathBuf::from);
     let cpus = std::thread::available_parallelism().map_or(1, |count| count.get());
     let mut report = format!("N {cpus}\n");
-    let uid = fs::metadata(&proc_root)?.uid().max(fs::metadata("/proc/self")?.uid());
+    let uid = rustix::process::getuid().as_raw();
     let processes = my_processes(&proc_root, uid);
     let first = sample(&processes);
     let started = Instant::now();

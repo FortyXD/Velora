@@ -85,7 +85,19 @@ Item {
         if (root.results.length > 0) root.resultChosen(root.results[0].pageIndex, root.results[0].item);
     }
 
-    onQueryChanged: refreshTimer.restart()
+    function scheduleRefresh() {
+        if (root.enabled && root.query.trim().length > 0 && !refreshTimer.running) refreshTimer.start();
+    }
+    onEnabledChanged: {
+        if (root.enabled) root.scheduleRefresh();
+        else refreshTimer.stop();
+    }
+    onQueryChanged: {
+        // Never keep an old result actionable while a new query is waiting for its debounce.
+        root.results = [];
+        refreshTimer.stop();
+        root.scheduleRefresh();
+    }
     Timer {
         id: refreshTimer
         interval: 90
@@ -189,7 +201,7 @@ Item {
     MaterialLoadingIndicator {
         anchors.centerIn: parent
         implicitSize: 48
-        loading: root.loading && root.results.length === 0
+        loading: root.enabled && root.loading && root.query.trim().length > 0 && root.results.length === 0
         visible: loading
     }
 

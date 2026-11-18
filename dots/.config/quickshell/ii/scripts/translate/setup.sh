@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Installs the offline English <-> Russian translator used by the sidebar Translator tab.
-# - Python venv with ctranslate2 + sentencepiece (no torch)
+# - Native CPU engine with CTranslate2 and SentencePiece
 # - Argos Translate 1.9 models, only the CTranslate2 model and SentencePiece files are kept
 #
 # Prints machine-readable lines for the UI:
@@ -11,7 +11,7 @@
 set -uo pipefail
 
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/folis/translate"
-VENV_DIR="$DATA_DIR/venv"
+ENGINE_DIR="$DATA_DIR/bin"
 MODELS_DIR="$DATA_DIR/models"
 
 # argos-net.com stalls on some networks, so the pinned HuggingFace mirror comes first.
@@ -32,23 +32,30 @@ die() { echo "ERROR $1"; exit 1; }
 
 mkdir -p "$DATA_DIR" "$MODELS_DIR" || die "Cannot create $DATA_DIR"
 
-# 1. Python environment
-if ! "$VENV_DIR/bin/python" -c 'import ctranslate2, sentencepiece' &>/dev/null; then
-    progress 2 "Creating Python environment"
-    rm -rf "$VENV_DIR"
-    if command -v uv &>/dev/null; then
-        uv venv --quiet --python /usr/bin/python3 "$VENV_DIR" &>/dev/null || die "Could not create the Python environment"
-        progress 5 "Installing ctranslate2 and sentencepiece"
-        uv pip install --quiet --python "$VENV_DIR/bin/python" ctranslate2 sentencepiece &>/dev/null \
-            || die "Could not install ctranslate2/sentencepiece from PyPI"
-    else
-        /usr/bin/python3 -m venv "$VENV_DIR" || die "Could not create the Python environment"
-        progress 5 "Installing ctranslate2 and sentencepiece"
-        "$VENV_DIR/bin/pip" install --quiet ctranslate2 sentencepiece &>/dev/null \
-            || die "Could not install ctranslate2/sentencepiece from PyPI"
+# Serialize builds and model publication when two shell instances open setup.
+exec 9>"$DATA_DIR/.setup.lock" || die "Cannot lock translator setup"
+flock 9 || die "Cannot lock translator setup"
+script="$(readlink -f -- "${BASH_SOURCE[0]}")"
+manifest="$(dirname -- "$script")/../../../../../../tools/velora-translate/Cargo.toml"
+mkdir -p "$ENGINE_DIR" || die "Cannot create $ENGINE_DIR"
+if command -v velora-translate >/dev/null; then
+    engine="$(command -v velora-translate)"
+else
+    [[ -f "$manifest" ]] || die "Missing translator sources"
+    target="${XDG_CACHE_HOME:-$HOME/.cache}/velora/translate-build"
+    progress 2 "Building the native translation engine"
+    cargo build --release --locked -j 2 --manifest-path "$manifest" --target-dir "$target" >&2 || die "Could not build the translation engine"
+    engine="$target/release/velora-translate"
+fi
+if [[ ! -x "$ENGINE_DIR/velora-translate" ]] || ! cmp -s "$engine" "$ENGINE_DIR/velora-translate"; then
+    temp_engine=$(mktemp "$ENGINE_DIR/.velora-translate.XXXXXX") || die "Cannot stage the engine"
+    if ! install -m 755 "$engine" "$temp_engine" || ! mv -fT "$temp_engine" "$ENGINE_DIR/velora-translate"; then
+        rm -f -- "$temp_engine"
+        die "Cannot install the translation engine"
     fi
 fi
-progress 10 "Python environment ready"
+progress 10 "Translation engine ready"
+[[ ${1:-} != --engine-only ]] || exit 0
 
 # 2. Models
 # download <pair> <start percent> <end percent>
@@ -84,34 +91,27 @@ download_model() {
 
     # Keep only what's needed: the CTranslate2 model and the SentencePiece model.
     # The bundled stanza/ sentence splitter (torch pickles) is never extracted.
-    local tmp
-    tmp=$(mktemp -d "$DATA_DIR/extract.XXXXXX")
-    if ! /usr/bin/python3 - "$archive" "$tmp" <<'EOF'
-import os, sys, zipfile
-archive, out = sys.argv[1], sys.argv[2]
-with zipfile.ZipFile(archive) as z:
-    for name in z.namelist():
-        parts = name.split("/", 1)
-        if len(parts) < 2 or not parts[1]:
-            continue
-        rel = parts[1]
-        if rel.startswith("model/") or rel in ("sentencepiece.model", "metadata.json"):
-            if ".." in rel.split("/"):
-                continue
-            target = f"{out}/{rel}"
-            if name.endswith("/"):
-                continue
-            os.makedirs(os.path.dirname(target), exist_ok=True)
-            with z.open(name) as src, open(target, "wb") as dst:
-                dst.write(src.read())
-EOF
-    then
-        rm -rf "$tmp"
+    local staging tmp
+    staging=$(mktemp -d "$MODELS_DIR/.$pair.XXXXXX") || die "Cannot stage the $pair model"
+    tmp="$staging/new"
+    mkdir "$tmp" || die "Cannot create the $pair extraction directory"
+    if ! bsdtar -x -f "$archive" -C "$tmp" --strip-components 1 --no-same-owner --no-same-permissions \
+            --include '*/model/*' --include '*/sentencepiece.model' --include '*/metadata.json'; then
+        rm -rf -- "$staging"
         die "Could not unpack the $pair model"
     fi
-    [[ -f "$tmp/model/model.bin" && -f "$tmp/sentencepiece.model" ]] || { rm -rf "$tmp"; die "Unexpected $pair model layout"; }
-    rm -rf "$target"
-    mv "$tmp" "$target"
+    [[ -f "$tmp/model/model.bin" && -f "$tmp/sentencepiece.model" ]] || { rm -rf -- "$staging"; die "Unexpected $pair model layout"; }
+    if [[ -e "$target" || -L "$target" ]]; then
+        mv -T -- "$target" "$staging/previous" || { rm -rf -- "$staging"; die "Cannot replace the incomplete $pair model"; }
+    fi
+    if ! mv -T -- "$tmp" "$target"; then
+        if [[ -e "$staging/previous" || -L "$staging/previous" ]]; then
+            mv -T -- "$staging/previous" "$target" || die "Previous $pair model preserved at $staging/previous"
+        fi
+        rm -rf -- "$staging"
+        die "Cannot publish the $pair model"
+    fi
+    rm -rf -- "$staging"
     rm -f "$archive"
 }
 

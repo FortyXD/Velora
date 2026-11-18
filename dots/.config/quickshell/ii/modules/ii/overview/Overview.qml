@@ -20,7 +20,12 @@ Scope {
         property string searchingText: ""
         readonly property HyprlandMonitor monitor: Hyprland.monitorFor(panelWindow.screen)
         property bool monitorIsFocused: (Hyprland.focusedMonitor?.id == monitor?.id)
-        visible: GlobalStates.overviewOpen
+        visible: TouchpadGestures.overview.presenting
+        onVisibleChanged: if (visible) {
+            screen = Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0];
+            if (!GlobalStates.overviewOpen && searchingText && !overviewScope.dontAutoCancelSearch)
+                searchWidget.cancelSearch();
+        }
 
         WlrLayershell.namespace: "quickshell:overview"
         WlrLayershell.layer: WlrLayer.Top
@@ -70,7 +75,13 @@ Scope {
 
         Column {
             id: columnLayout
-            visible: GlobalStates.overviewOpen
+            opacity: TouchpadGestures.overview.progress
+            scale: TouchpadGestures.overview.scale
+            transformOrigin: Item.Top
+            transform: Translate {
+                x: TouchpadGestures.overview.offsetX * Math.min(320, panelWindow.width * 0.4)
+                y: TouchpadGestures.overview.offsetY * Math.min(320, panelWindow.height * 0.4)
+            }
             anchors {
                 horizontalCenter: parent.horizontalCenter
                 top: parent.top
@@ -82,10 +93,10 @@ Scope {
                     GlobalStates.overviewOpen = false;
                 } else if (event.key === Qt.Key_Left) {
                     if (!panelWindow.searchingText)
-                        Hyprland.dispatch(`hl.dsp.focus({ workspace = "r-1" })`);
+                        TouchpadGestures.leaveOverview(`hl.dsp.focus({ workspace = "r-1" })`);
                 } else if (event.key === Qt.Key_Right) {
                     if (!panelWindow.searchingText)
-                        Hyprland.dispatch(`hl.dsp.focus({ workspace = "r+1" })`);
+                        TouchpadGestures.leaveOverview(`hl.dsp.focus({ workspace = "r+1" })`);
                 }
             }
 
@@ -100,7 +111,7 @@ Scope {
             Loader {
                 id: overviewLoader
                 anchors.horizontalCenter: parent.horizontalCenter
-                active: GlobalStates.overviewOpen && (Config?.options.overview.enable ?? true)
+                active: TouchpadGestures.overview.presenting && (Config?.options.overview.enable ?? true)
                 sourceComponent: OverviewWidget {
                     screen: panelWindow.screen
                     visible: (panelWindow.searchingText == "")

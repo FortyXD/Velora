@@ -33,7 +33,7 @@ Singleton {
     readonly property bool setupRunning: setupInfo.running === true
 
     function checkSetup() {
-        if (!setupProbe.running && !setupControl.running) setupProbe.running = true;
+        if (!setupWatch.running && !setupProbe.running && !setupControl.running) setupProbe.running = true;
     }
 
     function acceptSetup(value) {
@@ -102,7 +102,12 @@ Singleton {
     }
 
     onSettingsVisibleChanged: if (settingsVisible) { checkSetup(); refresh(); }
-    Timer { interval: 1500; repeat: true; running: root.settingsVisible || root.setupRunning; onTriggered: root.checkSetup() }
+    Process {
+        id: setupWatch
+        command: [Quickshell.shellPath("scripts/lens-service"), "setup-status", "--watch"]
+        running: root.settingsVisible || root.setupRunning
+        stdout: SplitParser { onRead: line => { try { root.acceptSetup(JSON.parse(line)); } catch (_) {} } }
+    }
     Process {
         id: setupProbe
         command: [Quickshell.shellPath("scripts/lens-service"), "setup-status"]

@@ -39,7 +39,7 @@ FooterRectangle {
                 icon.name: "alert-snooze"
                 checked: Notifications.silent
                 onClicked: {
-                    Notifications.silent = !Notifications.silent;
+                    Notifications.toggleSilent();
                 }
             }
 

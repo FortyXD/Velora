@@ -12,8 +12,8 @@ import qs.modules.common.widgets
 ColumnLayout {
     id: root
     required property WifiAccessPoint network
-    readonly property bool connecting: Network.connectionPending && Network.wifiConnectSsid === root.network.ssid
-    readonly property bool rejected: Network.credentialErrorSsid === root.network.ssid
+    readonly property bool connecting: Network.connectionPending && Network.wifiConnectKey === root.network.key
+    readonly property bool rejected: Network.credentialErrorKey === root.network.key
     readonly property bool saved: root.network.savedUuid.length > 0
 
     Layout.fillWidth: true

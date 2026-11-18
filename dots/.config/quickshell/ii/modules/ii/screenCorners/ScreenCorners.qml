@@ -104,7 +104,7 @@ Scope {
             HotCorners.run(hotWindow.action, hotWindow.options[hotWindow.corner]?.command ?? "");
         }
 
-        visible: hotWindow.action !== "none" && !GlobalStates.regionSelectorOpen
+        visible: hotWindow.action !== "none" && !HotCorners.blocked
             && (!hotWindow.fullscreen || hotWindow.options.inFullscreen)
         exclusionMode: ExclusionMode.Ignore
         mask: Region {

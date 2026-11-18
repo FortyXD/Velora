@@ -23,12 +23,6 @@ if runtime then
     hl.env("YDOTOOL_SOCKET", runtime .. "/ydotool.sock")
 end
 
--- Virtual environment
-local state_home = os.getenv("XDG_STATE_HOME")
-if not state_home or state_home == "" then
-    state_home = home .. "/.local/state"
-end
-hl.env("ILLOGICAL_IMPULSE_VIRTUAL_ENV", state_home .. "/quickshell/.venv")
 
 -- Velora's own generic Qt addon, scoped to this session. It leaves KIO operations intact.
 local qt_plugins = (os.getenv("XDG_DATA_HOME") or (home .. "/.local/share")) .. "/velora/qt6/plugins"

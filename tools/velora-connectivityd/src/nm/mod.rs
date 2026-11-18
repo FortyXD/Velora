@@ -8,3 +8,4 @@ pub mod share;
 pub mod form;
 pub mod agent;
 pub mod wifi;
+mod wifi_budget;

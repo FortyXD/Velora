@@ -13,6 +13,7 @@ import qs.modules.common.widgets
  */
 ColumnLayout {
     id: root
+    objectName: "shortcutRow-" + uid
     required property string uid
     readonly property var bind: HyprlandKeybinds.bindMap[root.uid] ?? null
     readonly property string title: Translation.tr(root.bind?.description ?? "")
@@ -79,6 +80,7 @@ ColumnLayout {
         Layout.rightMargin: 8
         Layout.topMargin: 5
         Layout.bottomMargin: 5
+        Layout.minimumHeight: 34
         spacing: 10
 
         Item { // App or command icon for shortcuts added here
@@ -133,11 +135,13 @@ ColumnLayout {
 
         ShortcutRecorder {
             id: recorder
+            objectName: "shortcutRecorder"
             visible: root.editable
             mods: root.bind?.mods ?? []
             key: root.bind?.key ?? ""
             turnedOff: root.turnedOff
             allowTurnOff: !root.bind?.custom
+            mouseOnly: root.bind?.mouse === true
             onRecorded: (mods, key) => root.apply(mods, key)
             onTurnOffRequested: HyprlandKeybinds.disable(root.bind.id)
         }
@@ -150,28 +154,35 @@ ColumnLayout {
             opacity: 0.8
         }
 
-        RowIconButton {
-            visible: root.editable && !root.bind?.custom && (root.bind?.remapped || root.turnedOff)
-            iconName: "restart_alt"
-            tooltip: Translation.tr("Back to %1").arg(KeyUtils.comboText(root.bind?.default_mods ?? [], root.bind?.default_key ?? ""))
-            onClicked: HyprlandKeybinds.reset(root.bind.id)
-        }
-        RowIconButton { // Shown on hover; keeps its space so the keys don't jump
-            visible: root.editable && !root.bind?.custom && !root.bind?.remapped && !root.turnedOff
-            opacity: rowHover.hovered ? 1 : 0
-            enabled: rowHover.hovered
-            Behavior on opacity {
-                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+        Item { // One fixed trailing action cell, also for legacy manifest rows.
+            implicitWidth: 32
+            implicitHeight: 32
+            RowIconButton {
+                anchors.centerIn: parent
+                visible: root.editable && !root.bind?.custom && (root.bind?.remapped || root.turnedOff)
+                iconName: "restart_alt"
+                tooltip: Translation.tr("Back to %1").arg(KeyUtils.comboText(root.bind?.default_mods ?? [], root.bind?.default_key ?? ""))
+                onClicked: HyprlandKeybinds.reset(root.bind.id)
             }
-            iconName: "block"
-            tooltip: Translation.tr("Turn off")
-            onClicked: HyprlandKeybinds.disable(root.bind.id)
-        }
-        RowIconButton {
-            visible: root.bind?.custom === true
-            iconName: "delete"
-            tooltip: Translation.tr("Remove")
-            onClicked: HyprlandKeybinds.removeCustom(HyprlandKeybinds.customIndex(root.bind))
+            RowIconButton { // Shown on hover; keeps its space so the keys don't jump
+                anchors.centerIn: parent
+                visible: root.editable && !root.bind?.custom && !root.bind?.remapped && !root.turnedOff
+                opacity: rowHover.hovered ? 1 : 0
+                enabled: rowHover.hovered
+                Behavior on opacity {
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                }
+                iconName: "block"
+                tooltip: Translation.tr("Turn off")
+                onClicked: HyprlandKeybinds.disable(root.bind.id)
+            }
+            RowIconButton {
+                anchors.centerIn: parent
+                visible: root.bind?.custom === true
+                iconName: "delete"
+                tooltip: Translation.tr("Remove")
+                onClicked: HyprlandKeybinds.removeCustom(HyprlandKeybinds.customIndex(root.bind))
+            }
         }
     }
 

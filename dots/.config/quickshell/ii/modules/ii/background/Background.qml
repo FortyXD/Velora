@@ -8,9 +8,6 @@ import qs.modules.common.widgets.widgetCanvas
 import qs.modules.common.functions as CF
 import QtQuick
 import QtQuick.Layouts
-import Qt5Compat.GraphicalEffects
-import QtQuick.Effects
-import QtMultimedia
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -51,13 +48,9 @@ Variants {
         property int totalWorkspaces: Math.ceil(lastWorkspaceId / workspaceChunkSize) * workspaceChunkSize
         // Wallpaper
         property bool wallpaperIsVideo: CF.FileUtils.isVideoPath(Config.options.background.wallpaperPath)
-        // Locked and not on the way out: blur, zoom and darkening are on (they fade while unlocking)
-        readonly property bool lockedLook: GlobalStates.screenLocked && !GlobalStates.lockExiting
-        // A video wallpaper keeps playing behind the lock screen (mpvpaper under this window pauses then)
-        readonly property bool lockVideo: GlobalStates.screenLocked && bgRoot.wallpaperIsVideo && Config.options.lock.animatedWallpaper && !PowerSaving.pauseLiveWallpaper
         // An animated wallpaper drawn by the shell moves while it can be seen and is wanted
         readonly property bool shaderPlaying: ShaderWallpaper.active && !PowerSaving.pauseLiveWallpaper && !bgRoot.coveredByFullscreen
-            && (GlobalStates.screenLocked ? Config.options.lock.animatedWallpaper : !LiveWallpaper.coveredOn(bgRoot.modelData.name))
+            && !GlobalStates.screenLocked && !LiveWallpaper.coveredOn(bgRoot.modelData.name)
         property string wallpaperPath: wallpaperIsVideo ? Config.options.background.thumbnailPath : Config.options.background.wallpaperPath
         // switchwall sets a video first and makes its still frame after; until then the frame is an older video's.
         // Frames are named after their video.
@@ -90,8 +83,7 @@ Variants {
         // Layer props
         screen: modelData
         exclusionMode: ExclusionMode.Ignore
-        WlrLayershell.layer: (GlobalStates.screenLocked && !scaleAnim.running) ? WlrLayer.Overlay : WlrLayer.Bottom
-        // WlrLayershell.layer: WlrLayer.Bottom
+        WlrLayershell.layer: WlrLayer.Bottom
         WlrLayershell.namespace: "quickshell:background"
         // Typing into a desktop widget (the note) needs keyboard focus; otherwise the wallpaper never takes it
         WlrLayershell.keyboardFocus: GlobalStates.desktopWidgetEditing ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
@@ -137,10 +129,9 @@ Variants {
             // Wallpaper
             Item {
                 id: wallpaper
-                visible: opacity > 0 // Also under the blur, which fades out when unlocking
-                // A video plays under this window (LiveWallpaper); its still frame stands in on the lock screen, where it pauses
-                // An animated wallpaper draws inside this item, so it stays shown for it
-                opacity: ((wallpaper.ready && (!bgRoot.videoShown || GlobalStates.screenLocked)) || ShaderWallpaper.active) ? 1 : 0
+                visible: opacity > 0
+                // The still frame covers the desktop until the video wallpaper is ready.
+                opacity: ((wallpaper.ready && !bgRoot.videoShown) || ShaderWallpaper.active) ? 1 : 0
                 // Fades out onto a video that has started; comes back at once, as the video under it may have stopped
                 Behavior on opacity {
                     enabled: wallpaper.opacity === 1
@@ -289,68 +280,6 @@ Variants {
                         }
                     }
                 }
-
-                Loader {
-                    z: 2
-                    anchors.fill: parent
-                    active: bgRoot.lockVideo
-                    sourceComponent: Video {
-                        source: `file://${Config.options.background.wallpaperPath}`
-                        autoPlay: true
-                        loops: MediaPlayer.Infinite
-                        muted: true
-                        fillMode: VideoOutput.PreserveAspectCrop
-                    }
-                }
-            }
-
-            Loader {
-                id: blurLoader
-                active: Config.options.lock.blur.enable && (GlobalStates.screenLocked || scaleAnim.running)
-                anchors.fill: wallpaper
-                scale: bgRoot.lockedLook ? Config.options.lock.blur.extraZoom : 1
-                opacity: bgRoot.lockedLook ? 1 : 0
-                Behavior on opacity {
-                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-                }
-                Behavior on scale {
-                    NumberAnimation {
-                        id: scaleAnim
-                        duration: Appearance.scaledDuration(400)
-                        easing.type: Easing.BezierSpline
-                        easing.bezierCurve: Appearance.animationCurves.expressiveDefaultSpatial
-                    }
-                }
-                // A playing video is blurred the cheap way (downscaled passes); a still picture renders once
-                sourceComponent: (bgRoot.lockVideo || bgRoot.shaderPlaying) ? videoBlur : stillBlur
-                Component {
-                    id: stillBlur
-                    GaussianBlur {
-                        source: wallpaper
-                        radius: GlobalStates.screenLocked ? Config.options.lock.blur.radius : 0
-                        samples: radius * 2 + 1
-                    }
-                }
-                Component {
-                    id: videoBlur
-                    MultiEffect {
-                        source: wallpaper
-                        autoPaddingEnabled: false
-                        blurEnabled: true
-                        blurMax: 64
-                        blur: Math.min(1, Config.options.lock.blur.radius / 64)
-                        blurMultiplier: Math.max(0, Config.options.lock.blur.radius / 64 - 1)
-                    }
-                }
-            }
-            Rectangle { // Darkens the wallpaper on the lock screen (Config.options.lock.dim)
-                anchors.fill: wallpaper
-                visible: opacity > 0
-                opacity: bgRoot.lockedLook ? 1 : 0
-                color: CF.ColorUtils.transparentize(Appearance.colors.colLayer0, 1 - Math.max(0, Math.min(0.8, Config.options.lock.dim)))
-                Behavior on opacity {
-                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-                }
             }
 
             WidgetCanvas {
@@ -385,6 +314,7 @@ Variants {
                 FadeLoader {
                     shown: Config.options.background.widgets.weather.enable && Config.options.background.widgets.weather.style !== "card"
                     sourceComponent: WeatherWidget {
+                        placementCanvas: widgetCanvas
                         screenWidth: bgRoot.screen.width
                         screenHeight: bgRoot.screen.height
                         scaledScreenWidth: bgRoot.screen.width
@@ -396,6 +326,7 @@ Variants {
                 FadeLoader {
                     shown: Config.options.background.widgets.weather.enable && Config.options.background.widgets.weather.style === "card"
                     sourceComponent: WeatherCardWidget {
+                        placementCanvas: widgetCanvas
                         screenWidth: bgRoot.screen.width
                         screenHeight: bgRoot.screen.height
                         scaledScreenWidth: bgRoot.screen.width
@@ -407,6 +338,7 @@ Variants {
                 FadeLoader {
                     shown: Config.options.background.widgets.systemMonitor.enable
                     sourceComponent: SystemMonitorWidget {
+                        placementCanvas: widgetCanvas
                         screenWidth: bgRoot.screen.width
                         screenHeight: bgRoot.screen.height
                         scaledScreenWidth: bgRoot.screen.width
@@ -418,6 +350,7 @@ Variants {
                 FadeLoader {
                     shown: Config.options.background.widgets.media.enable
                     sourceComponent: MediaWidget {
+                        placementCanvas: widgetCanvas
                         screenWidth: bgRoot.screen.width
                         screenHeight: bgRoot.screen.height
                         scaledScreenWidth: bgRoot.screen.width
@@ -429,6 +362,7 @@ Variants {
                 FadeLoader {
                     shown: Config.options.background.widgets.calendar.enable
                     sourceComponent: CalendarDesktopWidget {
+                        placementCanvas: widgetCanvas
                         screenWidth: bgRoot.screen.width
                         screenHeight: bgRoot.screen.height
                         scaledScreenWidth: bgRoot.screen.width
@@ -440,6 +374,7 @@ Variants {
                 FadeLoader {
                     shown: Config.options.background.widgets.countdown.enable
                     sourceComponent: CountdownWidget {
+                        placementCanvas: widgetCanvas
                         screenWidth: bgRoot.screen.width
                         screenHeight: bgRoot.screen.height
                         scaledScreenWidth: bgRoot.screen.width
@@ -451,6 +386,7 @@ Variants {
                 FadeLoader {
                     shown: Config.options.background.widgets.note.enable
                     sourceComponent: NoteWidget {
+                        placementCanvas: widgetCanvas
                         screenWidth: bgRoot.screen.width
                         screenHeight: bgRoot.screen.height
                         scaledScreenWidth: bgRoot.screen.width
@@ -462,6 +398,7 @@ Variants {
                 FadeLoader {
                     shown: Config.options.background.widgets.pomodoro.enable
                     sourceComponent: PomodoroDesktopWidget {
+                        placementCanvas: widgetCanvas
                         screenWidth: bgRoot.screen.width
                         screenHeight: bgRoot.screen.height
                         scaledScreenWidth: bgRoot.screen.width
@@ -473,6 +410,7 @@ Variants {
                 FadeLoader {
                     shown: Config.options.background.widgets.clock.enable
                     sourceComponent: ClockWidget {
+                        placementCanvas: widgetCanvas
                         screenName: bgRoot.modelData.name
                         screenWidth: bgRoot.screen.width
                         screenHeight: bgRoot.screen.height

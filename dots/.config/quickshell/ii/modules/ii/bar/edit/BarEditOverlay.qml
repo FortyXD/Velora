@@ -34,6 +34,7 @@ MouseArea {
             root.view.openEditMenu(host, mouse.x, mouse.y);
             return;
         }
+        if (host) root.view.pickedInsertion = null;
         root.pressedHost = host;
         root.pressX = mouse.x;
         root.pressY = mouse.y;

@@ -137,7 +137,6 @@ Button {
                 id: buttonIcon
                 monochrome: true
                 implicitSize: 18
-                Layout.leftMargin: root.iconLeftMargin
                 Layout.fillWidth: false
                 Layout.alignment: Qt.AlignVCenter
                 icon: root.icon.name

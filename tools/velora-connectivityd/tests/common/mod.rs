@@ -111,10 +111,14 @@ impl Daemon {
     }
 
     pub async fn wait_message(&mut self, what: &str, check: impl Fn(&Value) -> bool) -> Value {
+        self.wait_message_for(what, WAIT, check).await
+    }
+
+    pub async fn wait_message_for(&mut self, what: &str, timeout: Duration, check: impl Fn(&Value) -> bool) -> Value {
         if let Some(index) = self.events.iter().position(&check) {
             return self.events.remove(index);
         }
-        let deadline = tokio::time::Instant::now() + WAIT;
+        let deadline = tokio::time::Instant::now() + timeout;
         loop {
             assert!(tokio::time::Instant::now() < deadline, "timed out waiting for: {what}");
             if let Ok(message) = tokio::time::timeout(Duration::from_millis(500), self.next_message()).await {

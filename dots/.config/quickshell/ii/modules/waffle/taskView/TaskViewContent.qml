@@ -15,43 +15,38 @@ import "window-layout.js" as WindowLayout
 Rectangle {
     id: root
 
-    color: ColorUtils.transparentize(Looks.colors.bg1Base, 0.5)
-    property bool draggingWindow: false
-    property real openProgress: 0
-    property Item hoveredWorkspace: null
-    signal closed
+    required property int workspaceId
+    property bool choosingDesktop: false
+    property string windowToMove: ""
+    color: choosingDesktop ? Looks.colors.bg1Base : ColorUtils.transparentize(Looks.colors.bg1Base, 0.5)
+    readonly property real openProgress: TouchpadGestures.overview.progress
+    opacity: openProgress
 
-    Component.onCompleted: {
-        openAnim.start();
-    }
-    function close() {
-        closeAnim.start();
+    function chooseDesktop(address) {
+        windowToMove = address;
+        choosingDesktop = true;
+        workspaceListView.currentIndex = Math.max(0, Math.min(workspaceId - 1, workspaceListView.count - 1));
+        workspaceListView.positionViewAtIndex(workspaceListView.currentIndex, ListView.Contain);
+        workspaceListView.forceActiveFocus();
     }
 
-    PropertyAnimation {
-        id: openAnim
-        target: root
-        property: "openProgress"
-        to: 1
-        duration: 250
-        easing.type: Easing.BezierSpline
-        easing.bezierCurve: Looks.transition.easing.bezierCurve.easeIn
+    function backToWindows() {
+        choosingDesktop = false;
+        windowToMove = "";
+        desktopButton.forceActiveFocus();
     }
-    SequentialAnimation {
-        id: closeAnim
 
-        PropertyAnimation {
-            target: root
-            property: "openProgress"
-            to: 0
-            duration: 250
-            easing.type: Easing.BezierSpline
-            easing.bezierCurve: Looks.transition.easing.bezierCurve.easeIn
-        }
-        ScriptAction {
-            script: {
-                root.closed();
+    function selectDesktop(id) {
+        if (!choosingDesktop || id < 1 || id > workspaceListView.count) return;
+        if (windowToMove) {
+            const client = HyprlandData.windowByAddress[windowToMove];
+            if (!client || id === client.workspace.id) {
+                backToWindows();
+                return;
             }
+            TouchpadGestures.leaveOverview(`hl.dsp.window.move({ workspace = ${id}, follow = false, window = "address:${windowToMove}" })`);
+        } else {
+            TouchpadGestures.leaveOverview(`hl.dsp.focus({ workspace = ${id} })`);
         }
     }
 
@@ -62,7 +57,7 @@ Rectangle {
     property real spacing: 25
     readonly property list<var> toplevels: ToplevelManager.toplevels.values.filter(t => {
         const client = HyprlandData.clientForToplevel(t);
-        return client && client.workspace.id === HyprlandData.activeWorkspace?.id;
+        return client && client.workspace.id === root.workspaceId;
     })
     readonly property list<var> arrangedToplevels: {
         const maxRowWidth = width - padding * 2;
@@ -106,22 +101,22 @@ Rectangle {
     // Windows
     WListView {
         id: windowListView
-        z: root.openProgress == 1 ? 2 : 1
+        visible: !root.choosingDesktop
         anchors {
             left: parent.left
             right: parent.right
             top: parent.top
-            topMargin: (root.height - (wsBorder.height + 16) - height) / 2
+            topMargin: (desktopButton.y - height) / 2
         }
         spacing: root.spacing
         topMargin: root.padding
         bottomMargin: root.padding
         leftMargin: root.padding
         rightMargin: root.padding
-        height: Math.min(contentHeight + topMargin + bottomMargin, root.height - (wsBorder.height + 16))
+        height: Math.max(0, Math.min(contentHeight + topMargin + bottomMargin, desktopButton.y))
 
-        interactive: (height < contentHeight) && !root.draggingWindow
-        clip: root.openProgress > 0.99 && !root.draggingWindow
+        interactive: height < contentHeight
+        clip: root.openProgress > 0.99
 
         model: ScriptModel {
             values: root.arrangedToplevels
@@ -145,55 +140,15 @@ Rectangle {
 
                     TaskViewWindow {
                         id: windowItem
-                        z: Drag.active ? 2 : 1
-                        opacity: openAnim.running ? root.openProgress : 1
-
-                        property int mappedX: {
-                            // print("AAAWAWAAWAWWA: ", -(clientRow.x + clientGridArea.x + root.padding));
-                            var rootPosToThis = -(clientRow.x + clientGridArea.x + root.padding);
-                            return rootPosToThis + hyprlandClient.at[0];
+                        readonly property real mappedX: (hyprlandClient?.at[0] ?? 0) - clientRow.x - clientGridArea.x - root.padding
+                        readonly property real mappedY: (hyprlandClient?.at[1] ?? 0) - clientRow.y - windowListView.y - root.padding
+                        transform: Scale {
+                            xScale: 1 + (1 - root.openProgress) * (windowItem.fullSize.width / Math.max(1, windowItem.openedSize.width) - 1)
+                            yScale: 1 + (1 - root.openProgress) * (windowItem.fullSize.height / Math.max(1, windowItem.openedSize.height) - 1)
                         }
-                        property int mappedY: {
-                            // print("AAAWAWAAWAWWA YYYY YUIUSDFOIU: ", clientRow.y + windowListView.y + root.padding + windowItem.titleBarImplicitHeight)
-                            var rootPosToThis = -(clientRow.y + windowListView.y + root.padding + windowItem.titleBarImplicitHeight);
-                            return rootPosToThis + hyprlandClient.at[1];
-                        }
-                        property int openedX: 0
-                        property int openedY: 0
-                        // property int openedX: Drag.active ? (dragHandler.xAxis.activeValue) : 0
-                        // property int openedY: Drag.active ? (dragHandler.yAxis.activeValue) : 0
-                        scaleSize: (root.openProgress > 0 && !closeAnim.running)
-                        x: mappedX + (openedX - mappedX) * root.openProgress
-                        y: mappedY + (openedY - mappedY) * root.openProgress
-
-                        droppable: root.hoveredWorkspace !== null
-                        Drag.active: dragHandler.active
-                        Drag.hotSpot.x: mouseX
-                        Drag.hotSpot.y: mouseY
-
-                        DragHandler {
-                            id: dragHandler
-                            target: null
-                            xAxis.onActiveValueChanged: {
-                                windowItem.openedX = dragHandler.xAxis.activeValue;
-                            }
-                            yAxis.onActiveValueChanged: {
-                                windowItem.openedY = dragHandler.yAxis.activeValue;
-                            }
-                            onActiveChanged: {
-                                if (active) {
-                                    root.draggingWindow = true;
-                                } else {
-                                    root.draggingWindow = false;
-                                    if (root.hoveredWorkspace !== null && root.hoveredWorkspace.workspace !== windowItem.hyprlandClient.workspace.id) {
-                                        Hyprland.dispatch(`movetoworkspacesilent ${root.hoveredWorkspace.workspace}, address:${windowItem.hyprlandClient.address}`);
-                                    } else {
-                                        windowItem.openedX = 0;
-                                        windowItem.openedY = 0;
-                                    }
-                                }
-                            }
-                        }
+                        x: mappedX * (1 - root.openProgress)
+                        y: mappedY * (1 - root.openProgress)
+                        onMoveRequested: root.chooseDesktop(windowItem.address)
 
                         Layout.alignment: Qt.AlignTop
                         maxHeight: root.maxWindowHeight
@@ -205,95 +160,69 @@ Rectangle {
         }
     }
 
-    // Workspaces
-    Rectangle {
-        id: wsBorder
-        z: root.openProgress == 1 ? 1 : 2
-        property real sourceEdgeMargin: -(height + 8) + root.openProgress * (height + 16)
-        anchors {
-            left: parent.left
-            right: parent.right
-            bottom: parent.bottom
-            leftMargin: 8
-            rightMargin: 8
-            topMargin: sourceEdgeMargin
-            bottomMargin: sourceEdgeMargin
-        }
-        border.color: Looks.colors.bg2Border
-        border.width: 1
-        radius: Looks.radius.large
-        color: "transparent"
+    WButton {
+        id: desktopButton
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 16
+        icon.name: root.choosingDesktop ? "arrow-left" : "desktop"
+        text: root.choosingDesktop ? Translation.tr("Back") : Translation.tr("Choose a desktop")
+        colBackground: Looks.colors.bgPanelFooterBackground
+        onClicked: root.choosingDesktop ? root.backToWindows() : root.chooseDesktop("")
+    }
 
-        implicitHeight: wsBg.implicitHeight + border.width * 2
+    Column {
+        id: desktopPage
+        visible: root.choosingDesktop
+        anchors.centerIn: parent
+        width: Math.max(0, root.width - 32)
+        spacing: 12
+        onVisibleChanged: if (visible) enter.restart()
+
+        NumberAnimation {
+            id: enter
+            target: desktopPage
+            property: "scale"
+            from: 0.97
+            to: 1
+            duration: Appearance.scaledDuration(150)
+            easing.type: Easing.OutCubic
+        }
+
+        WText {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: root.windowToMove ? Translation.tr("Move window to desktop") : Translation.tr("Choose a desktop")
+        }
 
         Rectangle {
-            id: wsBg
-            anchors.fill: parent
-            anchors.margins: wsBorder.border.width
-            radius: wsBorder.radius - wsBorder.border.width
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Math.min(parent.width, workspaceListView.contentWidth + 18)
+            height: Math.min(174, root.height * 0.55)
+            border.color: Looks.colors.bg2Border
+            border.width: 1
+            radius: Looks.radius.large
             color: Looks.colors.bgPanelFooterBackground
-
-            implicitHeight: 174
 
             WListView {
                 id: workspaceListView
-                anchors {
-                    top: parent.top
-                    bottom: parent.bottom
-                    horizontalCenter: parent.horizontalCenter
-                    topMargin: 5
-                    bottomMargin: 5
-                }
+                anchors.fill: parent
+                anchors.margins: 8
                 flickableDirection: Flickable.HorizontalFlick
                 orientation: ListView.Horizontal
-                interactive: width == parent.width
-                width: Math.min(contentWidth + leftMargin + rightMargin, parent.width)
-                leftMargin: 5
-                rightMargin: 5
+                interactive: contentWidth > width
+                keyNavigationEnabled: true
                 clip: true
                 spacing: 4
-
-                function reposition() {
-                    positionViewAtIndex(HyprlandData.activeWorkspace.id - 1, ListView.Contain);
-                }
-
-                Connections {
-                    target: HyprlandData
-                    function onActiveWorkspaceChanged() {
-                        workspaceListView.reposition();
-                    }
-                }
-                model: IndexModel {
-                    id: workspaceIndexModel
-                    count: {
-                        const maxWorkspaceId = Math.max.apply(null, HyprlandData.workspaces.map(ws => ws.id));
-                        return Math.max(maxWorkspaceId, 1) + 1;
-                    }
-                }
+                Keys.onReturnPressed: root.selectDesktop(currentIndex + 1)
+                Keys.onEnterPressed: root.selectDesktop(currentIndex + 1)
+                model: root.choosingDesktop ? Math.max(1, ...HyprlandData.workspaceIds) + 1 : 0
                 delegate: TaskViewWorkspace {
-                    id: workspaceItem
                     required property int index
                     workspace: index + 1
-                    newWorkspace: index == workspaceIndexModel.count - 1
-
-                    droppable: root.hoveredWorkspace === workspaceItem
-                    DropArea {
-                        anchors.fill: parent
-                        onEntered: drag => {
-                            root.hoveredWorkspace = workspaceItem;
-                        }
-                        onExited: {
-                            if (root.hoveredWorkspace === workspaceItem) {
-                                root.hoveredWorkspace = null;
-                            }
-                        }
-                    }
-
-                    onClicked: {
-                        GlobalStates.overviewOpen = false;
-                        root.closed(); // Close immediately to avoid weird animations
-                        Hyprland.dispatch(`workspace ${workspaceItem.workspace}`);
-                    }
+                    newWorkspace: index === workspaceListView.count - 1
+                    currentDesktop: workspace === root.workspaceId
+                    keyboardSelected: workspaceListView.activeFocus && ListView.isCurrentItem
+                    onClicked: root.selectDesktop(workspace)
                 }
             }
         }

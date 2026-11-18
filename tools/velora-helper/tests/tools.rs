@@ -368,10 +368,11 @@ fn a_quick_conversion_without_files_does_nothing() {
 fn a_failed_quick_conversion_returns_failure() {
     let sandbox = Sandbox::new("quick-failed");
     sandbox.tool("notify-send", "", 0);
-    let backend = sandbox.root.join("shell/scripts/toolbox/folis_toolbox.py");
-    fs::create_dir_all(backend.parent().unwrap()).unwrap();
-    fs::write(&backend, "import sys\nprint('{\"event\":\"error\",\"message\":\"conversion failed\"}')\nsys.exit(2)\n").unwrap();
-    assert_eq!(sandbox.run(&["toolbox-quick", "png", "test.jpg"]).status.code(), Some(1));
+    sandbox.tool("file", "image/jpeg", 0);
+    sandbox.tool("magick", "", 1);
+    fs::write(sandbox.root.join("test.jpg"), "").unwrap();
+    assert_eq!(sandbox.run(&["toolbox-quick", "png", sandbox.root.join("test.jpg").to_str().unwrap()]).status.code(), Some(1));
+    assert!(sandbox.log().contains("magick failed"));
 }
 
 // ---- layouts and processes ----
@@ -677,6 +678,25 @@ fn text_color_reads_the_picture_from_stdin() {
     assert_eq!(empty["error"], "No data received via stdin");
     let garbage: serde_json::Value = serde_json::from_slice(&with_stdin(sandbox.command(&["text-color"]), b"not a picture").stdout).unwrap();
     assert_eq!(garbage["error"], "Could not decode image data");
+}
+
+#[test]
+fn largest_wallpaper_region_can_be_annotated_without_opencv() {
+    let sandbox = Sandbox::new("largest-region");
+    let image = image::RgbImage::from_pixel(100, 60, image::Rgb([88,112,124]));
+    image.save(sandbox.root.join("wall.png")).unwrap();
+    let output = sandbox.command(&["region", "wall.png", "--screen-width", "100", "--screen-height", "60",
+        "--horizontal-padding", "0", "--vertical-padding", "0", "--aspect-ratio", "2", "--largest-region",
+        "--visual-output"]).current_dir(&sandbox.root).output().unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["width"], 100);
+    assert_eq!(value["height"], 50);
+    assert_eq!(value["center_x"], 50);
+    assert_eq!(value["center_y"], 25);
+    assert_eq!(value["variance"], 0.0);
+    assert_eq!(value["dominant_color"], "#58707c");
+    assert_eq!(image::image_dimensions(sandbox.root.join("output.png")).unwrap(), (100, 60));
 }
 
 #[test]
