@@ -27,7 +27,7 @@ ShellRoot {
     property string originalConversation: ""
     property real readingPosition: 0
     property string artifacts: "ARTIFACTS"
-    TestCase { id: interaction; name: "SidebarInteractions"; when: false }
+    TestCase { id: interaction; name: "SidebarInteractions"; when: false; windowShown: window.visible }
     function find(item, name) {
         if (item.objectName === name) return item;
         for (const child of item.children ?? []) { const result = find(child, name); if (result) return result; }

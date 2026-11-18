@@ -73,7 +73,12 @@ class ToolboxTests(unittest.TestCase):
             self.assertEqual(process.returncode, 130, stderr)
             self.assertEqual(json.loads(stdout.splitlines()[-1])['event'], 'cancelled')
             for _ in range(70):
-                if not child.exists() or child.read_text().rsplit(')',1)[-1].split()[0]=='Z': break
+                try:
+                    state = child.read_text().rsplit(')', 1)[-1].split()[0]
+                except (FileNotFoundError, ProcessLookupError):
+                    break
+                if state == 'Z':
+                    break
                 time.sleep(.01)
             else: self.fail('The download continued after cancellation')
         finally:
