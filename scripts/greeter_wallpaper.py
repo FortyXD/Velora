@@ -21,11 +21,16 @@ import sys
 import tempfile
 import time
 import warnings
+from string import Template
 
 CONFIG = Path('/etc/velora/greeter-wallpaper.json')
 STATE = Path('/var/lib/velora-greeter')
 SOCKET = '/run/velora-greeter-wallpaper.sock'
 HEADER = struct.Struct('!4sII')
+PALETTE_TEMPLATE = Path('/usr/lib/velora/greeter-palette.css.in')
+# Fixed wire order for VPL1. Only RGB triples may cross the socket.
+PALETTE_ROLES = ('primary', 'on_primary', 'surface', 'on_surface', 'surface_container',
+                 'secondary_container', 'on_secondary_container', 'outline', 'error')
 MAX_EDGE = 2560
 MAX_PIXELS = 2560 * 1600
 MAX_INPUT = 64 * 1024 * 1024
@@ -87,6 +92,8 @@ def read_frame(connection):
     magic, width, height = HEADER.unpack(receive(connection, HEADER.size, deadline))
     if magic == b'VCLR' and width == height == 0:
         frame = None
+    elif magic == b'VPL1' and width in (0, len(PALETTE_ROLES)) and height == 1:
+        frame = receive(connection, width * 3, deadline)
     elif (magic == b'VRG1' and 0 < width <= MAX_EDGE and 0 < height <= MAX_EDGE
           and width * height <= MAX_PIXELS):
         frame = width, height, receive(connection, width * height * 3, deadline)
@@ -113,7 +120,20 @@ def atomic(path, data):
 
 
 def publish(frame, authorized):
-    """Encode trusted bounded pixels; authorize again immediately before committing."""
+    """Publish wallpaper pixels or palette roles after rechecking the active session."""
+    if isinstance(frame, bytes):
+        path = STATE / 'palette.css'
+        if frame:
+            colors = {role: '#' + bytes(rgb).hex() for role, rgb in
+                      zip(PALETTE_ROLES, struct.iter_unpack('BBB', frame), strict=True)}
+            css = Template(PALETTE_TEMPLATE.read_text()).substitute(colors).encode()
+        if not authorized():
+            raise PermissionError('Local graphical session is no longer active and unlocked')
+        if frame:
+            atomic(path, css)
+        else:
+            path.unlink(missing_ok=True)
+        return
     previous = ''
     try:
         previous = json.loads((STATE / 'current.json').read_bytes()).get('image', '')
@@ -262,6 +282,36 @@ def local_path(value):
     return path
 
 
+def desktop_palette(path, overrides):
+    with path.open('rb') as source:
+        data = source.read(8193)
+    if len(data) > 8192:
+        raise ValueError('Oversized desktop palette')
+    roles = json.loads(data)
+    if not isinstance(roles, dict):
+        raise ValueError('Invalid desktop palette')
+    for key in PALETTE_ROLES:
+        if not re.fullmatch(r'#[0-9a-fA-F]{6}', str(roles.get(key))):
+            raise ValueError('Incomplete desktop palette')
+    for key in ('primary', 'on_surface', 'surface_container'):
+        custom = overrides.get(key)
+        if not isinstance(custom, str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', custom):
+            continue
+        roles[key] = custom
+        if key == 'primary':
+            # Match MaterialPalette.accentInk when the user overrides the accent.
+            bg, fg = [luminance(roles[k]) for k in ('primary', 'on_primary')]
+            if (max(bg, fg) + .05) / (min(bg, fg) + .05) < 4.5:
+                roles['on_primary'] = '#000000' if bg > .179 else '#ffffff'
+    return b''.join(bytes.fromhex(roles[key][1:]) for key in PALETTE_ROLES)
+
+
+def luminance(color):
+    channels = (v / 255 for v in bytes.fromhex(color[1:]))
+    linear = [v / 12.92 if v <= .04045 else ((v + .055) / 1.055) ** 2.4 for v in channels]
+    return sum(v * weight for v, weight in zip(linear, (.2126, .7152, .0722)))
+
+
 def watch():
     from gi.repository import Gio, GLib
     owner = configuration()['owner_uid']
@@ -271,14 +321,17 @@ def watch():
     interface = Gio.Settings.new('org.gnome.desktop.interface')
     bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
     options = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config'))) / 'illogical-impulse/config.json'
+    state_home = Path(os.environ.get('XDG_STATE_HOME') or Path.home() / '.local/state')
+    palette_path = state_home / 'quickshell/user/generated/colors.json'
     loop = GLib.MainLoop()
     last_key = None
+    last_palette = None
     failed_decode = None
     last_error = None
     pending = 0
 
     def refresh():
-        nonlocal last_key, last_error, pending, failed_decode
+        nonlocal last_key, last_error, pending, failed_decode, last_palette
         pending = 0
         try:
             if configuration()['owner_uid'] != owner:
@@ -287,8 +340,21 @@ def watch():
             desktop = active_desktop(owner)
             if not desktop:
                 return False
-            settings = json.loads(options.read_bytes()).get('background', {}) if options.exists() else {}
+            config = json.loads(options.read_bytes()) if options.exists() else {}
+            settings = config.get('background', {})
             enabled = settings.get('syncGreeterWallpaper', True) is not False
+            try:
+                overrides = config.get('appearance', {}).get('palette', {}).get('roleOverrides', {})
+                palette = (desktop_palette(palette_path, overrides)
+                           if settings.get('syncGreeterPalette', False) else b'')
+            except (OSError, ValueError, AttributeError):
+                palette = None
+            if palette is not None and palette != last_palette:
+                send(HEADER.pack(b'VPL1', len(palette) // 3, 1) + palette)
+                last_palette = palette
+                # The socket accepts one update/second. Resume wallpaper sync after that interval.
+                changed()
+                return False
             if not enabled:
                 key, data = ('disabled',), HEADER.pack(b'VCLR', 0, 0)
             else:
@@ -342,6 +408,16 @@ def watch():
     options.parent.mkdir(parents=True, exist_ok=True)
     monitor = Gio.File.new_for_path(str(options.parent)).monitor_directory(Gio.FileMonitorFlags.NONE, None)
     monitor.connect('changed', changed)
+
+    def palette_changed(_monitor, file, other, _event):
+        if any(item and item.get_basename() == 'colors.json' for item in (file, other)):
+            changed()
+
+    try:
+        palette_monitor = Gio.File.new_for_path(str(palette_path.parent)).monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, None)
+        palette_monitor.connect('changed', palette_changed)
+    except GLib.Error:
+        palette_monitor = None  # The periodic refresh also covers first-time palette creation.
     background.connect('changed', changed)
     interface.connect('changed::color-scheme', changed)
     # Covers session activation and editing the image in place, with no permanent
@@ -350,6 +426,8 @@ def watch():
     changed()
     loop.run()
     monitor.cancel()
+    if palette_monitor:
+        palette_monitor.cancel()
 
 
 def main():

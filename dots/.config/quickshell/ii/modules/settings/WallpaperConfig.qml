@@ -208,6 +208,13 @@ ContentPage {
         title: Translation.tr("Login screen wallpaper")
         description: Translation.tr("With the Velora GDM theme installed, this account's wallpaper is also shown before login. It is visible to everyone using this computer.")
         ConfigSwitch {
+            buttonIcon: "palette"
+            text: Translation.tr("Use desktop colors on the login screen")
+            enabled: root.greeterOwner.length > 0 && root.greeterOwner === SystemInfo.username
+            checked: Config.options.background.syncGreeterPalette
+            onCheckedChanged: Config.options.background.syncGreeterPalette = checked
+        }
+        ConfigSwitch {
             buttonIcon: "sync"
             text: Translation.tr("Use desktop wallpaper on the login screen")
             enabled: root.greeterOwner.length > 0 && root.greeterOwner === SystemInfo.username

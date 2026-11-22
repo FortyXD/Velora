@@ -36,7 +36,12 @@ for the installing account. Existing Velora GDM installations receive the bridge
 through the same update button, with normal authorization once for its system files.
 Subsequent wallpaper changes require no password or terminal commands.
 
-**Wallpaper > Login screen wallpaper** controls synchronization. Disabling it
+Under **Wallpaper > Login screen wallpaper**, enable **Use desktop colors on the
+login screen** to apply the designated account's Material colors to the login
+dialog, logo, selection and controls. This is independent of wallpaper sync.
+The bridge carries nine RGB colors. Turning the setting off restores Autumn.
+
+**Use desktop wallpaper on the login screen** controls wallpaper synchronization. Disabling it
 returns to Autumn and deletes the generated wallpaper copies. The login background
 is public to all users of the computer. It follows one designated account; an update
 from another account does not change that ownership. Velora wallpaper changes and
@@ -56,7 +61,7 @@ The bridge has two separate processes:
   logind must report an active local graphical session with no locked hint. This
   is account-based authorization, not a guarantee that the sending process itself
   originated at the local keyboard. No active local graphical session means refusal.
-  The service accepts only bounded raw pixels or a reset request, never source paths,
+  The service accepts only bounded appearance data or a reset request, never source paths,
   URLs, commands or compressed images. It checks the session again before publication.
 
 The service can write only `/var/lib/velora-greeter`, applies fixed blur/dimming,

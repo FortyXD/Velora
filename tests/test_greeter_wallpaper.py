@@ -28,6 +28,16 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(self.read(bridge.HEADER.pack(b'VRG1', 1, 1) + b'abc'), (1, 1, b'abc'))
         self.assertIsNone(self.read(bridge.HEADER.pack(b'VCLR', 0, 0)))
 
+    def test_palette_is_fixed_length_rgb(self):
+        width = len(bridge.PALETTE_ROLES)
+        rgb = bytes(range(3 * width))
+        frame = bridge.HEADER.pack(b'VPL1', width, 1) + rgb
+        self.assertEqual(self.read(frame), rgb)
+        self.assertEqual(self.read(bridge.HEADER.pack(b'VPL1', 0, 1)), b'')
+        for invalid in (frame[:-1], frame + b'x', bridge.HEADER.pack(b'VPL1', width + 1, 1) + rgb):
+            with self.assertRaises(ValueError):
+                self.read(invalid)
+
     def test_bounds_magic_truncated_trailing_and_paths(self):
         for data in (b'/etc/passwd', bridge.HEADER.pack(b'JPEG', 1, 1),
                      bridge.HEADER.pack(b'VRG1', 0, 1), bridge.HEADER.pack(b'VRG1', 2561, 1),
@@ -83,6 +93,35 @@ class AuthorizationTests(unittest.TestCase):
 
 
 class PublicationTests(unittest.TestCase):
+    def test_palette_recolors_without_wallpaper_change(self):
+        template = ROOT / 'resources/greeter/palette.css.in'
+        with tempfile.TemporaryDirectory() as directory, patch.object(bridge, 'STATE', Path(directory)), \
+                patch.object(bridge, 'PALETTE_TEMPLATE', template):
+            path = Path(directory) / 'colors.json'
+            path.write_text(json.dumps(dict.fromkeys(bridge.PALETTE_ROLES, '#778899')))
+            palette = bridge.desktop_palette(path, {})
+            bridge.publish(None, lambda: True)
+            bridge.publish(palette, lambda: True)
+            css = Path(directory) / 'palette.css'
+            self.assertIn('border-color: #778899', css.read_text())
+            updated = bridge.desktop_palette(path, {'primary': '#fafafa'})
+            with self.assertRaises(PermissionError):
+                bridge.publish(updated, lambda: False)
+            self.assertNotIn('#fafafa', css.read_text())
+            bridge.publish(updated, lambda: True)
+            self.assertIn('background-color: #fafafa !important; color: #000000', css.read_text())
+            self.assertEqual(json.loads((Path(directory) / 'current.json').read_text()), {'image': ''})
+            bridge.publish(None, lambda: True)
+            self.assertIn('#fafafa', css.read_text())
+            with self.assertRaises(PermissionError):
+                bridge.publish(b'', lambda: False)
+            self.assertTrue(css.exists())
+            bridge.publish(b'', lambda: True)
+            self.assertFalse(css.exists())
+            path.write_text(json.dumps(dict.fromkeys(bridge.PALETTE_ROLES, 'inherit')))
+            with self.assertRaises(ValueError):
+                bridge.desktop_palette(path, {})
+
     def test_atomic_bounded_history_and_logout_race(self):
         from PIL import Image
         with tempfile.TemporaryDirectory() as directory, patch.object(bridge, 'STATE', Path(directory)):

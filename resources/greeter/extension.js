@@ -18,6 +18,8 @@ export default class VeloraGreeter extends Extension {
         if (Main.sessionMode.currentMode !== 'gdm' || Config.PACKAGE_VERSION !== '51.1')
             return;
         this._dialogs = new Map();
+        this._paletteFile = Gio.File.new_for_path('/var/lib/velora-greeter/palette.css');
+        this._reloadPalette();
         try {
             this._wallpaperMonitor = Gio.File.new_for_path('/var/lib/velora-greeter').monitor_directory(Gio.FileMonitorFlags.NONE, null);
         } catch (_) { /* The bundled theme also works without the sync service. */ }
@@ -25,6 +27,7 @@ export default class VeloraGreeter extends Extension {
             if (this._wallpaperTimer) GLib.source_remove(this._wallpaperTimer);
             this._wallpaperTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
                 this._wallpaperTimer = 0;
+                this._reloadPalette();
                 for (const view of this._dialogs.values())
                     view.background.set_style(this._backgroundStyle());
                 return GLib.SOURCE_REMOVE;
@@ -51,6 +54,28 @@ export default class VeloraGreeter extends Extension {
         });
     }
 
+    _reloadPalette() {
+        const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
+        if (!theme) return;
+        try {
+            const info = this._paletteFile.query_info('etag::value', Gio.FileQueryInfoFlags.NONE, null);
+            const tag = info.get_etag();
+            if (theme === this._paletteTheme && tag === this._paletteTag) return;
+            if (this._paletteTheme) this._paletteTheme.unload_stylesheet(this._paletteFile);
+            this._paletteTheme = null;
+            theme.load_stylesheet(this._paletteFile);
+            this._paletteTheme = theme;
+            this._paletteTag = tag;
+        } catch (error) {
+            if (error.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND)) {
+                this._paletteTheme?.unload_stylesheet(this._paletteFile);
+                this._paletteTheme = null;
+            } else {
+                console.warn('Velora login palette:', error.message);
+            }
+        }
+    }
+
     _attach(dialog) {
         if (this._dialogs.has(dialog))
             return;
@@ -64,7 +89,7 @@ export default class VeloraGreeter extends Extension {
         clock.add_child(time);
         clock.add_child(date);
         const brand = new St.BoxLayout({style_class: 'velora-brand', reactive: false});
-        brand.add_child(new St.Icon({gicon: Gio.icon_new_for_string(`${this.path}/logo.svg`), icon_size: 26}));
+        brand.add_child(new St.Icon({gicon: Gio.icon_new_for_string(`${this.path}/logo-symbolic.svg`), icon_size: 26}));
         brand.add_child(new St.Label({text: 'Velora', y_align: Clutter.ActorAlign.CENTER}));
         const power = new St.Button({style_class: 'velora-power', can_focus: true,
             accessible_name: 'Power', child: new St.Icon({icon_name: 'system-shutdown-symbolic', icon_size: 20,
@@ -73,6 +98,7 @@ export default class VeloraGreeter extends Extension {
         dialog.insert_child_at_index(background, 0);
         for (const actor of [clock, brand, power])
             dialog.add_child(actor);
+        this._reloadPalette();
         dialog.add_style_class_name('velora-greeter');
         const logoOpacity = dialog._logoBin?.opacity;
         if (dialog._logoBin) dialog._logoBin.opacity = 0;
@@ -152,6 +178,8 @@ export default class VeloraGreeter extends Extension {
     }
 
     disable() {
+        this._paletteTheme?.unload_stylesheet(this._paletteFile);
+        this._paletteTheme = null;
         this._wallpaperMonitor?.cancel();
         this._wallpaperMonitor = null;
         if (this._wallpaperTimer) GLib.source_remove(this._wallpaperTimer);
