@@ -1,7 +1,7 @@
 # Login and file previews
 
 `velora install --login-theme velora` opts into the Autumn GDM appearance.
-The default is `keep`; the chosen setting is retained for updates.
+New GDM setups select this appearance automatically. Use `--login-theme keep` to retain the standard appearance. The installer remembers that choice for updates.
 `velora greeter status` reports support and installation state.
 `velora greeter restore` restores the original files and returns the saved choice
 to `keep`. Changes appear on the next GDM start; installation does not end a session.

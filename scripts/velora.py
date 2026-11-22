@@ -1012,13 +1012,59 @@ def add_features(args):
 def configure_greeter(theme, *, dry=False):
     if theme != "velora":
         return
+    if dry and greeter.version() is None:
+        print("  Would verify the installed GNOME Shell version before applying Velora's GDM theme.")
+        return True
     if greeter.version() not in greeter.SUPPORTED:
         print("This GNOME version is not verified; keeping the standard greeter.")
+        return False
     elif greeter.is_current(ROOT):
         print("GDM theme: already current; no administrator authorization needed.")
     else:
         run(["sudo", "python3", "-I", ROOT / "scripts/greeter.py", "apply", "--source", ROOT,
              "--owner-uid", str(os.getuid())], dry=dry)
+    return True
+
+
+def available_greeter_supported():
+    installed = greeter.version()
+    if installed:
+        return installed in greeter.SUPPORTED
+    # Use the local sync database so reviewing the plan does not require a download.
+    try:
+        info = run(["pacman", "-Si", "--", "gnome-shell"], capture=True, timeout=10)
+    except VeloraError:
+        return False
+    version = re.search(r"^Version\s*:\s*(?:\d+:)?([^\s-]+)-", info, re.MULTILINE)
+    return bool(version and version.group(1) in greeter.SUPPORTED)
+
+
+def login_plan(args, saved, inventory):
+    requested = args.login_manager
+    theme = args.login_theme or saved.get("login_theme")
+    interactive = sys.stdin.isatty() and not args.yes and not args.dry_run
+    configured = next((item for item in inventory["managers"] if item["configured"]), {})
+    if args.skip_packages:
+        return requested or saved.get("login_manager", "skip"), theme or "keep"
+    if requested is None and (args.login_theme == "velora" or (theme == "velora" and not saved.get("login_manager"))):
+        requested = "gdm"
+    elif requested is None and not saved.get("login_manager"):
+        unused = not any(item["active"] or item["enabled"] for item in inventory["managers"])
+        stock_sddm = configured.get("name") == "sddm" and not configured.get("separate_boot_link")
+        if configured.get("name") == "gdm" or (theme != "keep" and (stock_sddm or unused)
+                                               and inventory.get("inspection_complete", True)
+                                               and available_greeter_supported()):
+            requested = "gdm"
+    if interactive:
+        login_manager.describe("skip", inventory)
+    choice = login_manager.choose(requested, saved.get("login_manager"), inventory,
+                                  interactive=interactive, velora_gdm=theme != "keep")
+    if choice == "skip":
+        return choice, theme or "keep"
+    if choice != "gdm" and args.login_theme == "velora":
+        raise VeloraError("--login-theme velora requires GDM. Choose --login-manager gdm.")
+    theme = (theme or "velora") if choice == "gdm" else "keep"
+    return choice, theme
 
 
 def install(args):
@@ -1032,13 +1078,9 @@ def install(args):
     if args.build_package is None and sys.stdin.isatty() and not args.yes and not args.dry_run and not package_metadata():
         args.build_package = input("Build and install Velora as an Arch package? [y/N] ").strip().lower() in ("y", "yes")
     preflight(args, features)
-    args.login_theme_choice = args.login_theme or preferences().get("login_theme", "keep")
     login_inventory = login_manager.inspect()
-    if sys.stdin.isatty() and not args.yes and not args.dry_run:
-        login_manager.describe("skip", login_inventory)
-    args.login_manager_choice = login_manager.choose(
-        args.login_manager, preferences().get("login_manager"), login_inventory,
-        interactive=sys.stdin.isatty() and not args.yes and not args.dry_run)
+    args.login_manager_choice, args.login_theme_choice = login_plan(args, preferences(), login_inventory)
+    prepare_gdm = configure_greeter if args.login_theme_choice == "velora" else None
     print("\nInstallation plan", flush=True)
     print("  Components: " + ", ".join(features))
     print(f"  Configuration: {xdg('XDG_CONFIG_HOME', '.config')}")
@@ -1050,6 +1092,10 @@ def install(args):
     print("  Desktop services: " + ("leave unchanged (--skip-packages)" if args.skip_packages else
           "enable PipeWire, WirePlumber and the virtual keyboard; enable NetworkManager unless another manager is active"))
     print("  Login theme: " + args.login_theme_choice)
+    if not args.skip_packages and args.login_manager_choice == "gdm" and any(
+            item["name"] == "sddm" and item["configured"] for item in login_inventory["managers"]):
+        print("  Next boot: replace the SDDM login screen with GDM; keep the running session. "
+              "Use --login-manager existing to retain SDDM.")
     print("  Source builds: " + (", ".join(args.source_packages) or "none"))
     print("  Velora installation: " + ("build an Arch package" if args.build_package else "system package" if package_metadata() else "current checkout"))
     if not args.skip_packages and not args.skip_aur and not (shutil.which("yay") or shutil.which("paru")):
@@ -1064,10 +1110,9 @@ def install(args):
         build_native_helper(dry=True)
         build_file_dialog(dry=True)
         build_window_plugin(dry=True)
-        configure_greeter(args.login_theme_choice, dry=True)
         install_fonts(dry=True)
         verify_runtime(features, args)
-        login_manager.configure(args.login_manager_choice, run, dry=True, skip_packages=args.skip_packages, inventory=login_inventory)
+        login_manager.configure(args.login_manager_choice, run, dry=True, skip_packages=args.skip_packages, inventory=login_inventory, prepare_gdm=prepare_gdm)
         run(["bash", ROOT / "scripts/install.sh", "--dry-run", "--skip-packages", "--no-reload"])
         print("Would register the velora command, update launcher and user timer. No files changed.")
         return
@@ -1096,8 +1141,7 @@ def install(args):
     install_fonts()
     verify_runtime(features, args)
     backup = link_configuration(args, without)
-    login_manager.configure(args.login_manager_choice, run, skip_packages=args.skip_packages)
-    configure_greeter(args.login_theme_choice)
+    login_manager.configure(args.login_manager_choice, run, skip_packages=args.skip_packages, prepare_gdm=prepare_gdm)
     print(f"\nVelora installed. Backup: {backup}\nRestore with: velora restore {backup.name}")
     print("Log in to Hyprland: the setup assistant starts on its own (later: Shift+Super+Alt+/).")
     print("Open Settings with Super+I. Update Velora from Settings > General > Software Update, or run: velora update")
@@ -1391,9 +1435,9 @@ def parser():
         sub.add_argument("--rebuild", action="store_true", help="Rebuild selected source packages even when their recipes are unchanged")
         if name == "install":
             sub.add_argument("--login-theme", choices=("keep", "velora"), default=None,
-                             help="GDM appearance: keep existing by default, or install Velora Autumn")
+                             help="Select Velora Autumn for GDM (default for new GDM setups), or keep the existing appearance")
             sub.add_argument("--login-manager", choices=login_manager.CHOICES, default=None,
-                             help="Optional graphical login: reuse existing, install gdm (GNOME) or sddm, or skip; unattended installs default to skip")
+                             help="Choose GDM, SDDM, an existing manager, or skip graphical login setup")
             sub.add_argument("--build-package", action="store_true", default=None,
                              help="Build Velora as an Arch package and install it automatically")
         if name == "deps":

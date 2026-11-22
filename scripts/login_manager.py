@@ -1,5 +1,6 @@
 """Optional graphical login setup; inspection never changes services."""
 import configparser
+import json
 import os
 from pathlib import Path
 import shlex
@@ -63,6 +64,12 @@ def inspect(alias=None):
             found.append({"name": name, "label": label, "package": package, "unit": unit,
                           "installed": installed, "active": unit in active,
                           "enabled": enabled, "configured": unit == configured})
+    for item in found:
+        if item["name"] == "sddm":
+            # Replacing the alias cannot disable a separate target dependency.
+            item["separate_boot_link"] = any(link.is_symlink() for directory in SYSTEM_UNIT_DIRS
+                                              for suffix in ("wants", "requires")
+                                              for link in directory.glob(f"*.{suffix}/sddm.service"))
     if configured and not any(item["unit"] == configured for item in found):
         found.append({"name": "existing", "label": configured, "package": None, "unit": configured,
                       "installed": True, "active": configured in active, "enabled": True, "configured": True})
@@ -72,7 +79,7 @@ def inspect(alias=None):
             "inspection_complete": all(output is not None for output in (package_output, unit_output, active_output))}
 
 
-def choose(requested, saved, inventory, *, interactive=False, ask=None):
+def choose(requested, saved, inventory, *, interactive=False, ask=None, velora_gdm=False):
     ask = input if ask is None else ask
     found = inventory["managers"]
     if requested is None and saved in CHOICES:
@@ -102,6 +109,15 @@ def choose(requested, saved, inventory, *, interactive=False, ask=None):
     selected = next((item for item in found if item["name"] == requested), None)
     conflicts = [item["label"] for item in found if item["name"] != requested
                  and (item["active"] or item["enabled"] or item["configured"])]
+    if conflicts and requested == "gdm" and velora_gdm:
+        # Stock SDDM and GDM share one display-manager.service alias. Other ways
+        # of enabling a greeter (e.g. a getty) cannot be migrated this way.
+        configured = next((item["name"] for item in found if item["configured"]), None)
+        sddm = next((item for item in found if item["name"] == "sddm"), None)
+        if (configured == "sddm" and not sddm.get("separate_boot_link")) or (
+                configured == "gdm" and sddm and not sddm["enabled"]):
+            conflicts = [item["label"] for item in found if item["name"] not in ("sddm", "gdm")
+                         and (item["active"] or item["enabled"] or item["configured"])]
     if conflicts:
         raise ValueError("Keeping the existing login manager (" + ", ".join(conflicts)
                          + "). Use --login-manager existing or skip; switch managers explicitly in system administration first.")
@@ -143,23 +159,51 @@ def session_entry(directory=Path("/usr/share/wayland-sessions")):
     raise ValueError("Hyprland's Wayland session desktop entry is missing or invalid. Reinstall the hyprland package before enabling graphical login.")
 
 
-def configure(choice, run, *, dry=False, skip_packages=False, inventory=None):
+def prefer_hyprland(entry, run, *, dry=False):
+    """Seed GDM's per-user session when the account has no saved choice."""
+    if dry:
+        print("  Would default this account to Hyprland if it has no saved login session.")
+        return
+    account = ["org.freedesktop.Accounts", f"/org/freedesktop/Accounts/User{os.getuid()}",
+               "org.freedesktop.Accounts.User"]
+    def get(key):
+        return json.loads(run(["busctl", "--system", "--json=short", "get-property", *account, key], capture=True))["data"]
+    if not get("Session") and not get("XSession") and get("SessionType") in ("", "wayland"):
+        for key, value in (("SessionType", "wayland"), ("Session", entry.stem)):
+            run(["sudo", "busctl", "--system", "call", *account, "Set" + key, "s", value])
+
+
+def configure(choice, run, *, dry=False, skip_packages=False, inventory=None, prepare_gdm=None):
     if choice == "skip" or skip_packages:
         return
-    inventory = inspect() if inventory is None else inventory
+    live = inventory is None
+    inventory = inspect() if live else inventory
     if not inventory["default_target"] or not inventory.get("inspection_complete", True):
         raise ValueError("Could not inspect systemd's login services and boot target. Leave the login manager unchanged and retry from the installed system.")
-    choice = choose(choice, None, inventory)  # Refuse a manager introduced since plan review.
+    choice = choose(choice, None, inventory, velora_gdm=prepare_gdm is not None)  # Refuse a manager introduced since plan review.
     selected = next((item for item in inventory["managers"] if item["name"] == choice), None)
     if choice in ("gdm", "sddm") and not (selected and selected["installed"]):
         run(["sudo", "pacman", "-Syu", "--needed", "--", MANAGERS[choice][1]], dry=dry)
+    entry = None
     if dry:
         print("  Would verify the Hyprland package's /usr/share/wayland-sessions/hyprland*.desktop entry.")
     else:
-        print("  Hyprland login session: " + str(session_entry()))
+        entry = session_entry()
+        print("  Hyprland login session: " + str(entry))
+    switching = any(item["name"] == "sddm" and item["configured"] for item in inventory["managers"]) and choice == "gdm"
+    if prepare_gdm is not None and choice == "gdm":
+        if not prepare_gdm("velora", dry=dry) and switching and not dry:
+            raise ValueError("Velora's GDM theme is unavailable for this GNOME Shell version. Keeping SDDM enabled.")
+        prefer_hyprland(entry, run, dry=dry)
+    if switching and live and not dry:
+        latest = inspect()
+        if (not latest["inspection_complete"] or not any(
+                item["name"] == "sddm" and item["configured"] for item in latest["managers"])):
+            raise ValueError("The configured login manager changed during installation. Review the plan again.")
+        choose(choice, None, latest, velora_gdm=True)
     if not (selected and selected["enabled"]):
         unit = selected["unit"] if selected else MANAGERS[choice][2]
-        run(["sudo", "systemctl", "enable", "--", unit], dry=dry)
+        run(["sudo", "systemctl", "enable", *(["--force"] if switching else []), "--", unit], dry=dry)
     if inventory["default_target"] != "graphical.target":
         run(["sudo", "systemctl", "set-default", "graphical.target"], dry=dry)
-    print("Select Hyprland in the login screen's session menu after reboot. Existing login themes and authentication settings are retained.")
+    print("Hyprland will be available in the login screen's session menu after reboot.")

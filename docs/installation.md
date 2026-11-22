@@ -30,23 +30,19 @@ Choices are saved in `$XDG_STATE_HOME/velora/installation.json` and reused by up
 
 ## Optional graphical login
 
-The guided installer asks whether you want a graphical login screen. It lists installed login managers and detects the enabled `display-manager.service` and active services. If a manager is already configured, it offers to reuse that manager. Otherwise, after you opt in, **GDM (GNOME)** is the suggested default; SDDM is also available. Press Enter at the initial question to keep your current login setup.
+On a new install with GDM already configured, the installer applies Velora's GDM appearance automatically on supported GNOME Shell versions. When the installed GNOME Shell or the version available in Arch's package database supports the theme, a new installation proposes GDM for the next boot on systems using stock SDDM or without an enabled login manager. Review the plan before accepting. The current login session stays running. Other active login managers can be retained.
 
 ```bash
-./velora install --login-manager existing   # Reuse the detected manager
-./velora install --login-manager gdm        # Install/configure GNOME's login manager
-./velora install --login-manager sddm       # Use SDDM instead
-./velora install --login-manager skip       # Keep the current setup
-./velora install --dry-run --login-manager gdm
+./velora install --dry-run
+./velora install --login-manager existing     # Retain the configured manager
+./velora install --login-manager skip         # Skip graphical login setup
+./velora install --login-manager gdm --login-theme keep
+./velora install --login-theme velora         # Select GDM and its Velora theme
 ```
 
-An unattended `--yes` installation does not add a login manager unless you explicitly select one or previously saved an opt-in choice. The choice is saved with your installation preferences and reused by updates. `--skip-packages` skips login-manager package and service changes, including when a choice is saved.
+A themed migration installs GDM, validates Hyprland's Wayland session entry and applies the greeter before switching the display-manager alias. A failure to prepare the theme leaves SDDM enabled. If the account has no saved session, GDM defaults to Hyprland. Users with an existing selection can choose Hyprland from the login screen. Other configured managers retain the existing conflict checks; greetd and other managers with separate greeters must already be configured.
 
-For GDM and SDDM, Velora installs a missing package, verifies the Hyprland package's Wayland session entry, enables the service for the next boot, and selects `graphical.target` if necessary. It does not start, stop or restart login services during installation. After reboot, select **Hyprland** from the login screen's session menu. Existing themes, authentication settings and default sessions are preserved.
-
-Velora also detects LightDM, greetd, Ly, Plasma Login Manager, COSMIC Greeter, LXDM, XDM and a custom configured display-manager service. Existing configured managers can be retained; greetd and other managers that need a separate greeter must already have their service configured. An already running manager selected for reuse is enabled for the next boot if necessary. A package name alone does not prove that a working greeter exists. If several inactive managers are installed, choose the intended one explicitly. Velora refuses to replace another active/enabled manager; change that system setup deliberately before requesting a different one.
-
-These system package/service changes are outside configuration-file rollback. To return to a different login setup, use that manager's documented system administration procedure. Hyprland's [current compatibility notes](https://wiki.hypr.land/getting-started/master-tutorial/) describe a possible first-launch crash with GDM; SDDM is an alternative if that affects your system. The supplied package session entries are used as-is; Velora does not modify a greeter theme to launch the desktop.
+The installer remembers login preferences for updates. Explicit choices override saved preferences. `--skip-packages` skips login packages, theming and system service changes. The [greeter guide](desktop-extras.md) covers version support, wallpaper sharing and theme recovery. To return to SDDM after migration, use `sudo systemctl enable --force sddm.service` and reboot when ready. Use `--login-manager existing --login-theme keep` on the next install to save the new preference.
 
 ## What the installer does
 

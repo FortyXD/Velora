@@ -1,5 +1,8 @@
 """Login-manager plans and commands without modifying host packages or services."""
 from pathlib import Path
+import shutil
+import subprocess
+import unittest
 from unittest.mock import Mock, patch
 
 from test_velora import IsolatedTest, velora
@@ -14,6 +17,97 @@ def inventory(*names, active=None, enabled=None, configured=None, target="graphi
 
 
 class LoginManagerTests(IsolatedTest):
+    def test_automatic_themed_login_choices(self):
+        args = velora.parser().parse_args(["install", "--yes"])
+        for name in ("sddm", "gdm"):
+            state = inventory(name, active=name, enabled=name, configured=name)
+            with patch.object(velora.greeter, "version", return_value="51.1"):
+                self.assertEqual(velora.login_plan(args, {}, state), ("gdm", "velora"))
+                self.assertEqual(velora.login_plan(args, {"login_manager": "skip", "login_theme": "keep"}, state), ("skip", "keep"))
+        args.login_theme = "keep"
+        args.login_manager = "gdm"
+        self.assertEqual(velora.login_plan(args, {}, state), ("gdm", "keep"))
+
+    def test_available_arch_version_and_an_unconfigured_login(self):
+        args = velora.parser().parse_args(["install", "--yes"])
+        with patch.object(velora.greeter, "version", return_value=None), patch.object(velora, "run") as run:
+            run.return_value = "Version         : 1:51.1-1.1"
+            self.assertEqual(velora.login_plan(args, {}, inventory()), ("gdm", "velora"))
+            run.return_value = "Version         : 1:51.2-1"
+            self.assertEqual(velora.login_plan(args, {}, inventory()), ("skip", "keep"))
+            args.skip_packages = True
+            run.reset_mock()
+            self.assertEqual(velora.login_plan(args, {}, inventory()), ("skip", "keep"))
+            run.assert_not_called()
+
+    def test_migration_prepares_theme_before_replacing_only_the_sddm_alias(self):
+        state = inventory("sddm", active="sddm", enabled="sddm", configured="sddm")
+        actions = []
+        def run(command, **kwargs):
+            actions.append(command)
+            return '{"type":"s","data":""}'
+        def theme(name, **kwargs):
+            actions.append(["theme", name])
+            return True
+        with patch.object(manager, "session_entry", return_value=Path("hyprland.desktop")):
+            manager.configure("gdm", run, inventory=state, prepare_gdm=theme)
+            self.assertEqual(actions[-1], ["sudo", "systemctl", "enable", "--force", "--", "gdm.service"])
+            self.assertIn(["theme", "velora"], actions[:-1])
+            self.assertTrue(any(cmd[-3:] == ["SetSession", "s", "hyprland"] for cmd in actions))
+            actions.clear()
+            with self.assertRaisesRegex(ValueError, "Keeping SDDM"):
+                manager.configure("gdm", run, inventory=state, prepare_gdm=Mock(return_value=False))
+            self.assertFalse(any("systemctl" in cmd for cmd in actions))
+
+    def test_custom_sddm_boot_link_prevents_alias_only_migration(self):
+        state = inventory("sddm", active="sddm", enabled="sddm", configured="sddm")
+        state["managers"][0]["separate_boot_link"] = True
+        with self.assertRaisesRegex(ValueError, "Keeping the existing login manager"):
+            manager.choose("gdm", None, state, velora_gdm=True)
+
+    @unittest.skipUnless(shutil.which("systemctl"), "requires systemctl")
+    def test_systemd_switches_only_the_next_boot_alias_in_a_private_root(self):
+        root = self.base / "root"
+        units = root / "usr/lib/systemd/system"
+        units.mkdir(parents=True)
+        for name in ("sddm", "gdm"):
+            (units / (name + ".service")).write_text(
+                "[Service]\nExecStart=/bin/true\n[Install]\nAlias=display-manager.service\n")
+        def enable(*args):
+            subprocess.run(["systemctl", "--root", str(root), "enable", *args],
+                           check=True, capture_output=True, text=True)
+        enable("sddm.service")
+        alias = root / "etc/systemd/system/display-manager.service"
+        self.assertEqual(alias.readlink().name, "sddm.service")
+        def run(command, **kwargs):
+            if command[:3] == ["sudo", "systemctl", "enable"]:
+                enable(*command[3:])
+            elif command[0] == "busctl":
+                return '{"type":"s","data":"hyprland"}'
+            else:
+                self.fail(str(command))
+        state = inventory("gdm", "sddm", active="sddm", configured="sddm", enabled="sddm")
+        with patch.object(manager, "session_entry", return_value=Path("hyprland.desktop")):
+            manager.configure("gdm", run, inventory=state, prepare_gdm=Mock(return_value=True))
+        self.assertEqual(alias.readlink().name, "gdm.service")
+
+    def test_pending_switch_preserves_existing_session_and_skip_packages(self):
+        state = inventory("sddm", "gdm", active="sddm", enabled="gdm", configured="gdm")
+        run = Mock(return_value='{"type":"s","data":"plasma"}')
+        theme = Mock(return_value=True)
+        with patch.object(manager, "session_entry", return_value=Path("hyprland.desktop")):
+            manager.configure("gdm", run, inventory=state, prepare_gdm=theme)
+        self.assertEqual(run.call_count, 1)
+        self.assertIn("get-property", run.call_args.args[0])
+        legacy = Mock(side_effect=['{"data":""}', '{"data":"plasma"}'])
+        manager.prefer_hyprland(Path("hyprland.desktop"), legacy)
+        self.assertEqual([call.args[0][-1] for call in legacy.call_args_list], ["Session", "XSession"])
+        run.reset_mock()
+        theme.reset_mock()
+        manager.configure("gdm", run, inventory=state, prepare_gdm=theme, skip_packages=True)
+        run.assert_not_called()
+        theme.assert_not_called()
+
     def test_fresh_unattended_install_does_not_opt_in(self):
         self.assertEqual(manager.choose(None, None, inventory()), "skip")
         self.assertIsNone(velora.parser().parse_args(["install", "--yes"]).login_manager)

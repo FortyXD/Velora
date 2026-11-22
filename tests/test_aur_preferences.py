@@ -67,10 +67,9 @@ class AurPreferenceTests(IsolatedTest):
                 mocks[name] = stack.enter_context(patch.object(velora, name))
             mocks["link_configuration"] = stack.enter_context(patch.object(velora, "link_configuration", return_value=self.base))
             stack.enter_context(patch.object(velora, "bluetooth_adapters_present", return_value=False))
-            stack.enter_context(patch.object(velora.login_manager, "inspect", return_value={}))
-            stack.enter_context(patch.object(velora.login_manager, "choose", return_value="skip"))
+            stack.enter_context(patch.object(velora.login_manager, "inspect", return_value={"managers": [], "inspection_complete": False}))
             stack.enter_context(patch.object(velora.login_manager, "describe"))
-            stack.enter_context(patch.object(velora.login_manager, "configure"))
+            mocks["configure_login"] = stack.enter_context(patch.object(velora.login_manager, "configure"))
             yield mocks
 
     def test_install_and_deps_respect_saved_explicit_choices_and_exclusions(self):
@@ -102,7 +101,8 @@ class AurPreferenceTests(IsolatedTest):
                             if command == "install":
                                 self.assertEqual(mocks["link_configuration"].call_args.args[1], ["live-wallpapers", "toolbox"])
                                 mocks["build_file_dialog"].assert_called_once()
-                                mocks["configure_greeter"].assert_called_once_with("keep")
+                                self.assertIsNone(mocks["configure_login"].call_args.kwargs["prepare_gdm"])
+                                mocks["configure_greeter"].assert_not_called()
                             # deps must not silently persist an invocation-only override.
                             self.assertEqual(velora.preferences(), saved_values)
 
