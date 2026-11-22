@@ -305,10 +305,34 @@ def missing_packages(packages):
     return [pkg for pkg in packages if pkg not in installed]
 
 
+def matugen_can_select_source():
+    executable = system_tool("matugen")
+    if not executable:
+        return False
+    try:
+        return "--source-color-index" in run([executable, "--help"], capture=True, timeout=10)
+    except VeloraError:
+        return False
+
+
+POLKIT_QML = Path("/usr/lib/qt6/qml/Quickshell/Services/Polkit/qmldir")
+
+
 def package_plan(features, skip_aur=False, source_packages=()):
     repo = sorted({pkg for item in features.values() for pkg in item.get("repo", [])})
     aur = [] if skip_aur else sorted({pkg for item in features.values() for pkg in item.get("aur", [])})
     missing = set(missing_packages(repo + aur))
+    # pacman -T accepts virtual providers, including builds missing a module or CLI we use.
+    if "quickshell" in repo and not POLKIT_QML.is_file():
+        missing.add("quickshell")
+    if "matugen" in repo and "matugen" not in missing and not matugen_can_select_source():
+        if "matugen" not in source_packages and not missing_packages(["matugen-bin"]):
+            # Legacy desktop metapackages depend on this exact AUR name.
+            if not skip_aur:
+                aur = sorted(set(aur) | {"matugen-bin"})
+                missing.add("matugen-bin")
+        else:
+            missing.add("matugen")
     return [pkg for pkg in repo if pkg in missing and pkg not in source_packages], [pkg for pkg in aur if pkg in missing and pkg not in source_packages]
 
 
@@ -502,12 +526,19 @@ def configure_desktop_services(args):
         run(["sudo", "udevadm", "settle"], dry=args.dry_run)
 
     dropin = xdg("XDG_CONFIG_HOME", ".config") / "systemd/user/ydotool.service.d/velora.conf"
-    run(["install", "-Dm644", ROOT / "dependencies/system/ydotool-user.conf", dropin], dry=args.dry_run)
+    override = ROOT / "dependencies/system/ydotool-user.conf"
+    if not files_equal(override, dropin):
+        run(["install", "-Dm644", override, dropin], dry=args.dry_run)
     units = ["pipewire.socket", "pipewire-pulse.socket", "wireplumber.service", "ydotool.service"]
     # Enabling works before a graphical login, even without a running user service manager.
     run(["systemctl", "--user", "--no-reload", "enable", *units], dry=args.dry_run)
     try:
         run(["systemctl", "--user", "daemon-reload"], dry=args.dry_run)
+        # start is a no-op for a daemon still listening on the pre-install socket.
+        # Check on retries too, in case installation stopped after writing the override.
+        runtime = os.environ.get("XDG_RUNTIME_DIR")
+        if runtime and service_active("ydotool.service", user=True) and not (Path(runtime) / "ydotool.sock").is_socket():
+            run(["systemctl", "--user", "restart", "ydotool.service"], dry=args.dry_run)
         run(["systemctl", "--user", "start", *units], dry=args.dry_run)
     except VeloraError as error:
         print(f"User services are enabled for the next login, but could not start here: {error}")
@@ -547,6 +578,9 @@ def runtime_problems(features, *, skip_aur=False, qml_root=Path("/usr/lib/qt6/qm
             if not (qml_root / module / "qmldir").is_file():
                 problems.append(f"Missing QML module: {module}")
     if "shell" in features:
+        if not matugen_can_select_source():
+            problems.append("Incompatible matugen: Velora palettes require --source-color-index. "
+                            "Enable AUR updates for an installed matugen-bin or install the repository matugen.")
         if not connection_service():
             problems.append("Missing connection service: velora-connectivityd (shell)")
         helper = native_helper_path()
@@ -578,10 +612,11 @@ def install_dependencies(args, features):
         return
     sources = getattr(args, "source_packages", [])
     repo, aur = package_plan(features, args.skip_aur, sources)
-    print(f"Dependencies: {len(repo)} missing Arch packages, {len(aur)} missing AUR packages.", flush=True)
+    print(f"Dependencies to install or repair: {len(repo)} Arch packages, {len(aur)} AUR packages.", flush=True)
     if repo:
-        # Arch requires full upgrades when refreshing repository databases.
-        run(["sudo", "pacman", "-Syu", "--needed", "--", *repo], dry=args.dry_run)
+        # The plan already skips healthy packages. --needed would skip a same-version
+        # Quickshell reinstall even when its Polkit module is absent from disk.
+        run(["sudo", "pacman", "-Syu", "--", *repo], dry=args.dry_run)
     if sources:
         prerequisites = ["base-devel", "git"]
         if any(pkg in item.get("repo", []) for pkg in sources for item in features.values()):
@@ -811,6 +846,24 @@ def link_environment(extra=None):
     return environment
 
 
+def previous_layouts():
+    """Read global XKB choices before adopting an existing multi-layout Hyprland session."""
+    if not os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") or not shutil.which("hyprctl"):
+        return {}
+    settings = {}
+    for key in ("kb_layout", "kb_variant", "kb_options"):
+        try:
+            option = json.loads(run(["hyprctl", "-j", "getoption", "input:" + key], capture=True, timeout=3))
+            value = option["str"]
+        except (VeloraError, ValueError, KeyError, TypeError):
+            return {}
+        if value and value != "[[EMPTY]]":
+            if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_,:+.()-]+", value):
+                return {}
+            settings[key] = value
+    return settings if "," in settings.get("kb_layout", "") else {}
+
+
 def link_configuration(args, without):
     """Links the configuration and registers the command, launcher and update timer; a failed step
     restores every file it replaced. Returns the backup directory."""
@@ -826,8 +879,14 @@ def link_configuration(args, without):
             print("Local edits preserved. Review incoming templates in " + str(runtime / ".incoming"))
             for conflict in conflicts:
                 print("  " + conflict)
+    hypr = xdg("XDG_CONFIG_HOME", ".config") / "hypr"
+    keyboard = previous_layouts() if hypr.is_dir() and not preferences() else {}
     try:
         run(["bash", ROOT / "scripts/install.sh", "--skip-packages", "--no-reload"], env=environment)
+        migrated = hypr / "custom/previous_keyboard.lua"
+        if keyboard and not os.path.lexists(migrated):
+            fields = ", ".join(f"{key} = {json.dumps(value)}" for key, value in keyboard.items())
+            journal_file(journal, migrated, content="hl.config({ input = { " + fields + " } })\n")
         register_installation(journal, args, without)
     except (Exception, KeyboardInterrupt):
         print("Installation did not finish. Restoring configuration files...", file=sys.stderr)
@@ -836,6 +895,19 @@ def link_configuration(args, without):
     if not args.no_reload and os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") and shutil.which("hyprctl"):
         try:
             run(["hyprctl", "reload"])
+            if run(["hyprctl", "configerrors"], capture=True):
+                print("Hyprland reported configuration errors. Inspect them with hyprctl configerrors.")
+            else:
+                # A reload does not emit hyprland.start. Only resume modules actually loaded
+                # by this compositor, respecting custom bindings, execs and active submaps.
+                result = run(["hyprctl", "eval",
+                              'local m = hl.get_current_submap(); '
+                              'if package.loaded["hyprland.keybinds"] and (m == "" or m == "default") then '
+                              'hl.dispatch(hl.dsp.submap("global")) end; '
+                              'local e = package.loaded["hyprland.execs"]; '
+                              'if type(e) == "table" and e.start_shell then e.start_shell() end'], capture=True)
+                if result != "ok":
+                    print("Hyprland could not activate the installed desktop: " + result)
         except VeloraError:
             print("Configuration installed. Hyprland reload failed; log in again to load it.")
     return backup
@@ -886,7 +958,7 @@ def connection_service():
 
 def native_source_fingerprint():
     """Tie installed binaries to their build inputs, including the desktop release version."""
-    files = {ROOT / name for name in ("VERSION", "tools/Cargo.toml", "tools/Cargo.lock")}
+    files = {ROOT / name for name in ("VERSION", "tools/Cargo.toml", "tools/Cargo.lock", "tools/rust-toolchain.toml")}
     translator = ROOT / "tools/velora-translate"
     if translator.is_dir():
         files.update([translator / "Cargo.toml", translator / "Cargo.lock", *translator.glob("src/**/*.rs")])
@@ -942,7 +1014,7 @@ def build_native_helper(dry=False):
         # Otherwise a cached binary omitted by Cargo's defaults could be stamped current.
         for name in NATIVE_PACKAGES:
             command.extend(["--package", name])
-        run(command, env=dict(os.environ, CARGO_TARGET_DIR=str(target)), dry=dry)
+        run(command, cwd=ROOT / "tools", env=dict(os.environ, CARGO_TARGET_DIR=str(target)), dry=dry)
         built = {name: target / "release" / name for name in NATIVE_BINARIES}
     if dry:
         return

@@ -36,16 +36,7 @@ repo = [
     "kitty",
     "foot",
     "fuzzel",
-    "tmux",
-    "zsh",
     "fish",
-    "starship",
-    "zsh-autosuggestions",
-    "fzf",
-    "eza",
-    "bat",
-    "ripgrep",
-    "zoxide",
     "breeze",
 ]
 aur = []
@@ -54,6 +45,16 @@ aur = []
 description = "Shell services, media, networking and hardware controls"
 required = true
 repo = [
+    # The installed Kitty launcher, tmux configuration and interactive prompt use these.
+    "tmux",
+    "zsh",
+    "starship",
+    "zsh-autosuggestions",
+    "fzf",
+    "eza",
+    "bat",
+    "ripgrep",
+    "zoxide",
     "openssl", # SQLCipher in velora-searchd
     "bubblewrap", # Isolated local document and image parsers
     "python-gobject", # Wallpaper/GSettings monitoring for the GDM bridge

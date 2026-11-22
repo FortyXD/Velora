@@ -1,0 +1,4 @@
+[toolchain]
+# material-colors in Cargo.lock requires Rust 1.97.
+channel = "1.97.0"
+profile = "minimal"

@@ -19,7 +19,7 @@ Running `./velora` in a terminal opens the same guided installer. `./install.sh`
 
 ## Choosing components
 
-The desktop and shell components are required. The installer offers optional applications, Toolbox dependencies, additional fonts and themes, and video wallpaper support. Press Enter to keep the displayed selection, enter component numbers to choose optional components, or enter `none` for the required components only.
+The desktop and shell components are required. The default Kitty/tmux shell and its prompt dependencies are included in the required components. The installer offers optional applications, Toolbox dependencies, additional fonts and themes, and video wallpaper support. Press Enter to keep the displayed selection, enter component numbers to choose optional components, or enter `none` for the required components only.
 
 ```bash
 ./velora components
@@ -47,6 +47,8 @@ For GDM and SDDM, Velora installs a missing package, verifies the Hyprland packa
 Velora also detects LightDM, greetd, Ly, Plasma Login Manager, COSMIC Greeter, LXDM, XDM and a custom configured display-manager service. Existing configured managers can be retained; greetd and other managers that need a separate greeter must already have their service configured. An already running manager selected for reuse is enabled for the next boot if necessary. A package name alone does not prove that a working greeter exists. If several inactive managers are installed, choose the intended one explicitly. Velora refuses to replace another active/enabled manager; change that system setup deliberately before requesting a different one.
 
 These system package/service changes are outside configuration-file rollback. To return to a different login setup, use that manager's documented system administration procedure. Hyprland's [current compatibility notes](https://wiki.hypr.land/getting-started/master-tutorial/) describe a possible first-launch crash with GDM; SDDM is an alternative if that affects your system. The supplied package session entries are used as-is; Velora does not modify a greeter theme to launch the desktop.
+
+When adopting a running Hyprland desktop, the installer carries over an existing multi-layout XKB configuration. Later changes in Settings take precedence. A successful reload activates Velora's shortcuts and shell in the current session. Use `--no-reload` to wait until the next login.
 
 ## What the installer does
 

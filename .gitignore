@@ -42,6 +42,7 @@ __pycache__/
 
 # Rewritten while the desktop runs: colors made from the wallpaper and the settings app's output.
 # install.sh creates the missing ones from the *_default files next to them.
+/dots/.config/hypr/custom/previous_keyboard.lua
 /dots/.config/hypr/custom/shell_settings.json
 /dots/.config/hypr/custom/shell_settings.lua
 /dots/.config/hypr/custom/monitors.json

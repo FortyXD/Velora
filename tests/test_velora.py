@@ -45,7 +45,7 @@ class IsolatedTest(unittest.TestCase):
 
 
 class NativeToolsTests(IsolatedTest):
-    def fake_build(self, command, env=None, dry=False):
+    def fake_build(self, command, env=None, dry=False, cwd=None):
         release = Path(env["CARGO_TARGET_DIR"]) / "release"
         release.mkdir(parents=True, exist_ok=True)
         for name in velora.NATIVE_BINARIES:
@@ -68,7 +68,7 @@ class NativeToolsTests(IsolatedTest):
         (release / "velora-agentd").write_text("stale protocol agent")
         (release / "velora-agentd").chmod(0o755)
         requested = []
-        def selective_build(command, env=None, dry=False):
+        def selective_build(command, env=None, dry=False, cwd=None):
             packages = [command[i + 1] for i, argument in enumerate(command) if argument == "--package"]
             requested.extend(packages)
             # Model a workspace whose default selection omits the already-cached agent.
@@ -148,7 +148,7 @@ class NativeToolsTests(IsolatedTest):
 
     def test_updated_sources_invalidate_the_installed_pair(self):
         source = self.base / "source"
-        files = {"VERSION":"0.1.3", "tools/Cargo.toml":"workspace", "tools/Cargo.lock":"locked"}
+        files = {"VERSION":"0.1.3", "tools/Cargo.toml":"workspace", "tools/Cargo.lock":"locked", "tools/rust-toolchain.toml":"toolchain"}
         for name in velora.NATIVE_PACKAGES:
             files[f"tools/{name}/Cargo.toml"] = "crate"
             files[f"tools/{name}/src/main.rs"] = "old source"
