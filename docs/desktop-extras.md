@@ -42,8 +42,12 @@ is public to all users of the computer. It follows one designated account; an up
 from another account does not change that ownership. Velora wallpaper changes and
 GNOME's `picture-uri`, `picture-uri-dark` and light/dark preference are observed
 automatically. Videos use Velora's existing still thumbnail; GIF uses its first frame.
-Missing or unsupported files retain the last working background. Shader animations
-are not rendered into the greeter: the configured underlying image remains in use.
+Missing or unsupported files retain the last working background.
+**Animate built-in wallpapers on the login screen** also renders the selected
+Aurora, Liquid, Neon grid or Dunes preset with the desktop colors, speed and
+frame rate. The bridge carries a preset index, playback settings and four RGB
+colors alongside the still image. This is off by default. GDM uses the still image when animations
+are disabled, the preset is unavailable or the user selects a picture or video.
 
 The bridge has two separate processes:
 
@@ -56,7 +60,7 @@ The bridge has two separate processes:
   logind must report an active local graphical session with no locked hint. This
   is account-based authorization, not a guarantee that the sending process itself
   originated at the local keyboard. No active local graphical session means refusal.
-  The service accepts only bounded raw pixels or a reset request, never source paths,
+  The service accepts only bounded appearance data or a reset request, never source paths,
   URLs, commands or compressed images. It checks the session again before publication.
 
 The service can write only `/var/lib/velora-greeter`, applies fixed blur/dimming,

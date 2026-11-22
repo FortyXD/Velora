@@ -20,6 +20,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from typing import NamedTuple
 import warnings
 
 CONFIG = Path('/etc/velora/greeter-wallpaper.json')
@@ -31,6 +32,15 @@ MAX_PIXELS = 2560 * 1600
 MAX_INPUT = 64 * 1024 * 1024
 IMAGE_NAME = re.compile(r'wallpaper-[a-f0-9]{64}\.jpg\Z')
 CLEAN_ENV = {'PATH': '/usr/bin', 'LANG': 'C.UTF-8'}
+
+
+SHADERS = ('aurora', 'liquid', 'grid', 'dunes')
+SHADER = struct.Struct('!BBB12s')  # preset index, speed in twentieths, fps, four RGB colors
+
+
+class AnimatedWallpaper(NamedTuple):
+    image: tuple
+    shader: dict
 
 
 def configuration():
@@ -85,6 +95,14 @@ def receive(connection, size, deadline):
 def read_frame(connection):
     deadline = time.monotonic() + 4
     magic, width, height = HEADER.unpack(receive(connection, HEADER.size, deadline))
+    shader = None
+    if magic == b'VSH1':
+        preset, speed, fps, rgb = SHADER.unpack(receive(connection, SHADER.size, deadline))
+        if preset >= len(SHADERS) or not 5 <= speed <= 60 or not 5 <= fps <= 60:
+            raise ValueError('Invalid shader preset or playback rate')
+        shader = dict(name=SHADERS[preset], speed=speed / 20, fps=fps,
+                      colors=[rgb[i:i + 3].hex() for i in range(0, len(rgb), 3)])
+        magic = b'VRG1'
     if magic == b'VCLR' and width == height == 0:
         frame = None
     elif (magic == b'VRG1' and 0 < width <= MAX_EDGE and 0 < height <= MAX_EDGE
@@ -95,7 +113,7 @@ def read_frame(connection):
     connection.settimeout(max(.001, deadline - time.monotonic()))
     if connection.recv(1):
         raise ValueError('Trailing wallpaper data')
-    return frame
+    return AnimatedWallpaper(frame, shader) if shader else frame
 
 
 def atomic(path, data):
@@ -119,6 +137,10 @@ def publish(frame, authorized):
         previous = json.loads((STATE / 'current.json').read_bytes()).get('image', '')
     except (OSError, ValueError, AttributeError):
         pass
+    manifest = {}
+    if isinstance(frame, AnimatedWallpaper):
+        manifest['shader'] = frame.shader
+        frame = frame.image
     name = ''
     if frame is not None:
         from PIL import Image, ImageFilter, ImageEnhance
@@ -133,7 +155,8 @@ def publish(frame, authorized):
         raise PermissionError('Local graphical session is no longer active and unlocked')
     if name:
         atomic(STATE / name, data)
-    atomic(STATE / 'current.json', (json.dumps({'image': name}) + '\n').encode())
+    manifest['image'] = name
+    atomic(STATE / 'current.json', (json.dumps(manifest) + '\n').encode())
     keep = (name, previous) if name else ()
     for path in STATE.iterdir():
         if (IMAGE_NAME.fullmatch(path.name) and path.name not in keep) or path.name.startswith('.pending-'):
@@ -248,6 +271,41 @@ def send(data):
             raise ValueError('Wallpaper update was not accepted')
 
 
+def shader_settings(config, palette_path):
+    background = config.get('background', {})
+    options = background.get('shaderWallpaper', {})
+    name = options.get('name') if isinstance(options, dict) else None
+    if not background.get('animateGreeterWallpaper', False) or name not in SHADERS:
+        return b''
+    colors = options.get('colors') or []
+    try:
+        if not colors:
+            with palette_path.open('rb') as palette_file:
+                raw = palette_file.read(8193)
+            if len(raw) > 8192:
+                return b''
+            palette = json.loads(raw)
+            overrides = config.get('appearance', {}).get('palette', {}).get('roleOverrides', {})
+            colors = []
+            for role in ('primary', 'tertiary', 'secondary'):
+                custom = overrides.get(role)
+                colors.append(custom if isinstance(custom, str) and re.fullmatch(r'#[0-9a-fA-F]{6}', custom) else palette[role])
+            if not re.fullmatch(r'#[0-9a-fA-F]{6}', palette['background']):
+                return b''
+            bg = bytes.fromhex(palette['background'][1:])
+            # ShaderWallpaperView mixes the primary with black in a light theme.
+            colors.append(palette['background'] if min(bg) + max(bg) < 255 else
+                          '#' + bytes(round(c * .35) for c in bytes.fromhex(colors[0][1:])).hex())
+        if len(colors) != 4 or not all(isinstance(c, str) and re.fullmatch(r'#[a-fA-F0-9]{6}', c) for c in colors):
+            return b''
+        speed = round(float(options.get('speed', 1)) * 20)
+        fps = int(options.get('fps', 30))
+        return SHADER.pack(SHADERS.index(name), max(5, min(60, speed)), max(5, min(60, fps)),
+                           bytes.fromhex(''.join(c[1:] for c in colors)))
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, OverflowError):
+        return b''  # Keep the still image until the theme is ready.
+
+
 def local_path(value):
     from urllib.parse import urlsplit, unquote
     value = str(value)
@@ -271,6 +329,8 @@ def watch():
     interface = Gio.Settings.new('org.gnome.desktop.interface')
     bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
     options = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config'))) / 'illogical-impulse/config.json'
+    state_home = Path(os.environ.get('XDG_STATE_HOME') or Path.home() / '.local/state')
+    palette_path = state_home / 'quickshell/user/generated/colors.json'
     loop = GLib.MainLoop()
     last_key = None
     failed_decode = None
@@ -287,7 +347,8 @@ def watch():
             desktop = active_desktop(owner)
             if not desktop:
                 return False
-            settings = json.loads(options.read_bytes()).get('background', {}) if options.exists() else {}
+            config = json.loads(options.read_bytes()) if options.exists() else {}
+            settings = config.get('background', {})
             enabled = settings.get('syncGreeterWallpaper', True) is not False
             if not enabled:
                 key, data = ('disabled',), HEADER.pack(b'VCLR', 0, 0)
@@ -310,11 +371,14 @@ def watch():
                     return False
                 path = local_path(value)
                 info = path.stat()
-                key = (str(path), info.st_dev, info.st_ino, info.st_mtime_ns, info.st_size)
+                shader = b'' if gnome else shader_settings(config, palette_path)
+                key = (shader, str(path), info.st_dev, info.st_ino, info.st_mtime_ns, info.st_size)
                 if key in (last_key, failed_decode):
                     return False
                 try:
                     data = decode(path)
+                    if shader:
+                        data = b'VSH1' + data[4:HEADER.size] + shader + data[HEADER.size:]
                 except ValueError:
                     failed_decode = key
                     raise

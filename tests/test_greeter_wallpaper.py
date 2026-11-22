@@ -55,6 +55,20 @@ class ProtocolTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bridge.handle(right, os.getuid(), bridge.time.monotonic())
 
+    def test_shader_frame_accepts_only_known_presets_and_rates(self):
+        head = bridge.HEADER.pack(b'VSH1', 1, 1)
+        def frame(preset, speed, fps):
+            return head + bridge.SHADER.pack(preset, speed, fps, bytes(range(12))) + b'abc'
+
+        image = self.read(frame(3, 25, 30))
+        self.assertEqual(image.image, (1, 1, b'abc'))
+        self.assertEqual(image.shader, dict(name='dunes', speed=1.25, fps=30,
+                                           colors=['000102', '030405', '060708', '090a0b']))
+        for data in (frame(4, 20, 30), frame(1, 0, 30), frame(1, 20, 61),
+                     frame(1, 20, 30)[:-1], frame(1, 20, 30) + b'x'):
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                self.read(data)
+
     def test_absolute_receive_deadline(self):
         left, right = socket.socketpair()
         with left, right, self.assertRaises(TimeoutError):
@@ -102,6 +116,36 @@ class PublicationTests(unittest.TestCase):
             bridge.publish(None, lambda: True)
             self.assertEqual(json.loads((root / 'current.json').read_bytes()), {'image': ''})
             self.assertFalse(list(root.glob('*.jpg')))
+
+    def test_static_replacement_drops_animation_and_denied_update_preserves_it(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(bridge, 'STATE', Path(directory)):
+            manifest = Path(directory) / 'current.json'
+            image = (1, 1, b'abc')
+            shader = dict(name='grid', speed=1, fps=30, colors=['fafafa'] * 4)
+            bridge.publish(bridge.AnimatedWallpaper(image, shader), lambda: True)
+            self.assertEqual(json.loads(manifest.read_text())['shader'], shader)
+            with self.assertRaises(PermissionError):
+                bridge.publish(image, lambda: False)
+            self.assertIn('shader', json.loads(manifest.read_text()))
+            bridge.publish(image, lambda: True)
+            self.assertNotIn('shader', json.loads(manifest.read_text()))
+
+    def test_shader_settings_use_opt_in_and_the_desktop_colors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'colors.json'
+            options = {'shaderWallpaper': {'name': 'grid', 'colors': ['#112233'] * 4}}
+            config = {'background': options}
+            self.assertFalse(bridge.shader_settings(config, path))
+            options['animateGreeterWallpaper'] = True
+            self.assertEqual(bridge.SHADER.unpack(bridge.shader_settings(config, path)),
+                             (2, 20, 30, bytes.fromhex('112233' * 4)))
+            options['shaderWallpaper']['colors'] = []
+            self.assertFalse(bridge.shader_settings(config, path))
+            path.write_text(json.dumps(dict(primary='#ffffff', secondary='#778899',
+                                            tertiary='#445566', background='#eeeeee')))
+            config['appearance'] = {'palette': {'roleOverrides': {'primary': '#112233'}}}
+            self.assertEqual(bridge.SHADER.unpack(bridge.shader_settings(config, path))[-1],
+                             bytes.fromhex('112233445566778899060c12'))
 
     def test_atomic_replace_does_not_follow_target_symlink(self):
         with tempfile.TemporaryDirectory() as directory:

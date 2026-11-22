@@ -215,6 +215,13 @@ ContentPage {
             checked: Config.options.background.syncGreeterWallpaper
             onCheckedChanged: Config.options.background.syncGreeterWallpaper = checked
         }
+        ConfigSwitch {
+            buttonIcon: "animation"
+            text: Translation.tr("Animate built-in wallpapers on the login screen")
+            enabled: Config.options.background.syncGreeterWallpaper && root.greeterOwner === SystemInfo.username && root.greeterOwner.length > 0
+            checked: Config.options.background.animateGreeterWallpaper
+            onCheckedChanged: Config.options.background.animateGreeterWallpaper = checked
+        }
     }
 
     ContentSection {

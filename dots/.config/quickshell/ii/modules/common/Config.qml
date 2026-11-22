@@ -376,6 +376,7 @@ Singleton {
                 property string wallpaperPath: Directories.defaultWallpaper
                 property string thumbnailPath: ""
                 property bool syncGreeterWallpaper: true
+                property bool animateGreeterWallpaper: false
                 property bool hideWhenFullscreen: true
                 property JsonObject parallax: JsonObject {
                     property bool vertical: false

@@ -6,6 +6,7 @@ import St from 'gi://St';
 import {Extension, InjectionManager} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Config from 'resource:///org/gnome/shell/misc/config.js';
+import {createWallpaper} from './shaderWallpaper.js';
 import {LoginDialog} from 'resource:///org/gnome/shell/gdm/loginDialog.js';
 
 function allocate(actor, x, y, width, height) {
@@ -26,7 +27,7 @@ export default class VeloraGreeter extends Extension {
             this._wallpaperTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
                 this._wallpaperTimer = 0;
                 for (const view of this._dialogs.values())
-                    view.background.set_style(this._backgroundStyle());
+                    this._updateBackground(view.background);
                 return GLib.SOURCE_REMOVE;
             });
         });
@@ -57,7 +58,8 @@ export default class VeloraGreeter extends Extension {
         // If the native structure changes, leave that dialog entirely to GNOME.
         if (!dialog._authPrompt || !dialog._userSelectionBox)
             return;
-        const background = new St.Widget({reactive: false, style: this._backgroundStyle()});
+        const background = new St.Widget({reactive: false, layout_manager: new Clutter.BinLayout()});
+        this._updateBackground(background);
         const clock = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, reactive: false});
         const time = new St.Label({style_class: 'velora-clock'});
         const date = new St.Label({style_class: 'velora-date'});
@@ -82,22 +84,36 @@ export default class VeloraGreeter extends Extension {
         dialog.queue_relayout();
     }
 
-    _backgroundStyle() {
+    _updateBackground(background) {
+        let shader = null;
         let path = `${this.path}/autumn.jpg`;
         try {
             const manifest = Gio.File.new_for_path('/var/lib/velora-greeter/current.json');
             if (manifest.query_info('standard::size', Gio.FileQueryInfoFlags.NONE, null).get_size() < 4096) {
                 const [ok, contents] = manifest.load_contents(null);
-                const name = ok ? JSON.parse(new TextDecoder().decode(contents)).image : '';
+                const state = ok ? JSON.parse(new TextDecoder().decode(contents)) : {};
+                const name = state.image;
                 if (typeof name === 'string' && /^wallpaper-[a-f0-9]{64}\.jpg$/.test(name)) {
                     const candidate = `/var/lib/velora-greeter/${name}`;
                     const info = Gio.File.new_for_path(candidate).query_info('standard::type,standard::size', Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, null);
-                    if (info.get_file_type() === Gio.FileType.REGULAR && info.get_size() < 16 * 1024 * 1024)
+                    if (info.get_file_type() === Gio.FileType.REGULAR && info.get_size() < 16 * 1024 * 1024) {
                         path = candidate;
+                        shader = state.shader ?? null;
+                    }
                 }
             }
         } catch (_) { /* An unavailable bridge always leaves the bundled wallpaper. */ }
-        return `background-image: url("${path}"); background-size: cover; background-color: #261812;`;
+        background.set_style(`background-image: url("${path}"); background-size: cover; background-color: #261812;`);
+        const key = JSON.stringify(shader);
+        if (background._shaderKey === key) return;
+        background._shaderKey = key;
+        background.get_first_child()?.destroy();
+        try {
+            const actor = createWallpaper(global.stage, this.path, shader);
+            if (actor) background.add_child(actor);
+        } catch (error) {
+            console.warn('Velora wallpaper:', error.message);
+        }
     }
 
     _updateClock() {

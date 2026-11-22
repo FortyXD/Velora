@@ -67,12 +67,18 @@ def install_sync(transaction, source, owner):
     user_service(owner, 'restart')
 
 
+def shader_assets(source):
+    shaders = source / 'dots/.config/quickshell/ii/assets/shaders'
+    names = ('aurora', 'liquid', 'grid', 'dunes', 'wallpaper-noise')
+    return [source / 'resources/greeter/shaderWallpaper.js', *(shaders / f'{name}.glsl' for name in names)]
+
+
 def source_fingerprint(source):
     paths = [source / 'scripts/greeter.py', *(source / name for name in SYNC_FILES),
              *(source / 'resources/greeter' / name for name in ('extension.js', 'stylesheet.css', 'metadata.json', 'logo.svg')),
              *(source / 'dots/.config/quickshell/ii/assets/images' / name for name in ('autumn.jpg', 'autumn.NOTICE.md'))]
     digest = hashlib.sha256()
-    for path in paths:
+    for path in [*paths, *shader_assets(source)]:
         digest.update(path.relative_to(source).as_posix().encode() + b'\0')
         digest.update(hashlib.sha256(path.read_bytes()).digest())
     return digest.hexdigest()
@@ -82,7 +88,7 @@ def is_current(source):
     """Read-only check, so an unchanged theme never needs administrator authorization."""
     try:
         receipt = json.loads((STATE / 'current.json').read_text())
-        expected = {str(PROFILE), str(SETTINGS), *(str(path) for path in sync_paths()),
+        expected = {*(str(EXTENSION / path.name) for path in shader_assets(source)), str(PROFILE), str(SETTINGS), *(str(path) for path in sync_paths()),
                     *(str(EXTENSION / name) for name in ('extension.js', 'stylesheet.css', 'metadata.json',
                                                         'logo.svg', 'autumn.jpg', 'autumn.NOTICE.md'))}
         return ((STATE / 'manifest.json').is_file()
@@ -228,6 +234,8 @@ def apply(source, owner_uid=None):
         transaction.write(EXTENSION / 'autumn.jpg', output.getvalue())
         notice = source / 'dots/.config/quickshell/ii/assets/images/autumn.NOTICE.md'
         transaction.write(EXTENSION / 'autumn.NOTICE.md', notice.read_bytes())
+        for asset in shader_assets(source):
+            transaction.write(EXTENSION / asset.name, asset.read_bytes())
         settings = "[org/gnome/shell]\nenabled-extensions=" + repr(extensions) + "\ndisable-user-extensions=false\n"
         transaction.write(SETTINGS, settings.encode())
         subprocess.run(['dconf', 'update'], check=True)
