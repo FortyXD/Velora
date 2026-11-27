@@ -90,7 +90,7 @@ SettingsDetailPage {
                         buttonIcon: "neurology"
                         objectName: "searchAiEnable"
                         text: Translation.tr("AI in search")
-                        description: Translation.tr("Show Ask AI and Run a task in the launcher. Off by default.")
+                        description: Translation.tr("Show Ask AI in the launcher for questions and tasks.")
                         checked: Config.options.search.ai.enabled
                         enabled: Config.options.policies.ai !== 0
                         onClicked: {
@@ -226,7 +226,7 @@ SettingsDetailPage {
                         buttonIcon: "more_horiz"
                         description: Translation.tr("Music recognition")
                         objectName: "searchMoreSummary"
-                        title: Translation.tr("More options")
+                        title: Translation.tr("Music recognition")
 
                         onClicked: {
                             forceActiveFocus();

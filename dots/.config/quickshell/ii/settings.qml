@@ -84,13 +84,13 @@ ApplicationWindow {
             component: "modules/settings/ConnectionEditorConfig.qml"
         },
         {
-            key: "general", group: "basics", color: "#8E8E93", icon: "settings",
+            key: "general", group: "basics", color: "#8E8E93", icon: "settings", hero: false,
             name: Translation.tr("General"),
             description: Translation.tr("Updates, storage, language, date and time, and other things about your computer"),
             component: "modules/settings/GeneralConfig.qml"
         },
         {
-            key: "apps", group: "basics", color: "#34C759", icon: "apps",
+            key: "apps", group: "basics", color: "#34C759", icon: "apps", hero: false,
             name: Translation.tr("Default Apps"),
             description: Translation.tr("Browser, terminal, file manager and the apps that open your files"),
             component: "modules/settings/DefaultAppsConfig.qml"
@@ -102,13 +102,13 @@ ApplicationWindow {
             component: "modules/settings/AppearanceConfig.qml"
         },
         {
-            key: "presets", group: "basics", color: "#FF9F0A", icon: "auto_awesome_mosaic",
+            key: "presets", group: "basics", color: "#FF9F0A", icon: "auto_awesome_mosaic", hero: false,
             name: Translation.tr("Presets"),
             description: Translation.tr("Ready-made looks for the bar, theme, dock and motion, and your own"),
             component: "modules/settings/PresetsConfig.qml"
         },
         {
-            key: "wallpaper", group: "basics", color: "#32ADE6", icon: "wallpaper",
+            key: "wallpaper", group: "basics", color: "#32ADE6", icon: "wallpaper", hero: false,
             name: Translation.tr("Wallpaper"),
             description: Translation.tr("Your wallpaper, the colors made from it and how it moves"),
             component: "modules/settings/WallpaperConfig.qml"
@@ -156,16 +156,10 @@ ApplicationWindow {
             component: "modules/settings/DisplaysConfig.qml"
         },
         {
-            key: "keyboard", group: "devices", color: "#8E8E93", icon: "keyboard",
+            key: "keyboard", group: "devices", color: "#5E5CE6", icon: "keyboard", hero: false,
             name: Translation.tr("Keyboard"),
-            description: Translation.tr("Layouts on a live keyboard, what keys do, and key repeat"),
+            description: Translation.tr("Layouts, keyboard shortcuts and key repeat"),
             component: "modules/settings/KeyboardConfig.qml"
-        },
-        {
-            key: "shortcuts", group: "devices", color: "#5E5CE6", icon: "keyboard_command_key",
-            name: Translation.tr("Keyboard Shortcuts"),
-            description: Translation.tr("See, change and add shortcuts, and style the cheat sheet"),
-            component: "modules/settings/ShortcutsConfig.qml"
         },
         {
             key: "mouse", group: "devices", color: "#8E8E93", icon: "mouse", hero: false,
@@ -204,15 +198,15 @@ ApplicationWindow {
             component: "modules/settings/ToolsConfig.qml"
         },
         {
-            key: "advanced", group: "system", color: "#8E8E93", icon: "code",
+            key: "advanced", group: "system", color: "#8E8E93", icon: "code", hero: false,
             name: Translation.tr("Advanced"),
             description: Translation.tr("Config files, work safety, translation and polling"),
             component: "modules/settings/AdvancedConfig.qml"
         },
         {
-            key: "about", group: "system", color: "#8E8E93", icon: "info", hidden: true,
+            key: "about", group: "system", parentKey: "general", color: "#8E8E93", icon: "info", hidden: true, hero: false,
             name: Translation.tr("About"),
-            description: Translation.tr("Your system and the Folis dotfiles"),
+            description: Translation.tr("Velora, this computer and project resources"),
             component: "modules/settings/About.qml"
         },
         // Opened from General (`parentKey`), which stays highlighted in the sidebar meanwhile
@@ -380,7 +374,7 @@ ApplicationWindow {
     readonly property bool canGoForward: root.historyIndex < root.history.length - 1
 
     // Keys of pages that were merged into others still lead somewhere
-    readonly property var pageAliases: ({ "barLayout": "bar" })
+    readonly property var pageAliases: ({ "barLayout": "bar", "shortcuts": "keyboard" })
 
     function pageIndex(key) {
         const wanted = root.pageAliases[key] ?? key;
@@ -442,9 +436,23 @@ ApplicationWindow {
 
     // Opens a page and reveals a section by stable objectName or its displayed title.
     function openPage(key, sectionTitle) {
+        if (key === "wallpaper" && sectionTitle) {
+            const moved = ["Wallpaper sources", "Choosing wallpapers", "Wallpaper of the day", "Online sources"]
+                .find(title => title === sectionTitle || Translation.tr(title) === sectionTitle);
+            if (sectionTitle === "sources" || moved) {
+                key = "advanced";
+                sectionTitle = moved && moved !== "Wallpaper sources" ? Translation.tr(moved) : "sources";
+            } else if (["Live wallpaper", "Animated wallpaper"].some(title => title === sectionTitle || Translation.tr(title) === sectionTitle))
+                sectionTitle = "live";
+        }
         const index = root.pageIndex(key);
         if (index < 0) return;
         root.setPage(index);
+        if (key === "shortcuts") {
+            root.currentPageItem?.clearShortcutFilters();
+            root.pendingNavigation = {pageIndex: index, sectionKey: "shortcuts"};
+            root.applyPendingNavigation();
+        }
         if (sectionTitle && sectionTitle.length > 0) {
             revealTimer.pageIndex = index;
             revealTimer.target = null;
@@ -524,13 +532,13 @@ ApplicationWindow {
 
     visible: true
     onClosing: Qt.quit()
-    title: "illogical-impulse Settings" // Matched by a Hyprland window rule
+    title: Translation.tr("Velora Settings")
 
     Component.onCompleted: {
         MaterialThemeLoader.reapplyTheme()
         Config.readWriteDelay = 0 // Settings app always only sets one var at a time so delay isn't needed
         // Deep links: page key, optional stable section ID, or a search query.
-        const startKey = Quickshell.env("QS_SETTINGS_PAGE") ?? "";
+        const startKey = Quickshell.env("QS_SETTINGS_PAGE") || pageStateFile.text().trim();
         if (root.pageIndex(startKey) >= 0)
             root.openPage(startKey, Quickshell.env("QS_SETTINGS_SECTION") ?? "");
         const startSearch = Quickshell.env("QS_SETTINGS_SEARCH") ?? "";
@@ -581,6 +589,7 @@ ApplicationWindow {
             const focusItem = root.activeFocusItem;
             if (sidebar.searchText.length > 0) sidebar.searchText = "";
             else if (focusItem && focusItem.cursorPosition !== undefined) contentPane.forceActiveFocus(); // Leave the text field first
+            else if (root.currentPageItem?.dismissPreview?.()) return;
             else if (root.currentPageItem?.canNavigateBack) root.currentPageItem.navigateBack();
             else root.close();
         }
@@ -666,8 +675,15 @@ ApplicationWindow {
                 // Toolbar: sidebar toggle, history, page title
                 Item {
                     id: toolbar
+                    objectName: "settingsTitleBar"
                     Layout.fillWidth: true
                     implicitHeight: 54
+
+                    DragHandler {
+                        target: null
+                        acceptedButtons: Qt.LeftButton
+                        onActiveChanged: if (active) root.startSystemMove()
+                    }
 
                     RowLayout {
                         anchors {
@@ -780,7 +796,7 @@ ApplicationWindow {
                             // Not disabled either: that restyled every control on both pages at each switch.
                             opacity: 0
                             z: isCurrent ? 1 : 0
-                            transform: Translate { y: pageLoader.slide }
+                            transform: Translate { x: pageLoader.slide }
 
                             function load() {
                                 if (source.toString().length === 0) {
@@ -837,13 +853,13 @@ ApplicationWindow {
 
                             ParallelAnimation {
                                 id: enterAnim
-                                NumberAnimation { target: pageLoader; property: "opacity"; from: 0; to: 1; duration: 320; easing.type: Easing.BezierSpline; easing.bezierCurve: Appearance.animationCurves.emphasizedDecel }
-                                NumberAnimation { target: pageLoader; property: "slide"; from: 36 * root.pageDirection; to: 0; duration: 480; easing.type: Easing.BezierSpline; easing.bezierCurve: Appearance.animationCurves.emphasizedDecel }
+                                NumberAnimation { target: pageLoader; property: "opacity"; from: 0; to: 1; duration: Appearance.scaledDuration(240); easing.type: Easing.OutCubic }
+                                NumberAnimation { target: pageLoader; property: "slide"; from: Math.min(64, pageLoader.width * 0.10) * root.pageDirection; to: 0; duration: Appearance.scaledDuration(360); easing.type: Easing.BezierSpline; easing.bezierCurve: Appearance.animationCurves.emphasizedDecel }
                             }
                             ParallelAnimation {
                                 id: exitAnim
-                                NumberAnimation { target: pageLoader; property: "opacity"; to: 0; duration: 140; easing.type: Easing.BezierSpline; easing.bezierCurve: Appearance.animationCurves.emphasizedAccel }
-                                NumberAnimation { target: pageLoader; property: "slide"; to: -20 * root.pageDirection; duration: 140; easing.type: Easing.BezierSpline; easing.bezierCurve: Appearance.animationCurves.emphasizedAccel }
+                                NumberAnimation { target: pageLoader; property: "opacity"; to: 0; duration: Appearance.scaledDuration(150); easing.type: Easing.InCubic }
+                                NumberAnimation { target: pageLoader; property: "slide"; to: -28 * root.pageDirection; duration: Appearance.scaledDuration(150); easing.type: Easing.InCubic }
                             }
                         }
                     }

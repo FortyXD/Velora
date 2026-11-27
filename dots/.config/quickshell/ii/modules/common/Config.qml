@@ -9,6 +9,7 @@ import qs.services
 
 Singleton {
     id: root
+    readonly property bool isSettingsApp: Quickshell.appId === "org.velora.Settings"
     property string filePath: Directories.shellConfigPath
     property alias options: configOptionsJsonAdapter
     property bool ready: false
@@ -124,6 +125,7 @@ Singleton {
         onFileChanged: fileReloadTimer.restart()
         onAdapterUpdated: fileWriteTimer.restart()
         onLoaded: {
+            if (root.options.panelFamily === "ii") root.options.panelFamily = "velora";
             root.ensureWallpaperDefault();
             root.ready = true;
             root.diskSynced();
@@ -141,7 +143,7 @@ Singleton {
         JsonAdapter {
             id: configOptionsJsonAdapter
 
-            property string panelFamily: "ii" // "ii", "waffle"
+            property string panelFamily: "velora"
 
             property JsonObject policies: JsonObject {
                 property int ai: 2 // 0: No | 1: Explicit cloud access | 2: Local (default)
@@ -150,6 +152,10 @@ Singleton {
 
             property JsonObject assistant: JsonObject {
                 property bool enabled: false
+                property bool allowFileAccess: true
+                property bool autoLocalSearch: true
+                property bool preloadOnLogin: true
+                property bool allowCommands: true
                 property string provider: "ollama"
                 property string endpoint: "http://127.0.0.1:11434"
                 property string model: "" // Filled from installed Ollama models after discovery
@@ -157,7 +163,9 @@ Singleton {
                 property string keyId: "veloraAssistant"
                 property bool gpu: false
                 property bool vision: false
-                property int contextTokens: 4096
+                property var downloadAttempts: ({})
+                property list<string> trustedReadFolders: []
+                property int contextTokens: 0 // Automatic, based on available system RAM
                 property double rollbackBudgetBytes: 2147483648
             }
 
@@ -166,6 +174,7 @@ Singleton {
                 property string systemPrompt: PromptDefaults.text
                 property string tool: "functions" // search, functions, or none
                 property string localTool: "none" // Tool for local (Ollama) models: functions or none
+                property int modelIdleSeconds: -1 // -1 follows the power source, 0 unloads after each response
                 property bool localGpu: true // GPU offload for ordinary chat on external power
                 property list<var> extraModels: [
                     {
@@ -375,7 +384,9 @@ Singleton {
                 }
                 property string wallpaperPath: Directories.defaultWallpaper
                 property string thumbnailPath: ""
+                property bool syncGreeterPalette: false
                 property bool syncGreeterWallpaper: true
+                property bool animateGreeterWallpaper: false
                 property bool hideWhenFullscreen: true
                 property JsonObject parallax: JsonObject {
                     property bool vertical: false
@@ -593,7 +604,7 @@ Singleton {
                 property string ui: "auto" // UI language. "auto" for system locale, or specific language code like "zh_CN", "en_US"
                 property JsonObject translator: JsonObject {
                     property string mode: "auto" // "offline" (English <-> Russian on this machine), "online" (trans), or "auto": offline once installed
-                    property string llmModel: "" // Ollama model for "Refine"; empty = smallest installed
+                    property string llmModel: "" // Empty uses the preferred installed Ollama model.
                     property string engine: "auto" // Online only. Run `trans -list-engines` for available engines. auto should use google
                     property string targetLanguage: "auto" // Online only. Run `trans -list-all` for available languages
                     property string sourceLanguage: "auto"
@@ -618,6 +629,9 @@ Singleton {
 
             property JsonObject lock: JsonObject {
                 property bool useHyprlock: false
+                property string backgroundPath: "" // Empty follows the desktop.
+                property string greeterSource: "desktop" // desktop, lock or file
+                property string greeterPath: ""
                 property bool launchOnStartup: false
                 property JsonObject blur: JsonObject {
                     property bool enable: true
@@ -829,6 +843,7 @@ Singleton {
                 property JsonObject quickToggles: JsonObject {
                     property string style: "android" // Options: classic, android
                     property JsonObject classic: JsonObject {
+                        property var sizes: ({})
                         property list<string> toggles: ["network", "bluetooth", "nightLight", "gameMode", "idleInhibitor", "powerSaving", "easyEffects", "cloudflareWarp"]
                     }
                     property JsonObject android: JsonObject {
@@ -897,6 +912,7 @@ Singleton {
             }
 
             property JsonObject updates: JsonObject {
+                property var componentAttempts: ({})
                 property bool enableCheck: true
                 property int checkInterval: 120 // minutes
                 property int adviseUpdateThreshold: 75 // packages

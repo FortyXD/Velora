@@ -185,7 +185,7 @@ Singleton {
 
         property Component color: Component {
             ColorAnimation {
-                duration: 80
+                duration: Appearance.scaledDuration(80)
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: transition.easing.bezierCurve.easeIn
             }
@@ -193,7 +193,7 @@ Singleton {
 
         property Component opacity: Component {
             NumberAnimation {
-                duration: 120
+                duration: Appearance.scaledDuration(120)
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: transition.easing.bezierCurve.easeIn
             }
@@ -201,7 +201,7 @@ Singleton {
 
         property Component resize: Component { // TODO: better curve needed
             NumberAnimation {
-                duration: 200
+                duration: Appearance.scaledDuration(200)
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: transition.easing.bezierCurve.easeIn
             }
@@ -209,7 +209,7 @@ Singleton {
 
         property Component enter: Component {
             NumberAnimation {
-                duration: 250
+                duration: Appearance.scaledDuration(250)
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: transition.easing.bezierCurve.easeIn
             }
@@ -217,7 +217,7 @@ Singleton {
 
         property Component exit: Component {
             NumberAnimation {
-                duration: 250
+                duration: Appearance.scaledDuration(250)
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: transition.easing.bezierCurve.easeOut
             }
@@ -225,7 +225,7 @@ Singleton {
 
         property Component move: Component {
             NumberAnimation {
-                duration: 170
+                duration: Appearance.scaledDuration(170)
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: transition.easing.bezierCurve.easeInOut
             }
@@ -233,7 +233,7 @@ Singleton {
 
         property Component rotate: Component {
             NumberAnimation {
-                duration: 170
+                duration: Appearance.scaledDuration(170)
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: transition.easing.bezierCurve.easeInOut
             }
@@ -241,7 +241,7 @@ Singleton {
 
         property Component anchor: Component {
             AnchorAnimation {
-                duration: 160
+                duration: Appearance.scaledDuration(160)
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: transition.easing.bezierCurve.easeIn
             }
@@ -249,7 +249,7 @@ Singleton {
 
         property Component longMovement: Component {
             NumberAnimation {
-                duration: 1000
+                duration: Appearance.scaledDuration(1000)
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: transition.easing.bezierCurve.easeIn
             }
@@ -257,7 +257,7 @@ Singleton {
 
         property Component scroll: Component {
             NumberAnimation {
-                duration: 250
+                duration: Appearance.scaledDuration(250)
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: [0.0, 0.0, 0.25, 1.0, 1, 1]
             }

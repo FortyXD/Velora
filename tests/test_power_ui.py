@@ -53,7 +53,7 @@ class PowerUiTests(unittest.TestCase):
         self.assertIn('if (!Battery.energyRateAvailable) return "—";', popup)
 
     def test_example_config_ships_the_analytics_default(self):
-        example = json.loads((PROJECT / 'dots/.config/illogical-impulse/config.example.json').read_text())
+        example = json.loads((PROJECT / 'dots/.config/velora/config.example.json').read_text())
         self.assertIs(example['battery']['advancedAnalytics'], False)
 
     def test_every_power_analytics_string_is_translated_to_russian(self):
@@ -147,7 +147,7 @@ QtObject {
             # Production panel/reader lifecycle with a delayed-stop process fixture.
             power = root / 'modules/settings/power'
             power.mkdir(parents=True)
-            for file in ('PowerAnalyticsPanel.qml', 'AnalyticsSegments.qml', 'PowerHistoryChart.qml', 'ChartMath.js'):
+            for file in ('PowerAnalyticsPanel.qml', 'ApplicationPowerTable.qml', 'AnalyticsSegments.qml', 'PowerHistoryChart.qml', 'ChartMath.js'):
                 shutil.copy2(SHELL / 'modules/settings/power' / file, power)
             with (root / 'modules/common/qmldir').open('a') as stream:
                 stream.write('singleton Appearance 1.0 Appearance.qml\n')
@@ -155,7 +155,7 @@ QtObject {
 import QtQuick
 QtObject {
  property var colors: ({colPrimary:"#89b4fa",colSubtext:"#777777",colSecondaryContainer:"#34344a",colOnSecondaryContainer:"#ffffff",colLayer3:"#252536",colLayer2Hover:"#333344",colOnLayer2:"#ffffff",colError:"#ff7777"})
- property var font: ({pixelSize:{smaller:12,small:14},family:{main:"Sans Serif"}})
+ property var font: ({pixelSize:{smaller:12,small:14,large:20},family:{main:"Sans Serif"}})
  property var rounding: ({small:8,full:999})
  property QtObject animation: QtObject { property QtObject elementMoveFast: QtObject {
   property int duration:120; property int type:Easing.OutCubic; property var bezierCurve:[0,0,1,1,1,1]
@@ -163,9 +163,10 @@ QtObject {
   property Component colorAnimation:ColorAnimation { duration:120 }
  } }
 }''')
-            write(root, 'modules/common/widgets/qmldir', 'module qs.modules.common.widgets\nContentSection 1.0 ContentSection.qml\nConfigSwitch 1.0 ConfigSwitch.qml\nStyledText 1.0 StyledText.qml\nRippleButton 1.0 RippleButton.qml\n')
+            write(root, 'modules/common/widgets/qmldir', 'module qs.modules.common.widgets\nContentSection 1.0 ContentSection.qml\nConfigSwitch 1.0 ConfigSwitch.qml\nStyledText 1.0 StyledText.qml\nMaterialTextField 1.0 MaterialTextField.qml\nRippleButton 1.0 RippleButton.qml\n')
             write(root, 'modules/common/widgets/ContentSection.qml', 'import QtQuick\nimport QtQuick.Layouts\nColumnLayout { property string title; property string icon; property string description }')
             write(root, 'modules/common/widgets/ConfigSwitch.qml', 'import QtQuick.Controls\nButton { property string buttonIcon; property string description; property bool autoToggle }')
+            write(root, 'modules/common/widgets/MaterialTextField.qml', 'import QtQuick.Controls\nTextField {}')
             write(root, 'modules/common/widgets/StyledText.qml', 'import QtQuick\nText {}')
             write(root, 'modules/common/widgets/RippleButton.qml', 'import QtQuick\nimport QtQuick.Controls\nButton { property real buttonRadius; property color colBackgroundHover }')
             # The actual collector has separate real-process/fake-sysfs tests.

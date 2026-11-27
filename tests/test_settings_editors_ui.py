@@ -174,10 +174,14 @@ class EditorsTests(unittest.TestCase):
                 break;
             case 6:
                 if (root.stage.width > 450) return;
-                stop();
                 if (!root.check(root.settled("left") && root.pane.width > 230 && root.left.width > 145, "narrow left layout")) return;
                 root.clickSide("right");
                 if (!root.check(root.settled("right") && root.pane.x + root.pane.width < root.right.x, "narrow right layout")) return;
+                // Let the last preview finish its layout and the window close before tearing down the QML engine.
+                window.visible = false;
+                break;
+            case 7:
+                stop();
                 console.log("DRIVER_PASS"); Qt.quit(); return;
             }
             root.step++;

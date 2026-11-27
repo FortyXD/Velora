@@ -172,7 +172,7 @@ class WorkspacePreviewFlickTests(unittest.TestCase):
                           int(re.search(r'"to": (\d+)', slider).group(1))), (100, 600))
         self.assertLessEqual(default, 600)
 
-        example = json.loads((PROJECT / 'dots/.config/illogical-impulse/config.example.json').read_text())
+        example = json.loads((PROJECT / 'dots/.config/velora/config.example.json').read_text())
         self.assertIs(example['bar']['workspaces']['hidePreviewOnFlick'], True)
         self.assertEqual(example['bar']['workspaces']['flickSpeed'], default)
 

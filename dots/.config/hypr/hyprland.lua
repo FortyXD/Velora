@@ -11,6 +11,7 @@ end
 
 if not variables.dont_load_default_general then
     require("hyprland.general")
+    pcall(require, "custom.previous_keyboard")
 end
 
 -- Free or tiled windows (Settings → Desktop → Windows). Before the rules, so a rule for a

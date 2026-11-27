@@ -1,0 +1,136 @@
+{
+  "metadata": {
+    "name": "Velora",
+    "revision": 1
+  },
+  "editor-colors": {
+    "BackgroundColor": "#171311",
+    "TextSelection": "#624437",
+    "CurrentLine": "#29211c",
+    "SearchHighlight": "#795b2d",
+    "ReplaceHighlight": "#3d6255",
+    "BracketMatching": "#594633",
+    "TabMarker": "#705e51",
+    "SpellChecking": "#f38d80",
+    "IndentationLine": "#493c33",
+    "IconBorder": "#1f1915",
+    "CodeFolding": "#795e4b",
+    "LineNumbers": "#af9b89",
+    "CurrentLineNumber": "#ffe4c7",
+    "WordWrapMarker": "#534437",
+    "ModifiedLines": "#e9a66e",
+    "SavedLines": "#98c09b",
+    "Separator": "#503e30",
+    "MarkBookmark": "#699baf",
+    "MarkBreakpointActive": "#ba6156",
+    "MarkBreakpointReached": "#b78952",
+    "MarkBreakpointDisabled": "#766960",
+    "MarkExecution": "#6d966b",
+    "MarkWarning": "#b08951",
+    "MarkError": "#b5675c",
+    "TemplateBackground": "#302822",
+    "TemplatePlaceholder": "#574839",
+    "TemplateFocusedPlaceholder": "#605043",
+    "TemplateReadOnlyPlaceholder": "#463b32"
+  },
+  "text-styles": {
+    "Normal": {
+      "text-color": "#f3e5d7"
+    },
+    "Variable": {
+      "text-color": "#f3e5d7"
+    },
+    "Keyword": {
+      "text-color": "#ffb278",
+      "bold": true
+    },
+    "ControlFlow": {
+      "text-color": "#ffb278",
+      "bold": true
+    },
+    "Function": {
+      "text-color": "#9cd6cd"
+    },
+    "BuiltIn": {
+      "text-color": "#9cd6cd"
+    },
+    "Extension": {
+      "text-color": "#ceb2eb"
+    },
+    "Preprocessor": {
+      "text-color": "#ceb2eb"
+    },
+    "Import": {
+      "text-color": "#ceb2eb"
+    },
+    "Operator": {
+      "text-color": "#e6c89c"
+    },
+    "Attribute": {
+      "text-color": "#e6c89c"
+    },
+    "Char": {
+      "text-color": "#b8d49c"
+    },
+    "String": {
+      "text-color": "#b8d49c"
+    },
+    "VerbatimString": {
+      "text-color": "#b8d49c"
+    },
+    "SpecialChar": {
+      "text-color": "#f5c77e"
+    },
+    "SpecialString": {
+      "text-color": "#f5c77e"
+    },
+    "DataType": {
+      "text-color": "#9dc9e0"
+    },
+    "DecVal": {
+      "text-color": "#efb4ca"
+    },
+    "BaseN": {
+      "text-color": "#efb4ca"
+    },
+    "Float": {
+      "text-color": "#efb4ca"
+    },
+    "Constant": {
+      "text-color": "#efb4ca"
+    },
+    "Comment": {
+      "text-color": "#af9e8e",
+      "italic": true
+    },
+    "Documentation": {
+      "text-color": "#b9bbaa"
+    },
+    "Annotation": {
+      "text-color": "#cbbdd4"
+    },
+    "CommentVar": {
+      "text-color": "#cbbdd4"
+    },
+    "RegionMarker": {
+      "text-color": "#ffddad"
+    },
+    "Information": {
+      "text-color": "#ffddad"
+    },
+    "Warning": {
+      "text-color": "#ffca7d"
+    },
+    "Alert": {
+      "text-color": "#ff998e",
+      "bold": true
+    },
+    "Error": {
+      "text-color": "#ff998e",
+      "underline": true
+    },
+    "Others": {
+      "text-color": "#e3c5b0"
+    }
+  }
+}

@@ -23,6 +23,36 @@ QT_TEST_RUNNER = shutil.which('qmltestrunner6') or next(
 
 
 class WallpaperTests(unittest.TestCase):
+    def test_random_downloads_preserve_recent_files_per_provider(self):
+        with tempfile.TemporaryDirectory(prefix='velora-random-') as directory:
+            root = Path(directory)
+            scripts = SHELL / 'scripts/colors/random'
+            (root / 'common.sh').write_text(r'''source "$ORIGINAL_RANDOM/common.sh"
+get_pictures_dir() { echo "$HOME/Pictures"; }
+notify_progress() { :; }
+api_get() { printf '%s' "$API_RESPONSE"; }
+fetch_image() { printf '%s' "$1" > "$2"; }
+apply_wallpaper() { printf '%s\n' "$1"; }
+hyprctl() { echo '[{"focused":true,"width":1920,"height":1080}]'; }
+''')
+            saved = {}
+            for provider, ids in [('wallhaven', ['abc123', 'bcd234', 'cde345', 'abc123']), ('konachan', [10, 11, 12, 10])]:
+                script = root / f'random_{provider}_wall.sh'
+                shutil.copyfile(scripts / script.name, script)
+                for image_id in ids:
+                    url = f'https://example.invalid/{image_id}.jpg?size=large'
+                    response = ({'data': [{'id': image_id, 'ratio': '1.78', 'path': url}]} if provider == 'wallhaven'
+                                else [{'id': image_id, 'file_url': url}])
+                    result = subprocess.run(['bash', str(script)], capture_output=True, text=True, check=True,
+                                            env={**os.environ, 'HOME': directory, 'ORIGINAL_RANDOM': str(scripts),
+                                                 'XDG_CONFIG_HOME': str(root / 'config'), 'API_RESPONSE': json.dumps(response)})
+                    path = Path(result.stdout.strip())
+                    self.assertEqual(path.name, f'{provider.capitalize()}-{image_id}.jpg')
+                    saved[url] = path
+            self.assertEqual(len(set(saved.values())), 6)
+            for url, path in saved.items():
+                self.assertEqual(path.read_text(), url)
+
     @unittest.skipUnless(QT_TEST_RUNNER, 'Qt 6 Quick Test is not installed')
     def test_image_transitions(self):
         with tempfile.TemporaryDirectory(prefix='velora-wallpaper-') as directory:
@@ -46,6 +76,7 @@ class WallpaperTests(unittest.TestCase):
             for name, body in stubs.items():
                 (root / f'{name}.qml').write_text(f'pragma Singleton\nimport QtQuick\nQtObject {{ {body} }}\n')
             (root / 'FileView.qml').write_text('import QtQuick\nQtObject { property url path; property bool watchChanges; property bool blockLoading; signal loaded(); signal loadFailed(); signal fileChanged(); function reload() {} function text() { return ""; } }\n')
+            (root / 'Process.qml').write_text('import QtQuick\nQtObject { property var command; property bool running; signal exited(int code) }\n')
             (root / 'qmldir').write_text('\n'.join(
                 f'singleton {name} 1.0 {name}.qml' for name in ('WallpaperTransition', 'MaterialThemeLoader', *stubs)) + '\n')
             for name, color in (('red', '#ff0000'), ('green', '#00ff00'), ('blue', '#0000ff')):
@@ -141,7 +172,7 @@ class WallpaperSwitchTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix='velora-switchwall-')
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.config = self.root / 'config/illogical-impulse/config.json'
+        self.config = self.root / 'config/velora/config.json'
         self.config.parent.mkdir(parents=True)
         self.config.write_text(json.dumps({
             'background': {'wallpaperPath': 'old', 'widgets': {'clock': {'cookie': {'aiStyling': False}}}},
@@ -158,9 +189,6 @@ class WallpaperSwitchTests(unittest.TestCase):
         (scripts / 'code').mkdir()
         (scripts / 'code/material-code-set-color.sh').write_text('#!/bin/sh\nexit 0\n')
         (scripts / 'code/material-code-set-color.sh').chmod(0o755)
-        activate = self.root / 'venv/bin/activate'
-        activate.parent.mkdir(parents=True)
-        activate.write_text('deactivate() { :; }\n')
         binaries = self.root / 'bin'
         binaries.mkdir()
         helpers = {
@@ -187,7 +215,7 @@ class WallpaperSwitchTests(unittest.TestCase):
         self.picker_calls = self.root / 'picker-calls'
         self.env = {**os.environ, 'PATH': str(binaries) + os.pathsep + os.environ['PATH'],
                     'XDG_CONFIG_HOME': str(self.root / 'config'), 'XDG_STATE_HOME': str(self.root / 'state'),
-                    'XDG_CACHE_HOME': str(self.root / 'cache'), 'ILLOGICAL_IMPULSE_VIRTUAL_ENV': str(self.root / 'venv'),
+                    'XDG_CACHE_HOME': str(self.root / 'cache'),
                     'WALLPAPER_TEST_CONFIG': str(self.config), 'WALLPAPER_TEST_EVENTS': str(self.events),
                     'WALLPAPER_TEST_PROBES': str(self.probes), 'WALLPAPER_TEST_STARTED': str(self.started),
                     'WALLPAPER_TEST_PICTURES': str(self.pictures), 'WALLPAPER_TEST_PICKER_CALLS': str(self.picker_calls),
@@ -286,6 +314,39 @@ class WallpaperSwitchTests(unittest.TestCase):
                 self.run_switch(*args, env=self.env)
                 self.assertFalse(self.picker_calls.exists())
                 self.assertEqual(json.loads(self.config.read_text())['background']['wallpaperPath'], 'old')
+
+    @unittest.skipUnless(shutil.which('matugen'), 'requires matugen for real scheme generation')
+    def test_explicit_schemes_recolor_legacy_install_and_preserve_wallpaper(self):
+        legacy = self.root / 'config/illogical-impulse/config.json'
+        legacy.parent.mkdir()
+        self.config.rename(legacy)
+        config = json.loads(legacy.read_text())
+        config['background'].update(wallpaperPath=str(SHELL / 'assets/images/autumn.jpg'),
+                                    shaderWallpaper={'name': 'aurora'})
+        config['appearance']['wallpaperTheming']['enableAppsAndShell'] = False
+        config['appearance']['palette']['roleOverrides'] = {'surface_container': '#291D17'}
+        legacy.write_text(json.dumps(config))
+
+        matugen = self.root / 'bin/matugen'
+        matugen.unlink()
+        matugen.symlink_to(shutil.which('matugen'))
+        templates = self.root / 'config/matugen'
+        templates.mkdir()
+        output = self.root / 'colors.json'
+        (templates / 'config.toml').write_text(
+            f'[config]\n[templates.shell]\ninput_path = "{PROJECT / "dots/.config/matugen/templates/colors.json"}"\n'
+            f'output_path = "{output}"\n')
+        env = {**self.env, 'HOME': str(self.root), 'WALLPAPER_TEST_CONFIG': str(legacy)}
+        self.run_switch('--noswitch', '--type', 'scheme-monochrome', '--mode', 'dark', env=env)
+        mono = json.loads(output.read_text())
+        self.run_switch('--noswitch', '--type', 'scheme-expressive', '--mode', 'dark', env=env)
+        expressive = json.loads(output.read_text())
+        for role in ['primary', 'primary_container', 'secondary', 'tertiary']:
+            self.assertEqual(len(set(mono[role][i:i + 2] for i in (1, 3, 5))), 1, role)
+            self.assertNotEqual(mono[role], expressive[role], role)
+        self.assertEqual(json.loads(legacy.read_text()), config)
+        self.assertFalse(self.config.exists())
+        self.assertFalse(self.picker_calls.exists())
 
     def test_prepare_changes_nothing_and_commit_puts_the_staged_palette_in_place(self):
         env = self.helper_env()

@@ -7,18 +7,28 @@ import Quickshell.Hyprland
 import qs.modules.common
 
 /**
- * Exposes the active Hyprland Xkb keyboard layout name and code for indicators.
+ * Tracks the active typing device and its XKB layout and variant.
  */
 Singleton {
     id: root
-    // You can read these
-    property list<string> layoutCodes: []
-    property var cachedLayoutCodes: ({})
+    property var keyboards: []
+    property string keyboardName: ""
+    readonly property var keyboard: keyboards.find(device => device.name === keyboardName)
+    readonly property list<string> layoutCodes: keyboard?.layout ? keyboard.layout.split(",").map(code => code.trim()) : []
+    readonly property list<string> variantCodes: (keyboard?.variant ?? "").split(",").map(code => code.trim())
+    property var layoutsByName: ({})
     property string currentLayoutName: ""
-    property string currentLayoutCode: ""
-    // For the service
+    readonly property var currentLayout: {
+        const index = keyboard?.active_layout_index;
+        if (keyboard?.active_keymap === currentLayoutName && layoutCodes[index])
+            return { code: layoutCodes[index], variant: variantCodes[index] ?? "" };
+        return layoutsByName[currentLayoutName];
+    }
+    readonly property string currentLayoutCode: currentLayout?.code ?? ""
+    readonly property string currentLayoutVariant: currentLayout?.variant ?? ""
     property var baseLayoutFilePath: "/usr/share/X11/xkb/rules/base.lst"
-    property bool needsLayoutRefresh: false
+    property int layoutRevision: 0
+    property bool refreshPending: false
 
     // Power/sleep buttons, brightness keys, laptop hotkeys and virtual input devices all show up
     // as keyboards with their own layout state. They often become Hyprland's "main" keyboard,
@@ -41,7 +51,7 @@ Singleton {
         onLoaded: root.indexLayoutNames(text())
     }
     function indexLayoutNames(content) {
-        let codes = {};
+        const layouts = {};
         let section = "";
         for (const line of content.split("\n")) {
             if (line.trim().startsWith("!")) {
@@ -50,40 +60,55 @@ Singleton {
             }
             const entry = line.trim().match(/^(\S+)\s+(.+)$/);
             if (!entry) continue;
-            if (section === "layout") codes[entry[2]] = entry[1];
+            if (section === "layout") layouts[entry[2]] = { code: entry[1], variant: "" };
             else if (section === "variant") {
                 const variant = entry[2].match(/^(\S+):\s+(.+)$/);
-                if (variant) codes[variant[2]] = variant[1];
+                if (variant) layouts[variant[2]] = { code: variant[1], variant: entry[1] };
             }
         }
-        root.cachedLayoutCodes = codes;
-        root.updateLayoutCode();
-    }
-    onCurrentLayoutNameChanged: root.updateLayoutCode()
-    function updateLayoutCode() {
-        root.currentLayoutCode = root.cachedLayoutCodes[root.currentLayoutName] ?? "";
+        root.layoutsByName = layouts;
     }
 
-    // Find out available layouts and current active layout. Should only be necessary on init
+    function refreshDevices() {
+        root.refreshPending = fetchLayoutsProc.running;
+        if (root.refreshPending) return;
+        fetchLayoutsProc.revision = root.layoutRevision;
+        fetchLayoutsProc.running = true;
+    }
+
+    function layoutChanged(data) {
+        const separator = data.indexOf(",");
+        const device = data.slice(0, separator);
+        if (separator < 0 || root.isPseudoKeyboard(device)) return;
+        root.layoutRevision++;
+        root.keyboardName = device;
+        root.currentLayoutName = data.slice(separator + 1);
+        Config.options.osk.layout = root.currentLayoutName.split(" (")[0];
+        const inDevice = root.layoutCodes.some((code, i) => code === root.currentLayoutCode
+            && (root.variantCodes[i] ?? "") === root.currentLayoutVariant);
+        if (!inDevice) root.refreshDevices();
+    }
+
+    Component.onCompleted: refreshDevices()
     Process {
         id: fetchLayoutsProc
-        running: true
+        property int revision
         command: ["hyprctl", "-j", "devices"]
-
+        onExited: if (root.refreshPending) Qt.callLater(root.refreshDevices)
         stdout: StdioCollector {
-            id: devicesCollector
             onStreamFinished: {
+                if (!text.trim()) return;
                 try {
-                    const parsedOutput = JSON.parse(devicesCollector.text);
-                    const keyboard = root.typingKeyboard(parsedOutput.keyboards ?? []);
+                    root.keyboards = JSON.parse(text).keyboards ?? [];
+                    // A layout event received during this read is newer than the snapshot.
+                    if (fetchLayoutsProc.revision !== root.layoutRevision) return;
+                    const keyboard = root.keyboard ?? root.typingKeyboard(root.keyboards);
                     if (!keyboard) return;
-                    root.layoutCodes = keyboard.layout.split(",").map(code => code.trim());
+                    root.keyboardName = keyboard.name;
                     root.currentLayoutName = keyboard.active_keymap;
                 } catch (error) {
                     console.warn("[HyprlandXkb] Couldn't read keyboards:", error);
                 }
-                // console.log("[HyprlandXkb] Fetched | Layouts (multiple: " + (root.layoutCodes.length > 1) + "): "
-                //     + root.layoutCodes.join(", ") + " | Active: " + root.currentLayoutName);
             }
         }
     }
@@ -92,24 +117,8 @@ Singleton {
     Connections {
         target: Hyprland
         function onRawEvent(event) {
-            if (event.name === "activelayout") {
-                if (root.needsLayoutRefresh) {
-                    root.needsLayoutRefresh = false;
-                    fetchLayoutsProc.running = true;
-                }
-
-                // Update when layout might have changed
-                const dataString = event.data;
-                if (root.isPseudoKeyboard(dataString.substring(0, dataString.indexOf(",")))) return;
-                root.currentLayoutName = dataString.substring(dataString.indexOf(",") + 1);
-
-                // Update layout for on-screen keyboard (osk)
-                Config.options.osk.layout = root.currentLayoutName.split(" (")[0];
-            } else if (event.name == "configreloaded") {
-                // Read added/removed layouts now, rather than losing the first switch after a reload.
-                root.needsLayoutRefresh = true;
-                fetchLayoutsProc.running = true;
-            }
+            if (event.name === "activelayout") root.layoutChanged(event.data);
+            else if (event.name === "configreloaded") root.refreshDevices();
         }
     }
 }

@@ -215,15 +215,17 @@ Item {
 
         function test_layout_events_update_immediately_including_variants() {
             HyprlandXkb.indexLayoutNames("! layout\n  us English (US)\n  ru Russian\n! variant\n  dvorak us: English (Dvorak)\n! option\n");
-            HyprlandXkb.layoutCodes = ["us"];
+            HyprlandXkb.keyboards = [{ name: "real-keyboard", layout: "us" }];
             Hyprland.rawEvent({ name: "activelayout", data: "real-keyboard,Russian" });
             compare(HyprlandXkb.currentLayoutCode, "ru");
             Hyprland.rawEvent({ name: "activelayout", data: "real-keyboard,English (Dvorak)" });
             compare(HyprlandXkb.currentLayoutCode, "us");
+            compare(HyprlandXkb.currentLayoutVariant, "dvorak");
             Hyprland.rawEvent({ name: "activelayout", data: "power-button,Russian" });
             compare(HyprlandXkb.currentLayoutCode, "us");
             Hyprland.rawEvent({ name: "activelayout", data: "real-keyboard,Russian" });
             compare(HyprlandXkb.currentLayoutCode, "ru");
+            compare(HyprlandXkb.currentLayoutVariant, "");
         }
 
         function test_network_step_only_without_a_connection() {

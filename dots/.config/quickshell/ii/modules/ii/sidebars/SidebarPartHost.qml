@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import qs.services
 import qs.modules.common
+import qs.modules.common.widgets
 import qs.modules.ii.sidebars.parts
 
 /**
@@ -45,13 +46,37 @@ Item {
         active: root.built && root.type.length > 0
         // Tabs hold hosts themselves, so they're loaded by file rather than named here (a cycle of types)
         source: active && root.type === "tabs" ? Qt.resolvedUrl("parts/TabsPart.qml") : ""
-        sourceComponent: ({ "header": headerComponent, "sliders": slidersComponent, "toggles": togglesComponent, "tools": toolsComponent, "notifications": notificationsComponent, "media": mediaComponent, "weather": weatherComponent, "system": systemComponent, "calendar": calendarComponent, "todo": todoComponent, "timer": timerComponent, "notes": notesComponent, "clipboard": clipboardComponent, "ai": aiComponent, "translator": translatorComponent, "anime": animeComponent })[root.type] ?? null
+        sourceComponent: ({ "clock": clockComponent, "connection": connectionComponent, "header": headerComponent, "sliders": slidersComponent, "toggles": togglesComponent, "tools": toolsComponent, "notifications": notificationsComponent, "media": mediaComponent, "weather": weatherComponent, "system": systemComponent, "calendar": calendarComponent, "todo": todoComponent, "timer": timerComponent, "notes": notesComponent, "clipboard": clipboardComponent, "ai": aiComponent, "translator": translatorComponent, "anime": animeComponent })[root.type] ?? null
         onLoaded: {
             if (loader.item.host !== undefined) loader.item.host = root;
             if (root.active && root.page) Qt.callLater(root.focusPart);
         }
     }
 
+    Component {
+        id: clockComponent
+        SidebarCard {
+            implicitHeight: 66
+            ColumnLayout {
+                anchors.centerIn: parent
+                spacing: 0
+                StyledText { Layout.alignment: Qt.AlignHCenter; text: DateTime.time; font.pixelSize: Appearance.font.pixelSize.larger }
+                StyledText { text: DateTime.longDate; color: Appearance.colors.colSubtext; font.pixelSize: Appearance.font.pixelSize.smaller }
+            }
+        }
+    }
+    Component {
+        id: connectionComponent
+        SidebarCard {
+            implicitHeight: 54
+            RippleButtonWithIcon {
+                anchors.fill: parent
+                materialIcon: Network.materialSymbol
+                mainText: Network.networkName || Translation.tr("Disconnected")
+                onClicked: ConnectivityBackend.openSettings(Network.ethernet ? "connections" : "wifi")
+            }
+        }
+    }
     Component {
         id: headerComponent
         HeaderPart {}

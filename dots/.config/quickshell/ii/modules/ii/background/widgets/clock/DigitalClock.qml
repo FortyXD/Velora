@@ -9,7 +9,8 @@ ColumnLayout {
     id: clockColumn
     spacing: 4
 
-    property bool isVertical: Config.options.background.widgets.clock.digital.vertical
+    property var options: Config.options.background.widgets.clock
+    property bool isVertical: clockColumn.options.digital.vertical
     property color colText: Appearance.colors.colOnSecondaryContainer
     property var textHorizontalAlignment: Text.AlignHCenter
 
@@ -20,12 +21,12 @@ ColumnLayout {
         color: clockColumn.colText
         horizontalAlignment: Text.AlignHCenter
         font {
-            pixelSize: Config.options.background.widgets.clock.digital.font.size
-            weight: Config.options.background.widgets.clock.digital.font.weight
-            family: Config.options.background.widgets.clock.digital.font.family
+            pixelSize: clockColumn.options.digital.font.size
+            weight: clockColumn.options.digital.font.weight
+            family: clockColumn.options.digital.font.family
             variableAxes: ({
-                    "wdth": Config.options.background.widgets.clock.digital.font.width,
-                    "ROND": Config.options.background.widgets.clock.digital.font.roundness
+                    "wdth": clockColumn.options.digital.font.width,
+                    "ROND": clockColumn.options.digital.font.roundness
                 })
         }
     }
@@ -51,7 +52,7 @@ ColumnLayout {
 
     // Date
     ClockText {
-        visible: Config.options.background.widgets.clock.digital.showDate
+        visible: clockColumn.options.digital.showDate
         Layout.topMargin: -20
         Layout.fillWidth: true
         text: DateTime.longDate
@@ -61,9 +62,9 @@ ColumnLayout {
 
     // Quote
     ClockText {
-        visible: Config.options.background.widgets.clock.quote.enable && Config.options.background.widgets.clock.quote.text.length > 0
+        visible: clockColumn.options.quote.enable && clockColumn.options.quote.text.length > 0
         font.pixelSize: Appearance.font.pixelSize.normal
-        text: Config.options.background.widgets.clock.quote.text
+        text: clockColumn.options.quote.text
         animateChange: false
         color: clockColumn.colText
         horizontalAlignment: clockColumn.textHorizontalAlignment

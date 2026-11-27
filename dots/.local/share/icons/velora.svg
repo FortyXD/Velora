@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="864 44 240 240">
+  <title>Velora</title>
+  <defs>
+    <linearGradient id="accent" x2="1" y2="1">
+      <stop stop-color="#ddd1ff"/>
+      <stop offset=".55" stop-color="#b3a2f5"/>
+      <stop offset="1" stop-color="#7ed9dd"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M906 100L975 216Q981 226 987 216L1062 86" stroke="url(#accent)" stroke-width="25"/>
+    <path d="M947 85L981 143" stroke="#e0d5ff" stroke-opacity=".42" stroke-width="9"/>
+  </g>
+  <circle cx="1087" cy="198" r="6" fill="#96d0de"/>
+</svg>

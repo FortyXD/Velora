@@ -1,7 +1,8 @@
 //! Apply generated desktop colors, avoiding redundant writes and terminal notifications.
 mod kde;
+mod programs;
 mod terminals;
-use crate::apps::{config_home, state_home};
+use crate::apps::{config_home, shell_config_path, state_home};
 use anyhow::{ensure, Result};
 use regex::Regex;
 use rustix::fs::{flock, FlockOperation};
@@ -17,8 +18,7 @@ fn generated() -> PathBuf {
     state_home().join("quickshell/user/generated")
 }
 fn settings() -> Result<Value> {
-    let path = config_home().join("illogical-impulse/config.json");
-    match fs::read(path) {
+    match fs::read(shell_config_path()) {
         Ok(text) => {
             let value: Value = serde_json::from_slice(&text)?;
             ensure!(value.is_object(), "Settings must be an object");

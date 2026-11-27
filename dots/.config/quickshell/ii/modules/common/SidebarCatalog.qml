@@ -33,6 +33,14 @@ Singleton {
     ]
 
     readonly property var parts: ({
+        "clock": {
+            "name": Translation.tr("Clock and date"), "icon": "schedule", "category": "info", "limit": "sidebar",
+            "description": Translation.tr("Local time and today's date")
+        },
+        "connection": {
+            "name": Translation.tr("Network connection"), "icon": "lan", "category": "info", "limit": "sidebar",
+            "description": Translation.tr("Active network and connection settings")
+        },
         "header": {
             "name": Translation.tr("Top row"), "icon": "toolbar", "category": "controls", "limit": "sidebar",
             "description": Translation.tr("Uptime and the edit, reload, settings and power buttons"),

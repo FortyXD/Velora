@@ -22,6 +22,10 @@ power profiles, or the firmware.
   instead of UPower's slower cached rate. Missing or stale readings show `—`;
   disabling restores the ordinary UPower source.
 
+## Application power
+
+The application table updates every two seconds while the analytics page is open. Type a name to filter it. CPU percentage is the share of total machine CPU time. Velora estimates watts from the same share of measured CPU package power, or from recent battery discharge when package energy is unavailable. During a measured discharge interval, **Applications** sums all application estimates and **System and devices** shows the remaining watts. Filtering by name changes the displayed rows. The totals always cover the full sample. On AC the table can still show package-based estimates. GPU-heavy workloads can have a small CPU share. When neither sensor is available, the table shows CPU activity and a dash for watts. Application names and readings stay in memory while the table is open.
+
 ## Storage and privacy
 
 The history lives in `$XDG_STATE_HOME/quickshell/user/power-analytics/`

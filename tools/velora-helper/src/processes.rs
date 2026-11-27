@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 /// utime + stime from a /proc/<pid>/stat line, whose command name may itself contain spaces and parentheses.
-fn cpu_ticks(stat: &str) -> Option<u64> {
+pub(crate) fn cpu_ticks(stat: &str) -> Option<u64> {
     let after_name = stat.rsplit_once(')')?.1;
     let mut fields = after_name.split_whitespace();
     let utime: u64 = fields.nth(11)?.parse().ok()?;
@@ -23,7 +23,7 @@ fn pss_kb(smaps_rollup: &str) -> i64 {
     smaps_rollup.lines().find_map(|line| line.strip_prefix("Pss:")).and_then(|rest| rest.trim().trim_end_matches("kB").trim().parse().ok()).unwrap_or(0)
 }
 
-fn my_processes(proc_root: &Path, uid: u32) -> Vec<(u32, PathBuf)> {
+pub(crate) fn my_processes(proc_root: &Path, uid: u32) -> Vec<(u32, PathBuf)> {
     let Ok(entries) = fs::read_dir(proc_root) else { return Vec::new() };
     entries
         .filter_map(Result::ok)

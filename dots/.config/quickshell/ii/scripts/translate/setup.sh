@@ -69,8 +69,7 @@ download_model() {
     local urls=("$HF_BASE/$pair.argosmodel" "https://argos-net.com/v1/translate-${pair}-1_9.argosmodel")
     local ok=false
     for url in "${urls[@]}"; do
-        rm -f "$archive"
-        curl --fail --silent --location --connect-timeout 10 --speed-limit 2048 --speed-time 15 \
+        curl --continue-at - --fail --silent --location --connect-timeout 10 --speed-limit 2048 --speed-time 15 \
             --retry 3 --retry-all-errors -o "$archive" "$url" &
         local pid=$!
         while kill -0 "$pid" 2>/dev/null; do
@@ -85,9 +84,10 @@ download_model() {
                 break
             fi
             echo "Checksum mismatch for $url" >&2
+            rm -f -- "$archive"
         fi
     done
-    $ok || { rm -f "$archive"; die "Could not download the $pair model (network blocked?)"; }
+    $ok || die "Could not download the $pair model. Retry to resume the download."
 
     # Keep only what's needed: the CTranslate2 model and the SentencePiece model.
     # The bundled stanza/ sentence splitter (torch pickles) is never extracted.

@@ -161,8 +161,11 @@ Loader {
         CircleUtilButton {
             id: gpuButton
             property bool containsMouse: hovered
+            Timer { interval: 5000; running: gpuButton.visible && Supergfxctl.hasModeService; repeat: true; onTriggered: Supergfxctl.refreshPower() }
+            onHoveredChanged: if (hovered) Supergfxctl.refresh()
             iconName: Supergfxctl.icon
             iconColor: Supergfxctl.lastError.length > 0 ? Appearance.colors.colError : Appearance.colors.colOnLayer2
+            Accessible.name: Translation.tr("GPU mode")
             onClicked: Supergfxctl.toggle()
 
             StyledPopup {
@@ -174,8 +177,19 @@ Loader {
 
                     StyledPopupValueRow {
                         icon: Supergfxctl.icon
-                        label: "GPU:"
+                        label: Translation.tr("GPU mode")
                         value: Supergfxctl.statusText
+                    }
+                    StyledPopupValueRow {
+                        icon: "developer_board"
+                        label: Translation.tr("GPU power")
+                        value: Translation.tr(Supergfxctl.powerState)
+                    }
+                    StyledPopupValueRow {
+                        visible: !!Supergfxctl.pendingMode && Supergfxctl.pendingMode !== Supergfxctl.mode
+                        icon: "pending"
+                        label: Translation.tr("Pending")
+                        value: Supergfxctl.pendingMode
                     }
                 }
             }

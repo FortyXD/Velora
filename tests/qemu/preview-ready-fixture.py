@@ -19,7 +19,7 @@ backup = Path('/tmp/velora-ready-fixture')
 paths = [root / relative for relative in (
     'modules/ii/dock/DockPreviews.qml', 'modules/waffle/bar/tasks/TaskPreview.qml',
     'modules/waffle/bar/tasks/WindowPreview.qml', 'scripts/helper')]
-config = Path.home() / '.config/illogical-impulse/config.json'
+config = Path.home() / '.config/velora/config.json'
 markers = [Path('/tmp/velora-preview-test-delay'), Path('/tmp/velora-preview-test-fail')]
 if args.restore:
     for path in paths + [config]:
@@ -96,7 +96,7 @@ shim.chmod(0o755)
 path.write_text(replace(path.read_text(), '#!/bin/sh', f'#!/bin/sh\nif [ "$1" = window-previews ]; then export PATH="{backup}:$PATH"; fi'))
 markers[0].write_text('1.2')
 options = json.loads(config.read_text())
-options['panelFamily'] = 'ii'
+options['panelFamily'] = 'velora'
 options['dock']['enable'] = True
 options['dock']['pinnedApps'] = ['firefox', 'org.kde.dolphin']
 config.write_text(json.dumps(options, indent=2) + '\n')

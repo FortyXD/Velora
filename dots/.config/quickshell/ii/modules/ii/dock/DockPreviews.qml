@@ -12,8 +12,7 @@ import Quickshell.Wayland
 import qs
 
 /**
- * Live previews of an app's windows. They open after resting on a running
- * app for a moment, then follow the pointer to other running apps.
+ * Live previews of an app's windows. They follow the pointer between running applications.
  */
 PopupWindow {
     id: root
@@ -41,7 +40,6 @@ PopupWindow {
     }
 
     function dismiss() {
-        dwellTimer.stop();
         hideTimer.stop();
         root.preparing = false;
         root.shown = false;
@@ -61,9 +59,8 @@ PopupWindow {
                 hideTimer.stop();
                 root.tile = tile;
                 root.preparing = true;
-                if (!root.shown) dwellTimer.restart();
+                root.shown = true;
             } else {
-                dwellTimer.stop();
                 if (root.shown) hideTimer.restart();
                 else root.preparing = false;
             }
@@ -76,16 +73,6 @@ PopupWindow {
         }
         function onDockMenuRequested() {
             root.dismiss();
-        }
-    }
-
-    Timer {
-        id: dwellTimer
-        interval: 220
-        onTriggered: {
-            const tile = root.dock.hoveredTile;
-            if (!tile || !(tile.windowCount > 0)) return;
-            root.shown = true;
         }
     }
 
@@ -167,29 +154,6 @@ PopupWindow {
             clip: true
 
             opacity: root.shown && root.toplevels.length > 0 ? 1 : 0
-            transform: Translate {
-                y: root.shown ? 0 : 8
-                Behavior on y {
-                    NumberAnimation {
-                        duration: 200
-                        easing.type: Easing.OutCubic
-                    }
-                }
-            }
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 160
-                    easing.type: Easing.OutCubic
-                }
-            }
-            Behavior on implicitWidth {
-                enabled: root.shown
-                NumberAnimation {
-                    duration: 160
-                    easing.type: Easing.OutCubic
-                }
-            }
-
             RowLayout {
                 id: previewRow
                 anchors.centerIn: parent

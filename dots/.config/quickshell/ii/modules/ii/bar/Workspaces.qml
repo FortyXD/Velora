@@ -16,11 +16,13 @@ Item {
     id: root
     property bool vertical: false
     property bool borderless: Config.options.bar.borderless
-    readonly property HyprlandMonitor monitor: Hyprland.monitorFor(root.QsWindow.window?.screen)
+    property var screen: root.QsWindow.window?.screen
+    readonly property HyprlandMonitor monitor: screen ? Hyprland.monitorFor(screen) : null
     readonly property Toplevel activeWindow: ToplevelManager.activeToplevel
-    readonly property int effectiveActiveWorkspaceId: monitor?.activeWorkspace?.id ?? 1
+    property int workspaceOverride: 0
+    readonly property int effectiveActiveWorkspaceId: workspaceOverride || (monitor?.activeWorkspace?.id ?? 1)
 
-    readonly property int workspacesShown: Config.options.bar.workspaces.shown
+    property int workspacesShown: Config.options.bar.workspaces.shown
     readonly property int workspaceGroup: Math.floor((effectiveActiveWorkspaceId - 1) / root.workspacesShown)
     property list<bool> workspaceOccupied: []
     property int widgetPadding: 4

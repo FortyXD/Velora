@@ -5,7 +5,10 @@
 
 RANDOM_WALL_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SWITCHWALL="$RANDOM_WALL_SCRIPT_DIR/../switchwall.sh"
-SHELL_CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/illogical-impulse/config.json"
+SHELL_CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/velora/config.json"
+if [[ ! -f "$SHELL_CONFIG_FILE" && -f "${XDG_CONFIG_HOME:-$HOME/.config}/illogical-impulse/config.json" ]]; then
+    SHELL_CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/illogical-impulse/config.json"
+fi
 NOTIFY_APP="Wallpaper"
 NOTIFY_TITLE="${NOTIFY_TITLE:-Random wallpaper}"
 notification_id=""
@@ -128,16 +131,19 @@ make_loop() {
     mv -fT -- "$tmp" "$dest" || { rm -f -- "$tmp"; fail "Cannot save the video loop."; }
 }
 
-# download_path <extension>: alternates names so the new file never overwrites the wallpaper in use
+# Give each provider image a stable file so it can be selected again from history.
 download_path() {
-    local dir path current extension=${1%%[?#]*}
+    local provider=$1 url=$2 image_id=$3 dir extension
+    extension=${url%%[?#]*}
+    extension=${extension##*.}
     [[ $extension =~ ^[[:alnum:]]{1,8}$ ]] || extension=jpg
+    if [[ ! $image_id =~ ^[[:alnum:]]{1,32}$ ]]; then
+        image_id=$(printf '%s' "$url" | sha256sum)
+        image_id=${image_id:0:12}
+    fi
     dir="$(get_pictures_dir)/Wallpapers"
     mkdir -p -- "$dir"
-    path="$dir/random_wallpaper.$extension"
-    current=$(jq -r '.background.wallpaperPath' "$SHELL_CONFIG_FILE" 2>/dev/null)
-    [[ "$path" == "$current" ]] && path="$dir/random_wallpaper-1.$extension"
-    echo "$path"
+    printf '%s/%s-%s.%s\n' "$dir" "$provider" "$image_id" "${extension,,}"
 }
 
 # apply_wallpaper <path>

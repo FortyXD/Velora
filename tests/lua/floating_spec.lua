@@ -3,8 +3,11 @@
 local state_dir = os.getenv("VELORA_TEST_STATE")
 
 local handlers, dispatched, rules = {}, {}, {}
+local bind_options
+local timer
 local monitor = { name = "DP-1", x = 0, y = 0, width = 2000, height = 1200, scale = 1,
     reserved = { top = 40, left = 0, bottom = 0, right = 0 } }
+local monitors = {monitor}
 local workspace = { id = 1, name = "1", special = false }
 local windows = {}
 
@@ -30,10 +33,16 @@ local function dispatcher(kind)
 end
 
 hl = {
+    config = function(config) bind_options = config.binds end,
     window_rule = function(rule) rules[#rules + 1] = rule end,
     on = function(event, fn) handlers[event] = fn end,
+    timer = function(callback)
+        timer = {tick = callback, set_enabled = function(self, enabled) self.enabled = enabled end}
+        return timer
+    end,
     get_config = function(name) if name == "general:gaps_out" then return { top = 10 } end end,
     get_windows = function() return windows end,
+    get_monitors = function() return monitors end,
     get_active_window = function() return active end,
     get_active_workspace = function() return workspace end,
     dispatch = function(action)
@@ -84,7 +93,22 @@ local function geometry(w)
     return string.format("%d,%d %dx%d", w.at.x, w.at.y, w.size.x, w.size.y)
 end
 
+do
+    local code = window("0xc", "com.microsoft.VSCode", 50, 60, 700, 480)
+    code.tags = {"velora-free"}
+    handlers["window.active"](code)
+    code.fullscreen = 2
+    handlers["window.fullscreen"](code)
+    code.fullscreen, code.floating, code.size = 0, false, {x=1900,y=1100}
+    handlers["window.fullscreen"](code)
+    check("F11 restores a tagged editor to its free geometry", code.floating and geometry(code) == "50,60 700x480")
+    code.tags, code.floating = {}, false
+    check("a deliberately tiled editor stays tiled", not free.recover_free(code) and not code.floating)
+    table.remove(windows)
+end
+
 check("every window floats", rules[1].float == true and rules[1].match.class == ".*")
+check("restoring by drag preserves the title grab point", bind_options.drag_center_window == false)
 
 -- Work area: x 10..1990, y 50..1190 (bar 40 on top, gaps 10): 1980 x 1140
 local editor = window("0x1", "editor", 300, 300, 800, 600)
@@ -145,6 +169,10 @@ local before = #dispatched
 handlers["window.open"](dialog)
 check("small windows aren't placed", #dispatched == before)
 
+local settings = window("0x8", "org.velora.Settings", 500, 320, 1000, 600)
+handlers["window.open"](settings)
+check("Settings keeps its centered position and is not tagged for tiling", #dispatched == before)
+
 local other = window("0x9", "notes", 20, 20, 600, 400)
 other.workspace = { id = 7, name = "7", special = false }
 free.minimize(other.address)
@@ -178,4 +206,100 @@ other.workspace = { id=nil, name="work", addressable_name="work", special=false 
 reloaded.minimize(other.address)
 reloaded.restore(other.address)
 check("named workspaces recover their addressable selector", other.workspace.name == "name:work")
+-- A scaled monitor to the left of the primary has negative layout coordinates.
+monitor.x, monitor.y, monitor.width, monitor.height, monitor.scale = -1280, 100, 1920, 1080, 1.5
+monitor.mode = { width = 1280, height = 720 }
+local pointer = {x=-600, y=460}
+hl.get_cursor_pos = function() return pointer end
+hl.get_monitor_at_cursor = function() return monitor end
+active = window("0xf", "scale-test", -850, 310, 600, 400)
+local prefix = "velora-snap-preview:"
+local function previews()
+    local result = {}
+    for _, action in ipairs(dispatched) do
+        if action.kind == "event" and action.args:sub(1, #prefix) == prefix then
+            result[#result + 1] = action.args:sub(#prefix + 1)
+        end
+    end
+    return result
+end
+check("no preview timer while idle", not timer.enabled)
+free.press()
+pointer = {x=-1279, y=480}
+timer.tick()
+check("moving the pointer alone does not show a window target", #previews() == 0)
+active.at = {x=-1280, y=310}
+timer.tick()
+check("target appears before release on the scaled output", previews()[1] == "DP-1,1280,720,10,50,625,660" and active.size.x == 600)
+timer.tick()
+check("same zone sends no duplicate events", #previews() == 1)
+pointer = {x=-1279, y=105}
+timer.tick()
+check("the corner updates to a quarter", previews()[2] == "DP-1,1280,720,10,50,625,325")
+pointer = {x=-600, y=460}
+timer.tick()
+check("leaving the edge hides the target before release", previews()[3] == "")
+pointer = {x=-1279, y=480}
+timer.tick()
+free.release()
+check("edge drag uses the target monitor's logical left half", geometry(active) == "-1270,150 625x660", geometry(active))
+check("dropping unmaps the preview and stops sampling", previews()[5] == "" and not timer.enabled)
+free.unsnap(active)
+check("restore recovers the pre-drag position", geometry(active) == "-850,310 600x400", geometry(active))
+pointer = {x=-600, y=460}
+free.press()
+pointer, active.at = {x=-640,y=101}, {x=-891,y=151}
+timer.tick()
+check("top previews the maximized area below reserved panels", previews()[6] == "DP-1,1280,720,0,40,1280,680")
+free.release()
+check("dropping at the top maximizes", active.fullscreen == 1 and not timer.enabled)
+free.down()
+check("unmaximizing returns to the pre-drag position", geometry(active) == "-850,310 600x400", geometry(active))
+free.press()
+active.size.x = active.size.x + 20
+pointer = {x=-1279,y=480}
+local count_after_press = #previews()
+timer.tick()
+free.release()
+check("a resize has no drop target", #previews() == count_after_press)
+-- Drag by the body. The pointer still has room to move when the title is already offscreen.
+local frame = {top=32}
+hl.plugin = {velora = {frame_info = function() return frame end}}
+pointer = {x=-630,y=540}
+free.press()
+pointer, active.at = {x=-720,y=290}, {x=-940,y=60}
+free.release()
+check("a body drag leaves the entire system title below the reserved panel", active.at.x == -940 and active.at.y == 172)
+free.snap("left")
+check("the snapped frame fits the preview including its title", active.at.y - 32 == 150 and active.size.y + 32 == 660)
+free.unsnap(active)
+frame.min_w, frame.min_h = 760, 500
+free.snap("bottom-right")
+check("a larger minimum size grows inward from the right and bottom", geometry(active) == "-770,310 760x500", geometry(active))
+free.unsnap(active)
+frame.min_w, frame.min_h = nil, nil
+local upper = {name="DP-2", x=-1280, y=-620, mode={width=1280, height=720}}
+monitors[2] = upper
+active.at = {x=-900, y=55}
+handlers["monitor.layout_changed"]()
+check("a title accessible on an upper monitor stays there", active.at.y == 55)
+monitors[2] = nil
+handlers["monitor.layout_changed"]()
+check("unplugging that monitor brings the title back", active.at.y == 172)
+active.at = {x=-2300, y=80}
+handlers["config.reloaded"]()
+check("reload recovers an already stranded window", active.at.x == -1280 and active.at.y == 172)
+active.fullscreen, pointer = 1, {x=-280,y=180}
+free.press()
+active.fullscreen, active.at, active.size = 0, {x=-1220,y=260}, {x=600,y=400}
+pointer = {x=-1279,y=480}
+timer.tick()
+check("a restored drag can snap in the same gesture", previews()[#previews()] == "DP-1,1280,720,10,50,625,660")
+free.release()
+check("a restored drag drops including the frame", active.at.y == 182 and active.size.y == 628)
+hl.plugin = nil
+active.floating = false
+active.size = {x=1900, y=1070}
+handlers["config.reloaded"]()
+check("a new tiled window fits on its scaled monitor after switching to free", active.floating and active.size.x <= 1008 and active.size.y <= 528)
 os.exit(failures == 0 and 0 or 1)

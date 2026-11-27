@@ -144,7 +144,7 @@ Item {
             # Execute the actual StyledPopup state/timer block, replacing only the
             # compositor-specific LazyLoader/PanelWindow rendering with a Qt Item.
             source = (SHELL / 'modules/ii/bar/StyledPopup.qml').read_text()
-            state = source.split('LazyLoader {', 1)[1].split('    component: PanelWindow {', 1)[0]
+            state = source.split('LazyLoader {', 1)[1].split('    component: ', 1)[0]
             # `active` is a LazyLoader property; declare it on the rendering stand-in.
             (root / 'PopupState.qml').write_text('import QtQuick\nItem { property bool active\n'
                                                 + state + '\n}')

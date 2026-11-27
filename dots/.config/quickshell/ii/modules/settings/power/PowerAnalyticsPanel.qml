@@ -78,7 +78,7 @@ ContentSection {
                 id: reader
                 property int activeWindow: 1200
                 command: [PowerAnalytics.helperPath, "power-analytics", "watch", "--state-dir", PowerAnalytics.stateDirectory,
-                    "--window-seconds", String(activeWindow), "--points", "300"]
+                    "--apps", "--window-seconds", String(activeWindow), "--points", "300"]
                 stdout: SplitParser {
                     onRead: data => {
                         if (!panel.wanted || reader.activeWindow !== panel.windowSeconds) return;
@@ -150,6 +150,10 @@ ContentSection {
                         font.pixelSize: 24
                     }
                 }
+            }
+            ApplicationPowerTable {
+                Layout.fillWidth: true
+                samples: panel.history.applications ?? ({ source: "sampling", rows: [] })
             }
             AnalyticsSegments {
                 objectName: "powerHistoryRanges"

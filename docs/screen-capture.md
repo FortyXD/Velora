@@ -9,6 +9,12 @@ The region picker freezes the image before displaying the selection overlay. Its
 
 The preference is saved as the boolean `screenSnip.showCursor` in the shell configuration. It does not change screen-recording cursor behavior or internal brightness sampling. Screen translation continues to request a cursor-free source.
 
+## Screen translation
+
+Press **Super+Shift+T** to translate the text on screen. The Velora screen translator uses Google Cloud Vision to read the captured image and Cloud Translation to translate the text into the desktop language.
+
+On first use, select the key icon in the translator toolbar, paste the Google Cloud service account's JSON key and press **Enter**. Velora saves the key in the desktop keyring. Close and reopen the translator to capture the screen again.
+
 ## Implementation and checks
 
 User-facing capture paths use `scripts/images/screenshot.sh`, which forwards arguments to `grim` and adds `-c` only when enabled. Quickshell passes its current in-memory preference explicitly; shortcuts read the saved preference. Missing or malformed settings fall back to hiding the cursor. Clipboard captures are copied only after `grim` succeeds; cancellation or capture failure leaves the clipboard unchanged, and temporary captures are removed.

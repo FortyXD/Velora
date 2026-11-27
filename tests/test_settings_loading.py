@@ -1,6 +1,7 @@
 """Exercise the real settings host: asynchronous warmup, navigation and suspended work."""
 import json
 import os
+from pathlib import Path
 import re
 import unittest
 
@@ -201,10 +202,110 @@ class SettingsLoadingTests(unittest.TestCase):
         if os.environ.get('VELORA_SETTINGS_PERF') == '1':
             self.assertLessEqual(gap, 150, output[-7000:])
 
+    def test_compact_sidebar_icons_selection_and_tooltips(self):
+        host = (pages.SHELL / 'settings.qml').read_text().replace('import QtQuick\n', 'import QtQuick\nimport QtTest\n', 1)
+        host = '//@ pragma Env QT_QUICK_CONTROLS_HOVER_ENABLED=1\n' + host
+        probe = r'''
+    TestCase { id: input; when: false }
+    property int railStep: 0
+    function checkRail(ok, message) {
+        if (!ok) { console.log("CHECK_FAIL", root.railStep, message); Qt.quit(); }
+        return ok;
+    }
+    function checkIcon(button) {
+        const icon = input.findChild(button, "settingsRailIcon");
+        const center = icon.mapToItem(sidebar, icon.width / 2, icon.height / 2);
+        return root.checkRail(Math.abs(center.x - sidebar.collapsedWidth / 2) <= 0.5,
+                              button.objectName + " icon at " + center.x);
+    }
+    Timer {
+        interval: 60; running: true; repeat: true
+        onTriggered: {
+            if (!root.initialized || !root.currentPageItem?.pageShown) return;
+            const profile = input.findChild(sidebar, "settingsProfileButton");
+            const wifi = input.findChild(sidebar, "settingsNav-wifi");
+            const general = input.findChild(sidebar, "settingsNav-general");
+            const highlight = input.findChild(sidebar, "settingsNavHighlight");
+            const tip = input.findChild(wifi, "settingsRailTip");
+            switch (root.railStep) {
+            case 0:
+                root.width = root.minimumWidth;
+                break;
+            case 1:
+                if (sidebar.expanded || sidebar.width !== sidebar.collapsedWidth) return;
+                if (!root.checkIcon(wifi) || !root.checkIcon(profile)) return;
+                if (!root.checkRail(profile.current && !highlight.visible, "two active items on About")) return;
+                input.mouseMove(wifi, wifi.width / 2, wifi.height / 2);
+                break;
+            case 2: {
+                if (!tip.opened) return;
+                const rect = tip.contentItem.mapToItem(wifi, 0, 0, tip.contentItem.width, tip.contentItem.height);
+                if (!root.checkRail(rect.x >= wifi.width && Math.abs(rect.y + rect.height / 2 - wifi.height / 2) <= 1,
+                                    "tooltip overlaps another row " + rect)) return;
+                input.mouseClick(wifi, wifi.width / 2, wifi.height / 2);
+                break;
+            }
+            case 3:
+                if (!root.checkRail(root.currentPageData.key === "wifi" && !profile.current && highlight.visible,
+                                    "clicking Wi-Fi selects the hovered row")) return;
+                root.openPage("storage");
+                break;
+            case 4:
+                if (!root.checkRail(highlight.visible && sidebar.highlightedPage === root.pageIndex("general"),
+                                    "Storage keeps General selected")) return;
+                root.width = 1100;
+                break;
+            case 5:
+                if (!sidebar.expanded || sidebar.width !== sidebar.expandedWidth || tip.visible) return;
+                if (!root.checkIcon(profile) || !root.checkIcon(general)) return;
+                sidebar.expandOverride = false;
+                break;
+            case 6:
+                if (sidebar.width !== sidebar.collapsedWidth) return;
+                if (!root.checkIcon(general)) return;
+                console.log("DRIVER_PASS"); Qt.quit();
+            }
+            root.railStep++;
+        }
+    }
+    Timer { interval: 10000; running: true; onTriggered: { console.log("CHECK_FAIL rail timeout", root.railStep); Qt.quit(); } }
+'''
+        host = host.replace('    id: root\n', '    id: root\n' + probe, 1)
+        for scale in ('1', '1.5'):
+            with self.subTest(scale=scale):
+                source = host.replace('Env QT_SCALE_FACTOR=1\n', f'Env QT_SCALE_FACTOR={scale}\n', 1)
+                output = self.runner.run_driver(source, settings_page='about')
+                errors = [line for line in output.splitlines() if 'CHECK_FAIL' in line
+                          or ('SettingsSidebar.qml' in line and pages.PROBLEMS.search(line))]
+                self.assertFalse(errors, errors[:5])
+                self.assertIn('DRIVER_PASS', output, output[-3000:])
+
+    def test_keyboard_map_and_legacy_shortcut_links(self):
+        host = (pages.SHELL / 'settings.qml').read_text().replace(
+            '    id: root\n', '    id: root\n    KeyboardSettingsFixture { host: root }\n', 1)
+        fixture = (Path(__file__).parent / 'qml/KeyboardSettingsFixture.qml').read_text()
+        device = dict(name='fixture-keyboard', main=True, layout='us,ru,us', variant='intl,,dvorak')
+        def devices(index, name):
+            return json.dumps({'keyboards': [dict(device, active_layout_index=index, active_keymap=name)]})
+        hyprctl = f'''case "$*" in
+            "switchxkblayout fixture-keyboard 1") touch "$XDG_RUNTIME_DIR/russian-selected" ;;
+            "-j devices")
+                if test -e "$XDG_RUNTIME_DIR/russian-selected"; then
+                    echo '{devices(1, "Russian")}'
+                else
+                    echo '{devices(2, "English (Dvorak)")}'
+                fi ;;
+        esac'''
+        output = self.runner.run_driver(host, settings_page='shortcuts', page_sources={'KeyboardSettingsFixture.qml': fixture},
+                                        tool_stubs={'hyprctl': hyprctl})
+        self.assertIn('DRIVER_PASS', output, output[-5000:])
+        self.assertNotRegex(output, r'CHECK_FAIL|TypeError|ReferenceError|Binding loop|Cannot assign|Unable to assign')
+
     def test_shortcut_rows_are_incremental_searchable_and_pause_when_hidden(self):
         output = self.runner.run_driver(r'''
 import QtQuick
 import QtQuick.Controls
+import QtTest
 import qs.services
 import qs.modules.settings
 ApplicationWindow {
@@ -221,7 +322,9 @@ ApplicationWindow {
         for (const child of node.children ?? []) { const found = findRow(child, title); if (found) return found; }
         return null;
     }
-    Loader { id: page; anchors.fill: parent; asynchronous: true; source: "modules/settings/ShortcutsConfig.qml" }
+    TestCase { id: input; when: false }
+    Loader { id: page; anchors.fill: parent; asynchronous: true; source: "modules/settings/KeyboardConfig.qml" }
+    readonly property var catalog: page.item ? input.findChild(page.item, "shortcutCatalog") : null
     SettingsSearch {
         id: search; visible: false
         pages: [{name: "Shortcuts", description: "", icon: "keyboard"}]
@@ -245,20 +348,20 @@ ApplicationWindow {
                 HyprlandKeybinds.binds = binds;
                 root.stage++;
             } else if (root.stage === 1) {
-                if (page.item.rowBudget < 8) return;
-                if (!root.check(page.item.rowBudget < 160, "all shortcut rows built at once")) return;
+                if (root.catalog.rowBudget < 8) return;
+                if (!root.check(root.catalog.rowBudget < 160, "all shortcut rows built at once")) return;
                 root.firstRow = root.findRow(page.item, "Perf shortcut 0");
-                root.pausedBudget = page.item.rowBudget;
+                root.pausedBudget = root.catalog.rowBudget;
                 root.windowUsable = false;
                 root.ticks = 0;
                 root.stage++;
             } else if (root.stage === 2) {
                 if (++root.ticks < 12) return;
-                if (!root.check(page.item.rowBudget === root.pausedBudget, "hidden shortcuts kept building")) return;
+                if (!root.check(root.catalog.rowBudget === root.pausedBudget, "hidden shortcuts kept building")) return;
                 root.windowUsable = true;
                 root.stage++;
             } else if (root.stage === 3) {
-                if (page.item.rowBudget < 160 || !search.results.length) return;
+                if (root.catalog.rowBudget < 160 || !search.results.length) return;
                 if (!root.check(root.firstRow === root.findRow(page.item, "Perf shortcut 0"), "batch replaced existing rows")) return;
                 if (!root.check(search.results.some(result => result.title === "Perf shortcut 159"), "late shortcut missing from search")) return;
                 console.log("DRIVER_PASS"); Qt.quit();
@@ -278,9 +381,15 @@ ApplicationWindow {
     property int energyTicks: 0
     property var shaderPreview: null
     property real savedShaderTime: 0
-    function findShader(node) {
-        if (node.name === "aurora" && node.time !== undefined && node.fps === 24) return node;
-        for (const child of node.children ?? []) { const found = findShader(child); if (found) return found; }
+    property var tile: null
+    function findPreview(node, name) {
+        if (!node) return null;
+        if (node.objectName === name) return node;
+        if (name === "shader" && node.name === "aurora" && node.time !== undefined) return node;
+        for (const child of node.children ?? []) {
+            const found = findPreview(child, name);
+            if (found) return found;
+        }
         return null;
     }
     function energyCheck(ok, message) { if (!ok) { console.log("CHECK_FAIL " + message); Qt.quit(); } return ok; }
@@ -291,8 +400,9 @@ ApplicationWindow {
                 Config.options.background.shaderWallpaper.name = "aurora";
                 const wallpaper = root.pageItemAt(root.pageIndex("wallpaper"));
                 if (!wallpaper) return;
-                root.shaderPreview = root.findShader(wallpaper);
-                if (!root.energyCheck(!!root.shaderPreview, "shader preview missing")) return;
+                root.shaderPreview = root.findPreview(root.findPreview(wallpaper, "panoramaMedia"), "shader");
+                root.tile = root.findPreview(wallpaper, "wallpaperLive-aurora");
+                if (!root.energyCheck(!!root.shaderPreview && !!root.tile, "shader preview missing")) return;
                 root.savedShaderTime = root.shaderPreview.time;
                 root.energyStage++;
             } else if (++root.energyTicks >= 6) {
@@ -301,10 +411,17 @@ ApplicationWindow {
                     if (!root.energyCheck(root.shaderPreview.time === root.savedShaderTime, "background preview ticks")) return;
                     root.openPage("wallpaper");
                 } else if (root.energyStage === 2) {
-                    if (!root.energyCheck(root.shaderPreview.time > root.savedShaderTime, "shown preview is frozen")) return;
-                    root.hide();
+                    if (!root.energyCheck(root.shaderPreview.time > root.savedShaderTime && root.tile.visible
+                        && !root.findPreview(root.tile, "shader"), "only the full-size preview should animate")) return;
+                    root.currentPageItem.navigateToSection("motion");
                     root.savedShaderTime = root.shaderPreview.time;
                 } else if (root.energyStage === 3) {
+                    if (!root.energyCheck(!root.tile.enabled && root.shaderPreview.time === root.savedShaderTime,
+                        "Motion contains settings and freezes the wallpaper previews")) return;
+                    root.currentPageItem.navigateToSection("");
+                    root.hide();
+                    root.savedShaderTime = root.shaderPreview.time;
+                } else if (root.energyStage === 4) {
                     if (!root.energyCheck(root.shaderPreview.time === root.savedShaderTime, "hidden window preview ticks")) return;
                     root.openPage("wifi");
                     root.show();

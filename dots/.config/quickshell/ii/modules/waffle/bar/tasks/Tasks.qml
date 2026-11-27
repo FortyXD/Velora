@@ -42,7 +42,7 @@ MouseArea {
             appEntry: modelData
 
             onHoveredChanged: {
-                if (hovered && hasWindows) previewPopup.prepare(appEntry, this);
+                if (hovered && hasWindows) root.showPreviewPopup(appEntry, this);
                 else if (!previewPopup.opened && previewPopup.anchorItem === this) previewPopup.close();
                 else if (hovered && !hasWindows) previewPopup.close();
             }

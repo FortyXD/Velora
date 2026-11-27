@@ -301,7 +301,7 @@ SettingsDetailPage {
             key: "banners"
             ContentSection {
                 title: Translation.tr("Banner position")
-                description: Translation.tr("Select a corner on the screen above.")
+                description: Translation.tr("Select where banners appear on the screen.")
                 BannerPositionPicker { id: bannerPicker; shown: rootPage.pageShown && banners.shown }
                 ConfigNavRow {
                     objectName: "previewNotification"

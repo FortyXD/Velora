@@ -5,7 +5,7 @@
 //@ pragma Env QT_QUICK_CONTROLS_STYLE=Basic
 //@ pragma Env QT_QUICK_FLICKABLE_WHEEL_DECELERATION=10000
 
-// The Folis toolbox: file converter, video downloader, QR codes, text recognition and colors.
+// The Velora toolbox: file converter, video downloader, QR codes, text recognition and colors.
 // Open it with `velora-helper toolbox-open [tab] [files…]` (one window; later calls go to it over IPC).
 
 import QtQuick
@@ -52,7 +52,7 @@ ApplicationWindow {
 
     visible: true
     onClosing: Qt.quit()
-    title: "Folis Toolbox" // Matched by a Hyprland window rule
+    title: "Velora Toolbox" // Matched by a Hyprland window rule
     minimumWidth: 720
     minimumHeight: 480
     width: 1000

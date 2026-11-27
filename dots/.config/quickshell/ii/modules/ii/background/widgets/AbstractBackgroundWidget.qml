@@ -18,7 +18,10 @@ AbstractWidget {
     required property real wallpaperScale
     required property Item placementCanvas
     property bool visibleWhenLocked: false
-    property var configEntry: Config.options.background.widgets[configEntryName]
+    property bool preview: false
+    property var widgetSettings: Config.options.background.widgets
+    property var widgetColors: Appearance.colors
+    property var configEntry: widgetSettings[configEntryName]
     property string placementStrategy: configEntry.placementStrategy
     // A fixed priority avoids feedback loops. Later widgets avoid the actual
     // bounds of earlier ones, including widgets using a different strategy.
@@ -51,7 +54,7 @@ AbstractWidget {
         animation: Appearance.animation.elementResize.numberAnimation.createObject(this)
     }
 
-    draggable: placementStrategy === "free"
+    draggable: !preview && placementStrategy === "free"
     onReleased: {
         root.targetX = root.x;
         root.targetY = root.y;
@@ -61,7 +64,7 @@ AbstractWidget {
     }
 
     property bool needsColText: false
-    property color dominantColor: Appearance.colors.colPrimary
+    property color dominantColor: root.widgetColors.colPrimary
     property bool dominantColorIsDark: dominantColor.hslLightness < 0.5
     property real textLightness: dominantColorIsDark ? 0.8 : 0.12
     Behavior on textLightness {
@@ -72,7 +75,7 @@ AbstractWidget {
     }
     property color colText: {
         const onNormalBackground = (GlobalStates.screenLocked && Config.options.lock.blur.enable)
-        const adaptiveColor = ColorUtils.colorWithLightness(Appearance.colors.colPrimary, root.textLightness)
+        const adaptiveColor = ColorUtils.colorWithLightness(root.widgetColors.colPrimary, root.textLightness)
         return onNormalBackground ? Appearance.colors.colOnLayer0 : adaptiveColor;
     }
 
@@ -111,7 +114,7 @@ AbstractWidget {
         const result = root.analysisResult;
         if (!result || result.generation !== root.analysisGeneration || result.path !== root.wallpaperPath) return;
         const state = WallpaperTransition.screens[root.wallpaperScreenName];
-        if (state && state.path !== result.path) return; // The old picture is still visible.
+        if (!root.preview && state && state.path !== result.path) return; // The old picture is still visible.
         root.dominantColor = result.data.dominant_color;
         if (root.placementStrategy === "free") return;
         root.targetX = Math.max(0, Math.min(root.scaledScreenWidth - root.width, result.data.center_x * root.wallpaperScale - root.width / 2));

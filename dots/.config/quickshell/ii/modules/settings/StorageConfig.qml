@@ -6,23 +6,29 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
+import "storage"
 
 /**
- * Storage, opened from General: how full each disk is, and a few ways to make room.
+ * Storage, opened from General.
  */
 ContentPage {
     id: root
 
     property var disks: [] // { source, target, size, used, avail } in bytes
+    property var mountPoints: []
     property real trashSize: -1 // Bytes, -1 until measured
     property string analyzer: "" // A disk usage app, if one is installed
+    readonly property bool canNavigateBack: explorer.item?.canGoUp ?? false
+    function navigateBack() { explorer.item?.goUp(); }
 
     // Decimal units, the ones disks are sold in
     function formatBytes(bytes) {
-        if (bytes >= 1e12) return Translation.tr("%1 TB").arg((bytes / 1e12).toFixed(2));
-        if (bytes >= 1e9) return Translation.tr("%1 GB").arg((bytes / 1e9).toFixed(1));
-        if (bytes >= 1e6) return Translation.tr("%1 MB").arg(Math.round(bytes / 1e6));
-        return Translation.tr("%1 KB").arg(Math.round(bytes / 1e3));
+        const locale = Qt.locale(Translation.languageCode);
+        if (bytes >= 1e12) return Translation.tr("%1 TB").arg((bytes / 1e12).toLocaleString(locale, "f", 2));
+        if (bytes >= 1e9) return Translation.tr("%1 GB").arg((bytes / 1e9).toLocaleString(locale, "f", 1));
+        if (bytes >= 1e6) return Translation.tr("%1 MB").arg((bytes / 1e6).toLocaleString(locale, "f", 1));
+        if (bytes >= 1e3) return Translation.tr("%1 KB").arg(Math.round(bytes / 1e3));
+        return Translation.tr("%1 B").arg(bytes);
     }
 
     function refresh() {
@@ -30,49 +36,72 @@ ContentPage {
         trashUsage.running = true;
     }
     // Measured again each time the page is opened
-    onPageShownChanged: if (root.pageShown) root.refresh()
-    Component.onCompleted: root.refresh()
+    onPageShownChanged: {
+        if (root.pageShown) root.refresh();
+        else {
+            diskUsage.running = false;
+            trashUsage.running = false;
+        }
+    }
+    Component.onCompleted: if (root.pageShown) root.refresh()
 
     Process {
         id: diskUsage
-        command: ["df", "-B1", "--output=source,target,size,used,avail",
+        command: ["df", "-B1", "--output=source,size,used,avail,target",
             "-x", "tmpfs", "-x", "devtmpfs", "-x", "efivarfs", "-x", "overlay", "-x", "squashfs", "-x", "ramfs"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const seen = new Set();
                 const disks = [];
-                for (const line of text.trim().split("\n").slice(1)) {
-                    const fields = line.trim().split(/\s+/);
-                    if (fields.length < 5) continue;
-                    const [size, used, avail] = fields.slice(-3).map(Number);
-                    const source = fields[0];
-                    const target = fields.slice(1, -3).join(" "); // Mount points can have spaces
-                    // Boot partitions aren't room for files, and a disk mounted several times (btrfs subvolumes) counts once
-                    if (size <= 0 || /^\/(boot|efi)(\/|$)/.test(target) || seen.has(source)) continue;
+                const mounts = [];
+                for (const line of text.split("\n").slice(1)) {
+                    const fields = line.match(/^(.+?)\s+(\d+)\s+(\d+)\s+(-?\d+)\s+(\/.*)$/);
+                    if (!fields) continue;
+                    const [, source, sizeText, usedText, availText, target] = fields;
+                    const [size, used, avail] = [sizeText, usedText, availText].map(Number);
+                    if (size <= 0 || /^\/(boot|efi)(\/|$)/.test(target)) continue;
+                    mounts.push(target);
+                    // Subvolumes can be explored separately but share the same free space.
+                    if (seen.has(source)) continue;
                     seen.add(source);
                     disks.push({ source, target, size, used, avail });
                 }
                 root.disks = disks;
+                root.mountPoints = mounts;
             }
         }
     }
 
     Process {
         id: trashUsage
-        command: ["sh", "-c", 'du -sb "${XDG_DATA_HOME:-$HOME/.local/share}/Trash/files" 2>/dev/null | cut -f1']
+        command: ["du", "-sb", "--", (Quickshell.env("XDG_DATA_HOME") || Quickshell.env("HOME") + "/.local/share") + "/Trash/files"]
         stdout: StdioCollector {
-            onStreamFinished: root.trashSize = Number(text.trim()) || 0
+            onStreamFinished: root.trashSize = parseInt(text, 10) || 0
         }
     }
 
     Process {
         id: emptyTrash
         command: ["gio", "trash", "--empty"]
-        onExited: (exitCode, exitStatus) => root.refresh()
+        onExited: {
+            reuseScan.stop();
+            if (root.pageShown) {
+                root.refresh();
+                if (explorer.item) explorer.item.startScan(explorer.item.scanPath);
+            }
+        }
+    }
+
+    // Keep one completed tree briefly for back/forward navigation. An unfinished
+    // scan is still cancelled as soon as the user leaves the page.
+    Timer {
+        id: reuseScan
+        objectName: "storageResultLifetime"
+        interval: 60000
     }
 
     Process {
-        running: true
+        running: root.pageShown
         command: ["sh", "-c", "command -v filelight || command -v baobab || command -v qdirstat"]
         stdout: StdioCollector {
             onStreamFinished: root.analyzer = text.trim().split("\n")[0] ?? ""
@@ -140,8 +169,30 @@ ContentPage {
     }
 
     ContentSection {
+        icon: "donut_large"
+        title: Translation.tr("Explore folder sizes")
+        Loader {
+            id: explorer
+            objectName: "storageExplorerLoader"
+            Layout.fillWidth: true
+            Layout.margins: 12
+            active: root.pageShown || reuseScan.running
+            sourceComponent: StorageExplorer {
+                mountPoints: root.mountPoints
+                formatBytes: root.formatBytes
+                onScanningChanged: {
+                    if (!scanning && !failed) reuseScan.restart();
+                    else reuseScan.stop();
+                }
+                onFailedChanged: if (failed) reuseScan.stop()
+            }
+        }
+    }
+
+    ContentSection {
         icon: "hard_drive"
         title: ""
+        visible: root.disks.length > 0
         searchText: `${Translation.tr("Storage")} ${Translation.tr("Disk")} ${Translation.tr("Available")}`
 
         Repeater {

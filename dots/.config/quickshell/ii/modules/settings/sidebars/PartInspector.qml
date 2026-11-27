@@ -194,10 +194,19 @@ ColumnLayout {
     // ---- Options ----
 
     ContentSection {
-        visible: optionsRepeater.count > 0 || editorLoader.active || linksRepeater.count > 0
+        visible: !!root.part
         icon: "tune"
         title: Translation.tr("Settings")
 
+        ConfigSlider {
+            text: Translation.tr("Section height")
+            buttonIcon: "height"
+            from: 0; to: 1000
+            value: root.part?.options?.height ?? 0
+            valueText: value > 0 ? Math.round(value) + " px" : Translation.tr("Auto")
+            defaultValue: 0
+            onMoved: SidebarLayout.setOption(root.part.uid, {key:"height"}, value < 32 ? 0 : Math.round(value))
+        }
         Repeater {
             id: optionsRepeater
             model: (root.meta?.options ?? []).filter(spec => !spec.when || root.options[spec.when.key] === spec.when.value)

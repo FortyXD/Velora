@@ -5,7 +5,7 @@ SettingsTabPage {
     required property SettingsDetailPage page
     property Component header
     default property alias sections: pane.contentData
-    readonly property Item firstSection: headerLoader.item ?? sections[0] ?? null
+    readonly property Item firstSection: headerLoader.item ?? sections.find(section => section instanceof Item) ?? null
 
     anchors.fill: parent
     current: page.tab

@@ -8,6 +8,19 @@ Velora is derived from [Illogical Impulse](https://github.com/end-4/dots-hyprlan
 Its authors retain copyright in their contributions. Existing file-level notices
 and license grants remain in effect.
 
+The Arch package includes Velora's source and its build recipe under
+`/usr/share/velora/`. The file `.velora-package.json` there identifies the
+source repository and commit. The rounded polygon submodule is included in
+the source tree. The Rust dependency versions and checksums are recorded in
+`tools/Cargo.lock` and `tools/velora-translate/Cargo.lock`. From the root of
+that source tree, the following command downloads the matching crates into
+a directory you own.
+
+```bash
+cargo vendor --locked --no-delete --manifest-path tools/Cargo.toml \
+  --sync tools/velora-translate/Cargo.toml "$HOME/velora-crate-sources"
+```
+
 The following components carry their own notices:
 
 | Component | Source / attribution | License and local notice |
@@ -23,7 +36,7 @@ The following components carry their own notices:
 | Lens relevance model (optional download) | [mMARCO multilingual MiniLMv2](https://huggingface.co/cross-encoder/mmarco-mMiniLMv2-L12-H384-v1), Sentence Transformers | Apache-2.0; publisher's ONNX and tokenizer pinned by revision and SHA-256 |
 | Lens visual model (optional download) | [SigLIP 2](https://huggingface.co/google/siglip2-base-patch16-224), Google | Apache-2.0; source revision recorded in the installed model manifest |
 | Lens inference runtime | [ONNX Runtime](https://github.com/microsoft/onnxruntime), Microsoft | MIT; installed into the optional private Python environment |
-| Icon helpers, directory icons and brightness service | [caelestia-dots/shell](https://github.com/caelestia-dots/shell) | GPLv3; notices in `Icons.qml`, `DirectoryIcon.qml` and `Brightness.qml` |
+| Icon helpers, directory icons, brightness and network services | [caelestia-dots/shell](https://github.com/caelestia-dots/shell) | GPLv3. See the notices in `Icons.qml`, `DirectoryIcon.qml`, `Brightness.qml` and `Network.qml`. |
 | Levenshtein search helpers | [koeqaife/hyprland-material-you](https://github.com/koeqaife/hyprland-material-you) | GPLv3; notice in `levendist.js` |
 | Rounded polygon shapes submodule | [end-4/rounded-polygon-qmljs](https://github.com/end-4/rounded-polygon-qmljs) | Apache-2.0; submodule `LICENSE` |
 | Ollama model detection script | strikeoncmputrz/LLM_Scripts | Apache-2.0; `dots/.config/hypr/hyprland/scripts/ai/license_show-loaded-ollama-models.txt` |

@@ -47,7 +47,7 @@ Singleton {
             required property string imagePath
             property bool didStart: false
             property bool finished: false
-            running: true
+            running: !Directories.preparingLatexOutput
             workingDirectory: root.microtexBinaryDir
             command: [root.microtexBinaryDir + "/" + root.microtexBinaryName, "-headless",
                 "-input=" + job.expression, "-output=" + job.imagePath,

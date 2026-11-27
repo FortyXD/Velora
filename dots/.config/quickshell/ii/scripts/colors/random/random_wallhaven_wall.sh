@@ -8,11 +8,11 @@ resolution=$(hyprctl monitors -j | jq -r '(map(select(.focused)) + .)[0] | "\(.w
 response=$(api_get "https://wallhaven.cc/api/v1/search?categories=010&purity=100&sorting=random&atleast=$resolution")
 # Prefer images with the monitor's aspect ratio, fall back to any result
 monitorRatio=$(awk -Fx '{ printf "%.2f", $1 / $2 }' <<< "$resolution")
-link=$(jq -r --argjson r "$monitorRatio" \
-    '([.data[] | select((.ratio | tonumber) - $r | fabs < 0.15)] + .data)[0].path // empty' <<< "$response" 2>/dev/null)
+image=$(jq -c --argjson r "$monitorRatio" \
+    '([.data[] | select((.ratio | tonumber) - $r | fabs < 0.15)] + .data)[0]' <<< "$response" 2>/dev/null)
+link=$(jq -r '.path // empty' <<< "$image")
 [[ -n "$link" ]] || fail "wallhaven.cc returned no image for $resolution."
-ext="${link##*.}"
 
-downloadPath=$(download_path "$ext")
+downloadPath=$(download_path Wallhaven "$link" "$(jq -r '.id // empty' <<< "$image")")
 fetch_image "$link" "$downloadPath"
 apply_wallpaper "$downloadPath"

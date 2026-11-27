@@ -6,6 +6,22 @@ hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 -- Applications
 hl.env("XDG_DATA_DIRS", home .. "/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share:/usr/share")
 
+-- Chromium uses xdg-open for downloads. Let GIO handle local files in this session,
+-- preserving any opener the user has already put ahead of the system tools.
+local config_home = os.getenv("XDG_CONFIG_HOME")
+if not config_home or config_home == "" then config_home = home .. "/.config" end
+local opener_dir = config_home .. "/hypr/hyprland/xdg"
+local system_bins = { ["/usr/bin"] = true, ["/bin"] = true, ["/usr/sbin"] = true, ["/sbin"] = true }
+local path = ":" .. (os.getenv("PATH") or "/usr/bin") .. ":"
+if not path:find(":" .. opener_dir .. ":", 1, true) then
+    for offset, directory in path:gmatch("():([^:]+)") do
+        if system_bins[directory:gsub("/+$", "")] then
+            hl.env("PATH", path:sub(2, offset) .. opener_dir .. path:sub(offset, -2))
+            break
+        end
+    end
+end
+
 -- Video in Qt apps (the shell's lock screen and previews, the settings app): VA-API only. Qt probes the
 -- hardware encoders as soon as it plays anything, and probing CUDA wakes a hybrid laptop's NVIDIA GPU
 -- (or, once that GPU has crashed, hangs the app); both variables are needed to keep it away.

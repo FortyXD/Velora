@@ -19,6 +19,7 @@ Singleton {
     property var fields: ({})
     property var changes: ({})
     property var secrets: ({}) // Those read so far: `section.key` → value. Dropped when no longer on screen.
+    property int secretGeneration: 0
     property bool loading: false
     property bool saving: false
     property string errorText: ""
@@ -70,9 +71,9 @@ Singleton {
     }
 
     function reset(): void {
+        root.forgetSecrets();
         root.fields = ({});
         root.changes = ({});
-        root.secrets = ({});
         root.revision = "";
         root.errorText = "";
         root.conflict = false;
@@ -148,7 +149,7 @@ Singleton {
             } else {
                 root.justSaved = true;
                 root.changes = ({});
-                root.secrets = ({});
+                root.forgetSecrets();
                 root.uuid = uuid;
                 root.newType = "";
                 root.reload();
@@ -170,7 +171,9 @@ Singleton {
             if (done) done(null);
             return;
         }
+        const generation = root.secretGeneration;
         ConnectivityBackend.call("network.secrets", { uuid: root.uuid }, (result, error) => {
+            if (generation !== root.secretGeneration) return;
             if (error) {
                 root.errorText = Translation.tr(error.message);
             } else {
@@ -184,6 +187,7 @@ Singleton {
     }
 
     function forgetSecrets(): void {
+        ++root.secretGeneration;
         root.secrets = ({});
     }
 }

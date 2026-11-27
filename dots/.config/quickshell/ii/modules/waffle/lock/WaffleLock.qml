@@ -11,6 +11,7 @@ import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.functions
+import qs.modules.ii.lock as IiLock
 import qs.modules.common.widgets
 import qs.modules.common.panels.lock
 import qs.modules.waffle.looks
@@ -33,31 +34,10 @@ LockScreen {
             interactables.switchToFocusedView();
         }
 
-        StyledImage {
+        IiLock.LockBackdrop {
             id: bg
-            z: 0
-            width: parent.width
-            height: parent.height
-            onStatusChanged: {
-                if (status === Image.Ready) {
-                    print("Lock wallpaper loaded");
-                    print(lockSurfaceItem.height);
-                    y = -lockSurfaceItem.height;
-                    openAnim.restart();
-                }
-            }
-            source: Config.options.background.wallpaperPath
-            fillMode: Image.PreserveAspectCrop
-
-            PropertyAnimation {
-                id: openAnim
-                target: bg
-                property: "y"
-                to: 0
-                duration: 350
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Looks.transition.easing.bezierCurve.easeIn
-            }
+            anchors.fill: parent
+            playVideo: true
         }
 
         GaussianBlur {

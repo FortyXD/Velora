@@ -100,7 +100,7 @@ Singleton {
         }
         const key = root.keyFor(provider.id);
         if (provider.needsKey && key.length === 0) {
-            root.error = Translation.tr("%1 needs an API key. Add it under Settings → Wallpaper → Online sources.").arg(provider.name);
+            root.error = Translation.tr("%1 needs an API key. Add it under Settings → Advanced → Wallpaper sources.").arg(provider.name);
             root.hasMore = false;
             return;
         }

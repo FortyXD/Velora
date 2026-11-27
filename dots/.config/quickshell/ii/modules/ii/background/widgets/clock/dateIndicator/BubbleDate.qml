@@ -7,6 +7,7 @@ import QtQuick
 
 Item {
     id: root
+    property var colors: Appearance.colors
     property bool isMonth: false
     property real targetSize: 0
     property alias text: bubbleText.text
@@ -19,7 +20,7 @@ Item {
         // sides: root.isMonth ? 1 : 4
         shape: root.isMonth ? MaterialShape.Shape.Pill : MaterialShape.Shape.Pentagon
         anchors.centerIn: parent
-        color: root.isMonth ? Appearance.colors.colSecondaryContainer : Appearance.colors.colTertiaryContainer
+        color: root.isMonth ? root.colors.colSecondaryContainer : root.colors.colTertiaryContainer
         implicitSize: targetSize
     }
 
@@ -27,7 +28,7 @@ Item {
         id: bubbleText
         z: 6
         anchors.centerIn: parent
-        color: root.isMonth ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnTertiaryContainer
+        color: root.isMonth ? root.colors.colOnSecondaryContainer : root.colors.colOnTertiaryContainer
         font {
             family: Appearance.font.family.expressive
             pixelSize: 30

@@ -16,11 +16,13 @@ Singleton {
 
     readonly property string corner: {
         const choice = Config.options.notifications.popupPosition;
-        return ["topLeft", "topRight", "bottomLeft", "bottomRight"].includes(choice)
+        return ["topLeft", "topCenter", "topRight", "bottomLeft", "bottomCenter", "bottomRight"].includes(choice)
             ? choice : (Config.options.panelFamily === "waffle" ? "bottomRight" : "topRight");
     }
     readonly property bool top: corner.startsWith("top")
     readonly property bool right: corner.endsWith("Right")
+    readonly property bool left: corner.endsWith("Left")
+    readonly property bool centered: !left && !right
 
     function minutesOfDay(text) {
         if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(text)) return -1;

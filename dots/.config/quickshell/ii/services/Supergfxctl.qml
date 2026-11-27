@@ -10,6 +10,9 @@ Singleton {
 
     property string mode: ""
     property string pendingMode: ""
+    property string powerState: "unknown"
+    property bool hasModeService: true
+    property bool modeChecked: false
     property string requestedMode: ""
     property string lastError: ""
     property bool available: false
@@ -18,11 +21,11 @@ Singleton {
     property real lastSetModeRequestAt: 0
 
     readonly property bool busy: getModeProc.running || getPendingModeProc.running || setModeProc.running
-    readonly property string effectiveMode: pendingMode.length > 0 ? pendingMode : mode
+    readonly property string effectiveMode: mode
     readonly property bool integrated: effectiveMode === "Integrated"
     readonly property bool hybrid: effectiveMode === "Hybrid"
     readonly property string icon: integrated ? "memory" : hybrid ? "desktop_windows" : "question_mark"
-    readonly property string statusText: busy ? "Checking…"
+    readonly property string statusText: !modeChecked ? "Checking…"
         : effectiveMode.length > 0 ? effectiveMode
         : lastError.length > 0 ? root.errorSummary(lastError)
         : "Unknown"
@@ -55,7 +58,7 @@ Singleton {
             return "Integrated";
         if (/\bhybrid\b/i.test(cleanText))
             return "Hybrid";
-        return "";
+        return ["AsusMuxDgpu", "Vfio", "AsusEgpu"].find(mode => cleanText.toLowerCase() === mode.toLowerCase()) ?? "";
     }
 
     function setModeCooldownActive() {
@@ -63,13 +66,12 @@ Singleton {
     }
 
     function refresh() {
-        lastError = "";
-        getModeProc.running = false;
-        getPendingModeProc.running = false;
-        getModeProc.command = ["timeout", "3s", "supergfxctl", "-g"];
-        getPendingModeProc.command = ["timeout", "3s", "supergfxctl", "-P"];
-        getModeProc.running = true;
-        getPendingModeProc.running = true;
+        if (!getModeProc.running) {
+            lastModeProbe = Date.now();
+            getModeProc.running = true;
+        }
+        if (!getPendingModeProc.running) getPendingModeProc.running = true;
+        if (!powerProbe.running) powerProbe.running = true;
     }
 
     function setMode(nextMode) {
@@ -83,27 +85,31 @@ Singleton {
         setModeProc.running = true;
     }
 
-    function refreshModeForToggle() {
-        toggleAfterModeRefresh = true;
-        lastError = "";
-        getModeProc.running = false;
-        getModeProc.command = ["timeout", "3s", "supergfxctl", "-g"];
-        getModeProc.running = true;
-    }
-
     function toggle() {
-        if (setModeProc.running || getModeProc.running)
+        if (setModeProc.running || root.setModeCooldownActive())
             return;
-
-        if (effectiveMode.length === 0) {
-            root.refreshModeForToggle();
-            return;
-        }
-
-        root.setMode(effectiveMode === "Integrated" ? "Hybrid" : "Integrated");
+        root.toggleAfterModeRefresh = true;
+        if (!getModeProc.running) getModeProc.running = true;
     }
 
     Component.onCompleted: root.refresh()
+
+    Process {
+        id: powerProbe
+        command: ["timeout", "3s", "supergfxctl", "-S"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const status = root.cleanOutput(text).toLowerCase();
+                root.powerState = ["active", "suspended", "off", "disabled", "asleep", "d3cold"].includes(status) ? status : "unknown";
+            }
+        }
+        onExited: code => { if (code !== 0) root.powerState = "unknown"; }
+    }
+    property double lastModeProbe: 0
+    function refreshPower() {
+        if (!busy && Date.now() - lastModeProbe >= 30000) refresh();
+        else if (!powerProbe.running) powerProbe.running = true;
+    }
 
     Timer {
         id: refreshAfterSetTimer
@@ -122,68 +128,32 @@ Singleton {
     Process {
         id: getModeProc
         command: ["timeout", "3s", "supergfxctl", "-g"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const newMode = root.normalizedMode(text);
-                if (newMode.length > 0) {
-                    root.mode = newMode;
-                    root.available = true;
-                    root.lastError = "";
-                }
-            }
-        }
-        stderr: StdioCollector {
-            onStreamFinished: {
-                const errorText = root.cleanOutput(text);
-                if (errorText.length > 0)
-                    root.lastError = errorText;
-            }
-        }
+        stdout: StdioCollector { id: modeOutput }
+        stderr: StdioCollector { id: modeError }
         onExited: (exitCode, exitStatus) => {
-            if (exitCode !== 0) {
-                const toggleRequested = root.toggleAfterModeRefresh;
-                root.available = false;
-                root.toggleAfterModeRefresh = false;
-                if (exitCode === 124)
-                    root.lastError = "supergfxctl timed out";
+            const toggleRequested = root.toggleAfterModeRefresh;
+            root.toggleAfterModeRefresh = false;
+            root.hasModeService = exitCode !== 127;
+            root.mode = exitCode === 0 ? root.normalizedMode(modeOutput.text) : "";
+            root.available = root.mode.length > 0;
+            root.modeChecked = true;
+            if (!root.available) {
+                root.lastError = exitCode === 124 ? "supergfxctl timed out"
+                    : root.cleanOutput(modeError.text) || "Could not read graphics mode";
                 if (toggleRequested)
                     root.notifyError("Could not read the current mode");
                 return;
             }
-
-            if (root.toggleAfterModeRefresh) {
-                root.toggleAfterModeRefresh = false;
-                if (root.effectiveMode.length > 0) {
-                    root.setMode(root.effectiveMode === "Integrated" ? "Hybrid" : "Integrated");
-                } else {
-                    root.available = false;
-                    if (root.lastError.length === 0)
-                        root.lastError = "Could not read graphics mode";
-                }
-            }
+            root.lastError = "";
+            if (toggleRequested) root.setMode(root.integrated ? "Hybrid" : "Integrated");
         }
     }
 
     Process {
         id: getPendingModeProc
         command: ["timeout", "3s", "supergfxctl", "-P"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const newPendingMode = root.normalizedMode(text);
-                root.pendingMode = newPendingMode;
-            }
-        }
-        stderr: StdioCollector {
-            onStreamFinished: {
-                const errorText = root.cleanOutput(text);
-                if (errorText.length > 0)
-                    root.lastError = errorText;
-            }
-        }
-        onExited: (exitCode, exitStatus) => {
-            if (exitCode === 124)
-                root.lastError = "supergfxctl timed out";
-        }
+        stdout: StdioCollector { id: pendingOutput }
+        onExited: code => root.pendingMode = code === 0 ? root.normalizedMode(pendingOutput.text) : ""
     }
 
     Process {
@@ -199,7 +169,6 @@ Singleton {
             if (exitCode === 0) {
                 root.available = true;
                 root.pendingMode = root.requestedMode;
-                root.mode = root.requestedMode;
                 refreshAfterSetTimer.restart();
                 logoutAfterSetTimer.restart();
             } else {

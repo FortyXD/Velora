@@ -32,14 +32,12 @@ PopupWindow {
     }
 
     //////////////////// Functions ////////////////////
-    function close() { // Closing doesn't animate, not sure if they're just lazy or it's intentional
-        marginBehavior.enabled = false;
+    function close() {
         root.opened = false;
         root.appEntry = null;
     }
 
     function open() {
-        marginBehavior.enabled = true;
         root.opened = true;
     }
 
@@ -89,20 +87,13 @@ PopupWindow {
 
         Rectangle {
             id: contentItem
-            property real sourceEdgeMargin: root.visible ? (root.ambientShadowWidth + root.visualMargin) : -root.implicitHeight
-            Behavior on sourceEdgeMargin {
-                id: marginBehavior
-                animation: Looks.transition.enter.createObject(this)
-            }
             anchors {
                 left: parent.left
                 right: parent.right
                 top: root.bottom ? undefined : parent.top
                 bottom: root.bottom ? parent.bottom : undefined
                 margins: root.ambientShadowWidth + root.visualMargin
-                // Opening anim
-                bottomMargin: root.bottom ? sourceEdgeMargin : (root.ambientShadowWidth + root.visualMargin)
-                topMargin: root.bottom ? (root.ambientShadowWidth + root.visualMargin) : sourceEdgeMargin
+
             }
             color: Looks.colors.bg1Base
             radius: Looks.radius.large

@@ -128,8 +128,6 @@ SettingsDetailPage {
         searchText: title + " " + Accessible.description
         onClicked: {
             const window = root.ApplicationWindow.window;
-            const editor = window.pageItemAt(window.pageIndex("shortcuts"));
-            if (editor) editor.filter = "";
             window.openPage("shortcuts", "shortcutRow-" + shortcutId);
         }
         contentItem: RowLayout {

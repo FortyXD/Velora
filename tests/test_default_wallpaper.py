@@ -47,7 +47,7 @@ class DefaultWallpaperTests(unittest.TestCase):
         self.addCleanup(fixture.tearDown)
         for relative in ('dots/.config/quickshell/ii/assets/images/autumn.jpg',
                          'dots/.config/quickshell/ii/defaults/presets/autumn.json',
-                         'dots/.config/illogical-impulse/config.example.json'):
+                         'dots/.config/velora/config.example.json'):
             destination = fixture.repo / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(PROJECT / relative, destination)
@@ -58,7 +58,7 @@ class DefaultWallpaperTests(unittest.TestCase):
         preset = json.loads(preset_path.read_text())
         wallpaper = preset_path.parent / preset['wallpaperAnimations']['wallpaper']
         self.assertEqual(wallpaper.read_bytes(), (SHELL / 'assets/images/autumn.jpg').read_bytes())
-        config_path = Path(fixture.env['XDG_CONFIG_HOME']) / 'illogical-impulse/config.json'
+        config_path = Path(fixture.env['XDG_CONFIG_HOME']) / 'velora/config.json'
         config = json.loads(config_path.read_text())
         config['background']['wallpaperPath'] = '/pictures/personal.jpg'
         config_path.write_text(json.dumps(config))
@@ -119,6 +119,9 @@ class DefaultWallpaperTests(unittest.TestCase):
                         compare(picture.sourceSize.width, 2560);
                         compare(picture.sourceSize.height, 1440);
                     }
+                    function test_live_checkout_keeps_reading_settings_before_relink() {
+                        verify(Config.filePath.endsWith("/illogical-impulse/config.json"));
+                    }
                     function test_b_missing_config_is_ready_with_the_local_default() {
                         const config = findChild(Config, "configFileView");
                         config.loadFailed(FileViewError.FileNotFound);
@@ -134,6 +137,15 @@ class DefaultWallpaperTests(unittest.TestCase):
                         Config.options.background.wallpaperPath = "/pictures/my own choice.jpg";
                         config.loaded();
                         compare(Config.options.background.wallpaperPath, "/pictures/my own choice.jpg");
+                    }
+                    function test_saved_panel_family_survives_the_rename() {
+                        const config = findChild(Config, "configFileView");
+                        Config.options.panelFamily = "ii";
+                        config.loaded();
+                        compare(Config.options.panelFamily, "velora");
+                        Config.options.panelFamily = "waffle";
+                        config.loaded();
+                        compare(Config.options.panelFamily, "waffle");
                     }
                     function test_c_retired_bundled_images_migrate_but_personal_names_are_preserved() {
                         const config = findChild(Config, "configFileView");
@@ -186,8 +198,13 @@ class DefaultWallpaperTests(unittest.TestCase):
                         compare(Quickshell.detached.length, 1);
                     }
                 }''')
+            xdg = root / 'config with spaces'
+            (xdg / 'velora').mkdir(parents=True)
+            (xdg / 'illogical-impulse').mkdir()
+            (xdg / 'illogical-impulse/config.json').write_text('{}')
             result = subprocess.run([QT_TEST_RUNNER, '-input', str(root), '-o', '-,txt'],
                                     env={**os.environ, 'QT_QPA_PLATFORM': 'offscreen',
+                                         'XDG_CONFIG_HOME': str(xdg),
                                          'QT_QPA_PLATFORMTHEME': 'generic', 'QT_QUICK_BACKEND': 'software'},
                                     capture_output=True, text=True, timeout=20)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

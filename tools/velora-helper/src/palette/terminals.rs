@@ -21,7 +21,7 @@ fn luminance(hex: &str) -> f64 {
         })
         .sum()
 }
-fn ink(bg: &str, preferred: Option<&String>) -> String {
+pub(super) fn ink(bg: &str, preferred: Option<&String>) -> String {
     let bg = luminance(bg);
     if let Some(v) = preferred {
         let l = luminance(v);
@@ -235,8 +235,9 @@ pub fn apply() -> Result<()> {
     let sequences = dir.join("sequences.txt");
     let old = optional(&theme)?;
     let previous = optional(&sequences)?;
+    let programs = super::programs::apply(&dir, &colors);
     if old == conf.as_bytes() && previous == osc.as_bytes() {
-        return Ok(());
+        return programs;
     }
     let mut reset = String::new();
     let mut removed = String::new();
@@ -262,5 +263,6 @@ pub fn apply() -> Result<()> {
         } else {
             ""
         },
-    )
+    )?;
+    programs
 }

@@ -57,6 +57,9 @@ Singleton {
         const prefixes = Config.options.search.prefix;
         const special = IntentRouter.isActionQuery(root.query, prefixes.action, root.allActions.map(a => a.action))
             || [prefixes.app, prefixes.clipboard, prefixes.emojis, prefixes.math, prefixes.shellCommand, prefixes.webSearch].some(prefix => prefix && root.query.startsWith(prefix));
+        if (!special && root.aiEnabled && (GlobalStates.overviewOpen || GlobalStates.searchOpen)
+                && ["action", "chat"].includes(root.intent.kind) && !PowerSaving.onBattery && !PowerSaving.active)
+            SidebarChat.prepareForInput();
         Lens.search(special ? "" : root.query);
     }
 
@@ -124,7 +127,7 @@ Singleton {
         return acc;
     }, []).sort()
 
-    // Load user action scripts from ~/.config/illogical-impulse/actions/
+    // Load user action scripts from ~/.config/velora/actions/
     // Uses FolderListModel to auto-reload when scripts are added/removed
     property var userActionScripts: {
         const actions = [];
@@ -481,19 +484,16 @@ Singleton {
         }
 
         if (root.aiEnabled && !startsWithShellCommandPrefix && !startsWithWebSearchPrefix && !root.mathQuery) {
-            const choices = ["chat", "action"].map(mode => resultComp.createObject(null, {
-                id: "assistant:" + mode + ":" + submittedRevision,
-                name: mode === "chat" ? Translation.tr("Ask AI") : Translation.tr("Run a task"),
-                type: mode === "chat" ? Translation.tr("Question") : Translation.tr("Task"),
-                comment: mode === "chat" ? Translation.tr("Discuss without changing files") : Translation.tr("Changes require confirmation and support rollback"),
-                iconName: mode === "chat" ? "chat" : "neurology", iconType: LauncherSearchResult.IconType.Material,
+            const assistantChoice = resultComp.createObject(null, {
+                id: "assistant:" + submittedRevision,
+                name: Translation.tr("Ask AI"), type: Translation.tr("Assistant"),
+                iconName: "neurology", iconType: LauncherSearchResult.IconType.Material,
                 keepOpen: true, verb: Translation.tr("Send"),
                 execute: () => {
-                    if (root.aiEnabled && root.queryRevision === submittedRevision) Assistant.submit(submittedQuery, submittedQuery, "launcher", mode);
+                    if (root.aiEnabled && root.queryRevision === submittedRevision) Assistant.submit(submittedQuery, submittedQuery, "launcher", "auto");
                 }
-            }));
-            if (root.intent.kind === "chat") result = [choices[0]].concat(result, [choices[1]]);
-            else if (root.intent.kind === "action") result = [choices[1]].concat(result, [choices[0]]);
+            });
+            if (root.intent.kind === "chat" || root.intent.kind === "action") result.unshift(assistantChoice);
             else if (root.intent.kind === "ambiguous") {
                 const searchChoice = resultComp.createObject(null, {
                     id: "intent-search:" + submittedRevision, name: Translation.tr("Find matching files and apps"),
@@ -501,8 +501,8 @@ Singleton {
                     keepOpen: true, verb: Translation.tr("Search"),
                     execute: () => { if (root.queryRevision === submittedRevision) root.chooseIntent("search"); }
                 });
-                result = [searchChoice].concat(choices, result);
-            } else if (root.intentMode !== "search") result = result.concat(choices);
+                result.unshift(searchChoice, assistantChoice);
+            } else if (root.intentMode !== "search") result.push(assistantChoice);
         }
         return result;
     }

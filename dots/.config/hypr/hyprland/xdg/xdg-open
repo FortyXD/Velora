@@ -1,0 +1,10 @@
+#!/bin/sh
+# GIO resolves the shared MIME type and supports D-Bus activated desktop entries.
+if [ "$#" -eq 1 ]; then
+    case "$1" in
+        file:///*|file://localhost/*) exec gio open -- "$1" ;;
+        -*) ;;
+        *) if [ -e "$1" ]; then exec gio open -- "$1"; fi ;;
+    esac
+fi
+exec /usr/bin/xdg-open "$@"

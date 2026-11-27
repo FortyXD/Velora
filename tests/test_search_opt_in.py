@@ -14,7 +14,8 @@ class SearchOptInTests(unittest.TestCase):
         source = source.replace('function submit(', 'function originalSubmit(', 1)
         source = source.replace('    id: root\n', '''    id: root
     property int testSubmissions: 0
-    function submit(text, display, surface, intent) { testSubmissions++; return true; }
+    property string testIntent: ""
+    function submit(text, display, surface, intent) { testSubmissions++; testIntent = intent; return true; }
 ''', 1)
         driver = r'''
 import QtQuick
@@ -53,10 +54,12 @@ ShellRoot {
                 root.check(root.choices().length === 0, "sidebar assistant does not enable launcher AI");
                 root.find(search,"searchAiEnable").clicked();
             } else if (root.step === 2) {
-                root.check(LauncherSearch.aiEnabled && root.choices().length === 2, "opt-in exposes AI choices");
+                root.check(LauncherSearch.aiEnabled && root.choices().length === 1, "a question has one assistant result");
+                LauncherSearch.query = "открой приложение на третьем рабочем столе";
+                root.check(root.choices().length === 1, "a desktop task has the same single assistant result");
                 root.oldAction = root.choices()[0];
                 root.oldAction.execute();
-                root.check(Assistant.testSubmissions === 1, "explicit enabled choice works");
+                root.check(Assistant.testSubmissions === 1 && Assistant.testIntent === "auto", "assistant chooses how to handle the request");
                 Assistant.panelOpen = true;
                 root.find(search,"searchAiEnable").clicked();
             } else if (root.step === 3) {

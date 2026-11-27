@@ -19,6 +19,12 @@ import Quickshell
  */
 QtObject {
     id: root
+    property var barOptions: Config.options.bar
+    property var barColors: Appearance.colors
+    property bool preview: false
+    property var previewScreen: null
+    property int previewWorkspace: 0
+    property bool sidebarActivity: false
 
     function component(type, vertical = false) {
         if (BarWidgetCatalog.get(type)?.utilButton) return root.utilButton;
@@ -42,6 +48,9 @@ QtObject {
     // orientation later leaves anchored parts at their horizontal positions
     property Component verticalWorkspaces: Component {
         Workspaces {
+            screen: root.preview ? root.previewScreen : QsWindow.window?.screen
+            workspaceOverride: root.previewWorkspace
+            workspacesShown: root.barOptions.workspaces.shown
             property var host: null
             vertical: true
         }
@@ -51,7 +60,7 @@ QtObject {
         SysTray {
             property var host: null
             vertical: true
-            invertSide: Config.options.bar.bottom
+            invertSide: root.barOptions.bottom
         }
     }
 
@@ -102,16 +111,17 @@ QtObject {
 
     // Whether a widget should be created at all, before its component is loaded
     function gate(type) {
+        if (root.preview && type === "customCommand") return false;
         switch (type) {
         case "weather":
-            return Config.options.bar.weather.enable;
+            return root.barOptions.weather.enable;
         default:
             return true;
         }
     }
 
     function textColor(host) {
-        return host?.inPill ? Appearance.colors.colOnLayer1 : Appearance.colors.colOnLayer0;
+        return host?.inPill ? root.barColors.colOnLayer1 : root.barColors.colOnLayer0;
     }
 
     readonly property var components: ({
@@ -169,8 +179,8 @@ QtObject {
                 });
                 const vertical = host?.vertical ?? false;
                 const point = presetButton.mapToItem(null, presetButton.width / 2, vertical ? presetButton.height / 2 : presetButton.height);
-                presetMenu.openEdge = vertical ? (Config.options.bar.bottom ? Edges.Left : Edges.Right)
-                    : (Config.options.bar.bottom ? Edges.Top : Edges.Bottom);
+                presetMenu.openEdge = vertical ? (root.barOptions.bottom ? Edges.Left : Edges.Right)
+                    : (root.barOptions.bottom ? Edges.Top : Edges.Bottom);
                 presetMenu.openAt(presetButton.QsWindow.window, point.x, point.y, entries);
             }
             ContextMenuPopup {
@@ -205,18 +215,23 @@ QtObject {
     property Component leftSidebarButton: Component {
         LeftSidebarButton {
             property var host: null
+            thinking: root.sidebarActivity
             colBackground: host?.zoneHovered ? Appearance.colors.colLayer1Hover : ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 1)
         }
     }
 
     property Component activeWindow: Component {
         ActiveWindow {
+            screen: root.preview ? root.previewScreen : QsWindow.window?.screen
             property var host: null
         }
     }
 
     property Component workspaces: Component {
         Workspaces {
+            screen: root.preview ? root.previewScreen : QsWindow.window?.screen
+            workspaceOverride: root.previewWorkspace
+            workspacesShown: root.barOptions.workspaces.shown
             property var host: null
             vertical: host?.vertical ?? false
         }
@@ -241,7 +256,7 @@ QtObject {
         SysTray {
             property var host: null
             vertical: host?.vertical ?? false
-            invertSide: Config.options.bar.bottom
+            invertSide: root.barOptions.bottom
         }
     }
 
@@ -357,7 +372,7 @@ QtObject {
     property Component clock: Component {
         ClockWidget {
             property var host: null
-            showDate: Config.options.bar.verbose && (host?.tier ?? 0) < 2 && (host?.options?.showDate ?? true)
+            showDate: root.barOptions.verbose && (host?.tier ?? 0) < 2 && (host?.options?.showDate ?? true)
         }
     }
 
@@ -372,7 +387,7 @@ QtObject {
     property Component utilButtons: Component {
         UtilButtons {
             property var host: null
-            readonly property bool barVisible: Config.options.bar.verbose
+            readonly property bool barVisible: root.barOptions.verbose
         }
     }
 
@@ -468,7 +483,7 @@ QtObject {
             implicitHeight: host?.vertical ? 1 : Appearance.sizes.baseBarHeight / 3
             Rectangle {
                 anchors.fill: parent
-                color: Appearance.colors.colOutlineVariant
+                color: root.barColors.colOutlineVariant
             }
         }
     }

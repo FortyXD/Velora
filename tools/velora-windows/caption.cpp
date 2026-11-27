@@ -96,7 +96,7 @@ class Caption final : public IHyprWindowDecoration {
         if (title)
             texture(title, {box.x + 16 * s, box.y + (box.h - title->m_size.y) / 2, title->m_size.x, title->m_size.y});
 
-        const bool maximized = Fullscreen::controller()->getFullscreenModes(w).internal == Fullscreen::FSMODE_MAXIMIZED;
+        const bool maximized = Fullscreen::controller()->getFullscreenModes(w).internal != Fullscreen::FSMODE_NONE;
         if (!controls || controlsScale != s || controlsDark != dark || controlsMaximized != maximized) {
             controlsScale = s;
             controlsDark = dark;
@@ -146,6 +146,11 @@ class Caption final : public IHyprWindowDecoration {
             return false;
         if (e.button != BTN_LEFT || e.state != WL_POINTER_BUTTON_STATE_PRESSED)
             return true;
+        if (point.y - box.y < 5 && w->isFloating() && !Fullscreen::controller()->isFullscreen(w)) {
+            if (!beginWindowDrag(w, true, Layout::CORNER_TOP))
+                g_layoutManager->dragController()->dragBegin(w->layoutTarget(), MBIND_RESIZE, Layout::CORNER_TOP);
+            return true;
+        }
         const double fromRight = box.x + box.w - point.x;
         if (fromRight <= buttonWidth)
             w->backend().close();

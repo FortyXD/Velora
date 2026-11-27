@@ -22,7 +22,7 @@ Scope {
             anchors.fill: parent
             opacity: active ? 1 : 0
             Behavior on opacity {
-                animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
             }
             sourceComponent: root.lockSurface
             onLoaded: if (item.hasOwnProperty("screenName")) item.screenName = sessionLockSurface.screen?.name ?? ""
@@ -106,7 +106,7 @@ Scope {
             if (Config.options.lock.security.unlockKeyring) root.unlockKeyring(); // Async
 
             // The parts of the lock screen fly apart first (lock.animations), then the screen unlocks
-            if (Config.options.lock.animations !== "none" && Config.options.panelFamily === "ii" && !GlobalStates.lockExiting) {
+            if (Config.options.lock.animations !== "none" && Config.options.panelFamily === "velora" && !GlobalStates.lockExiting) {
                 GlobalStates.lockExiting = true;
                 exitTimer.restart();
                 return;

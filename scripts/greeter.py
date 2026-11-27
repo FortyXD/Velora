@@ -21,6 +21,7 @@ SETTINGS = Path('/etc/dconf/db/gdm.d/90-velora')
 SYNC_CONFIG = Path('/etc/velora/greeter-wallpaper.json')
 SYNC_STATE = Path('/var/lib/velora-greeter')
 SYNC_FILES = {
+    'resources/greeter/palette.css.in': Path('/usr/lib/velora/greeter-palette.css.in'),
     'scripts/greeter_wallpaper.py': Path('/usr/lib/velora/greeter-wallpaper.py'),
     'resources/greeter/velora-greeter-wallpaper.service': Path('/etc/systemd/system/velora-greeter-wallpaper.service'),
     'resources/greeter/velora-greeter-wallpaper.socket': Path('/etc/systemd/system/velora-greeter-wallpaper.socket'),
@@ -67,12 +68,18 @@ def install_sync(transaction, source, owner):
     user_service(owner, 'restart')
 
 
+def shader_assets(source):
+    shaders = source / 'dots/.config/quickshell/ii/assets/shaders'
+    names = ('aurora', 'liquid', 'grid', 'dunes', 'wallpaper-noise')
+    return [source / 'resources/greeter/shaderWallpaper.js', *(shaders / f'{name}.glsl' for name in names)]
+
+
 def source_fingerprint(source):
     paths = [source / 'scripts/greeter.py', *(source / name for name in SYNC_FILES),
              *(source / 'resources/greeter' / name for name in ('extension.js', 'stylesheet.css', 'metadata.json', 'logo.svg')),
              *(source / 'dots/.config/quickshell/ii/assets/images' / name for name in ('autumn.jpg', 'autumn.NOTICE.md'))]
     digest = hashlib.sha256()
-    for path in paths:
+    for path in [*paths, *shader_assets(source)]:
         digest.update(path.relative_to(source).as_posix().encode() + b'\0')
         digest.update(hashlib.sha256(path.read_bytes()).digest())
     return digest.hexdigest()
@@ -82,9 +89,9 @@ def is_current(source):
     """Read-only check, so an unchanged theme never needs administrator authorization."""
     try:
         receipt = json.loads((STATE / 'current.json').read_text())
-        expected = {str(PROFILE), str(SETTINGS), *(str(path) for path in sync_paths()),
+        expected = {*(str(EXTENSION / path.name) for path in shader_assets(source)), str(PROFILE), str(SETTINGS), *(str(path) for path in sync_paths()),
                     *(str(EXTENSION / name) for name in ('extension.js', 'stylesheet.css', 'metadata.json',
-                                                        'logo.svg', 'autumn.jpg', 'autumn.NOTICE.md'))}
+                                                        'logo.svg', 'logo-symbolic.svg', 'autumn.jpg', 'autumn.NOTICE.md'))}
         return ((STATE / 'manifest.json').is_file()
                 and receipt['source'] == source_fingerprint(source)
                 and set(receipt['files']) == expected
@@ -172,7 +179,7 @@ def restore():
         # Only our fixed generated assets; never follow a state-directory symlink.
         if not SYNC_STATE.is_symlink() and SYNC_STATE.parent.resolve() == SYNC_STATE.parent and SYNC_STATE.exists():
             for path in SYNC_STATE.iterdir():
-                if path.name == 'current.json' or re.fullmatch(r'wallpaper-[a-f0-9]{64}\.jpg', path.name) or path.name.startswith('.pending-'):
+                if path.name in ('current.json', 'palette.css') or re.fullmatch(r'wallpaper-[a-f0-9]{64}\.jpg', path.name) or path.name.startswith('.pending-'):
                     path.unlink(missing_ok=True)
     # Retain the original backup for inspection; subsequent opt-ins get a new baseline.
     os.replace(manifest, STATE / 'restored-manifest.json')
@@ -217,6 +224,7 @@ def apply(source, owner_uid=None):
         transaction.write(PROFILE, profile.encode())
         for name in ('extension.js', 'stylesheet.css', 'metadata.json', 'logo.svg'):
             transaction.write(EXTENSION / name, (extension / name).read_bytes())
+        transaction.write(EXTENSION / 'logo-symbolic.svg', (extension / 'logo.svg').read_bytes())
         # A static blur costs nothing during login and needs no user home or GPU effect.
         from PIL import Image, ImageFilter, ImageEnhance
         import io
@@ -228,6 +236,8 @@ def apply(source, owner_uid=None):
         transaction.write(EXTENSION / 'autumn.jpg', output.getvalue())
         notice = source / 'dots/.config/quickshell/ii/assets/images/autumn.NOTICE.md'
         transaction.write(EXTENSION / 'autumn.NOTICE.md', notice.read_bytes())
+        for asset in shader_assets(source):
+            transaction.write(EXTENSION / asset.name, asset.read_bytes())
         settings = "[org/gnome/shell]\nenabled-extensions=" + repr(extensions) + "\ndisable-user-extensions=false\n"
         transaction.write(SETTINGS, settings.encode())
         subprocess.run(['dconf', 'update'], check=True)

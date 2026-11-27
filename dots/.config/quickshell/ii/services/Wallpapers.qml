@@ -32,7 +32,72 @@ Singleton {
     signal thumbnailGenerated(directory: string)
     signal thumbnailGeneratedFile(filePath: string)
 
-    function load () {} // For forcing initialization
+    // The shell records confirmed changes from every picker, preset and IPC client.
+    // Settings also watches this file so opening a preview never records a choice.
+    property bool trackingHistory: false
+    property bool historyReady: false
+    readonly property var currentWallpaper: {
+        if (!Config.ready) return null;
+        const path = FileUtils.localPath(Config.options.background.wallpaperPath);
+        if (ShaderWallpaper.active) {
+            const shader = ShaderWallpaper.name;
+            const poster = path === ShaderWallpaper.framePath(shader) ? path : ShaderWallpaper.posterPath(shader);
+            return {key: "shader:" + shader, shader, path: "", poster,
+                colors: Array.from(Config.options.background.shaderWallpaper.colors)};
+        }
+        if (!path) return null;
+        const thumbnail = FileUtils.localPath(Config.options.background.thumbnailPath);
+        return {key: path, path, poster: FileUtils.wallpaperPicture(path, thumbnail)};
+    }
+    readonly property var recentWallpapers: {
+        const saved = historyData.entries.filter(entry => entry && typeof entry.key === "string"
+            && (entry.path || ShaderWallpaper.shader(entry.shader)));
+        const current = currentWallpaper;
+        if (!current) return saved;
+        const previous = saved.find(entry => entry.key === current.key);
+        const entry = !current.poster && previous?.poster ? Object.assign({}, current, {poster: previous.poster}) : current;
+        return [entry, ...saved.filter(item => item.key !== entry.key)].slice(0, 8);
+    }
+
+    function load() {
+        trackingHistory = true;
+        Qt.callLater(recordCurrent);
+    }
+    function refreshHistory() {
+        historyFile.reload();
+    }
+    function recordCurrent() {
+        if (!trackingHistory || !historyReady || !currentWallpaper) return;
+        const entry = recentWallpapers[0], last = historyData.entries[0];
+        if (last?.key === entry.key && last.poster === entry.poster
+            && JSON.stringify(last.colors) === JSON.stringify(entry.colors)) return;
+        historyData.entries = recentWallpapers;
+        historyFile.writeAdapter();
+    }
+    onCurrentWallpaperChanged: if (trackingHistory) Qt.callLater(recordCurrent)
+
+    FileView {
+        id: historyFile
+        path: FileUtils.trimFileProtocol(Directories.state) + "/recent-wallpapers.json"
+        watchChanges: true
+        blockWrites: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: {
+            root.historyReady = true;
+            if (root.trackingHistory) Qt.callLater(root.recordCurrent);
+        }
+        onLoadFailed: error => {
+            if (error === FileViewError.FileNotFound) {
+                root.historyReady = true;
+                if (root.trackingHistory) Qt.callLater(root.recordCurrent);
+            }
+        }
+        adapter: JsonAdapter {
+            id: historyData
+            property list<var> entries: []
+        }
+    }
 
     // Executions
     Process {
@@ -72,11 +137,16 @@ Singleton {
     }
 
     function randomFromCurrentFolder(darkMode = Appearance.m3colors.darkmode) {
-        if (folderModel.count === 0) return;
-        const randomIndex = Math.floor(Math.random() * folderModel.count);
-        const filePath = folderModel.get(randomIndex, "filePath");
-        print("Randomly selected wallpaper:", filePath);
-        root.select(filePath, darkMode);
+        const files = filesInCurrentFolder();
+        if (files.length) apply(files[Math.floor(Math.random() * files.length)], darkMode);
+    }
+
+    function filesInCurrentFolder() {
+        const files = [];
+        for (let index = 0; index < folderModel.count; ++index) {
+            if (!folderModel.isFolder(index)) files.push(folderModel.get(index, "filePath"));
+        }
+        return files;
     }
 
     Process {

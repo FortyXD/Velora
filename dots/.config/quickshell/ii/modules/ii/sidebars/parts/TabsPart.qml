@@ -30,6 +30,7 @@ Item {
     property string currentUid: ""
     readonly property string shownUid: root.order.some(page => page.uid === root.currentUid) ? root.currentUid : (root.order[0]?.uid ?? "")
     readonly property int currentIndex: Math.max(0, root.order.findIndex(page => page.uid === root.shownUid))
+    readonly property int pageHeight: root.order[root.currentIndex]?.options?.height ?? 0
     readonly property bool collapsible: root.style === "rail" && (root.options.collapsible ?? false)
     property bool collapsedState: false
     readonly property bool collapsed: root.collapsible && root.collapsedState

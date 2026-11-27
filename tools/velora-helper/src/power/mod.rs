@@ -1,4 +1,5 @@
 //! Opt-in battery telemetry. Preserve the existing little-endian VPWR0001 ring.
+mod applications;
 mod chart;
 mod storage;
 
@@ -202,7 +203,7 @@ fn boot() -> f64 {
 pub fn run(mut argv: Vec<String>) -> Result<std::process::ExitCode> {
     ensure!(!argv.is_empty(), "expected a power analytics command");
     let cmd = argv.remove(0);
-    let args = Args::parse(argv, &[])?;
+    let args = Args::parse(argv, &["apps"])?;
     let dir = Path::new(args.require("state-dir")?);
     if cmd == "clear" {
         storage::clear(dir)?;
@@ -228,6 +229,7 @@ pub fn run(mut argv: Vec<String>) -> Result<std::process::ExitCode> {
         .enable_all()
         .build()?;
     let mut previous = None;
+    let mut app_snapshot = None;
     let mut history = storage::History::default();
     runtime.block_on(async {
         use tokio::signal::unix::{signal, SignalKind};
@@ -265,7 +267,7 @@ pub fn run(mut argv: Vec<String>) -> Result<std::process::ExitCode> {
                 ring.append(reading)?;
                 previous = Some((boot, time, topology));
             } else {
-                let data = match history.read(dir) {
+                let mut data = match history.read(dir) {
                     Ok(records) => chart::snapshot(records.iter(), time, window, points),
                     Err(error) => {
                         let mut empty = chart::snapshot(std::iter::empty(), time, window, points);
@@ -274,6 +276,11 @@ pub fn run(mut argv: Vec<String>) -> Result<std::process::ExitCode> {
                         empty
                     }
                 };
+                if args.flag("apps") {
+                    let snapshot = applications::Snapshot::read();
+                    data["applications"] = applications::estimate(app_snapshot.as_ref(), &snapshot, &data["latest"], time);
+                    app_snapshot = Some(snapshot);
+                }
                 println!("{data}");
             }
         }

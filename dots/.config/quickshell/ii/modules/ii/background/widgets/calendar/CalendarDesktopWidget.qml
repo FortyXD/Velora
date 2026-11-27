@@ -23,7 +23,7 @@ DesktopWidgetCard {
         return CalendarLayout.getDateInXMonthsTime(root.monthShift);
     }
     readonly property var calendarLayout: CalendarLayout.getCalendarLayout(root.viewingDate, root.monthShift === 0)
-    readonly property bool highlightWeekends: Config.options.background.widgets.calendar.highlightWeekends
+    readonly property bool highlightWeekends: root.configEntry.highlightWeekends
     readonly property var weekDayNames: {
         // Monday first, like the layout
         const monday = new Date(2024, 0, 1);

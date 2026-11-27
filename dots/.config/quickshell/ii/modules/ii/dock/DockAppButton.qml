@@ -20,7 +20,7 @@ DockTile {
     property int lastFocused: -1
 
     separator: appId === "SEPARATOR"
-    tint: !separator && Config.options.dock.monochromeIcons
+    tint: !separator && root.dock.options.monochromeIcons
     label: separator ? "" : TaskbarApps.displayName(appId)
     showIndicator: windowCount > 0
     indicatorActive: active

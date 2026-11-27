@@ -1,4 +1,5 @@
 """Open the real settings trees with the isolated Quickshell settings host."""
+import shutil
 import unittest
 
 import test_connectivity_pages as pages
@@ -127,6 +128,8 @@ class SettingsTreeTests(unittest.TestCase):
                 const disk = JSON.parse(savedConfig.text() || "{}");
                 root.observed = JSON.stringify([disk.battery?.low, disk.dock?.height, Config.options.battery.low, Config.options.dock.height, root.expectedWarning, root.expectedDockSize]);
                 if (disk.battery?.low !== root.expectedWarning || disk.dock?.height !== root.expectedDockSize) return;
+                if (!root.check(root.title === (root.languageIndex ? "Настройки Velora" : "Velora Settings"), root.title)) return;
+                if (!root.check(Config.filePath.endsWith("/velora/config.json"), Config.filePath)) return;
                 if (!root.languageIndex) { root.languageIndex++; root.stage = 0; return; }
                 console.log("DRIVER_PASS"); Qt.quit(); return;
             }
@@ -260,7 +263,7 @@ class SettingsTreeTests(unittest.TestCase):
                 if (!root.expect(root.findSection(page, "motion").summary.includes("0,6×"), "localized live speed")) return;
                 const commands = calls.text().trim().split("\n");
                 if (commands.length < 3) return;
-                if (!root.expect(commands.filter(c => c === "--noswitch --type scheme-rainbow").length === 2 &&
+                if (!root.expect(commands.filter(c => c === "--noswitch --type scheme-rainbow --mode dark").length === 2 &&
                     commands.includes("--noswitch --type scheme-rainbow --mode light"), "theme commands and terminal debounce")) return;
                 console.log("DRIVER_PASS"); Qt.quit(); return;
             }
@@ -276,6 +279,59 @@ class SettingsTreeTests(unittest.TestCase):
                                                        page_sources={'theme command.sh': stub, 'theme-calls': ''})
         self.assertIn('DRIVER_PASS', output, output[-6000:])
         self.assertNotRegex(output, r'CHECK_FAIL|TypeError|ReferenceError|Binding loop|Cannot assign|Unable to assign')
+
+    @unittest.skipUnless(shutil.which('matugen'), 'needs matugen to generate the selected schemes')
+    def test_scheme_selection_reaches_the_running_clock(self):
+        src = (pages.SHELL / 'settings.qml').read_text().replace('import QtQuick.Controls',
+            'import QtTest\nimport qs.modules.ii.background.widgets.clock\nimport QtQuick.Controls', 1)
+        probe = r'''
+    TestCase { id: input; when: false }
+    CookieClock { id: clock; x: -500; preview: true }
+    Process {
+        id: prepare
+        command: ["prepare-palette-fixture"]
+        running: true
+        property bool done: false
+        onExited: code => done = code === 0
+    }
+    property int stage: 0
+    property string monochromeClock: ""
+    Timer {
+        interval: 120; repeat: true; running: Config.ready && prepare.done
+        onTriggered: {
+            const selector = root.currentPageItem && input.findChild(root.currentPageItem, "appearanceScheme");
+            if (!selector) return;
+            if (root.stage === 0) {
+                selector.selected("scheme-monochrome");
+                root.stage++;
+            } else if (root.stage === 1) {
+                if (!Qt.colorEqual(Appearance.colors.colPrimary, "#ffffff") || clock.colBackground.r !== clock.colBackground.g) return;
+                root.monochromeClock = clock.colBackground.toString();
+                selector.selected("scheme-expressive");
+                root.stage++;
+            } else if (root.stage === 2) {
+                if (clock.colBackground.toString() === root.monochromeClock || clock.colBackground.r === clock.colBackground.g) return;
+                if (Config.options.appearance.palette.type === "scheme-expressive" &&
+                    Qt.colorEqual(clock.colBackground, Appearance.m3colors.m3primaryContainer) &&
+                    Qt.colorEqual(Appearance.m3colors.m3surfaceContainer, "#291d17") && Appearance.m3colors.darkmode) {
+                    console.log("DRIVER_PASS"); Qt.quit();
+                }
+            }
+        }
+    }
+    Timer { interval: 18000; running: true; onTriggered: { console.log("CHECK_FAIL timeout", root.stage, clock.colBackground, Appearance.colors.colPrimary); Qt.quit(); } }
+'''
+        template = pages.PROJECT / 'dots/.config/matugen/templates/colors.json'
+        prepare = ('mkdir -p "$XDG_CONFIG_HOME/matugen"\n'
+                   'cat > "$XDG_CONFIG_HOME/matugen/config.toml" <<EOF\n'
+                   f'[config]\n[templates.shell]\ninput_path = "{template}"\n'
+                   'output_path = "$XDG_STATE_HOME/quickshell/user/generated/colors.json"\nEOF')
+        log = pages.SettingsPagesTests().run_driver(src.replace('    id: root\n', '    id: root\n' + probe, 1),
+            settings_page='appearance', tool_stubs={'prepare-palette-fixture': prepare, 'gsettings': 'exit 0'},
+            initial_config={'appearance': {'animationSpeed': 0, 'palette': {'roleOverrides': {'surface_container': '#291D17'}},
+                                          'wallpaperTheming': {'enableAppsAndShell': False, 'enableQtApps': False}},
+                            'background': {'wallpaperPath': str(pages.SHELL / 'assets/images/autumn.jpg')}})
+        self.assertIn('DRIVER_PASS', log, log[-3500:])
 
     def test_interactive_theme_palette(self):
         fixture = (pages.PROJECT / 'tests/qml/ThemePaletteFixture.qml').read_text()

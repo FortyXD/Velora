@@ -66,12 +66,15 @@ Singleton {
         return root.modOrder.filter(mod => (mods ?? []).includes(mod));
     }
 
+    function resolveKeycode(key) {
+        const code = /^code:(\d+)$/i.exec(key ?? "");
+        return (code ? root.scanCodeNames[Number(code[1])] : null) ?? key;
+    }
+
     // Same identity the Lua side uses: "SUPER+SHIFT|S". Raw keycodes and key name aliases
     // are resolved first, so code:10 and 1 count as the same key.
     function normalizeKey(key) {
-        let name = (key ?? "").toString();
-        const code = /^code:(\d+)$/i.exec(name);
-        if (code && root.scanCodeNames[parseInt(code[1])]) name = root.scanCodeNames[parseInt(code[1])];
+        let name = root.resolveKeycode(key ?? "").toString();
         const aliases = { "PRIOR": "PAGE_UP", "NEXT": "PAGE_DOWN", "ENTER": "RETURN",
             "SUPER_L": "SUPER", "SUPER_R": "SUPER", "CONTROL_L": "CTRL", "CONTROL_R": "CTRL", "CONTROL": "CTRL",
             "ALT_L": "ALT", "ALT_R": "ALT", "SHIFT_L": "SHIFT", "SHIFT_R": "SHIFT" };
@@ -104,13 +107,12 @@ Singleton {
     }
 
     function keyLabel(key) {
+        key = root.resolveKeycode(key);
         const options = Config.options?.cheatsheet;
         if (key === "Super" || key === "Super_L" || key === "Super_R") return root.modLabel("Super");
         if (root.mouseLabels[key] !== undefined) return options?.useMouseSymbol && root.mouseSymbols[key] ? root.mouseSymbols[key] : root.mouseLabels[key];
         if (options?.useFnSymbol && root.fnSymbols[key]) return root.fnSymbols[key];
         if (root.labels[key] !== undefined) return root.labels[key];
-        const code = /^code:(\d+)$/.exec(key ?? "");
-        if (code) return root.keyLabel(root.scanCodeNames[parseInt(code[1])] ?? key);
         return (key ?? "").length === 1 ? key.toUpperCase() : key;
     }
 
@@ -121,6 +123,7 @@ Singleton {
 
     // Plain text, for search and tooltips: "Super + Shift + S"
     function comboText(mods, key) {
+        key = root.resolveKeycode(key);
         return [...root.sortMods(mods), root.labels[key] ?? root.mouseLabels[key] ?? key].join(" + ");
     }
 

@@ -24,7 +24,7 @@ Singleton {
     function restore() {
         if (!root.loaded || !Persistent.ready || root.restored) return;
         if (!root.changedBeforeReady)
-            root.inhibit = !Persistent.isNewHyprlandInstance && Persistent.states.idle.inhibit;
+            root.inhibit = Persistent.states.idle.inhibit;
         root.restored = true;
         Persistent.states.idle.inhibit = root.inhibit;
         root.reconcile();

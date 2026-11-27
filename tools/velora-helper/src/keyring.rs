@@ -24,18 +24,22 @@ fn status() -> ExitCode {
 
 /// What the shell stored, on stdout. Exit 1 means nothing is stored, 2 that the keyring is locked.
 fn lookup() -> Result<ExitCode> {
-    let output = Command::new("secret-tool").args(["lookup", "application", "illogical-impulse"]).stderr(Stdio::null()).output()?;
-    if output.stdout.is_empty() {
-        if is_unlocked() {
-            println!("not found");
-            return Ok(ExitCode::from(1));
+    // New saves use Velora. Read existing credentials until the user next saves them.
+    for application in ["velora", "illogical-impulse"] {
+        let output = Command::new("secret-tool").args(["lookup", "application", application])
+            .stderr(Stdio::null()).output()?;
+        if output.status.success() && !output.stdout.is_empty() {
+            std::io::stdout().write_all(&output.stdout)?;
+            println!();
+            return Ok(ExitCode::SUCCESS);
         }
-        println!("locked");
-        return Ok(ExitCode::from(2));
     }
-    std::io::stdout().write_all(&output.stdout)?;
-    println!();
-    Ok(ExitCode::SUCCESS)
+    if is_unlocked() {
+        println!("not found");
+        return Ok(ExitCode::from(1));
+    }
+    println!("locked");
+    Ok(ExitCode::from(2))
 }
 
 /// Opens the keyring with the login password, from `UNLOCK_PASSWORD` or stdin. Exit 1 if it was open already.

@@ -183,6 +183,13 @@ fn a_keyring_lookup_tells_nothing_stored_from_locked() {
     sandbox.tool("secret-tool", "{\"a\":1}", 0);
     let found = sandbox.run(&["keyring", "lookup"]);
     assert_eq!((found.status.code(), text(&found).trim()), (Some(0), "{\"a\":1}"));
+    assert!(sandbox.log().contains("secret-tool [lookup] [application] [velora]"));
+    assert!(!sandbox.log().contains("illogical-impulse"));
+
+    let tool = sandbox.root.join("bin/secret-tool");
+    fs::write(&tool, "#!/bin/sh\n[ \"$3\" = illogical-impulse ] || exit 1\nprintf '%s' '{\"legacy\":true}'\n").unwrap();
+    let legacy = sandbox.run(&["keyring", "lookup"]);
+    assert_eq!((legacy.status.code(), text(&legacy).trim()), (Some(0), "{\"legacy\":true}"));
 
     sandbox.tool("secret-tool", "", 1);
     sandbox.tool("busctl", "b false", 0);
@@ -465,8 +472,59 @@ fn wait_for_log(sandbox: &Sandbox, wanted: &str) -> String {
 }
 
 #[test]
+fn tracked_terminal_launch_preserves_the_configured_terminal_and_desktop_arguments() {
+    let sandbox = apps_sandbox("tracked-terminal");
+    sandbox.tool("foot", "", 0);
+    sandbox.tool("kitty", "", 0);
+    sandbox.tool("monitor-tui", "", 0);
+    fs::write(sandbox.root.join("data/applications/monitor.desktop"),
+        "[Desktop Entry]\nType=Application\nName=Monitor\nExec=monitor-tui \"argument with spaces\" %F\nTerminal=true\n").unwrap();
+    let output = apps(&sandbox, &["open-tracked", "monitor", "foot --hold"]);
+    let receipt: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(receipt["token"].as_str().unwrap().len(), 36);
+    assert!(receipt["pid"].as_u64().is_some());
+    assert_eq!(wait_for_log(&sandbox, "foot").trim(), "foot [--hold] [--app-id] [monitor] [--] [monitor-tui] [argument with spaces]");
+    let output = apps(&sandbox, &["open-tracked", "monitor.desktop", "kitty -1"]);
+    let next: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_ne!(receipt["token"], next["token"]);
+    assert!(wait_for_log(&sandbox, "kitty").contains("kitty [--class] [monitor] [--] [monitor-tui] [argument with spaces]"));
+}
+
+#[test]
+fn tracked_launch_reports_missing_programs_and_failed_desktop_activation() {
+    let sandbox = apps_sandbox("tracked-errors");
+    sandbox.tool("kitty", "", 0);
+    fs::write(sandbox.root.join("data/applications/unavailable.desktop"),
+        "[Desktop Entry]\nType=Application\nName=Unavailable\nExec=/nonexistent/velora-tui\nTerminal=true\n").unwrap();
+    let result = apps(&sandbox, &["open-tracked", "unavailable", "kitty"]);
+    let receipt: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert!(receipt["error"].as_str().unwrap().contains("/nonexistent/velora-tui"));
+    assert!(sandbox.log().is_empty());
+    fs::write(sandbox.root.join("data/applications/web.desktop"), "[Desktop Entry]\nType=Application\nName=Web\nExec=/nonexistent/velora-browser\n").unwrap();
+    let result = apps(&sandbox, &["open-tracked", "web"]);
+    let receipt: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert!(receipt["error"].as_str().unwrap().contains("Web"));
+    assert!(receipt["token"].is_null());
+}
+
+#[test]
+fn tracked_desktop_activation_passes_the_receipt_to_the_registered_program() {
+    let sandbox = apps_sandbox("tracked-gui");
+    let program = sandbox.root.join("bin/web");
+    fs::write(&program, format!("#!/bin/sh\nprintf '%s' \"$VELORA_LAUNCH_ID\" > '{}'\n", sandbox.root.join("log").display())).unwrap();
+    let result = apps(&sandbox, &["open-tracked", "web"]);
+    let receipt: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    let token = receipt["token"].as_str().unwrap();
+    assert!(receipt["pid"].as_u64().is_some());
+    assert_eq!(wait_for_log(&sandbox, token), token);
+}
+
+#[test]
 fn the_app_list_has_roles_names_in_the_language_and_hides_what_it_should() {
     let sandbox = apps_sandbox("apps-list");
+    let mime = sandbox.root.join("system/mime/image");
+    fs::create_dir_all(&mime).unwrap();
+    fs::write(mime.join("jpeg.xml"), r#"<mime-type xmlns="http://www.freedesktop.org/standards/shared-mime-info"><glob pattern="*.jpg"/><glob pattern="*.jpeg"/></mime-type>"#).unwrap();
     let output = apps(&sandbox, &["list", "ru_RU"]);
     assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
     let list: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
@@ -475,6 +533,9 @@ fn the_app_list_has_roles_names_in_the_language_and_hides_what_it_should() {
     let text = list["roles"].as_array().unwrap().iter().find(|role| role["id"] == "text").unwrap();
     assert_eq!(text["candidates"][0]["id"], "editor.desktop");
     assert_eq!(text["allowsAsk"], true);
+    let images = list["roles"].as_array().unwrap().iter().find(|role| role["id"] == "images").unwrap();
+    assert!(images["mimes"].as_array().unwrap().contains(&serde_json::json!("image/jpeg")));
+    assert_eq!(images["patterns"], serde_json::json!(["*.jpeg", "*.jpg"]));
     let terminal = list["roles"].as_array().unwrap().iter().find(|role| role["id"] == "terminal").unwrap();
     assert_eq!(terminal["current"]["app"]["id"], "term.desktop");
     assert_eq!(terminal["allowsCommand"], true);
@@ -523,6 +584,15 @@ fn a_mimeapps_file_that_isnt_text_is_never_overwritten() {
     fs::write(&list, b"[Default Applications]\n\xff\xfe\n").unwrap();
     assert!(!apps(&sandbox, &["set", "text", "editor.desktop"]).status.success());
     assert_eq!(fs::read(&list).unwrap(), b"[Default Applications]\n\xff\xfe\n");
+}
+
+#[test]
+fn asking_for_an_app_works_before_the_first_session_sync() {
+    let sandbox = apps_sandbox("apps-ask");
+    assert!(apps(&sandbox, &["set", "text", "ask"]).status.success());
+    let list: serde_json::Value = serde_json::from_slice(&apps(&sandbox, &["list"]).stdout).unwrap();
+    let text = list["roles"].as_array().unwrap().iter().find(|role| role["id"] == "text").unwrap();
+    assert_eq!(text["current"]["ask"], true);
 }
 
 #[test]

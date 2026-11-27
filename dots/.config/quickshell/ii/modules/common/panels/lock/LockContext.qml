@@ -63,7 +63,7 @@ Scope {
     }
 
     function refreshKeyboardState() {
-        keyboardStateProc.running = true;
+        if (!keyboardStateProc.running) keyboardStateProc.running = true;
     }
 
     Timer {
@@ -72,6 +72,13 @@ Scope {
         onTriggered: root.refreshKeyboardState()
     }
 
+    Timer {
+        interval: 500
+        running: GlobalStates.screenLocked
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: root.refreshKeyboardState()
+    }
     Process {
         id: keyboardStateProc
         command: ["hyprctl", "-j", "devices"]

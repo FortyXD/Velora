@@ -2,7 +2,9 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 
 import qs.modules.common
+import qs.modules.common.functions
 import QtQuick
+import Qt.labs.folderlistmodel
 import Quickshell
 import Quickshell.Io
 
@@ -71,18 +73,23 @@ Singleton {
         Appearance.m3colors.darkmode = (Qt.color(json.background).hslLightness < 0.5)
     }
 
-    function resetFilePathNextTime() {
-        resetFilePathNextWallpaperChange.enabled = true
+    // On first run there is no file for FileView to watch. Watch its directory
+    // until the generator publishes the first palette by atomic rename.
+    property bool waitingForFile: false
+    readonly property string paletteDirectory: filePath.slice(0, filePath.lastIndexOf("/"))
+    Process {
+        id: prepareDirectory
+        command: ["mkdir", "-p", "--", root.paletteDirectory]
+        property bool ready: false
+        onExited: code => { ready = code === 0; }
     }
-
-    Connections {
-        id: resetFilePathNextWallpaperChange
-        enabled: false
-        target: Config.options.background
-        function onWallpaperPathChanged() {
-            root.filePath = ""
-            root.filePath = Directories.generatedMaterialThemePath
-            resetFilePathNextWallpaperChange.enabled = false
+    Loader {
+        active: root.waitingForFile && prepareDirectory.ready
+        sourceComponent: FolderListModel {
+            folder: FileUtils.fileUrl(root.paletteDirectory)
+            nameFilters: [root.filePath.slice(root.filePath.lastIndexOf("/") + 1)]
+            showDirs: false
+            onCountChanged: if (count) themeFileView.reload()
         }
     }
 
@@ -155,7 +162,15 @@ Singleton {
         blockLoading: true // Apply the saved palette before a new window can render its first frame.
         watchChanges: true
         onFileChanged: reload()
-        onLoaded: root.queueColors(themeFileView.text())
-        onLoadFailed: root.resetFilePathNextTime()
+        onLoaded: {
+            root.waitingForFile = false;
+            root.queueColors(themeFileView.text());
+        }
+        onLoadFailed: {
+            if (root.waitingForFile || !root.paletteDirectory) return;
+            root.waitingForFile = true;
+            prepareDirectory.ready = false;
+            prepareDirectory.running = true;
+        }
     }
 }

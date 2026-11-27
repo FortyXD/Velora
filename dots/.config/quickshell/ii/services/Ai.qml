@@ -91,7 +91,7 @@ Singleton {
     property string currentTool: (root.currentModelIsLocal ? Config?.options.ai.localTool : Config?.options.ai.tool) ?? "none"
     property string toolOverride: "" // Set for one response by switch_to_search_mode
     readonly property string effectiveTool: root.toolOverride.length > 0 ? root.toolOverride : root.currentTool
-    readonly property bool nativeGenerating: requester.running || LocalAiRuntime.preparing
+    readonly property bool nativeGenerating: requester.running || LocalAiRuntime.preparingChat
     readonly property bool generating: nativeGenerating || Assistant.busy || Assistant.preparingSubmission
     property bool stopping: false
     property string status: ""
@@ -133,7 +133,8 @@ Singleton {
     }
     function needsRemoteConsent(model) {
         return !model.local || !/^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i.test(model.endpoint)
-            || /(?:^|[:/\-])cloud(?:$|[:/\-])/i.test(model.model ?? "") || root.effectiveTool === "search";
+            || /(?:^|[:/\-])cloud(?:$|[:/\-])/i.test(model.model ?? "")
+            || (root.effectiveTool === "search" && (root.tools[model.api_format]?.search?.length ?? 0) > 0);
     }
     function requestRemoteConsent(model) {
         // Freeze dynamic desktop/date context while its transmission is reviewed.
@@ -233,13 +234,17 @@ Singleton {
     readonly property var modelList: Object.keys(root.models)
     property bool localModelsLoaded: false
     property var installedModelIds: []
+    readonly property string preferredLocalModel: "gemma4:e4b"
+    function compareLocalModels(a, b) {
+        const first = root.models[a], second = root.models[b];
+        if ((first.model === root.preferredLocalModel) !== (second.model === root.preferredLocalModel))
+            return first.model === root.preferredLocalModel ? -1 : 1;
+        return first.size - second.size || a.localeCompare(b);
+    }
     readonly property string defaultLocalModelId: installedModelIds
         .filter(id => root.models[id]?.local)
-        .slice().sort((a, b) => root.models[a].size - root.models[b].size || a.localeCompare(b))[0] ?? ""
-    // Saved choice if it still exists, otherwise the smallest local model (cheapest to run)
-    property string selectedModelId: ""
+        .sort(root.compareLocalModels)[0] ?? ""
     property var currentModelId: {
-        if (root.selectedModelId && root.modelAllowed(root.models[root.selectedModelId])) return root.selectedModelId;
         const saved = Persistent.states?.ai?.model;
         if (saved && root.modelAllowed(root.models[saved])) return saved;
         if (!root.localModelsLoaded) return undefined;
@@ -475,7 +480,7 @@ Singleton {
                 );
                 return;
             }
-            if (setPersistentState) { root.selectedModelId = modelId; Persistent.states.ai.model = modelId; }
+            if (setPersistentState) Persistent.states.ai.model = modelId;
             if (feedback) root.addMessage(Translation.tr("Model set to %1").arg(model.name), root.interfaceRole);
             if (model.requires_key) {
                 // If key not there show advice

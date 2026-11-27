@@ -11,16 +11,15 @@ import qs.modules.ii.sidebarRight.quickToggles.classicStyle
 AbstractQuickPanel {
     id: root
     Layout.alignment: Qt.AlignHCenter
-    implicitWidth: buttonGroup.implicitWidth
-    implicitHeight: buttonGroup.implicitHeight
+    implicitWidth: 320
+    implicitHeight: buttons.implicitHeight + 10
     color: "transparent"
 
-    ButtonGroup {
-        id: buttonGroup
+    Flow {
+        id: buttons
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.max(1, root.width - 10)
         spacing: 5
-        padding: 5
-        color: Appearance.colors.colLayer1
-
         // Which and in what order: Config.options.sidebar.quickToggles.classic.toggles
         Repeater {
             model: SidebarLayout.classicToggles()
@@ -29,6 +28,7 @@ AbstractQuickPanel {
                 DelegateChoice {
                     roleValue: "network"
                     NetworkToggle {
+                        toggleType: "network"
                         altAction: () => {
                             root.openWifiDialog();
                         }
@@ -37,17 +37,18 @@ AbstractQuickPanel {
                 DelegateChoice {
                     roleValue: "bluetooth"
                     BluetoothToggle {
+                        toggleType: "bluetooth"
                         altAction: () => {
                             root.openBluetoothDialog();
                         }
                     }
                 }
-                DelegateChoice { roleValue: "nightLight"; NightLight {} }
-                DelegateChoice { roleValue: "gameMode"; GameMode {} }
-                DelegateChoice { roleValue: "idleInhibitor"; IdleInhibitor {} }
-                DelegateChoice { roleValue: "powerSaving"; PowerSavingToggle {} }
-                DelegateChoice { roleValue: "easyEffects"; EasyEffectsToggle {} }
-                DelegateChoice { roleValue: "cloudflareWarp"; CloudflareWarp {} }
+                DelegateChoice { roleValue: "nightLight"; NightLight { toggleType: "nightLight" } }
+                DelegateChoice { roleValue: "gameMode"; GameMode { toggleType: "gameMode" } }
+                DelegateChoice { roleValue: "idleInhibitor"; IdleInhibitor { toggleType: "idleInhibitor" } }
+                DelegateChoice { roleValue: "powerSaving"; PowerSavingToggle { toggleType: "powerSaving" } }
+                DelegateChoice { roleValue: "easyEffects"; EasyEffectsToggle { toggleType: "easyEffects" } }
+                DelegateChoice { roleValue: "cloudflareWarp"; CloudflareWarp { toggleType: "cloudflareWarp" } }
             }
         }
     }

@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import socket
 import struct
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -27,6 +28,22 @@ class ProtocolTests(unittest.TestCase):
     def test_rgb_and_clear(self):
         self.assertEqual(self.read(bridge.HEADER.pack(b'VRG1', 1, 1) + b'abc'), (1, 1, b'abc'))
         self.assertIsNone(self.read(bridge.HEADER.pack(b'VCLR', 0, 0)))
+
+    def test_media_rejects_invalid_count_and_truncation(self):
+        header = bridge.HEADER.pack(b'VAN1', *bridge.CELL)
+        for payload in (header + b'\x00', header + b'\xff', header + b'\x02abc'):
+            with self.assertRaises(ValueError):
+                self.read(payload)
+
+    def test_palette_is_fixed_length_rgb(self):
+        width = len(bridge.PALETTE_ROLES)
+        rgb = bytes(range(3 * width))
+        frame = bridge.HEADER.pack(b'VPL1', width, 1) + rgb
+        self.assertEqual(self.read(frame), rgb)
+        self.assertEqual(self.read(bridge.HEADER.pack(b'VPL1', 0, 1)), b'')
+        for invalid in (frame[:-1], frame + b'x', bridge.HEADER.pack(b'VPL1', width + 1, 1) + rgb):
+            with self.assertRaises(ValueError):
+                self.read(invalid)
 
     def test_bounds_magic_truncated_trailing_and_paths(self):
         for data in (b'/etc/passwd', bridge.HEADER.pack(b'JPEG', 1, 1),
@@ -54,6 +71,20 @@ class ProtocolTests(unittest.TestCase):
         with left, right, patch.object(bridge, 'active_desktop', return_value='Hyprland'):
             with self.assertRaises(ValueError):
                 bridge.handle(right, os.getuid(), bridge.time.monotonic())
+
+    def test_shader_frame_accepts_only_known_presets_and_rates(self):
+        head = bridge.HEADER.pack(b'VSH1', 1, 1)
+        def frame(preset, speed, fps):
+            return head + bridge.SHADER.pack(preset, speed, fps, bytes(range(12))) + b'abc'
+
+        image = self.read(frame(3, 25, 30))
+        self.assertEqual(image.image, (1, 1, b'abc'))
+        self.assertEqual(image.shader, dict(name='dunes', speed=1.25, fps=30,
+                                           colors=['000102', '030405', '060708', '090a0b']))
+        for data in (frame(4, 20, 30), frame(1, 0, 30), frame(1, 20, 61),
+                     frame(1, 20, 30)[:-1], frame(1, 20, 30) + b'x'):
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                self.read(data)
 
     def test_absolute_receive_deadline(self):
         left, right = socket.socketpair()
@@ -83,6 +114,35 @@ class AuthorizationTests(unittest.TestCase):
 
 
 class PublicationTests(unittest.TestCase):
+    def test_palette_recolors_without_wallpaper_change(self):
+        template = ROOT / 'resources/greeter/palette.css.in'
+        with tempfile.TemporaryDirectory() as directory, patch.object(bridge, 'STATE', Path(directory)), \
+                patch.object(bridge, 'PALETTE_TEMPLATE', template):
+            path = Path(directory) / 'colors.json'
+            path.write_text(json.dumps(dict.fromkeys(bridge.PALETTE_ROLES, '#778899')))
+            palette = bridge.desktop_palette(path, {})
+            bridge.publish(None, lambda: True)
+            bridge.publish(palette, lambda: True)
+            css = Path(directory) / 'palette.css'
+            self.assertIn('border-color: #778899', css.read_text())
+            updated = bridge.desktop_palette(path, {'primary': '#fafafa'})
+            with self.assertRaises(PermissionError):
+                bridge.publish(updated, lambda: False)
+            self.assertNotIn('#fafafa', css.read_text())
+            bridge.publish(updated, lambda: True)
+            self.assertIn('background-color: #fafafa !important; color: #000000', css.read_text())
+            self.assertEqual(json.loads((Path(directory) / 'current.json').read_text()), {'image': ''})
+            bridge.publish(None, lambda: True)
+            self.assertIn('#fafafa', css.read_text())
+            with self.assertRaises(PermissionError):
+                bridge.publish(b'', lambda: False)
+            self.assertTrue(css.exists())
+            bridge.publish(b'', lambda: True)
+            self.assertFalse(css.exists())
+            path.write_text(json.dumps(dict.fromkeys(bridge.PALETTE_ROLES, 'inherit')))
+            with self.assertRaises(ValueError):
+                bridge.desktop_palette(path, {})
+
     def test_atomic_bounded_history_and_logout_race(self):
         from PIL import Image
         with tempfile.TemporaryDirectory() as directory, patch.object(bridge, 'STATE', Path(directory)):
@@ -103,6 +163,48 @@ class PublicationTests(unittest.TestCase):
             self.assertEqual(json.loads((root / 'current.json').read_bytes()), {'image': ''})
             self.assertFalse(list(root.glob('*.jpg')))
 
+    def test_static_replacement_drops_animation_and_denied_update_preserves_it(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(bridge, 'STATE', Path(directory)):
+            manifest = Path(directory) / 'current.json'
+            image = (1, 1, b'abc')
+            shader = dict(name='grid', speed=1, fps=30, colors=['fafafa'] * 4)
+            bridge.publish(bridge.AnimatedWallpaper(image, shader), lambda: True)
+            self.assertEqual(json.loads(manifest.read_text())['shader'], shader)
+            with self.assertRaises(PermissionError):
+                bridge.publish(image, lambda: False)
+            self.assertIn('shader', json.loads(manifest.read_text()))
+            bridge.publish(image, lambda: True)
+            self.assertNotIn('shader', json.loads(manifest.read_text()))
+
+    def test_loop_publishes_poster_and_cells_then_clears_them(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(bridge, 'STATE', Path(directory)):
+            root = Path(directory)
+            frame = bridge.MediaLoop(2, b'\x33' * bridge.FRAME_BYTES + b'\xee' * bridge.FRAME_BYTES)
+            bridge.publish(frame, lambda: True)
+            value = json.loads((root / 'current.json').read_bytes())
+            self.assertEqual(value['animation']['count'], 2)
+            self.assertTrue((root / value['animation']['atlas']).is_file())
+            self.assertTrue((root / value['image']).is_file())
+            bridge.publish(None, lambda: True)
+            self.assertEqual(list(root.glob('*.jpg')), [])
+
+    def test_shader_settings_use_opt_in_and_the_desktop_colors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'colors.json'
+            options = {'shaderWallpaper': {'name': 'grid', 'colors': ['#112233'] * 4}}
+            config = {'background': options}
+            self.assertFalse(bridge.shader_settings(config, path))
+            options['animateGreeterWallpaper'] = True
+            self.assertEqual(bridge.SHADER.unpack(bridge.shader_settings(config, path)),
+                             (2, 20, 30, bytes.fromhex('112233' * 4)))
+            options['shaderWallpaper']['colors'] = []
+            self.assertFalse(bridge.shader_settings(config, path))
+            path.write_text(json.dumps(dict(primary='#ffffff', secondary='#778899',
+                                            tertiary='#445566', background='#eeeeee')))
+            config['appearance'] = {'palette': {'roleOverrides': {'primary': '#112233'}}}
+            self.assertEqual(bridge.SHADER.unpack(bridge.shader_settings(config, path))[-1],
+                             bytes.fromhex('112233445566778899060c12'))
+
     def test_atomic_replace_does_not_follow_target_symlink(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -116,6 +218,30 @@ class PublicationTests(unittest.TestCase):
 
 
 class SandboxTests(unittest.TestCase):
+    def test_real_motion_decoder_for_gif_webp_and_video(self):
+        require_sandbox(self)
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as directory:
+            files = []
+            for ext in ('gif', 'webp'):
+                image = Path(directory) / ('Цвет #' + '.' + ext)
+                red = Image.new('RGB', (64, 40), 'red')
+                blue = Image.new('RGB', (64, 40), 'blue')
+                red.save(image, save_all=True, append_images=[blue], duration=250, loop=0)
+                files.append(image)
+            video = Path(directory) / 'video sample.mp4'
+            subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-f', 'lavfi', '-i',
+                            'testsrc2=s=96x64:r=8', '-t', '0.5', '-c:v', 'mpeg4', '-threads', '1',
+                            str(video)], check=True, timeout=12)
+            for path in [*files, video]:
+                with self.subTest(path=path.name):
+                    data = bridge.decode(path, motion=True)
+                    self.assertEqual(bridge.HEADER.unpack_from(data), (b'VAN1', *bridge.CELL))
+                    self.assertGreater(data[12], 1)
+                    self.assertEqual(len(data), 13 + data[12] * bridge.FRAME_BYTES)
+                    self.assertNotEqual(data[13:13 + bridge.FRAME_BYTES], data[-bridge.FRAME_BYTES:])
+                    self.assertEqual(bridge.HEADER.unpack_from(bridge.decode(path))[0], b'VRG1')
+
     def test_real_decoder_unicode_spaces_alpha_gif_and_bounds(self):
         require_sandbox(self)
         from PIL import Image

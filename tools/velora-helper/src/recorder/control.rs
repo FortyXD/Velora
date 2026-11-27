@@ -704,10 +704,7 @@ async fn execute(args: &Args) -> Result<ExitCode> {
             .value("config")
             .map(PathBuf::from)
             .or_else(|| std::env::var_os("VELORA_RECORDER_CONFIG").map(PathBuf::from))
-            .unwrap_or_else(|| {
-                PathBuf::from(std::env::var_os("HOME").unwrap_or_default())
-                    .join(".config/illogical-impulse/config.json")
-            });
+            .unwrap_or_else(crate::apps::shell_config_path);
         async {
             owner.publish("starting")?;
             owner.record(Options::read(&config).await?, args).await

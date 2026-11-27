@@ -1,0 +1,38 @@
+.velora-greeter.login-dialog,
+.velora-greeter .velora-clock, .velora-greeter .velora-date,
+.velora-greeter .user-widget-label, .velora-greeter .login-dialog-message { color: $on_surface; }
+
+.velora-greeter .login-dialog-user-list-view { background-color: $surface; }
+.velora-greeter .login-dialog-user-list-view .login-dialog-user-list .login-dialog-user-list-item,
+.velora-greeter.login-dialog .login-dialog-button { background-color: $surface_container; color: $on_surface; }
+.velora-greeter .login-dialog-user-list-view .login-dialog-user-list .login-dialog-user-list-item:selected,
+.velora-greeter .login-dialog-user-list-view .login-dialog-user-list .login-dialog-user-list-item:focus,
+.velora-greeter .login-dialog-user-list-view .login-dialog-user-list .login-dialog-user-list-item:hover,
+.velora-greeter.login-dialog .login-dialog-button:hover { background-color: $secondary_container; color: $on_secondary_container; }
+.velora-greeter .login-dialog-user-list-item:selected .user-widget-label,
+.velora-greeter .login-dialog-user-list-item:focus .user-widget-label,
+.velora-greeter .login-dialog-user-list-item:hover .user-widget-label { color: $on_secondary_container; }
+
+.velora-greeter.login-dialog .login-dialog-prompt-entry {
+    background-color: $surface_container; color: $on_surface; border-color: $outline;
+    selection-background-color: $primary; selected-color: $on_primary; caret-color: $primary;
+}
+.velora-greeter .login-dialog-prompt-entry StLabel.hint-text { color: $outline; }
+.velora-greeter.login-dialog .login-dialog-message-warning,
+.velora-greeter.login-dialog .caps-lock-warning-label { color: $error; }
+.velora-greeter.login-dialog .login-dialog-prompt-entry:focus,
+.velora-greeter .login-dialog-user-list-view .login-dialog-user-list .login-dialog-user-list-item:focus,
+.velora-greeter .login-dialog-user-list-view .login-dialog-user-list .login-dialog-user-list-item:selected {
+    border-color: $primary; box-shadow: inset 0 0 0 2px $primary !important;
+}
+.velora-greeter.login-dialog .login-dialog-button:default,
+.velora-greeter.login-dialog .login-dialog-button.next-button {
+    background-color: $primary !important; color: $on_primary;
+}
+.velora-greeter .login-dialog-user-list-item:logged-in .user-icon { border-color: $primary; }
+.velora-greeter .velora-brand, .velora-greeter .velora-brand StIcon,
+.velora-greeter .velora-brand StLabel { color: $primary; }
+.velora-greeter .velora-power { background-color: $surface_container; color: $primary; }
+.velora-greeter .velora-power:focus, .velora-greeter .velora-power:hover {
+    background-color: $secondary_container; color: $on_secondary_container;
+}

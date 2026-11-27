@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
@@ -8,8 +9,7 @@ import qs.modules.common.functions
 import qs.modules.common.widgets
 
 /**
- * A keybind in Settings > Keyboard Shortcuts: what it does and its keys. Click the keys to
- * record new ones; turned off or changed shortcuts get a button back to the default.
+ * Click an action or its keys to record a new shortcut. Changed shortcuts can be reset here.
  */
 ColumnLayout {
     id: root
@@ -23,17 +23,24 @@ ColumnLayout {
     readonly property var customApp: root.customShortcut?.app ? DesktopEntries.byId(root.customShortcut.app) : null
     readonly property var conflicts: (!root.bind || root.turnedOff || root.bind.note) ? [] : HyprlandKeybinds.conflicts(root.bind.mods, root.bind.key, root.bind.id)
     property var pending: null // { mods, key, others, hidden } while asking what to do about a clash
+    property bool highlighted: false
+    signal previewRequested()
+    signal previewHovered(bool over)
 
     // Settings search
     readonly property bool settingsSearchable: true
+    readonly property Item settingsDestination: actionButton
+    function settingsReveal() { root.previewRequested(); return false; }
     readonly property string text: root.title
-    property string searchText: `${root.title} ${root.bind?.description ?? ""} ${root.bind ? KeyUtils.comboText(root.bind.mods, root.bind.key) : ""}`
+    property string searchText: [root.title, root.bind?.description, root.bind?.key,
+        root.bind ? KeyUtils.comboText(root.bind.mods, root.bind.key) : ""].join(" ")
 
     Layout.fillWidth: true
     spacing: 0
 
     HoverHandler {
         id: rowHover
+        onHoveredChanged: root.previewHovered(hovered)
     }
 
     function namesOf(binds) {
@@ -76,7 +83,7 @@ ColumnLayout {
 
     RowLayout {
         Layout.fillWidth: true
-        Layout.leftMargin: 14
+        Layout.leftMargin: 6
         Layout.rightMargin: 8
         Layout.topMargin: 5
         Layout.bottomMargin: 5
@@ -102,26 +109,49 @@ ColumnLayout {
             }
         }
 
-        ColumnLayout {
+        AbstractButton {
+            id: actionButton
+            objectName: "shortcutAction"
             Layout.fillWidth: true
-            Layout.alignment: Qt.AlignVCenter
-            spacing: 1
-            StyledText {
-                Layout.fillWidth: true
-                text: root.title
-                wrapMode: Text.Wrap
-                font.pixelSize: Appearance.font.pixelSize.small
-                color: root.turnedOff ? Appearance.colors.colSubtext : Appearance.colors.colOnLayer2
+            Layout.minimumWidth: 0
+            horizontalPadding: 8
+            verticalPadding: 3
+            implicitHeight: Math.max(32, implicitContentHeight + verticalPadding * 2)
+            focusPolicy: Qt.StrongFocus
+            Accessible.name: root.title
+            Accessible.description: root.editable ? Translation.tr("Click to change") : ""
+            onClicked: {
+                if (root.editable) recorder.start();
+                else root.previewRequested();
             }
-            StyledText {
-                visible: root.statusText.length > 0
-                Layout.fillWidth: true
-                text: root.statusText
-                elide: Text.ElideRight
-                font.pixelSize: Appearance.font.pixelSize.smaller
-                font.family: root.customShortcut?.command && root.statusText === root.customShortcut.command ? Appearance.font.family.monospace : Appearance.font.family.main
-                color: root.conflicts.length > 0 && !recorder.recording ? Appearance.colors.colError
-                    : recorder.recording || root.bind?.remapped ? Appearance.colors.colPrimary : Appearance.colors.colSubtext
+            onVisualFocusChanged: if (visualFocus) root.previewRequested()
+            Keys.onReturnPressed: click()
+            Keys.onEnterPressed: click()
+            background: Rectangle {
+                radius: Appearance.rounding.small
+                color: root.highlighted ? Appearance.colors.colSecondaryContainer : "transparent"
+                border.width: actionButton.visualFocus ? 2 : 0
+                border.color: Appearance.colors.colPrimary
+            }
+            contentItem: ColumnLayout {
+                spacing: 1
+                StyledText {
+                    Layout.fillWidth: true
+                    text: root.title
+                    wrapMode: Text.Wrap
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    color: root.highlighted ? Appearance.colors.colOnSecondaryContainer : root.turnedOff ? Appearance.colors.colSubtext : Appearance.colors.colOnLayer2
+                }
+                StyledText {
+                    visible: root.statusText.length > 0
+                    Layout.fillWidth: true
+                    text: root.statusText
+                    elide: Text.ElideRight
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    font.family: root.customShortcut?.command && root.statusText === root.customShortcut.command ? Appearance.font.family.monospace : Appearance.font.family.main
+                    color: root.conflicts.length > 0 && !recorder.recording ? Appearance.colors.colError
+                        : recorder.recording || root.bind?.remapped ? Appearance.colors.colPrimary : Appearance.colors.colSubtext
+                }
             }
         }
 
@@ -142,6 +172,8 @@ ColumnLayout {
             turnedOff: root.turnedOff
             allowTurnOff: !root.bind?.custom
             mouseOnly: root.bind?.mouse === true
+            onRecordingChanged: if (recording) root.previewRequested()
+            onVisualFocusChanged: if (visualFocus) root.previewRequested()
             onRecorded: (mods, key) => root.apply(mods, key)
             onTurnOffRequested: HyprlandKeybinds.disable(root.bind.id)
         }

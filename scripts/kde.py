@@ -40,6 +40,13 @@ def configure(config):
         values = [value for value in read(file, group, key, default).split(',') if value]
         write(file, group, key, ','.join(dict.fromkeys([*values, *additions])))
 
+    renderer = 'KTextEditor Renderer'
+    automatic = read('katerc', renderer, 'Auto Color Theme Selection', 'true') == 'true'
+    if automatic and read('katerc', renderer, 'Color Theme') in ('', 'Breeze Dark', 'Breeze Light') and not read('katerc', 'Velora', 'Initialized'):
+        write('katerc', renderer, 'Color Theme', 'Velora')
+        write('katerc', renderer, 'Auto Color Theme Selection', 'false')
+        write('katerc', 'Velora', 'Initialized', 'true')
+
     # Git status badges are opt-in; updates must not enable them automatically.
     if read('dolphinrc', 'General', 'ShowSelectionToggle', '__unset__') == '__unset__':
         write('dolphinrc', 'General', 'ShowSelectionToggle', 'false')

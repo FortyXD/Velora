@@ -13,7 +13,9 @@ FloatingWindow {
     implicitWidth: 900
     implicitHeight: 650
     property int scenario: 0
-    property int step: 0
+    property int step: -3
+    property real pulseMin: 2
+    property real pulseMax: 0
     property bool working: false
     property bool slotInMotion: false
     property real positionBefore: 0
@@ -52,14 +54,23 @@ FloatingWindow {
     BarConfig { id: settings; anchors.fill: parent; visible: !window.realBar }
     BarLayoutView {
         id: live
-        visible: window.realBar
-        editing: visible
+        visible: window.realBar || window.step < 0
+        editing: window.realBar
         vertical: window.vertical
         width: vertical ? 48 : parent.width
         height: vertical ? parent.height : 44
         controller: liveController
     }
     BarEditController { id: liveController; view: live }
+    Timer {
+        interval: 16; running: window.step === -2; repeat: true
+        onTriggered: {
+            const icon = input.findChild(live, "sidebarButtonIcon");
+            if (!icon) return;
+            window.pulseMin = Math.min(window.pulseMin, icon.scale);
+            window.pulseMax = Math.max(window.pulseMax, icon.scale);
+        }
+    }
     Timer {
         interval: 16; running: window.working; repeat: true
         onTriggered: {
@@ -73,6 +84,27 @@ FloatingWindow {
             if (!Config.ready) return;
             const g = window.surface?.editGuide;
             switch (window.step) {
+            case -3:
+                Config.options.assistant.enabled = true;
+                Config.options.bar.topLeftIcon = "spark";
+                Config.options.appearance.animationSpeed = 1;
+                BarLayout.apply("horizontal", {zones:{start:[{uid:"assistant",type:"leftSidebarButton"}]}});
+                Assistant.busy = true;
+                break;
+            case -2:
+                if (!window.expect(live.sidebarShowsActivity && !input.findChild(live,"barActivityIndicator").active,
+                                   "the sidebar star shows activity in place")) return;
+                if (!window.expect(window.pulseMax - window.pulseMin > 0.04, "the visible star pulses while thinking")) return;
+                Assistant.approval = {tool:"terminal_run"};
+                if (!window.expect(input.findChild(live, "sidebarButtonIcon").scale === 1, "the star stops while awaiting approval")) return;
+                Assistant.approval = null;
+                BarLayout.apply("horizontal", {zones:{start:[{uid:"plain",type:"text"}]}});
+                break;
+            case -1:
+                if (!window.expect(!live.sidebarShowsActivity && input.findChild(live,"barActivityIndicator").active,
+                                   "a layout without the sidebar star shows the activity indicator")) return;
+                Assistant.busy = false;
+                break;
             case 0:
                 window.initialize(); window.working = true; break;
             case 1:

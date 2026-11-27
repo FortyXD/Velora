@@ -8,7 +8,10 @@ CONFIG_DIR="$XDG_CONFIG_HOME/quickshell/$QUICKSHELL_CONFIG_NAME"
 CACHE_DIR="$XDG_CACHE_HOME/quickshell"
 STATE_DIR="$XDG_STATE_HOME/quickshell"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SHELL_CONFIG_FILE="$XDG_CONFIG_HOME/illogical-impulse/config.json"
+SHELL_CONFIG_FILE="$XDG_CONFIG_HOME/velora/config.json"
+if [[ ! -f "$SHELL_CONFIG_FILE" && -f "$XDG_CONFIG_HOME/illogical-impulse/config.json" ]]; then
+    SHELL_CONFIG_FILE="$XDG_CONFIG_HOME/illogical-impulse/config.json"
+fi
 MATUGEN_DIR="$XDG_CONFIG_HOME/matugen"
 terminalscheme="$SCRIPT_DIR/terminal/scheme-base.json"
 THEME_CACHE="$XDG_CACHE_HOME/velora/theme"
@@ -172,7 +175,7 @@ plan_switch() {
 
     # Start Gemini auto-categorization if enabled
     aiStylingEnabled=$(jq -r '.background.widgets.clock.cookie.aiStyling' "$SHELL_CONFIG_FILE")
-    if [[ "$aiStylingEnabled" == "true" ]]; then
+    if [[ "$aiStylingEnabled" == "true" && -z "$noswitch_flag" && -n "$imgpath" ]]; then
         categorize_wallpaper "$imgpath" &
     fi
 
@@ -210,7 +213,7 @@ plan_switch() {
         fi
 
         # Only for a picture chosen by hand, once: presets bring their own pictures and shouldn't nag
-        if [[ -z "$prepare_only" ]]; then
+        if [[ -z "$prepare_only" && -z "$noswitch_flag" ]]; then
             local prompted="$CACHE_DIR/upscale-prompted"
             if ! grep -qxF -- "$imgpath" "$prompted" 2>/dev/null; then
                 printf '%s\n' "$imgpath" >> "$prompted"
@@ -218,7 +221,18 @@ plan_switch() {
             fi
         fi
 
-        if is_video "$imgpath"; then
+        if [[ -n "$noswitch_flag" ]]; then
+            # A scheme or light/dark selection only needs a color source. Keep the
+            # current shader, video, wallpaper and its config file in place.
+            local still="$imgpath"
+            if is_video "$imgpath"; then
+                still=$(jq -r '.background.thumbnailPath // empty' "$SHELL_CONFIG_FILE")
+                [[ -s "$still" ]] || still=$(video_frame "$imgpath")
+                [[ -s "$still" ]] || return 1
+            fi
+            matugen_args+=(image "$still")
+            palette_source=(--image "$still")
+        elif is_video "$imgpath"; then
             mkdir -p "$THUMBNAIL_DIR"
 
             missing_deps=()
@@ -295,7 +309,7 @@ plan_switch() {
     theming="1"
     if [ -f "$SHELL_CONFIG_FILE" ]; then
         enable_apps_shell=$(jq -r '.appearance.wallpaperTheming.enableAppsAndShell' "$SHELL_CONFIG_FILE")
-        [ "$enable_apps_shell" == "false" ] && theming=""
+        [[ "$enable_apps_shell" == "false" && -z "$noswitch_flag" && -z "$explicit_color" ]] && theming=""
     fi
 
     # Set harmony and related properties
@@ -585,7 +599,7 @@ main() {
     fi
 
     [[ "$(cat "$request_file")" == "$request_token" ]] || return 0
-    plan_switch "$imgpath" "$mode_flag" "$type_flag" "$color_flag" "$color"
+    plan_switch "$imgpath" "$mode_flag" "$type_flag" "$color_flag" "$color" || return 1
     stage_palette
     if [[ -n "$prepare_only" ]]; then
         save_request

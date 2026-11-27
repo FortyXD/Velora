@@ -137,16 +137,46 @@ Item {
                     altAction: () => app.openMenu()
                     middleClickAction: () => TaskbarApps.launch(app.appId, app.windowCount)
 
-                    property bool hoverSettled: false
-                    onHoveredChanged: if (!hovered) hoverSettled = false
-                    Timer {
-                        running: button.hovered
-                        interval: 500
-                        onTriggered: button.hoverSettled = true
-                    }
                     BarToolTip {
-                        shown: button.hoverSettled && !appMenu.visible
-                        text: app.windowCount > 0 ? app.toplevels.map(t => t.title).join("\n") : TaskbarApps.displayName(app.appId)
+                        shown: button.hovered && !app.windowCount && !appMenu.visible
+                        text: TaskbarApps.displayName(app.appId)
+                    }
+                    StyledPopup {
+                        id: preview
+                        hoverTarget: button
+                        hoverEnabled: app.windowCount > 0 && !appMenu.visible && !GlobalStates.screenLocked
+                        animate: false
+                        interactive: true
+                        GridLayout {
+                            columns: Math.min(3, Math.max(1, app.windowCount))
+                            Repeater {
+                                model: preview.active ? app.toplevels : []
+                                delegate: RippleButton {
+                                    id: card
+                                    required property var modelData
+                                    implicitWidth: 148
+                                    implicitHeight: 108
+                                    onClicked: { preview.dismissed = true; FreeWindows.activateToplevel(card.modelData); }
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: 4
+                                        WindowThumbnail {
+                                            Layout.fillWidth: true
+                                            Layout.fillHeight: true
+                                            toplevel: card.modelData
+                                            constraintSize: Qt.size(140, 78)
+                                        }
+                                        StyledText {
+                                            Layout.fillWidth: true
+                                            text: card.modelData?.title ?? ""
+                                            textFormat: Text.PlainText
+                                            elide: Text.ElideRight
+                                            font.pixelSize: Appearance.font.pixelSize.smaller
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

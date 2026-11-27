@@ -154,10 +154,12 @@ TestCase {
         compare(switcher.shown, false);
     }
 
-    function test_delayed_popup_and_cancel_do_not_switch_focus() {
+    function test_immediate_popup_and_arrow_navigation() {
         switcher.step(1);
-        compare(switcher.shown, false);
-        tryCompare(switcher, "shown", true, 500);
+        compare(switcher.shown, true);
+        switcher.arrow(1);
+        compare(selected(), "0xc");
+        switcher.arrow(-1);
         compare(selected(), "0xb");
         switcher.close();
         compare(switcher.shown, false);

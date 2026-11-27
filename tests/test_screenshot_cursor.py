@@ -27,7 +27,7 @@ class ScreenshotCursorTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="velora capture ' ")
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.config = self.root / 'config/illogical-impulse/config.json'
+        self.config = self.root / 'config/velora/config.json'
         self.env = {**os.environ, 'XDG_CONFIG_HOME': str(self.root / 'config'),
                     'XDG_RUNTIME_DIR': str(self.root), 'CAPTURE_TEST_ROOT': str(self.root),
                     'PATH': str(self.root / 'bin') + os.pathsep + os.environ['PATH']}
@@ -348,7 +348,7 @@ ShellRoot { Timer { interval: 100; running: Config.ready; onTriggered: {
         self.assertNotIn('$qsConfig', result.stdout)
 
     def test_capture_entrypoints_and_defaults(self):
-        options = json.loads((PROJECT / 'dots/.config/illogical-impulse/config.example.json').read_text())
+        options = json.loads((PROJECT / 'dots/.config/velora/config.example.json').read_text())
         self.assertIs(options['screenSnip']['showCursor'], False)
         for name in ('modules/ii/regionSelector/RegionSelection.qml', 'modules/waffle/screenSnip/WRegionSelectionPanel.qml'):
             self.assertIn('includeCursor: Config.options.screenSnip.showCursor', (SHELL / name).read_text())

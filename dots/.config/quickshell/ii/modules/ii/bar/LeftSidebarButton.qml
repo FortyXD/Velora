@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import qs
 import qs.services
 import qs.modules.common
@@ -8,6 +9,8 @@ RippleButton {
     id: root
 
     property bool showPing: false
+    property bool thinking: false
+    Accessible.description: thinking ? Translation.tr("AI is thinking") : ""
 
     readonly property bool barVisible: SidebarLayout.shownParts("left").length > 0
     visible: barVisible
@@ -56,12 +59,23 @@ RippleButton {
 
     CustomIcon {
         id: distroIcon
+        objectName: "sidebarButtonIcon"
         anchors.centerIn: parent
         width: 19.5
         height: 19.5
         source: Config.options.bar.topLeftIcon == 'distro' ? SystemInfo.distroIcon : `${Config.options.bar.topLeftIcon}-symbolic`
         colorize: true
-        color: Appearance.colors.colOnLayer0
+        color: root.thinking ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer0
+        Behavior on color { ColorAnimation { duration: Appearance.scaledDuration(150) } }
+        property real pulseScale: 1
+        scale: pulse.running ? pulseScale : 1
+        SequentialAnimation on pulseScale {
+            id: pulse
+            running: root.thinking && root.visible && (root.Window.window?.visible ?? false) && Appearance.animationSpeed > 0
+            loops: Animation.Infinite
+            NumberAnimation { from: 0.8; to: 1.16; duration: Appearance.scaledDuration(550); easing.type: Easing.InOutSine }
+            NumberAnimation { from: 1.16; to: 0.8; duration: Appearance.scaledDuration(550); easing.type: Easing.InOutSine }
+        }
 
         Rectangle {
             opacity: root.showPing ? 1 : 0

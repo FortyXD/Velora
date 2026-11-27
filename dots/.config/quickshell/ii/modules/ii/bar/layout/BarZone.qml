@@ -35,15 +35,8 @@ FocusedScrollMouseArea {
 
     signal menuRequested(real x, real y) // Right click on the free space
 
-    readonly property var segments: BarLayoutUtils.segments(items, Config.options.bar.style.islands)
-    readonly property var segmentItems: {
-        let result = [];
-        for (let i = 0; i < repeater.count; i++) {
-            const segment = repeater.itemAt(i);
-            if (segment) result.push(segment);
-        }
-        return result;
-    }
+    readonly property var segments: BarLayoutUtils.segments(items, (root.factory.barOptions ?? Config.options.bar).style.islands)
+    readonly property var segmentItems: rowLayout.children.filter(child => child instanceof BarSegment)
     // Checked by content, not `visible`, which is also false while the zone itself is hidden
     readonly property var shownSegments: segmentItems.filter(segment => segment.shownCount > 0)
     readonly property bool hasContent: shownSegments.length > 0
@@ -134,7 +127,8 @@ FocusedScrollMouseArea {
     }
 
     Loader {
-        active: (root.outerSide === "left" || root.outerSide === "right") && ["brightness", "volume", "workspaces"].includes(root.actions.scroll)
+        active: !root.factory?.preview && (root.outerSide === "left" || root.outerSide === "right")
+            && ["brightness", "volume", "workspaces"].includes(root.actions.scroll)
         anchors.left: root.outerSide === "left" ? parent.left : undefined
         anchors.right: root.outerSide === "right" ? parent.right : undefined
         anchors.verticalCenter: parent.verticalCenter
@@ -178,7 +172,6 @@ FocusedScrollMouseArea {
         }
 
         Repeater {
-            id: repeater
             model: ScriptModel {
                 values: root.segments
                 comparisonMode: ObjectComparison.Structure

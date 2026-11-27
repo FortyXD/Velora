@@ -544,7 +544,8 @@ class Recorder:
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", nargs="?", choices=("toggle", "stop", "status", "sources"), default="toggle")
-    parser.add_argument("--config", type=Path, default=Path(os.environ.get("VELORA_RECORDER_CONFIG", str(Path.home() / ".config/illogical-impulse/config.json"))))
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    parser.add_argument("--config", type=Path, default=Path(os.environ.get("VELORA_RECORDER_CONFIG", config_home / "velora/config.json")))
     parser.add_argument("--runtime-dir", type=Path, default=Path(os.environ.get("VELORA_RECORDER_RUNTIME", os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}") + "/velora-recorder")))
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--region")

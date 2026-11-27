@@ -26,12 +26,8 @@ AppButton {
     iconName: AppSearch.guessIcon(appEntry.appId)
     tryCustomIcon: false
     
-    onHoverTimedOut: {
-        root.hoverPreviewRequested()
-    }
 
     onClicked: {
-        root.hoverTimer.stop() // Prevents preview showing up when clicking to focus
         if (root.multiple) {
             root.hoverPreviewRequested()
         } else if (root.appEntry.toplevels.length === 1) {
@@ -48,7 +44,6 @@ AppButton {
 
     altAction: () => {
         root.hoverPreviewDismissed()
-        root.hoverTimer.stop()
         contextMenu.active = true;
     }
 

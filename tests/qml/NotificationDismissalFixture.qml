@@ -2,7 +2,10 @@ import QtQuick
 import QtTest
 import Quickshell
 import Quickshell.Io
+import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.waffle.looks
+import qs.modules.waffle.notificationCenter
 import qs.services
 
 FloatingWindow {
@@ -16,15 +19,36 @@ FloatingWindow {
     property var timeouts: []
     property real nextRowY: 0
     property bool rowMoved: false
+    property Item slidingCard
+    property bool sawSlide: false
 
     NotificationListView { id: feed; anchors.fill: parent }
+    WListView {
+        id: banners
+        anchors.fill: parent
+        visible: root.step >= 13 && Notifications.popupList.length > 0
+        model: ScriptModel { values: banners.visible ? Notifications.popupList : []; objectProp: "notificationId" }
+        delegate: WSingleNotification {
+            required property var modelData
+            notification: modelData
+            width: ListView.view.width
+        }
+    }
+    Loader {
+        id: musicGroup
+        anchors.fill: parent
+        active: root.step >= 15
+        sourceComponent: WNotificationGroup { notificationGroup: Notifications.groupsByAppName["Music"] }
+    }
     TestCase { id: input; when: false }
     Process { id: sender }
+    FileView { id: history; path: Notifications.filePath; blockLoading: true; printErrors: false }
 
-    function post(app, title, lifetime, transient = false) {
+    function post(app, title, lifetime, transient = false, resident = false) {
         sender.command = ["gdbus", "call", "--session", "--dest", "org.freedesktop.Notifications",
             "--object-path", "/org/freedesktop/Notifications", "--method", "org.freedesktop.Notifications.Notify",
-            app, "0", "", title, "Body", "[]", transient ? "{'transient': <true>}" : "{}", String(lifetime)];
+            app, "0", "", title, "Body", resident ? "['open', 'Open']" : "[]",
+            transient ? "{'transient': <true>}" : resident ? "{'resident': <true>}" : "{}", String(lifetime)];
         sender.running = true;
     }
     function fail(reason) {
@@ -129,9 +153,60 @@ FloatingWindow {
             case 9:
                 if (feed.count) return;
                 if (root.discards.length !== 3 || Notifications.list.length) { root.fail("sender withdrawal"); return; }
-                console.log("DRIVER_PASS");
-                Qt.quit();
-                return;
+                root.post("Music", "Player", 0, false, true);
+                break;
+            case 10: {
+                const player = Notifications.list[0];
+                if (player?.summary !== "Player") return;
+                Notifications.attemptInvokeAction(player.notificationId, "obsolete");
+                Notifications.attemptInvokeAction(player.notificationId, "open");
+                Notifications.toggleSilent();
+                root.post("Calendar", "Temporary reminder", 700, true);
+                break;
+            }
+            case 11: {
+                if (Notifications.list.length !== 2) return;
+                const reminder = Notifications.list.find(n => n.summary === "Temporary reminder");
+                if (!reminder?.timer?.running || reminder.popup) { root.fail("quiet transient lifetime"); return; }
+                history.reload();
+                const stored = JSON.parse(history.text() || "[]");
+                if (stored.length !== 1 || stored[0].summary !== "Player") { root.fail("disk history while a transient is live"); return; }
+                break;
+            }
+            case 12:
+                if (Notifications.list.length !== 1) return;
+                if (Notifications.list[0].summary !== "Player") { root.fail("resident action or transient expiry"); return; }
+                Notifications.toggleSilent();
+                Config.options.appearance.animationSpeed = 1;
+                root.post("Calendar", "Last banner", 0);
+                break;
+            case 13: {
+                const card = banners.itemAtIndex(0);
+                if (!card) return;
+                root.slidingCard = card.childAt(1, 1);
+                card.dismiss();
+                break;
+            }
+            case 14:
+                if (banners.visible) {
+                    if (root.slidingCard && root.slidingCard.x > 0 && root.slidingCard.x < root.slidingCard.width)
+                        root.sawSlide = true;
+                    return;
+                }
+                if (!root.sawSlide || Notifications.list.length !== 1 || Notifications.list[0].summary !== "Player") {
+                    root.fail("last Waffle banner disappeared before its slide finished"); return;
+                }
+                break;
+            case 15:
+                if (!musicGroup.item) return;
+                root.slidingCard = musicGroup.item.childAt(1, 1);
+                musicGroup.item.dismissAll();
+                root.post("Music", "New track", 0);
+                break;
+            case 16:
+                if (Notifications.list.length !== 1 || Notifications.list[0].summary !== "New track") return;
+                if (!root.slidingCard || root.slidingCard.x !== 0 || musicGroup.item.notifications.length !== 1) return;
+                console.log("DRIVER_PASS"); Qt.quit(); return;
             }
             root.step++;
         }

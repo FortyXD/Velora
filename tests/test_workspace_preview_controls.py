@@ -39,7 +39,7 @@ def run_qt(root):
 class WorkspacePreviewControlsTests(unittest.TestCase):
     def test_compatible_defaults_panel_wiring_and_translations(self):
         config = (SHELL / 'modules/common/Config.qml').read_text()
-        example = json.loads((PROJECT / 'dots/.config/illogical-impulse/config.example.json').read_text())
+        example = json.loads((PROJECT / 'dots/.config/velora/config.example.json').read_text())
         for key, value in (('showPreviews', True), ('hidePreviewOnLeave', False)):
             self.assertIn(f'property bool {key}: {str(value).lower()}', config)
             self.assertIs(example['bar']['workspaces'][key], value)
@@ -118,7 +118,7 @@ ShellRoot {
             source = (SHELL / 'modules/ii/bar/StyledPopup.qml').read_text()
             # Only the compositor renderer is replaced. Execute all production state,
             # policy, and timers unchanged, including the active/lingering binding.
-            state = source.split('LazyLoader {', 1)[1].split('    component: PanelWindow {', 1)[0]
+            state = source.split('LazyLoader {', 1)[1].split('    component: ', 1)[0]
             write(root, 'PopupState.qml', 'import QtQuick\nItem { property bool active\n' + state + '\n}')
             policy = (SHELL / 'modules/common/functions/PopupHoverPolicy.qml').read_text()
             write(root, 'PopupHoverPolicy.qml', policy.replace('import Quickshell', 'import QtQml').replace('Singleton {', 'QtObject {'))

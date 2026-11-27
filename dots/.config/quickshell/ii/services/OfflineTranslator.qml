@@ -25,6 +25,7 @@ Singleton {
 
     property bool installed: false
     property bool checked: false
+    property bool partial: false
     readonly property bool installing: installProc.running
     property int installProgress: 0
     property string installStatus: ""
@@ -92,6 +93,7 @@ Singleton {
             finished = true;
             timer.stop();
             timer.destroy();
+            LocalAiRuntime.cancel(xhr);
             callback(result, error);
         };
         timer.triggered.connect(() => {
@@ -114,17 +116,18 @@ Singleton {
         const prompt = `Translate the following ${root.languages[src]} text into ${root.languages[tgt]}. `
             + `A draft machine translation is given: fix its mistakes and make it sound natural while keeping the meaning. `
             + `Reply with the translation only, without quotes or comments.\n\nText:\n${text}\n\nDraft:\n${draft}`;
-        xhr.open("POST", "http://127.0.0.1:11434/api/chat");
-        xhr.setRequestHeader("Content-Type", "application/json");
-        xhr.send(JSON.stringify({
-            "model": model,
-            "stream": false,
-            "think": false,
-            "keep_alive": "2m", // Free the model's memory soon after
-            "options": { "temperature": 0.2 },
-            "messages": [{ "role": "user", "content": prompt }],
-        }));
         timer.start();
+        LocalAiRuntime.prepare(ok => {
+            if (finished) return;
+            if (!ok) { done("", LocalAiRuntime.problem || Translation.tr("Ollama isn't running")); return; }
+            xhr.open("POST", LocalAiRuntime.endpointFor("http://127.0.0.1:11434/api/chat", Config.options.ai?.localGpu ?? true));
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.send(JSON.stringify({
+                model, stream:false, think:false, keep_alive:LocalAiRuntime.idleSeconds,
+                options:{temperature:0.2, num_ctx:LocalAiRuntime.contextTokens},
+                messages:[{role:"user", content:prompt}]
+            }));
+        }, xhr);
         return () => {
             xhr.abort();
             done("", "");
@@ -168,9 +171,10 @@ Singleton {
 
     Process {
         id: checkProc
-        command: ["sh", "-c", 'test -x "$1" && test -f "$2/models/en_ru/model/model.bin" && test -f "$2/models/ru_en/model/model.bin"', "velora", root.enginePath, root.dataDir]
+        command: ["sh", "-c", 'test -x "$1" && test -f "$2/models/en_ru/model/model.bin" && test -f "$2/models/ru_en/model/model.bin" && test -f "$2/models/en_ru/sentencepiece.model" && test -f "$2/models/ru_en/sentencepiece.model" && exit 0; test -d "$2/models" && exit 2; exit 1', "velora", root.enginePath, root.dataDir]
         onExited: (exitCode, exitStatus) => {
             root.installed = exitCode === 0;
+            root.partial = exitCode === 2;
             root.checked = true;
         }
     }

@@ -7,7 +7,8 @@ import Qt5Compat.GraphicalEffects
 Item {
     id: root
 
-    readonly property string quoteText: Config.options.background.widgets.clock.quote.text
+    property var colors: Appearance.colors
+    property string quoteText: Config.options.background.widgets.clock.quote.text
 
     implicitWidth: quoteBox.implicitWidth
     implicitHeight: quoteBox.implicitHeight
@@ -19,7 +20,7 @@ Item {
         verticalOffset: 2
         radius: 12
         samples: radius * 2 + 1
-        color: Appearance.colors.colShadow
+        color: root.colors.colShadow
         transparentBorder: true
     }
     
@@ -29,7 +30,7 @@ Item {
         implicitWidth: quoteRow.implicitWidth + 8 * 2
         implicitHeight: quoteRow.implicitHeight + 4 * 2
         radius: Appearance.rounding.small
-        color: Appearance.colors.colSecondaryContainer
+        color: root.colors.colSecondaryContainer
 
         Row {
             id: quoteRow
@@ -41,13 +42,13 @@ Item {
                 anchors.top: parent.top
                 iconSize: Appearance.font.pixelSize.huge
                 text: "format_quote"
-                color: Appearance.colors.colOnSecondaryContainer
+                color: root.colors.colOnSecondaryContainer
             }
             StyledText {
                 id: quoteStyledText
                 horizontalAlignment: Text.AlignLeft
-                text: Config.options.background.widgets.clock.quote.text
-                color: Appearance.colors.colOnSecondaryContainer
+                text: root.quoteText
+                color: root.colors.colOnSecondaryContainer
                 font {
                     family: Appearance.font.family.reading
                     pixelSize: Appearance.font.pixelSize.large

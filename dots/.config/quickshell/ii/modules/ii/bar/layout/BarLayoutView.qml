@@ -18,6 +18,12 @@ import Quickshell
 Item {
     id: root
 
+    property var barOptions: Config.options.bar
+    property var barColors: Appearance.colors
+    property bool preview: false
+    property int previewWorkspace: 0
+    readonly property real thickness: barOptions.style.thickness > 0 ? barOptions.style.thickness : (vertical ? 46 : 40)
+    readonly property real floatMargin: barOptions.style.floatMargin >= 0 ? barOptions.style.floatMargin : Appearance.sizes.hyprlandGapsOut
     property bool vertical: false
     property var layoutData: vertical ? BarLayout.vertical : BarLayout.horizontal
     readonly property string orientation: vertical ? "vertical" : "horizontal"
@@ -56,6 +62,9 @@ Item {
     readonly property var zones: layoutData?.zones ?? ({})
     readonly property var actions: layoutData?.actions ?? ({})
     readonly property var zoneItems: [startZone, centerStartZone, centerZone, centerEndZone, endZone]
+    readonly property bool assistantActive: !preview && !editing && !GlobalStates.screenLocked && (Ai.nativeGenerating || Assistant.thinking)
+    readonly property bool sidebarShowsActivity: assistantActive && root.barOptions.topLeftIcon === "spark"
+        && zoneItems.some(zone => zone && zone.orderedHosts().some(host => host.type === "leftSidebarButton"))
 
     // The widget under a point of this view, or null
     function hostAt(x, y) {
@@ -140,8 +149,8 @@ Item {
 
     ContextMenuPopup {
         id: barMenu
-        openEdge: root.vertical ? (Config.options.bar.bottom ? Edges.Left : Edges.Right)
-            : (Config.options.bar.bottom ? Edges.Top : Edges.Bottom)
+        openEdge: root.vertical ? (root.barOptions.bottom ? Edges.Left : Edges.Right)
+            : (root.barOptions.bottom ? Edges.Top : Edges.Bottom)
     }
 
     MouseArea { // Shift + right click anywhere opens the bar menu, even over widgets
@@ -173,6 +182,12 @@ Item {
 
     BarWidgetFactory {
         id: factory
+        barOptions: root.barOptions
+        barColors: root.barColors
+        preview: root.preview
+        previewScreen: root.preview ? root.screen : null
+        previewWorkspace: root.previewWorkspace
+        sidebarActivity: root.sidebarShowsActivity
     }
 
     // Soft shadow under the zones' contents, so text stays readable on a see-through bar
@@ -183,7 +198,7 @@ Item {
         shadowVerticalOffset: 1
         shadowHorizontalOffset: 0
     }
-    readonly property bool textShadow: Config.options.bar.style.textShadow
+    readonly property bool textShadow: root.barOptions.style.textShadow
 
     // Centered by the Grid's item alignment: anchors aren't allowed inside a Grid and would stop it
     component CenterSeparator: Rectangle {
@@ -192,13 +207,13 @@ Item {
         color: Appearance.colors.colOutlineVariant
     }
 
-    readonly property bool drawsBackground: Config.options.bar.showBackground && !Config.options.bar.style.islands
-    readonly property real edgePadding: Config.options.bar.style.edgePadding >= 0 ? Config.options.bar.style.edgePadding
+    readonly property bool drawsBackground: root.barOptions.showBackground && !root.barOptions.style.islands
+    readonly property real edgePadding: root.barOptions.style.edgePadding >= 0 ? root.barOptions.style.edgePadding
         : vertical ? (Appearance.sizes.baseVerticalBarWidth - 30) / 2 + Appearance.sizes.hyprlandGapsOut : Appearance.rounding.screenRounding
 
     // Background shadow
     Loader {
-        active: root.drawsBackground && Config.options.bar.cornerStyle === 1 && Config.options.bar.floatStyleShadow
+        active: root.drawsBackground && root.barOptions.cornerStyle === 1 && root.barOptions.floatStyleShadow
         anchors.fill: barBackground
         sourceComponent: StyledRectangularShadow {
             anchors.fill: undefined // The loader's anchors act on this, and this should not have any anchor
@@ -210,12 +225,20 @@ Item {
         id: barBackground
         anchors {
             fill: parent
-            margins: Config.options.bar.cornerStyle === 1 ? Appearance.sizes.barFloatMargin : 0
+            margins: root.barOptions.cornerStyle === 1 ? root.floatMargin : 0
         }
-        color: root.drawsBackground ? Appearance.colors.colBarBackground : "transparent"
-        radius: Config.options.bar.cornerStyle === 1 ? (Config.options.bar.style.radius >= 0 ? Config.options.bar.style.radius : Appearance.rounding.windowRounding) : 0
-        border.width: Config.options.bar.cornerStyle === 1 && root.drawsBackground ? 1 : 0
-        border.color: Appearance.colors.colLayer0Border
+        color: root.drawsBackground ? root.barColors.colBarBackground : "transparent"
+        radius: root.barOptions.cornerStyle === 1 ? (root.barOptions.style.radius >= 0 ? root.barOptions.style.radius : Appearance.rounding.windowRounding) : 0
+        border.width: root.barOptions.cornerStyle === 1 && root.drawsBackground ? 1 : 0
+        border.color: root.barColors.colLayer0Border
+    }
+
+    AiThinkingIndicator {
+        id: activityStar
+        objectName: "barActivityIndicator"
+        active: root.assistantActive && !root.sidebarShowsActivity
+        x: root.vertical ? (root.width - width) / 2 : root.edgePadding
+        y: root.vertical ? root.edgePadding : (root.height - height) / 2
     }
 
     BarZone {
@@ -239,7 +262,7 @@ Item {
             right: root.vertical ? parent.right : middleRow.left
         }
         outerSide: root.vertical ? "top" : "left"
-        outerPadding: root.edgePadding
+        outerPadding: root.edgePadding + (activityStar.active ? activityStar.implicitWidth + 4 : 0)
         innerPadding: Appearance.rounding.screenRounding
         spacing: root.vertical ? 8 : 10
     }
@@ -278,7 +301,7 @@ Item {
         }
 
         CenterSeparator {
-            visible: Config.options.bar.borderless && centerStartZone.hasContent && centerZone.hasContent
+            visible: root.barOptions.borderless && centerStartZone.hasContent && centerZone.hasContent
         }
 
         BarZone {
@@ -300,7 +323,7 @@ Item {
         }
 
         CenterSeparator {
-            visible: Config.options.bar.borderless && centerZone.hasContent && centerEndZone.hasContent
+            visible: root.barOptions.borderless && centerZone.hasContent && centerEndZone.hasContent
         }
 
         BarZone {

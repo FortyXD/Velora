@@ -27,12 +27,20 @@ ToolTip {
 
     delay: 0
     visible: internalVisibleCondition
-    
+    enter: Transition {
+        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Appearance.scaledDuration(140); easing.type: Easing.OutCubic }
+        NumberAnimation { property: "scale"; from: 0.94; to: 1; duration: Appearance.scaledDuration(140); easing.type: Easing.OutCubic }
+    }
+    exit: Transition {
+        NumberAnimation { property: "opacity"; to: 0; duration: Appearance.scaledDuration(100); easing.type: Easing.InCubic }
+        NumberAnimation { property: "scale"; to: 0.97; duration: Appearance.scaledDuration(100); easing.type: Easing.InCubic }
+    }
+
     contentItem: StyledToolTipContent {
         id: contentItem
         font: root.font
         text: root.text
-        shown: root.internalVisibleCondition
+        shown: true
         horizontalPadding: root.horizontalPadding
         verticalPadding: root.verticalPadding
         maximumWidth: root.paneBounds ? Math.max(0, root.paneBounds.width - 2 * root.margins - root.leftPadding - root.rightPadding) : Infinity

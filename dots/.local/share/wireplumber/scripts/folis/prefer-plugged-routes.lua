@@ -1,4 +1,4 @@
--- Folis: a port whose jack is plugged in (headphones, a headset mic) is used even when another port was
+-- Velora: a port whose jack is plugged in (headphones, a headset mic) is used even when another port was
 -- saved for the device. Runs before WirePlumber restores the saved port; the saved volume of whichever port
 -- gets picked is still restored afterwards (device/apply-route-props).
 

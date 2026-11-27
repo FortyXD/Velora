@@ -22,7 +22,7 @@ import Quickshell.Io
  * `loop: { start, end, crossfade }` (seconds): that part of it is made to repeat without a jump.
  *
  * Built-in presets are defaults/presets/*.json; your own are saved under
- * ~/.config/illogical-impulse/presets/<slug>/preset.json (with a copy of the wallpaper).
+ * ~/.config/velora/presets/<slug>/preset.json (with a copy of the wallpaper).
  * Applying runs in the shell (IPC "presets"), after backing up what it changes for undo. Everything
  * slow happens while the screen is still live: downloading the wallpaper, generating its palette
  * (switchwall --prepare) and decoding it on every screen. Only then is the screen captured, and
@@ -636,6 +636,14 @@ Singleton {
         if (preset.theme) {
             preset.theme.mode = Appearance.m3colors.darkmode ? "dark" : "light";
             preset.theme.accent = Config.options.appearance.palette.accentColor ?? "";
+            const roles = ["primary", "on_primary", "primary_container", "on_primary_container",
+                "secondary", "secondary_container", "on_secondary_container", "tertiary", "tertiary_container",
+                "on_tertiary_container", "surface_container_low", "surface_container", "surface_container_high",
+                "surface_container_highest", "on_surface", "on_surface_variant", "outline", "outline_variant", "error"];
+            preset.theme.previewPalette = Object.fromEntries(roles.map(role => {
+                const key = "m3" + role.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+                return [role, String(Appearance.m3colors[key])];
+            }));
         }
         if (preset.wallpaperAnimations) {
             preset.wallpaperAnimations.animationProfile = HyprlandSettings.animationProfile;

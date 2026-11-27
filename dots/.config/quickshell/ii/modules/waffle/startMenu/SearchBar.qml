@@ -102,7 +102,7 @@ FooterRectangle {
                 Layout.alignment: Qt.AlignVCenter
                 implicitHeight: 24
                 accent: Looks.colors.accent
-                active: Assistant.thinking || (Lens.thinking && Lens.query === LauncherSearch.query)
+                active: (Assistant.origin === "launcher" && Assistant.thinking) || (Lens.thinking && Lens.query === LauncherSearch.query)
             }
         }
     }

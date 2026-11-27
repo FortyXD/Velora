@@ -1,6 +1,8 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
 
+// Took many bits from https://github.com/caelestia-dots/shell (GPLv3)
+
 import Quickshell
 import QtQuick
 import qs.services.network
@@ -405,7 +407,15 @@ Singleton {
     }
 
     function openPublicWifiPortal(): void {
-        Quickshell.execDetached(["xdg-open", "https://nmcheck.gnome.org/"]);
+        portalProbe.open(root.state.connectivityCheckUri ?? "");
+    }
+
+    WifiPortalProbe {
+        id: portalProbe
+        onResolved: url => {
+            if (root.connectivity === "portal" && !Qt.openUrlExternally(url))
+                root.connectionWarning = Translation.tr("Could not open the browser. Open this address to sign in: %1").arg(url);
+        }
     }
 
     onStateChanged: updateNetworks()

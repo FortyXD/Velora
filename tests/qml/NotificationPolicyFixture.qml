@@ -38,10 +38,10 @@ ShellRoot {
                     && !prefs.endOfWindow(stamp(13,7), "22:00", "07:00")
                     && prefs.endOfWindow(stamp(13,9), "09:00", "11:00") === stamp(13,11)
                     && !prefs.endOfWindow(stamp(13,9), "09:00", "09:00"), "daily and overnight boundaries")) return;
-                if (!root.check(prefs.corner === "topRight", "default ii corner")) return;
+                if (!root.check(prefs.corner === "topRight", "default Velora corner")) return;
                 Config.options.panelFamily = "waffle";
                 if (!root.check(prefs.corner === "bottomRight", "default waffle corner")) return;
-                Config.options.panelFamily = "ii";
+                Config.options.panelFamily = "velora";
                 prefs.schedule.from = Qt.formatTime(new Date(Date.now() - 3600000), "HH:mm");
                 prefs.schedule.to = Qt.formatTime(new Date(Date.now() + 3600000), "HH:mm");
                 prefs.schedule.enabled = true;

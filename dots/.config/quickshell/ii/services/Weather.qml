@@ -548,7 +548,7 @@ Singleton {
         property bool json: true
         function get(url, callback) {
             request.callback = callback;
-            request.command = ["curl", "-sSfL", "-m", String(request.timeout), "-A", "Folis-shell/1.0 (weather widget)", url];
+            request.command = ["curl", "-sSfL", "-m", String(request.timeout), "-A", "Velora-shell/1.0 (weather widget)", url];
             request.running = true;
         }
         stdout: StdioCollector {

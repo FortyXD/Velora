@@ -76,18 +76,19 @@ Singleton {
         running: true
         onTriggered: {
             owner.timer = null;
-            if (owner.isTransient) root.discardNotification(owner.notificationId);
-            else root.timeoutNotification(owner.notificationId);
+            root.timeoutNotification(owner.notificationId);
             destroy();
         }
     }
 
     readonly property bool silent: NotificationPreferences.silent
+    // Settings can render the actual indicators and history. Only the desktop session owns the notification bus.
+    readonly property bool serving: !Config.isSettingsApp
     property int unread: 0
     function toggleSilent() { NotificationPreferences.setQuiet(!root.silent); }
     onSilentChanged: {
         if (!root.silent) return;
-        for (const n of root.list) {
+        for (const n of root.list.slice()) {
             if (n?.popup && !root.ruleFor(root.appKey(n.appName, n.desktopEntry)).bypassDnd)
                 root.timeoutNotification(n.notificationId);
         }
@@ -116,7 +117,7 @@ Singleton {
     }
     // Apps in the saved notifications count too, the first time this list is made
     function seedSeenApps() {
-        if (!root.seenAppsLoaded) return;
+        if (!root.serving || !root.seenAppsLoaded) return;
         const known = new Set(Object.keys(root.seenApps));
         let added = false;
         for (const notif of root.list) {
@@ -155,10 +156,11 @@ Singleton {
     Timer {
         id: seenAppsWriteTimer
         interval: 1500
-        onTriggered: seenAppsFile.setText(JSON.stringify(root.seenApps, null, 2))
+        onTriggered: if (root.serving) seenAppsFile.setText(JSON.stringify(root.seenApps, null, 2))
     }
 
     IpcHandler {
+        enabled: root.serving
         target: "notifications"
         function toggleSilent(): void { root.toggleSilent(); }
         function setSilent(on: bool): void { NotificationPreferences.setQuiet(on); }
@@ -220,7 +222,7 @@ Singleton {
     }
 
     function stringifyList(list) {
-        return JSON.stringify(list.filter(notif => notif).map((notif) => notifToJSON(notif)), null, 2);
+        return JSON.stringify(list.filter(notif => notif && !notif.isTransient).map(notif => notifToJSON(notif)), null, 2);
     }
     
     onListChanged: {
@@ -278,51 +280,71 @@ Singleton {
     signal discardAll();
     signal timeout(id: var);
 
-	NotificationServer {
-        id: notifServer
-        // actionIconsSupported: true
-        actionsSupported: true
-        bodyHyperlinksSupported: true
-        bodyImagesSupported: false
-        bodyMarkupSupported: true
-        bodySupported: true
-        imageSupported: true
-        keepOnReload: false
-        persistenceSupported: true
+    LazyLoader {
+        active: root.serving
+        component: NotificationServer {
+            // actionIconsSupported: true
+            actionsSupported: true
+            bodyHyperlinksSupported: true
+            bodyImagesSupported: false
+            bodyMarkupSupported: true
+            bodySupported: true
+            imageSupported: true
+            keepOnReload: false
+            persistenceSupported: true
 
-        onNotification: (notification) => {
-            const key = root.appKey(notification.appName, notification.desktopEntry);
-            root.rememberApp(key, notification.appName, notification.appIcon, notification.desktopEntry);
-            const rule = root.ruleFor(key);
-            if (rule.mode === "off") return; // Left untracked, so the server drops it
-            notification.tracked = true
-            const newNotifObject = notifComponent.createObject(root, {
-                "notificationId": notification.id + root.idOffset,
-                "notification": notification,
-                "time": Date.now(),
-            });
-			root.list = [...root.list, newNotifObject];
+            onNotification: (notification) => {
+                const key = root.appKey(notification.appName, notification.desktopEntry);
+                root.rememberApp(key, notification.appName, notification.appIcon, notification.desktopEntry);
+                const rule = root.ruleFor(key);
+                if (rule.mode === "off") return; // Left untracked, so the server drops it
+                notification.tracked = true
+                const newNotifObject = notifComponent.createObject(root, {
+                    "notificationId": notification.id + root.idOffset,
+                    "notification": notification,
+                    "time": Date.now(),
+                });
+                root.list = [...root.list, newNotifObject];
 
-            // Popup: not for apps set to "only in the list"; apps allowed through do not disturb still pop up
-            const showPopup = rule.mode !== "silent" && !root.centerOpen && (!root.silent || rule.bypassDnd === true);
-            if (!root.centerOpen) root.unread++;
-            if (showPopup) {
-                newNotifObject.popup = true;
-                if (notification.expireTimeout != 0) {
+                // Popup: not for apps set to "only in the list"; apps allowed through do not disturb still pop up
+                const showPopup = rule.mode !== "silent" && !root.centerOpen && (!root.silent || rule.bypassDnd === true);
+                if (!root.centerOpen) root.unread++;
+                newNotifObject.popup = showPopup;
+                if ((showPopup || newNotifObject.isTransient) && notification.expireTimeout !== 0) {
                     newNotifObject.timer = notifTimerComponent.createObject(newNotifObject, {
                         "owner": newNotifObject,
                         "interval": notification.expireTimeout < 0 ? (Config?.options.notifications.timeout ?? 7000) : notification.expireTimeout,
                     });
                 }
+                root.notify(newNotifObject);
+                // console.log(notifToString(newNotifObject));
+                notifFileView.setText(stringifyList(root.list));
             }
-            root.notify(newNotifObject);
-            // console.log(notifToString(newNotifObject));
-            notifFileView.setText(stringifyList(root.list));
         }
     }
 
     function markAllRead() {
         root.unread = 0;
+    }
+
+    // The view can close or replace its delegates during a slide. Finish the user's dismissal here.
+    Component {
+        id: delayedDismissal
+        Timer {
+            required property list<int> ids
+            onTriggered: {
+                for (const id of ids) root.discardNotification(id);
+                destroy();
+            }
+        }
+    }
+    function discardAfter(ids, delay) {
+        if (delay <= 0) {
+            for (const id of ids) root.discardNotification(id);
+            return;
+        }
+        for (const id of ids) root.cancelTimeout(id);
+        delayedDismissal.createObject(root, {ids, interval: delay}).start();
     }
 
     function discardNotification(id) {
@@ -346,42 +368,36 @@ Singleton {
 
     function cancelTimeout(id) {
         if (id === -1) { previewTimer.stop(); return; }
-        const index = root.list.findIndex((notif) => notif.notificationId === id);
-        root.list[index]?.timer?.stop();
+        root.list.find(n => n?.notificationId === id)?.timer?.stop();
     }
 
     function timeoutNotification(id) {
         if (id === -1) { root.clearPreview(); return; }
-        const index = root.list.findIndex((notif) => notif.notificationId === id);
-        if (root.list[index] != null)
-            root.list[index].popup = false;
+        const notif = root.list.find(n => n?.notificationId === id);
+        if (!notif) return;
+        if (notif.isTransient) { root.discardNotification(id); return; }
+        if (!notif.popup) return;
+        if (notif.timer) {
+            notif.timer.stop();
+            notif.timer.destroy();
+            notif.timer = null;
+        }
+        notif.popup = false;
         root.timeout(id);
     }
 
     function timeoutAll() {
         root.clearPreview();
-        root.popupList.forEach((notif) => {
-            root.timeout(notif.notificationId);
-        })
-        root.popupList.forEach((notif) => {
-            notif.popup = false;
-        });
+        for (const notif of root.popupList.slice()) root.timeoutNotification(notif.notificationId);
     }
 
     function attemptInvokeAction(id, notifIdentifier) {
-        console.log("[Notifications] Attempting to invoke action with identifier: " + notifIdentifier + " for notification ID: " + id);
-        const notifServerIndex = notifServer.trackedNotifications.values.findIndex((notif) => notif.id + root.idOffset === id);
-        console.log("Notification server index: " + notifServerIndex);
-        if (notifServerIndex !== -1) {
-            const notifServerNotif = notifServer.trackedNotifications.values[notifServerIndex];
-            const action = notifServerNotif.actions.find((action) => action.identifier === notifIdentifier);
-            // console.log("Action found: " + JSON.stringify(action));
-            action.invoke()
-        } 
-        else {
-            console.log("Notification not found in server: " + id)
-        }
-        root.discardNotification(id);
+        const live = root.list.find(n => n?.notificationId === id)?.notification;
+        const action = live?.actions.find(a => a.identifier === notifIdentifier);
+        if (!action) return;
+        const resident = live.resident;
+        action.invoke();
+        if (!resident) root.discardNotification(id);
     }
 
     function refresh() {
@@ -427,7 +443,7 @@ Singleton {
             if(error == FileViewError.FileNotFound) {
                 console.log("[Notifications] File not found, creating new file.")
                 root.list = []
-                notifFileView.setText(stringifyList(root.list));
+                if (root.serving) notifFileView.setText(stringifyList(root.list));
             } else {
                 console.log("[Notifications] Error loading file: " + error)
             }

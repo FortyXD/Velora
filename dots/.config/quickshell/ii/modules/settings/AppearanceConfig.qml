@@ -39,10 +39,9 @@ SettingsDetailPage {
         return speed === 0 ? Translation.tr("Off")
             : speed.toLocaleString(Qt.locale(Translation.languageCode), "f", Number.isInteger(speed) ? 0 : 1) + "×";
     }
-    function regenerateColors(mode = "") {
-        const args = ["bash", Directories.wallpaperSwitchScriptPath, "--noswitch", "--type", Config.options.appearance.palette.type];
-        if (mode.length > 0) args.push("--mode", mode);
-        Quickshell.execDetached(args);
+    function regenerateColors(mode = Appearance.m3colors.darkmode ? "dark" : "light") {
+        Quickshell.execDetached(["bash", Directories.wallpaperSwitchScriptPath, "--noswitch",
+            "--type", Config.options.appearance.palette.type, "--mode", mode]);
     }
     function setMotion(motion) {
         if (motion === "off") {
@@ -147,6 +146,7 @@ SettingsDetailPage {
                     }
                     ConfigComboRow {
                         id: paletteRow
+                        objectName: "appearanceScheme"
                         icon: "palette"
                         text: Translation.tr("Palette")
                         searchText: text + " " + Translation.tr("How colors are picked from the wallpaper") + " " + dropdown.displayText
@@ -320,6 +320,7 @@ SettingsDetailPage {
                     enabled: root.theming.enableAppsAndShell
                     buttonIcon: "terminal"
                     text: Translation.tr("Color the terminal")
+                    description: Translation.tr("Apply wallpaper colors to the terminal, tmux and the Velora btop theme.")
                     autoToggle: false
                     checked: root.theming.enableTerminal
                     onClicked: Config.options.appearance.wallpaperTheming.enableTerminal = !root.theming.enableTerminal

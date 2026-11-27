@@ -26,7 +26,7 @@ Scope {
         anchors {
             top: true
             right: NotificationPreferences.right
-            left: !NotificationPreferences.right
+            left: NotificationPreferences.left
             bottom: true
         }
 

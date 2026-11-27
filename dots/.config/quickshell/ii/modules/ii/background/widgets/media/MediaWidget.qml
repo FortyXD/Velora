@@ -16,7 +16,7 @@ AbstractBackgroundWidget {
     configEntryName: "media"
 
     readonly property MprisPlayer player: MprisController.activePlayer
-    readonly property bool hideWhenIdle: Config.options.background.widgets.media.hideWhenIdle
+    readonly property bool hideWhenIdle: root.configEntry.hideWhenIdle
     readonly property bool hidden: root.hideWhenIdle && root.player === null
 
     implicitWidth: Appearance.sizes.mediaControlsWidth
@@ -38,7 +38,7 @@ AbstractBackgroundWidget {
         anchors.fill: parent
         anchors.margins: Appearance.sizes.elevationMargin
         radius: Appearance.rounding.verylarge
-        color: Appearance.colors.colLayer0
+        color: root.widgetColors.colLayer0
 
         RowLayout {
             anchors.centerIn: parent
@@ -55,12 +55,12 @@ AbstractBackgroundWidget {
                     text: Translation.tr("Nothing playing")
                     font.pixelSize: Appearance.font.pixelSize.normal
                     font.weight: Font.Medium
-                    color: Appearance.colors.colOnLayer0
+                    color: root.widgetColors.colOnLayer0
                 }
                 StyledText {
                     text: Translation.tr("Start music or a video to control it here")
                     font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: Appearance.colors.colSubtext
+                    color: root.widgetColors.colSubtext
                 }
             }
         }

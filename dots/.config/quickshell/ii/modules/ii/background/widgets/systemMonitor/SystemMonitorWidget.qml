@@ -17,7 +17,7 @@ DesktopWidgetCard {
     id: root
     configEntryName: "systemMonitor"
 
-    readonly property var options: Config.options.background.widgets.systemMonitor
+    readonly property var options: root.configEntry
     readonly property int interval: Config.options.resources.updateInterval
 
     // Temperature
@@ -134,7 +134,7 @@ DesktopWidgetCard {
                 text: meter.icon
                 iconSize: 18
                 fill: 1
-                color: meter.warning ? Appearance.colors.colError : root.colOnCardVariant
+                color: meter.warning ? root.widgetColors.colError : root.colOnCardVariant
             }
             StyledText {
                 Layout.fillWidth: true
@@ -147,7 +147,7 @@ DesktopWidgetCard {
                 font.family: Appearance.font.family.numbers
                 font.variableAxes: Appearance.font.variableAxes.numbers
                 font.pixelSize: Appearance.font.pixelSize.small
-                color: meter.warning ? Appearance.colors.colError : root.colOnCard
+                color: meter.warning ? root.widgetColors.colError : root.colOnCard
             }
         }
         Item {
@@ -163,7 +163,7 @@ DesktopWidgetCard {
                     width: Math.max(height, parent.width * Math.min(1, Math.max(0, meter.fraction)))
                     height: parent.height
                     radius: height / 2
-                    color: meter.warning ? Appearance.colors.colError : root.colAccent
+                    color: meter.warning ? root.widgetColors.colError : root.colAccent
                     Behavior on width {
                         animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
                     }
@@ -180,7 +180,7 @@ DesktopWidgetCard {
                     values: meter.history
                     points: Config.options.resources.historyLength
                     alignment: Graph.Alignment.Right
-                    color: meter.warning ? Appearance.colors.colError : root.colAccent
+                    color: meter.warning ? root.widgetColors.colError : root.colAccent
                     fillOpacity: 0.3
                 }
             }
@@ -213,7 +213,7 @@ DesktopWidgetCard {
                 text: `${Math.round(root.temperature)}°C`
                 font.family: Appearance.font.family.numbers
                 font.pixelSize: Appearance.font.pixelSize.small
-                color: root.temperature >= 85 ? Appearance.colors.colError : root.colOnCardVariant
+                color: root.temperature >= 85 ? root.widgetColors.colError : root.colOnCardVariant
             }
         }
 

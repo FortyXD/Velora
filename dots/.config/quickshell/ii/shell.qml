@@ -25,6 +25,7 @@ ShellRoot {
     // Stuff for every panel family
     ReloadPopup {}
     ThemeTransitionOverlay {}
+    WindowSnapPreview {}
     ConnectivityPromptWindow {}
 
     // This is the process that answers password and pairing requests, and keeps the daemon's settings up to date
@@ -37,20 +38,6 @@ ShellRoot {
     Binding { target: Lens; property: "mainShell"; value: true }
     Binding { target: Assistant; property: "mainShell"; value: true }
     GlobalShortcut { name: "assistantStop"; description: "Stop the desktop assistant"; onPressed: Assistant.cancel() }
-    PanelWindow {
-        visible: Assistant.busy && !GlobalStates.screenLocked && !(Assistant.panelOpen && (GlobalStates.overviewOpen || GlobalStates.searchOpen))
-        anchors { top: true; right: true }
-        implicitWidth: 260; implicitHeight: 48
-        color: "transparent"
-        exclusiveZone: 0
-        Rectangle {
-            anchors.fill: parent
-            color: "#25252d"; radius: 12
-            Text { anchors.centerIn: parent; text: (Assistant.currentAction || "Velora") + " · " + Translation.tr("Stop"); color: "white" }
-            MouseArea { anchors.fill: parent; onClicked: Assistant.cancel() }
-        }
-    }
-
     // `qs -c ii ipc call themeTransition test`: the wave alone, over an unchanged screen
     IpcHandler {
         target: "themeTransition"
@@ -95,7 +82,7 @@ ShellRoot {
 
 
     // Panel families
-    property list<string> families: ["ii", "waffle"]
+    property list<string> families: ["velora", "waffle"]
     property string activePanelFamily
     Binding {
         target: root
@@ -123,8 +110,8 @@ ShellRoot {
     }
     
     PanelFamilyLoader {
-        identifier: "ii"
-        component: IllogicalImpulseFamily {}
+        identifier: "velora"
+        component: VeloraFamily {}
     }
 
     PanelFamilyLoader {

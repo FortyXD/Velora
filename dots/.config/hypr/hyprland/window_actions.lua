@@ -68,7 +68,16 @@ end
 function M.toggle_maximize(address)
     local w = M.find(address)
     if not w then return end
-    hl.dispatch(hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle", layout_aware = false, window = "address:" .. w.address }))
+    local free = package.loaded["hyprland.modes.floating"]
+    if free and free.recover_free and free.recover_free(w) then return end
+    local mode = (w.fullscreen or 0) ~= 0 and w.fullscreen or (w.fullscreen_client or 0)
+    if mode ~= 0 and hl.dsp.window.fullscreen_state then
+        hl.dispatch(hl.dsp.window.fullscreen_state({ internal = 0, client = 0, window = "address:" .. w.address }))
+        return
+    end
+    local full = mode >= 2
+    hl.dispatch(hl.dsp.window.fullscreen({ mode = full and "fullscreen" or "maximized",
+        action = mode ~= 0 and "unset" or "set", layout_aware = false, window = "address:" .. w.address }))
 end
 
 function M.show_desktop()

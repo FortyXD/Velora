@@ -33,7 +33,8 @@ StyledPopup {
     interactive: !leavePanel
     keepOpen: leavePanel && panelHovered
     closeImmediately: leavePanel && !panelHovered
-    openDelay: 220
+    openDelay: 0
+    animate: false
     readonly property bool preparing: hoverEnabled && targetHovered && !dismissed && !closeImmediately
 
     property int workspaceId: 0

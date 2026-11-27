@@ -1,11 +1,13 @@
 import qs.modules.common
+import qs.services
 import qs.modules.common.widgets
 import QtQuick
 
 GroupButton {
     id: button
     property string buttonIcon
-    baseWidth: 40
+    property string toggleType: ""
+    baseWidth: toggleType ? Math.min(parent?.width || 130, SidebarLayout.classicSize(toggleType) * 45 - 5) : 40
     baseHeight: 40
     clickedWidth: baseWidth + 20
     toggled: false

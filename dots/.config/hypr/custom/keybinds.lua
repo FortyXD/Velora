@@ -9,7 +9,7 @@ function M.setup(api)
     local exec = api.exec or h.exec
 
     -- User helpers.
-    bind("Ctrl+Super", "Slash", exec([=[xdg-open ~/.config/illogical-impulse/config.json]=]), {
+    bind("Ctrl+Super", "Slash", exec([=[xdg-open "${XDG_CONFIG_HOME:-$HOME/.config}/velora/config.json"]=]), {
         id = "custom.edit_shell_config",
         description = "Edit the shell config file",
     })

@@ -18,9 +18,8 @@ Item {
 
     Loader {
         id: panelLoader
-        readonly property bool fillsWidth: Config.options.sidebar.quickToggles.style !== "classic"
         anchors.horizontalCenter: parent.horizontalCenter
-        width: panelLoader.fillsWidth ? parent.width : (item?.implicitWidth ?? 0)
+        width: parent.width
         height: parent.height
         sourceComponent: Config.options.sidebar.quickToggles.style === "classic" ? classicPanel : androidPanel
         Connections {

@@ -76,6 +76,7 @@ Toolbar {
             }
         }
 
+        Keys.onReleased: event => { if (root.interactive && event.key === Qt.Key_CapsLock) root.context.refreshKeyboardState(); }
         Keys.onPressed: event => {
             if (!root.interactive) return;
             root.context.resetClearTimer();

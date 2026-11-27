@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import qs.modules.common
 import qs.modules.settings.preview
+import qs.modules.ii.background.widgets.clock
 import qs.services
 
 FloatingWindow {
@@ -15,6 +16,7 @@ FloatingWindow {
     property int step: 0
     property string suggestion: ""
     TestCase { id: input; when: false }
+    CookieClock { id: clock; x: -500; preview: true }
     FileView { id: savedConfig; path: Config.filePath; watchChanges: true; onFileChanged: reload() }
     FileView {
         id: terminalPalette
@@ -51,7 +53,10 @@ FloatingWindow {
             case 0:
                 MaterialThemeLoader.syncTerminals = true;
                 Config.options.background.wallpaperPath = Quickshell.shellPath("assets/images/autumn.jpg");
-                MaterialThemeLoader.applyColors(JSON.stringify({background: "#302020", primary: "#cc7766", secondary: "#808090"}));
+                MaterialThemeLoader.applyColors(JSON.stringify({background: "#302020", primary: "#cc7766",
+                    primary_container: "#482417", secondary: "#808090", tertiary: "#a8d576"}));
+                if (!window.expect(Qt.colorEqual(clock.colBackground, "#482417") && Qt.colorEqual(clock.colMinuteHand, "#a8d576"),
+                    "desktop clock uses the generated primary container and tertiary hand")) return;
                 if (!window.expect(!window.find("palettePicker"), "picker loaded before interaction")) return;
                 window.click(window.find("paletteRole_primary"));
                 break;
@@ -72,7 +77,8 @@ FloatingWindow {
                 break;
             }
             case 2:
-                if (!window.expect(colors.m3primary.toString().toUpperCase() === window.suggestion, "selected wallpaper color")) return;
+                if (!window.expect(colors.m3primary.toString().toUpperCase() === window.suggestion &&
+                    Qt.colorEqual(clock.colHourHand, window.suggestion), "selected wallpaper color reaches the clock")) return;
                 window.click(window.find("paletteRole_secondary"));
                 if (!window.expect(field.text.toLowerCase() === "#808090", "switched role")) return;
                 field.forceActiveFocus();
@@ -86,11 +92,12 @@ FloatingWindow {
                 if (disk.appearance?.palette?.roleOverrides?.secondary !== "#147ADE") return;
                 if (!window.terminalHas("selection_background #147ade")) return;
                 if (!window.expect(colors.m3secondary.toString() === "#147ade", "manual color reached shell palette")) return;
-                const nextPalette = JSON.stringify({background: "#eeeeee", primary: "#112233", secondary: "#667788"});
+                const nextPalette = JSON.stringify({background: "#eeeeee", primary: "#112233", primary_container: "#cbdaf0", secondary: "#667788"});
                 wallpaperColors.setText(nextPalette);
                 MaterialThemeLoader.applyColors(nextPalette);
                 if (!window.expect(colors.m3primary.toString().toUpperCase() === window.suggestion
-                    && colors.m3secondary.toString() === "#147ade", "new wallpaper replaced manual colors")) return;
+                    && colors.m3secondary.toString() === "#147ade" && Qt.colorEqual(clock.colBackground, "#cbdaf0"),
+                    "new scheme updates the clock and preserves manual colors")) return;
                 window.click(reset);
                 break;
             }

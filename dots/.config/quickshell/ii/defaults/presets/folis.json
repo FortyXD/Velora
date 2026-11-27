@@ -1,9 +1,9 @@
 {
     "version": 1,
-    "name": "Folis",
+    "name": "Velora",
     "icon": "home",
     "order": 0,
-    "description": "The look Folis ships with: hugging bar, soft blur, Material motion",
+    "description": "The look Velora ships with: hugging bar, soft blur, Material motion",
     "bar": {
         "config": {
             "bar": {

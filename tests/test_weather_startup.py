@@ -98,7 +98,7 @@ class WeatherStartupTests(unittest.TestCase):
             for name in ('services', 'modules', 'scripts', 'GlobalStates.qml'):
                 (shell / name).symlink_to(SHELL / name)
             (shell / 'shell.qml').write_text(DRIVER)
-            settings = root / 'config/illogical-impulse'
+            settings = root / 'config/velora'
             settings.mkdir()
             (settings / 'config.json').write_text(json.dumps({'bar': {'weather': {
                 'enable': True, 'enableGPS': source != 'city', 'city': 'Test City'

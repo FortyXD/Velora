@@ -15,17 +15,19 @@ import qs.modules.ii.background.widgets.clock.minuteMarks
 Item {
     id: root
 
-    readonly property string clockStyle: Config.options.background.widgets.clock.style
+    property var options: Config.options.background.widgets.clock.cookie
+    property var colors: Appearance.colors
+    property bool preview: false
 
     property real implicitSize: 230
 
-    property color colShadow: Appearance.colors.colShadow
-    property color colBackground: Appearance.colors.colPrimaryContainer
-    property color colOnBackground: ColorUtils.mix(Appearance.colors.colSecondary, Appearance.colors.colPrimaryContainer, 0.15)
-    property color colBackgroundInfo: ColorUtils.mix(Appearance.colors.colPrimary, Appearance.colors.colPrimaryContainer, 0.55)
-    property color colHourHand: Appearance.colors.colPrimary
-    property color colMinuteHand: Appearance.colors.colTertiary
-    property color colSecondHand: Appearance.colors.colPrimary
+    property color colShadow: root.colors.colShadow
+    property color colBackground: root.colors.colPrimaryContainer
+    property color colOnBackground: ColorUtils.mix(root.colors.colSecondary, root.colBackground, 0.15)
+    property color colBackgroundInfo: ColorUtils.mix(root.colors.colPrimary, root.colBackground, 0.55)
+    property color colHourHand: root.colors.colPrimary
+    property color colMinuteHand: root.colors.colTertiary
+    property color colSecondHand: root.colors.colPrimary
 
     readonly property list<string> clockNumbers: DateTime.time.split(/[: ]/)
     readonly property int clockHour: parseInt(clockNumbers[0]) % 12
@@ -36,16 +38,16 @@ Item {
     implicitHeight: implicitSize
 
     function applyStyle(sides, dialStyle, hourHandStyle, minuteHandStyle, secondHandStyle, dateStyle) {
-        Config.options.background.widgets.clock.cookie.sides = sides
-        Config.options.background.widgets.clock.cookie.dialNumberStyle = dialStyle
-        Config.options.background.widgets.clock.cookie.hourHandStyle = hourHandStyle
-        Config.options.background.widgets.clock.cookie.minuteHandStyle = minuteHandStyle
-        Config.options.background.widgets.clock.cookie.secondHandStyle = secondHandStyle
-        Config.options.background.widgets.clock.cookie.dateStyle = dateStyle
+        root.options.sides = sides
+        root.options.dialNumberStyle = dialStyle
+        root.options.hourHandStyle = hourHandStyle
+        root.options.minuteHandStyle = minuteHandStyle
+        root.options.secondHandStyle = secondHandStyle
+        root.options.dateStyle = dateStyle
     }
 
     function setClockPreset(category) {
-        if (!Config.options.background.widgets.clock.cookie.aiStyling) return;
+        if (root.preview || !root.options.aiStyling) return;
         if (category === "") return;
         print("[Cookie clock] Setting clock preset for category: " + category)
         // "abstract", "anime", "city", "minimalist", "landscape", "plants", "person", "space"
@@ -68,7 +70,7 @@ Item {
 
     FileView {
         id: categoryFileView
-        path: Config.ready ? Directories.generatedWallpaperCategoryPath : ""
+        path: !root.preview && Config.ready ? Directories.generatedWallpaperCategoryPath : ""
         watchChanges: true
         onFileChanged: reload()
         onLoaded: {
@@ -76,12 +78,13 @@ Item {
         }
     }
 
-    property bool useSineCookie: Config.options.background.widgets.clock.cookie.useSineCookie
+    property bool useSineCookie: root.options.useSineCookie
     StyledDropShadow {
+        visible: GraphicsInfo.api !== GraphicsInfo.Software
         target: root.useSineCookie ? sineCookieLoader : roundedPolygonCookieLoader
 
         RotationAnimation on rotation {
-            running: Config.options.background.widgets.clock.cookie.constantlyRotate && !PowerSaving.cutAnimations
+            running: !root.preview && root.options.constantlyRotate && !PowerSaving.cutAnimations
             duration: 30000
             easing.type: Easing.Linear
             loops: Animation.Infinite
@@ -92,28 +95,30 @@ Item {
     Loader {
         id: sineCookieLoader
         z: 0
-        visible: false // The DropShadow already draws it
+        visible: GraphicsInfo.api === GraphicsInfo.Software
         active: root.useSineCookie
         sourceComponent: SineCookie {
             implicitSize: root.implicitSize
-            sides: Config.options.background.widgets.clock.cookie.sides
+            sides: root.options.sides
             color: root.colBackground
         }
     }
     Loader {
         id: roundedPolygonCookieLoader
         z: 0
-        visible: false // The DropShadow already draws it
+        visible: GraphicsInfo.api === GraphicsInfo.Software
         active: !root.useSineCookie
         sourceComponent: MaterialCookie {
             implicitSize: root.implicitSize
-            sides: Config.options.background.widgets.clock.cookie.sides
+            sides: root.options.sides
             color: root.colBackground
         }
     }
 
     // Hour/minutes numbers/dots/lines
     MinuteMarks {
+        style: root.options.dialNumberStyle
+        dateStyle: root.options.dateStyle
         anchors.fill: parent
         color: root.colOnBackground
     }
@@ -122,7 +127,7 @@ Item {
     FadeLoader {
         id: hourMarksLoader
         anchors.centerIn: parent
-        shown: Config.options.background.widgets.clock.cookie.hourMarks
+        shown: root.options.hourMarks
         sourceComponent: HourMarks {
             implicitSize: 135 * (1.75 - 0.75 * hourMarksLoader.opacity)
             color: root.colOnBackground
@@ -134,13 +139,15 @@ Item {
     FadeLoader {
         id: timeColumnLoader
         anchors.centerIn: parent
-        shown: Config.options.background.widgets.clock.cookie.timeIndicators
+        shown: root.options.timeIndicators
         scale: 1.4 - 0.4 * timeColumnLoader.shown
         Behavior on scale {
             animation: Appearance.animation.elementResize.numberAnimation.createObject(this)
         }
 
         sourceComponent: TimeColumn {
+            isEnabled: root.options.timeIndicators
+            hourMarksEnabled: root.options.hourMarks
             color: root.colBackgroundInfo
         }
     }
@@ -149,11 +156,11 @@ Item {
     FadeLoader {
         anchors.fill: parent
         z: 1
-        shown: Config.options.background.widgets.clock.cookie.minuteHandStyle !== "hide"
+        shown: root.options.minuteHandStyle !== "hide"
         sourceComponent: MinuteHand {
             anchors.fill: parent
             clockMinute: root.clockMinute
-            style: Config.options.background.widgets.clock.cookie.minuteHandStyle
+            style: root.options.minuteHandStyle
             color: root.colMinuteHand
         }
     }
@@ -162,11 +169,11 @@ Item {
     FadeLoader {
         anchors.fill: parent
         z: item?.style === "hollow" ? 0 : 2
-        shown: Config.options.background.widgets.clock.cookie.hourHandStyle !== "hide"
+        shown: root.options.hourHandStyle !== "hide"
         sourceComponent: HourHand {
             clockHour: root.clockHour
             clockMinute: root.clockMinute
-            style: Config.options.background.widgets.clock.cookie.hourHandStyle
+            style: root.options.hourHandStyle
             color: root.colHourHand
         }
     }
@@ -174,13 +181,13 @@ Item {
     // Second hand
     FadeLoader {
         id: secondHandLoader
-        z: (Config.options.background.widgets.clock.cookie.secondHandStyle === "line") ? 2 : 3
-        shown: Config.options.time.secondPrecision && Config.options.background.widgets.clock.cookie.secondHandStyle !== "hide"
+        z: (root.options.secondHandStyle === "line") ? 2 : 3
+        shown: Config.options.time.secondPrecision && root.options.secondHandStyle !== "hide"
         anchors.fill: parent
         sourceComponent: SecondHand {
             id: secondHand
             clockSecond: root.clockSecond
-            style: Config.options.background.widgets.clock.cookie.secondHandStyle
+            style: root.options.secondHandStyle
             color: root.colSecondHand
         }
     }
@@ -189,9 +196,9 @@ Item {
     FadeLoader {
         z: 4
         anchors.centerIn: parent
-        shown: Config.options.background.widgets.clock.cookie.minuteHandStyle !== "bold"
+        shown: root.options.minuteHandStyle !== "bold"
         sourceComponent: Rectangle {
-            color: Config.options.background.widgets.clock.cookie.minuteHandStyle === "medium" ? root.colBackground : root.colMinuteHand
+            color: root.options.minuteHandStyle === "medium" ? root.colBackground : root.colMinuteHand
             implicitWidth: 6
             implicitHeight: implicitWidth
             radius: width / 2
@@ -201,11 +208,12 @@ Item {
     // Date
     FadeLoader {
         anchors.fill: parent
-        shown: Config.options.background.widgets.clock.cookie.dateStyle !== "hide"
+        shown: root.options.dateStyle !== "hide"
 
         sourceComponent: DateIndicator {
+            colors: root.colors
             color: root.colBackgroundInfo
-            style: Config.options.background.widgets.clock.cookie.dateStyle
+            style: root.options.dateStyle
         }
     }
 }

@@ -28,8 +28,8 @@ Item {
     readonly property bool settingsSearchable: true
     readonly property string searchText: title
     readonly property var corners: [
-        { key: "topLeft", label: Translation.tr("Top left") }, { key: "topRight", label: Translation.tr("Top right") },
-        { key: "bottomLeft", label: Translation.tr("Bottom left") }, { key: "bottomRight", label: Translation.tr("Bottom right") }
+        { key: "topLeft", label: Translation.tr("Top left") }, { key: "topCenter", label: Translation.tr("Top center") }, { key: "topRight", label: Translation.tr("Top right") },
+        { key: "bottomLeft", label: Translation.tr("Bottom left") }, { key: "bottomCenter", label: Translation.tr("Bottom center") }, { key: "bottomRight", label: Translation.tr("Bottom right") }
     ]
     Layout.fillWidth: true
     implicitHeight: width >= 500 ? 184 : 156
@@ -63,7 +63,7 @@ Item {
             objectName: "exampleBanner"
             width: Math.min(288, desktopStage.width * 0.65)
             height: content.implicitHeight + 22
-            x: NotificationPreferences.right ? desktopStage.width - width - 16 : 16
+            x: NotificationPreferences.centered ? (desktopStage.width - width) / 2 : NotificationPreferences.right ? desktopStage.width - width - 16 : 16
             y: NotificationPreferences.top ? 14 : desktopStage.height - height - 14
             Behavior on x { enabled: root.shown; animation: Appearance.animation.elementMove.numberAnimation.createObject(this) }
             Behavior on y { enabled: root.shown; animation: Appearance.animation.elementMove.numberAnimation.createObject(this) }
@@ -102,11 +102,12 @@ Item {
             delegate: RippleButton {
                 id: cornerButton
                 required property var modelData
-                readonly property bool rightCorner: modelData.key.endsWith("Right")
+                required property int index
+                readonly property int column: index % 3
                 readonly property bool topCorner: modelData.key.startsWith("top")
                 readonly property bool selected: NotificationPreferences.corner === modelData.key
-                width: desktopStage.width / 2; height: desktopStage.height / 2
-                x: rightCorner ? width : 0; y: topCorner ? 0 : height
+                width: desktopStage.width / 3; height: desktopStage.height / 2
+                x: column * width; y: topCorner ? 0 : height
                 Accessible.name: modelData.label
                 Accessible.role: Accessible.RadioButton
                 Accessible.checked: selected
@@ -118,7 +119,7 @@ Item {
                     Rectangle {
                         visible: !cornerButton.selected
                         width: 23; height: 14; radius: 4
-                        x: cornerButton.rightCorner ? parent.width - width - 16 : 16
+                        x: cornerButton.column === 1 ? (parent.width - width) / 2 : cornerButton.column === 2 ? parent.width - width - 16 : 16
                         y: cornerButton.topCorner ? 17 : parent.height - height - 17
                         color: Qt.rgba(0, 0, 0, 0.34); border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.82)
                     }

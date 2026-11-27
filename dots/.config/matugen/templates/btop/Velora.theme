@@ -1,0 +1,74 @@
+# Velora. Each @role below follows the corresponding wallpaper terminal color.
+# The values in this file are also the palette for a first start.
+# @term0
+theme[main_bg]="#171311"
+# @term7
+theme[main_fg]="#f3e5d7"
+theme[graph_text]="#f4ddc9"
+# @primary
+theme[title]="#ffe4c7"
+theme[hi_fg]="#ffaf66"
+theme[cpu_box]="#d79e72"
+theme[cpu_mid]="#ffb271"
+theme[used_mid]="#e6a778"
+theme[process_end]="#ffd0a2"
+# @onPrimary
+theme[selected_fg]="#25180e"
+theme[proc_banner_fg]="#25180e"
+# @primary
+theme[selected_bg]="#ffaf66"
+theme[proc_pause_bg]="#ffaf66"
+theme[proc_follow_bg]="#ffaf66"
+theme[proc_banner_bg]="#ffaf66"
+# @secondary
+theme[followed_bg]="#98bdb5"
+theme[mem_box]="#9ebe91"
+theme[cached_mid]="#bb9a77"
+theme[process_mid]="#c6aa8e"
+# @onSecondary
+theme[followed_fg]="#16211e"
+# @onSurfaceVariant
+theme[inactive_fg]="#aa9788"
+# @outline
+theme[div_line]="#695748"
+theme[process_start]="#7f7768"
+# @surfaceContainerHighest
+theme[meter_bg]="#463a32"
+# @tertiary
+theme[proc_misc]="#8fd4cc"
+theme[net_box]="#81b7c8"
+theme[available_mid]="#8fbbb8"
+theme[download_mid]="#83b8ca"
+# @term5
+theme[proc_box]="#be9ab2"
+theme[upload_start]="#806578"
+# @term3
+theme[cpu_start]="#daa77f"
+theme[temp_mid]="#f3c876"
+theme[used_start]="#9e735e"
+# @error
+theme[cpu_end]="#f58c68"
+theme[temp_end]="#ff8a77"
+# @term2
+theme[temp_start]="#98d0b5"
+theme[free_start]="#547c70"
+# @term10
+theme[free_mid]="#96bc91"
+theme[available_end]="#acdfcf"
+# @onSecondaryContainer
+theme[free_end]="#c6df9b"
+theme[cached_end]="#e4bb88"
+# @term8
+theme[cached_start]="#6a6354"
+# @term6
+theme[available_start]="#5a787e"
+# @term4
+theme[download_start]="#577a89"
+# @term12
+theme[download_end]="#b3dfdd"
+# @term13
+theme[upload_mid]="#b195ba"
+# @onTertiaryContainer
+theme[upload_end]="#ddafc6"
+# @onPrimaryContainer
+theme[used_end]="#f5c99d"

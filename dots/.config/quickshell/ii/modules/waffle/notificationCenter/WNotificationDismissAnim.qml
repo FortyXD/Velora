@@ -1,32 +1,19 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import qs.modules.common
-import qs.modules.common.widgets
-import qs.modules.common.functions
 import qs.modules.waffle.looks
+import qs.services
 
-SequentialAnimation {
+NumberAnimation {
     id: root
+    property: "x"
+    to: target?.width ?? 0
+    duration: Appearance.scaledDuration(250)
+    easing.type: Easing.BezierSpline
+    easing.bezierCurve: Looks.transition.easing.bezierCurve.easeIn
 
-    required property var target
-
-    PropertyAction {
-        target: root.target
-        property: "ListView.delayRemove"
-        value: true
-    }
-    NumberAnimation {
-        target: root.target
-        property: "x"
-        to: root.target.width
-        duration: 250
-        easing.type: Easing.BezierSpline
-        easing.bezierCurve: Looks.transition.easing.bezierCurve.easeIn
-    }
-    PropertyAction {
-        target: root.target
-        property: "ListView.delayRemove"
-        value: false
+    function dismiss(ids) {
+        if (running || ids.length === 0) return;
+        if (duration > 0) start();
+        Notifications.discardAfter(ids, duration);
     }
 }

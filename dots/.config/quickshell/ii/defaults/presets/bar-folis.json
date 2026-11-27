@@ -1,9 +1,9 @@
 {
     "version": 1,
-    "name": "Folis bar",
+    "name": "Velora bar",
     "icon": "toast",
     "order": 10,
-    "description": "The bar Folis ships with",
+    "description": "The bar Velora ships with",
     "bar": {
         "config": {
             "bar": {

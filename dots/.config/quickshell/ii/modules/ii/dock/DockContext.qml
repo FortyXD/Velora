@@ -13,7 +13,8 @@ Item {
     id: root
     visible: false
 
-    readonly property real barHeight: Config.options?.dock.height ?? 60
+    property var options: Config.options.dock
+    readonly property real barHeight: root.options?.height ?? 60
     readonly property real topPadding: Math.round(barHeight * 0.1)
     readonly property real bottomPadding: Math.round(barHeight * 0.17) // Room for the running indicator
     readonly property real iconSize: barHeight - topPadding - bottomPadding
@@ -23,8 +24,8 @@ Item {
     readonly property real sidePadding: Math.max(0, topPadding - gap / 2)
     readonly property real bounceHeight: Math.round(iconSize * 0.45)
 
-    readonly property real maxScale: (Config.options?.dock.magnification ?? true)
-        ? Math.max(1, Math.min(2, Config.options?.dock.magnificationScale ?? 1.6)) : 1
+    readonly property real maxScale: (root.options?.magnification ?? true)
+        ? Math.max(1, Math.min(2, root.options?.magnificationScale ?? 1.6)) : 1
     readonly property real range: slotWidth * 2.6
     readonly property real headroom: iconSize * (maxScale - 1) + bounceHeight + 48
 

@@ -45,7 +45,7 @@ Scope {
 
             DockContext {
                 id: dock
-                rowWidth: row.width
+                rowWidth: shelf.row.width
                 magnifying: dockHover.hovered && dockWindow.reveal
 
                 onAppMenuRequested: tile => dockWindow.openAppMenu(tile)
@@ -75,8 +75,8 @@ Scope {
 
             function menuPoint(tile) {
                 return {
-                    x: row.x + tile.visualCenter,
-                    y: row.y + tile.visualTop - 8
+                    x: shelf.row.x + tile.visualCenter,
+                    y: shelf.row.y + tile.visualTop - 8
                 };
             }
 
@@ -87,8 +87,8 @@ Scope {
 
             function openDockMenu(tile) {
                 const point = tile ? menuPoint(tile) : {
-                    x: row.x + dock.pointerX,
-                    y: row.y - 8
+                    x: shelf.row.x + dock.pointerX,
+                    y: shelf.row.y - 8
                 };
                 dockMenu.openAt(dockWindow, point.x, point.y, dockMenuEntries());
             }
@@ -167,7 +167,7 @@ Scope {
 
                 HoverHandler {
                     id: dockHover
-                    onPointChanged: dock.pointerX = point.position.x - row.x
+                    onPointChanged: dock.pointerX = point.position.x - shelf.row.x
                     onHoveredChanged: {
                         if (hovered) {
                             hideDelay.stop();
@@ -182,10 +182,10 @@ Scope {
                 // reach into while hovered, or a thin strip at the edge while hidden
                 Item {
                     id: inputRegion
-                    readonly property real revealedTop: row.y - (dock.magnifying ? dock.iconSize * (dock.maxScale - 1) + dock.topPadding : 0)
+                    readonly property real revealedTop: shelf.row.y - (dock.magnifying ? dock.iconSize * (dock.maxScale - 1) + dock.topPadding : 0)
                     readonly property real stripHeight: Config.options.dock.hoverToReveal ? Config.options.dock.hoverRegionHeight : 0
-                    x: background.x
-                    width: background.width
+                    x: shelf.background.x
+                    width: shelf.background.width
                     y: dockWindow.reveal ? revealedTop : dockWindow.height - stripHeight
                     height: dockWindow.height - y
                 }
@@ -197,82 +197,13 @@ Scope {
                         y: dockWindow.hideOffset
                     }
 
-                    StyledRectangularShadow {
-                        target: background
-                    }
-
-                    Rectangle {
-                        id: background
-                        x: row.x - dock.sidePadding - dock.growth / 2
-                        y: row.y
-                        width: row.width + dock.sidePadding * 2 + dock.growth
-                        height: dock.barHeight
-                        radius: Math.min(Appearance.rounding.large, height / 2)
-                        color: Appearance.colors.colLayer0
-                        border.width: 1
-                        border.color: Appearance.colors.colLayer0Border
-
-                        MouseArea {
-                            anchors.fill: parent
-                            acceptedButtons: Qt.RightButton
-                            onPressed: dockWindow.openDockMenu(null)
-                        }
-                    }
-
-                    Row {
-                        id: row
-                        x: Math.round((parent.width - width) / 2)
-                        y: parent.height - dockWindow.bottomGap - dock.barHeight
-                        height: dock.barHeight
-
-                        DockApps {
-                            dock: dock
-                        }
-                        DockSeparator {
-                            dock: dock
-                        }
-                        DockTile {
-                            id: overviewTile
-                            dock: dock
-                            label: Translation.tr("Apps")
-                            onClicked: {
-                                dock.tileActivated(overviewTile);
-                                GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
-                            }
-                            onRightClicked: dock.dockMenuRequested(overviewTile)
-
-                            Rectangle {
-                                id: appsSquare
-                                anchors.fill: parent
-                                anchors.margins: Math.round(parent.width * 0.04)
-                                radius: width * 0.26
-                                color: Appearance.colors.colPrimaryContainer
-
-                                // The "apps" symbol, drawn as dots on whole screen pixels: the font's glyph lands on
-                                // fractions of a pixel at this size, which leaves every dot a little different
-                                Grid {
-                                    id: appsDots
-                                    readonly property real dpr: dockWindow.devicePixelRatio
-                                    // Like the symbol at 55% of the square: dots of 4/24 of its size, 2/24 apart
-                                    readonly property real unit: appsSquare.width * 0.55 / 24 * dpr
-                                    readonly property real dot: Math.round(unit * 4) / dpr
-                                    x: Math.round((parent.width - width) / 2 * dpr) / dpr
-                                    y: Math.round((parent.height - height) / 2 * dpr) / dpr
-                                    columns: 3
-                                    spacing: Math.max(1, Math.round(unit * 2)) / dpr
-
-                                    Repeater {
-                                        model: 9
-                                        Rectangle {
-                                            width: appsDots.dot
-                                            height: appsDots.dot
-                                            radius: width / 2
-                                            color: Appearance.colors.colOnPrimaryContainer
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    DockShelf {
+                        id: shelf
+                        anchors.fill: parent
+                        dock: dock
+                        bottomGap: dockWindow.bottomGap
+                        devicePixelRatio: dockWindow.devicePixelRatio
+                        onAppsRequested: GlobalStates.overviewOpen = !GlobalStates.overviewOpen
                     }
 
                     // App name above the hovered icon
@@ -305,8 +236,8 @@ Scope {
                         color: Appearance.popup.colBackground
                         border.width: 1
                         border.color: Appearance.popup.colBorder
-                        x: shownTile ? Math.round(Math.max(4, Math.min(parent.width - width - 4, row.x + shownTile.visualCenter - width / 2))) : 0
-                        y: shownTile ? Math.round(row.y + shownTile.visualTop - height - 10) : 0
+                        x: shownTile ? Math.round(Math.max(4, Math.min(parent.width - width - 4, shelf.row.x + shownTile.visualCenter - width / 2))) : 0
+                        y: shownTile ? Math.round(shelf.row.y + shownTile.visualTop - height - 10) : 0
 
                         StyledText {
                             id: labelText
@@ -327,8 +258,8 @@ Scope {
             DockPreviews {
                 dock: dock
                 dockWindow: dockWindow
-                rowX: row.x
-                bottomY: row.y - dock.iconSize * (dock.maxScale - 1) - dock.topPadding
+                rowX: shelf.row.x
+                bottomY: shelf.row.y - dock.iconSize * (dock.maxScale - 1) - dock.topPadding
             }
         }
     }

@@ -8,8 +8,7 @@ page=$((1 + RANDOM % 1000))
 response=$(api_get "https://konachan.net/post.json?tags=rating%3Asafe&limit=1&page=$page")
 link=$(jq -r '.[0].file_url // empty' <<< "$response" 2>/dev/null)
 [[ -n "$link" ]] || fail "konachan.net returned no image."
-ext="${link##*.}"
 
-downloadPath=$(download_path "$ext")
+downloadPath=$(download_path Konachan "$link" "$(jq -r '.[0].id // empty' <<< "$response")")
 fetch_image "$link" "$downloadPath"
 apply_wallpaper "$downloadPath"

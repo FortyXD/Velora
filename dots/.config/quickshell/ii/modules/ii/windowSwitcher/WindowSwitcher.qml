@@ -12,12 +12,8 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
 
-/**
- * Alt+Tab: windows in the order they were last used, with live previews. Tab steps, letting go of
- * Alt switches (hyprland/keybinds.lua sees the release and calls windowSwitcherCommit), Alt+Esc
- * cancels. A quick Alt+Tab swaps to the previous window without showing anything, as on Windows.
- * It never takes the keyboard: focus moving to it and back raced with the switch itself.
- */
+// The switcher takes keyboard focus while open so arrows can move through the preview grid.
+// Hyprland commits the selection when the user releases the switcher modifier.
 Scope {
     id: root
     property bool active: false
@@ -89,7 +85,7 @@ Scope {
             root.screenName = Hyprland.focusedMonitor?.name ?? "";
             root.active = true;
             root.index = root.windows.length > 1 ? (delta > 0 ? 1 : root.windows.length - 1) : 0;
-            showDelay.restart();
+            root.shown = true;
             return;
         }
         root.shown = true;
@@ -105,7 +101,6 @@ Scope {
             root.remember(window.address);
         }
         root.active = false;
-        showDelay.stop();
         hideDelay.restart();
     }
     Timer {
@@ -115,7 +110,6 @@ Scope {
     }
 
     function close() {
-        showDelay.stop();
         root.active = false;
         root.shown = false;
     }
@@ -128,10 +122,8 @@ Scope {
         return ToplevelManager.toplevels.values.find(toplevel => FreeWindows.addressOf(toplevel) === address) ?? null;
     }
 
-    Timer {
-        id: showDelay
-        interval: 140 // Shorter than this, Alt+Tab was a quick swap
-        onTriggered: root.shown = root.active
+    function arrow(delta) {
+        if (root.active) root.step(delta);
     }
     // Never keeps the keyboard if the release of Alt went missing
     Timer {
@@ -174,7 +166,7 @@ Scope {
             exclusionMode: ExclusionMode.Ignore
             WlrLayershell.namespace: "quickshell:windowSwitcher"
             WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+            WlrLayershell.keyboardFocus: root.active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
             anchors {
                 top: true
                 bottom: true
@@ -203,26 +195,12 @@ Scope {
                 border.color: Appearance.colors.colLayer0Border
                 focus: true
 
-                // Pops in instead of appearing
-                scale: 0.94
-                opacity: 0
-                Component.onCompleted: {
-                    scale = 1;
-                    opacity = 1;
-                }
-                Behavior on scale {
-                    animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
-                }
-                Behavior on opacity {
-                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-                }
-
                 Keys.onPressed: event => {
                     if (event.key === Qt.Key_Escape) root.close();
-                    else if (event.key === Qt.Key_Right || event.key === Qt.Key_Tab) root.step(1);
-                    else if (event.key === Qt.Key_Left || event.key === Qt.Key_Backtab) root.step(-1);
-                    else if (event.key === Qt.Key_Down) root.step(window.columns);
-                    else if (event.key === Qt.Key_Up) root.step(-window.columns);
+                    else if (event.key === Qt.Key_Right || event.key === Qt.Key_Tab) root.arrow(1);
+                    else if (event.key === Qt.Key_Left || event.key === Qt.Key_Backtab) root.arrow(-1);
+                    else if (event.key === Qt.Key_Down) root.arrow(window.columns);
+                    else if (event.key === Qt.Key_Up) root.arrow(-window.columns);
                     else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) root.commit();
                     else return;
                     event.accepted = true;

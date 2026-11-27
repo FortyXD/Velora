@@ -15,21 +15,21 @@ AbstractBackgroundWidget {
     default property alias cardData: contentArea.data
     property real padding: 18
 
-    readonly property string cardStyle: Config.options.background.widgets.cardStyle
+    readonly property string cardStyle: root.widgetSettings.cardStyle
     readonly property bool tonal: root.cardStyle === "tonal"
     readonly property bool surface: root.cardStyle === "surface"
     readonly property bool transparentCard: !root.tonal && !root.surface
     needsColText: root.transparentCard
 
     // Colors for the content, matching the card style
-    readonly property color colOnCard: root.tonal ? Appearance.colors.colOnPrimaryContainer
-        : root.surface ? Appearance.colors.colOnSurface : root.colText
-    readonly property color colOnCardVariant: root.tonal ? ColorUtils.transparentize(Appearance.colors.colOnPrimaryContainer, 0.3)
-        : root.surface ? Appearance.colors.colOnSurfaceVariant : ColorUtils.transparentize(root.colText, 0.3)
-    readonly property color colAccent: root.transparentCard ? root.colText : Appearance.colors.colPrimary
-    readonly property color colOnAccent: root.transparentCard ? (root.dominantColorIsDark ? "black" : "white") : Appearance.colors.colOnPrimary
-    readonly property color colLayer: root.tonal ? ColorUtils.mix(Appearance.colors.colPrimaryContainer, Appearance.colors.colOnPrimaryContainer, 0.85)
-        : root.surface ? Appearance.m3colors.m3surfaceContainerHighest : ColorUtils.transparentize(root.colText, 0.82)
+    readonly property color colOnCard: root.tonal ? root.widgetColors.colOnPrimaryContainer
+        : root.surface ? root.widgetColors.colOnSurface : root.colText
+    readonly property color colOnCardVariant: root.tonal ? ColorUtils.transparentize(root.widgetColors.colOnPrimaryContainer, 0.3)
+        : root.surface ? root.widgetColors.colOnSurfaceVariant : ColorUtils.transparentize(root.colText, 0.3)
+    readonly property color colAccent: root.transparentCard ? root.colText : root.widgetColors.colPrimary
+    readonly property color colOnAccent: root.transparentCard ? (root.dominantColorIsDark ? "black" : "white") : root.widgetColors.colOnPrimary
+    readonly property color colLayer: root.tonal ? ColorUtils.mix(root.widgetColors.colPrimaryContainer, root.widgetColors.colOnPrimaryContainer, 0.85)
+        : root.surface ? root.widgetColors.colLayer4Base : ColorUtils.transparentize(root.colText, 0.82)
 
     implicitWidth: cardBackground.implicitWidth
     implicitHeight: cardBackground.implicitHeight
@@ -61,8 +61,8 @@ AbstractBackgroundWidget {
         implicitWidth: (contentArea.children[0]?.implicitWidth ?? 0) + root.padding * 2
         implicitHeight: (contentArea.children[0]?.implicitHeight ?? 0) + root.padding * 2
         radius: Appearance.rounding.verylarge
-        color: root.tonal ? Appearance.colors.colPrimaryContainer
-            : root.surface ? ColorUtils.transparentize(Appearance.m3colors.m3surfaceContainer, 0.08) : "transparent"
+        color: root.tonal ? root.widgetColors.colPrimaryContainer
+            : root.surface ? ColorUtils.transparentize(root.widgetColors.colLayer2Base, 0.08) : "transparent"
         Behavior on color {
             animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
         }

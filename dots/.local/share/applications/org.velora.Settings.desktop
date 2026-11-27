@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=Settings
-GenericName=Velora Settings
+Name=Velora Settings
+Name[ru]=Настройки Velora
+GenericName=Desktop Settings
+GenericName[ru]=Настройки рабочего стола
 Comment=Wi-Fi, appearance, the bar, displays and the rest of your desktop
 Icon=org.velora.Settings
 Exec=sh -c "exec qs -p ~/.config/quickshell/ii/settings.qml"

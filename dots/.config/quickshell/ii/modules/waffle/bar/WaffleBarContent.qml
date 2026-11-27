@@ -1,5 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
+import qs
+import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.waffle.looks
@@ -24,9 +26,18 @@ Rectangle {
         implicitHeight: 1
     }
 
+    AiThinkingIndicator {
+        id: activityStar
+        active: !GlobalStates.screenLocked && (Ai.nativeGenerating || Assistant.thinking)
+        anchors.left: parent.left
+        anchors.leftMargin: 4
+        anchors.verticalCenter: parent.verticalCenter
+    }
+
     BarGroupRow {
         id: bloatRow
         anchors.left: parent.left
+        anchors.leftMargin: activityStar.active ? activityStar.implicitWidth + 8 : 0
         opacity: Config.options.waffles.bar.leftAlignApps ? 0 : 1
         visible: opacity > 0
         Behavior on opacity {
@@ -38,6 +49,7 @@ Rectangle {
 
     BarGroupRow {
         id: appsRow
+        anchors.leftMargin: activityStar.active && Config.options.waffles.bar.leftAlignApps ? activityStar.implicitWidth + 8 : 0
         anchors.left: undefined
         anchors.horizontalCenter: parent.horizontalCenter
 

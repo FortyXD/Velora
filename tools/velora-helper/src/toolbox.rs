@@ -8,22 +8,9 @@ use crate::args::Args;
 use crate::subprocess::{interruptible, output};
 use anyhow::{bail, ensure, Result};
 use serde_json::{json, Map, Value};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, ExitCode, Stdio};
 use std::time::Duration;
-
-fn shell_dir() -> PathBuf {
-    std::env::var_os("VELORA_SHELL_DIR").map_or_else(
-        || {
-            let config = std::env::var_os("XDG_CONFIG_HOME").map_or_else(
-                || PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".config"),
-                PathBuf::from,
-            );
-            config.join("quickshell/ii")
-        },
-        PathBuf::from,
-    )
-}
 
 const TOOLS: [&str; 24] = [
     "magick",
@@ -211,7 +198,7 @@ async fn detect_files(files: &[String]) -> Result<()> {
 
 /// `open [tab] [files…]`: a running toolbox gets the tab and files over IPC instead of a second window.
 pub fn open(argv: Vec<String>) -> Result<ExitCode> {
-    let toolbox = shell_dir().join("toolbox.qml");
+    let toolbox = crate::shell_dir().join("toolbox.qml");
     let mut arguments = argv.into_iter();
     let tab = arguments.next().unwrap_or_else(|| "converter".to_string());
     let files: String = arguments
@@ -230,7 +217,7 @@ pub fn open(argv: Vec<String>) -> Result<ExitCode> {
         let _ = Command::new("hyprctl")
             .args([
                 "dispatch",
-                r#"hl.dsp.focus({ window = "title:^(Folis Toolbox)$" })"#,
+                r#"hl.dsp.focus({ window = "title:^(Velora Toolbox)$" })"#,
             ])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -334,7 +321,7 @@ pub fn quick(mut argv: Vec<String>) -> Result<ExitCode> {
         let _ = Command::new("notify-send")
             .args([
                 "-a",
-                "Folis Toolbox",
+                "Velora Toolbox",
                 "-i",
                 "dialog-error",
                 &format!("Couldn't convert to {upper}"),
@@ -361,7 +348,7 @@ pub fn quick(mut argv: Vec<String>) -> Result<ExitCode> {
         let action = Command::new("notify-send")
             .args([
                 "-a",
-                "Folis Toolbox",
+                "Velora Toolbox",
                 "-i",
                 icon,
                 "-A",

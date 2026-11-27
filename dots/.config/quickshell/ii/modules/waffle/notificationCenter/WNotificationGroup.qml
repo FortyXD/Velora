@@ -8,29 +8,36 @@ import qs.modules.common.widgets
 import qs.modules.common.functions
 import qs.modules.waffle.looks
 
-// TODO: Swipe to dismiss
 MouseArea {
     id: root
 
     required property var notificationGroup
     readonly property var notifications: notificationGroup?.notifications ?? []
     property bool expanded: false
+    property var dismissingIds: []
+    enabled: !removeAnimation.running
 
     implicitWidth: contentLayout.implicitWidth
     implicitHeight: contentLayout.implicitHeight
 
     function dismissAll() {
-        root.notifications.forEach(notif => {
-            Qt.callLater(() => {
-                Notifications.discardNotification(notif.notificationId);
-            });
-        });
-        removeAnimation.start();
+        if (root.dismissingIds.length) return;
+        root.dismissingIds = root.notifications.map(notif => notif.notificationId);
+        removeAnimation.dismiss(root.dismissingIds);
+    }
+
+    // Return to the resting position only if new messages outlive the dismissed batch.
+    onNotificationsChanged: {
+        if (!root.dismissingIds.length || !root.notifications.length
+            || root.notifications.some(n => root.dismissingIds.includes(n.notificationId))) return;
+        root.dismissingIds = [];
+        removeAnimation.stop();
+        contentLayout.x = 0;
     }
 
     WNotificationDismissAnim {
         id: removeAnimation
-        target: root
+        target: contentLayout
     }
 
     property real dragDismissThreshold: 100
@@ -38,6 +45,7 @@ MouseArea {
         axis: Drag.XAxis
         target: contentLayout
         minimumX: 0
+        maximumX: root.width
         onActiveChanged: {
             if (drag.active)
                 return;
@@ -55,6 +63,7 @@ MouseArea {
         width: root.width
 
         Behavior on x {
+            enabled: !root.drag.active && !removeAnimation.running
             animation: Looks.transition.enter.createObject(this)
         }
 

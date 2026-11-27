@@ -8,12 +8,12 @@ fi
 # Variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-SHELL_CONFIG_DIR="$XDG_CONFIG_HOME/illogical-impulse"
+SHELL_CONFIG_DIR="$XDG_CONFIG_HOME/velora"
 SHELL_CONFIG_FILE="${SHELL_CONFIG_DIR}/config.json"
 TRANSLATIONS_DIR="${SCRIPT_DIR}/../../translations"
 TRANSLATIONS_TARGET_DIR="${SHELL_CONFIG_DIR}/translations"
 SOURCE_LOCALE="en_US"
-NOTIFICATION_APP_NAME="Shell"
+NOTIFICATION_APP_NAME="Velora"
 TARGET_LOCALE="$1"
 MODEL="${2:-${GEMINI_MODEL:-gemini-2.5-flash}}"
 
@@ -46,7 +46,7 @@ payload=$(jq -n \
 # echo "$payload" | jq
 
 # Get API key
-API_KEY=$(secret-tool lookup 'application' 'illogical-impulse' | jq -r '.apiKeys.gemini')
+API_KEY=$("$SCRIPT_DIR/../helper" keyring lookup | jq -er '.apiKeys.gemini // empty') || exit 1
 case "$API_KEY" in *$'\r'*|*$'\n'*) echo "Invalid API key" >&2; exit 1;; esac
 
 # Notify start

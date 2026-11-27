@@ -20,8 +20,8 @@ Singleton {
 
     // Both sidebars, cleaned up together: a part allowed once in the shell stays where it's met first,
     // the right sidebar before the left. Compared as text, so lists only change when their content does.
-    readonly property string revision: JSON.stringify(root.normalizeBoth(root.given("right"), root.given("left"))) ?? '{"right":[],"left":[]}'
-    readonly property var layouts: JSON.parse(root.revision)
+    readonly property var revision: Config.options?.sidebar?.right && Config.options?.sidebar?.left ? JSON.stringify(root.normalizeBoth(root.given("right"), root.given("left"))) : '{"right":[],"left":[]}'
+    readonly property var layouts: JSON.parse(root.revision || '{"right":[],"left":[]}')
     readonly property var right: root.layouts.right
     readonly property var left: root.layouts.left
 
@@ -46,7 +46,7 @@ Singleton {
         for (const side of root.sides) {
             let usedHere = {};
             result[side] = [];
-            (side === "right" ? rightParts : leftParts ?? []).forEach((part, index) => {
+            ((side === "right" ? rightParts : leftParts) ?? []).forEach((part, index) => {
                 const clean = root.cleanPart(part, side, `${index}`, usedShell, usedHere, usedUids, false);
                 if (clean) result[side].push(clean);
             });
@@ -160,7 +160,7 @@ Singleton {
     readonly property bool canUndo: root.undoStack.length > 0
 
     function copyLayouts() {
-        return JSON.parse(root.revision);
+        return JSON.parse(root.revision || '{"right":[],"left":[]}');
     }
     function write(changes) {
         let stack = [...root.undoStack, JSON.stringify({ "right": Config.options.sidebar.right.parts ?? null, "left": Config.options.sidebar.left.parts ?? null })];
@@ -320,7 +320,7 @@ Singleton {
     // ---- Quick toggles (Android style) ----
 
     function androidToggles() {
-        return (root.options.quickToggles.android.toggles ?? []).filter(t => t && t.type).map(t => ({ "type": t.type, "size": t.size === 2 ? 2 : 1 }));
+        return (root.options.quickToggles.android.toggles ?? []).filter(t => t && t.type).map(t => ({ "type": t.type, "size": Math.max(1, Math.round(Number(t.size) || 1)) }));
     }
 
     function setAndroidToggles(list) {
@@ -348,7 +348,7 @@ Singleton {
     }
 
     function resizeAndroidToggle(type) {
-        root.setAndroidToggles(root.androidToggles().map(t => t.type === type ? { "type": t.type, "size": 3 - t.size } : t));
+        root.setAndroidToggles(root.androidToggles().map(t => t.type === type ? { "type": t.type, "size": 1 + t.size % Math.max(1, root.options.quickToggles.android.columns) } : t));
     }
 
     function moveAndroidToggle(type, index) {
@@ -367,6 +367,13 @@ Singleton {
 
     // ---- Quick toggles (classic style) ----
 
+    function classicSize(type) {
+        return Math.max(1, Math.min(3, Number(root.options.quickToggles.classic.sizes?.[type]) || 1));
+    }
+    function resizeClassicToggle(type) {
+        const classic = root.options.quickToggles.classic;
+        classic.sizes = Object.assign({}, classic.sizes ?? {}, {[type]: classicSize(type) % 3 + 1});
+    }
     function classicToggles() {
         return (root.options.quickToggles.classic.toggles ?? []).filter(type => SidebarCatalog.toggle(type)?.classic);
     }

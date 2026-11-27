@@ -57,6 +57,7 @@ MouseArea {
         root.forceFieldFocus();
     }
     Keys.onReleased: event => {
+        if (event.key === Qt.Key_CapsLock) root.context.refreshKeyboardState();
         if (event.key === Qt.Key_Control) {
             scene.passwordBar.ctrlHeld = false;
         }

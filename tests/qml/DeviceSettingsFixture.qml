@@ -125,6 +125,14 @@ Item {
                 const corner = root.find(picker, n => n.modelData?.key === "bottomLeft");
                 corner.clicked();
                 if (!root.check(picker.width > 100 && NotificationPreferences.corner === "bottomLeft", "corner selection")) return;
+                for (const key of ["topCenter", "bottomCenter"]) {
+                    const target = root.find(picker, n => n.modelData?.key === key);
+                    if (!root.check(!!target && target.x === target.width, "center hit area")) return;
+                    input.mouseClick(target);
+                    if (!root.check(NotificationPreferences.corner === key && NotificationPreferences.centered
+                            && !NotificationPreferences.left && !NotificationPreferences.right
+                            && NotificationPreferences.top === (key === "topCenter"), "center banner " + key)) return;
+                }
                 root.host.goBack();
                 root.row("quiet").clicked();
                 break;

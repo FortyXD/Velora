@@ -29,7 +29,7 @@ Scope {
             id: panelWindow
             exclusiveZone: 0
             WlrLayershell.namespace: "quickshell:wStartMenu"
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+            WlrLayershell.keyboardFocus: GlobalStates.searchOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
             color: "transparent"
 
             anchors {
@@ -41,11 +41,11 @@ Scope {
             implicitWidth: content.implicitWidth
             implicitHeight: content.implicitHeight
 
-            HyprlandFocusGrab {
-                id: focusGrab
-                active: true
-                windows: [panelWindow]
-                onCleared: content.close()
+            Component.onCompleted: GlobalFocusGrab.addDismissable(panelWindow)
+            Component.onDestruction: GlobalFocusGrab.removeDismissable(panelWindow)
+            Connections {
+                target: GlobalFocusGrab
+                function onDismissed() { content.close(); }
             }
 
             Connections {

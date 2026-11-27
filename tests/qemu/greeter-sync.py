@@ -16,7 +16,7 @@ spec.loader.exec_module(bridge)
 from PIL import Image, ImageDraw
 
 root = Path.home() / 'evidence'
-config = Path.home() / '.config/illogical-impulse/config.json'
+config = Path.home() / '.config/velora/config.json'
 manifest = Path('/var/lib/velora-greeter/current.json')
 original = config.read_bytes()
 

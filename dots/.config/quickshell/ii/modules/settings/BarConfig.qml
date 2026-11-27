@@ -682,6 +682,7 @@ ContentPage {
                                     return categories.length === 1 && categories[0] === "bar";
                                 })
                                 delegate: WidgetChip {
+                                    id: presetChip
                                     required property var modelData
                                     label: Translation.tr(modelData.name)
                                     icon: modelData.icon ?? "toast"
@@ -690,7 +691,7 @@ ContentPage {
                                         page.selectedUid = "";
                                     }
                                     StyledToolTip {
-                                        text: Translation.tr(parent.modelData.description ?? "")
+                                        text: Translation.tr(presetChip.modelData.description ?? "")
                                     }
                                 }
                             }

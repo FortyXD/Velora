@@ -19,13 +19,17 @@ use std::process::{Command, Stdio};
 use std::sync::{mpsc, OnceLock};
 use std::time::Duration;
 
+mod tracked;
+
 const USAGE: &str = "usage: velora-helper apps <command>
   list [LANG]                  JSON with every role, its current app and the choices
+  inspect file|type VALUE LANG show the file type and its assigned app without opening it
   set ROLE DESKTOP_ID|ask      make an installed app the default, or ask every time
   set-command ROLE CMD [NAME]  use a command instead (terminal and code editor only)
   set-webmail SERVICE          web mail used when the email app is a browser
   launch ROLE                  start the default app for ROLE
   open DESKTOP_ID [URI...]     start an app by its desktop file id, optionally with files
+  open-tracked ID [TERMINAL]   launch for the assistant and return its window identification
   sync                         install the chooser and hand it every type without an app
   open-with URI...             run by the chooser: ask the shell which app opens these
   set-mime DESKTOP_ID TYPE...  remember an app for file types
@@ -116,7 +120,7 @@ const SEED: &[(&str, &[&str])] = &[
     ("files", &["org.kde.dolphin.desktop"]),
     ("text", &["org.kde.kate.desktop", "org.gnome.TextEditor.desktop", "org.kde.kwrite.desktop"]),
     ("images", &["org.gnome.Loupe.desktop", "org.kde.gwenview.desktop", "imv.desktop"]),
-    ("video", &["org.gnome.Showtime.desktop", "mpv.desktop", "vlc.desktop", "org.kde.haruna.desktop"]),
+    ("video", &["mpv.desktop", "org.gnome.Showtime.desktop", "vlc.desktop", "org.kde.haruna.desktop"]),
     ("music", &["org.gnome.Decibels.desktop", "org.kde.elisa.desktop", "vlc.desktop"]),
     ("pdf", &["org.gnome.Papers.desktop", "org.kde.okular.desktop", "org.gnome.Evince.desktop"]),
     ("documents", &["libreoffice-writer.desktop"]),
@@ -145,6 +149,13 @@ fn env_nonempty(name: &str) -> Option<String> {
 
 pub(crate) fn config_home() -> PathBuf {
     env_nonempty("XDG_CONFIG_HOME").map_or_else(|| home().join(".config"), PathBuf::from)
+}
+
+pub(crate) fn shell_config_path() -> PathBuf {
+    let directory = config_home();
+    let current = directory.join("velora/config.json");
+    let legacy = directory.join("illogical-impulse/config.json");
+    if !current.is_file() && legacy.is_file() { legacy } else { current }
 }
 
 pub(crate) use crate::platform::{data_home, state_home};
@@ -371,7 +382,13 @@ pub fn capture(program: &str, arguments: &[&str], timeout: Duration) -> Option<(
 
 /// A process of its own that outlives this one.
 fn spawn(command: &mut Command) {
-    command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).current_dir(home());
+    if let Err(error) = spawn_detached(command.current_dir(home())) {
+        eprintln!("velora-helper apps: can't start {:?}: {error}", command.get_program());
+    }
+}
+
+fn spawn_detached(command: &mut Command) -> io::Result<std::process::Child> {
+    command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     // SAFETY: setsid is async-signal-safe and touches no memory of this process.
     unsafe {
         command.pre_exec(|| {
@@ -381,9 +398,7 @@ fn spawn(command: &mut Command) {
             Ok(())
         });
     }
-    if let Err(error) = command.spawn() {
-        eprintln!("velora-helper apps: can't start {:?}: {error}", command.get_program());
-    }
+    command.spawn()
 }
 
 fn notify(title: &str, body: &str) {
@@ -801,6 +816,11 @@ fn set_mime_defaults(defaults: &[(String, String)], associate: bool) -> Result<(
     Ok(())
 }
 
+fn ask_for_types(mimes: impl IntoIterator<Item = String>) -> Result<()> {
+    write_own_entries()?;
+    set_mime_defaults(&pairs(mimes, CHOOSER_ID), false)
+}
+
 // Store -----------------------------------------------------------------------------------------------
 
 fn read_store() -> Map<String, Value> {
@@ -904,7 +924,6 @@ fn remembered_types(apps: &Apps, lang: &str) -> Result<Vec<Value>> {
         let Some(app) = split_list(&value).find_map(|id| apps.get(id)).filter(|app| app.id != CHOOSER_ID) else { continue };
         let (description, patterns) = mime_info(&mime, lang);
         let description = if description.is_empty() { mime.clone() } else { description };
-        let patterns: Vec<String> = patterns.into_iter().take(3).collect();
         types.push((description.to_lowercase(), json!({ "mime": mime, "description": description, "patterns": patterns, "app": app.public() })));
     }
     types.sort_by(|a, b| a.0.cmp(&b.0));
@@ -924,8 +943,11 @@ fn cmd_list(lang: &str) -> Result<()> {
             }
             current.insert("app".to_string(), app.public());
         }
+        let patterns: BTreeSet<String> = role.mimes.iter().flat_map(|mime| mime_info(mime, lang).1).collect();
         roles.push(json!({
             "id": role.id,
+            "mimes": role.mimes,
+            "patterns": patterns,
             "current": current,
             "candidates": candidates.iter().map(|app| app.public()).collect::<Vec<_>>(),
             "allowsCommand": role.command,
@@ -939,6 +961,39 @@ fn cmd_list(lang: &str) -> Result<()> {
         "apps": listed.iter().map(|app| app.public()).collect::<Vec<_>>(),
         "webmail": WEBMAIL.iter().map(|service| json!({ "id": service.0, "name": service.1 })).collect::<Vec<_>>(),
         "types": remembered_types(&apps, lang)?,
+    }));
+    Ok(())
+}
+
+fn inspect_assignment(kind: &str, value: &str, lang: &str) -> Result<()> {
+    let (mime, name) = match kind {
+        "file" => {
+            let path = PathBuf::from(to_path(value));
+            if !path.is_file() {
+                bail!("File not found: {}", path.display());
+            }
+            let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+            (file_types(value).remove(0), name)
+        }
+        "type" => {
+            let valid_name = |name: &str| name.starts_with(|c: char| c.is_ascii_alphanumeric())
+                && name.bytes().all(|c| c.is_ascii_alphanumeric() || b"!#$&^_-.+".contains(&c));
+            if !value.split_once('/').is_some_and(|(media, subtype)| valid_name(media) && valid_name(subtype)) {
+                bail!("Invalid MIME type: {value}");
+            }
+            (value.to_string(), String::new())
+        }
+        _ => bail!("Expected a local file or MIME type"),
+    };
+    let apps = installed_apps();
+    let id = default_for_mime(&mime, &apps)?;
+    let ask = id.as_deref() == Some(CHOOSER_ID);
+    let app = id.as_deref().filter(|id| *id != CHOOSER_ID).and_then(|id| apps.get(id)).map(App::public);
+    let (description, patterns) = mime_info(&mime, lang);
+    println!("{}", json!({
+        "name": name, "mime": mime,
+        "description": if description.is_empty() { &mime } else { &description },
+        "patterns": patterns, "app": app, "ask": ask,
     }));
     Ok(())
 }
@@ -965,7 +1020,7 @@ fn set_role_app(role: &Role, id: &str, apps: &Apps) -> Result<()> {
     let all = || role.mimes.iter().map(|mime| mime.to_string());
     if !role.mimes.is_empty() {
         if id == "ask" {
-            return set_mime_defaults(&pairs(all(), CHOOSER_ID), false);
+            return ask_for_types(all());
         }
         let app = apps.get(id).ok_or_else(|| anyhow!("No such app: {id}"))?;
         if role.id == "mail" && app.is_browser() && !role.mimes.iter().any(|mime| app.mimes.contains(*mime)) {
@@ -1197,7 +1252,7 @@ fn describe(uris: &[String], apps: &Apps, lang: &str) -> Value {
 }
 
 fn shell_language() -> String {
-    let config = fs::read_to_string(config_home().join("illogical-impulse/config.json")).ok().and_then(|text| serde_json::from_str::<Value>(&text).ok());
+    let config = fs::read_to_string(shell_config_path()).ok().and_then(|text| serde_json::from_str::<Value>(&text).ok());
     if let Some(language) = config.as_ref().and_then(|config| config.pointer("/language/ui")).and_then(Value::as_str) {
         if !language.is_empty() && language != "auto" {
             return language.to_string();
@@ -1410,11 +1465,18 @@ pub fn run(argv: Vec<String>) -> Result<()> {
     let result = match arguments[..] {
         ["list"] => cmd_list(""),
         ["list", lang] => cmd_list(lang),
+        ["inspect", kind, value, lang] => inspect_assignment(kind, value, lang),
         ["set", role, id] => cmd_set(role, id),
         ["set-command", role, command] => cmd_set_command(role, command, ""),
         ["set-command", role, command, name] => cmd_set_command(role, command, name),
         ["set-webmail", service] => cmd_set_webmail(service),
         ["launch", role] => cmd_launch(role),
+        ["open-tracked", id] | ["open-tracked", id, _] => {
+            let apps = installed_apps();
+            let result = tracked::open(&apps, id, argv.get(2).map(String::as_str).unwrap_or(""));
+            println!("{}", result.unwrap_or_else(|error| json!({"error":format!("{error:#}")})));
+            Ok(())
+        }
         ["open", id, ..] => open_app(id, &argv[2..], &installed_apps()),
         ["sync"] => cmd_sync(),
         ["open-with", _, ..] => cmd_open_with(&argv[1..]),
@@ -1424,7 +1486,7 @@ pub fn run(argv: Vec<String>) -> Result<()> {
             }
             set_mime_defaults(&pairs(argv[2..].iter().cloned(), id), true)
         }
-        ["unset-mime", _, ..] => set_mime_defaults(&pairs(argv[1..].iter().cloned(), CHOOSER_ID), false),
+        ["unset-mime", _, ..] => ask_for_types(argv[1..].iter().cloned()),
         ["mailto"] => cmd_mailto(""),
         ["mailto", uri] => cmd_mailto(uri),
         ["open-archive", _, ..] => {

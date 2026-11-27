@@ -7,6 +7,7 @@
 #include <hyprland/src/protocols/core/Compositor.hpp>
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
 #include <hyprland/src/managers/eventLoop/EventLoopTimer.hpp>
+#include <hyprland/src/render/decorations/DecorationPositioner.hpp>
 #include <lua.hpp>
 #include <filesystem>
 #include <fstream>
@@ -55,7 +56,7 @@ void queueSave() {
 }
 
 void maximize(PHLWINDOW w) {
-    auto mode = Fullscreen::controller()->getFullscreenModes(w).internal == Fullscreen::FSMODE_MAXIMIZED
+    auto mode = Fullscreen::controller()->getFullscreenModes(w).internal != Fullscreen::FSMODE_NONE
                     ? Fullscreen::FSMODE_NONE
                     : Fullscreen::FSMODE_MAXIMIZED;
     Fullscreen::controller()->setFullscreenMode(w, mode, mode, false);
@@ -169,6 +170,26 @@ static void init(HANDLE h) {
     });
     api("active", [](lua_State *L) {
         lua_pushboolean(L, canvas);
+        return 1;
+    });
+    api("frame_info", [](lua_State *L) {
+        auto w = find(L);
+        if (!w)
+            return 0;
+        lua_createtable(L, 0, 5);
+        auto field = [&](const char *name, double value) {
+            lua_pushnumber(L, value);
+            lua_setfield(L, -2, name);
+        };
+        field("top", g_pDecorationPositioner->getWindowDecorationReserved(w).topLeft.y);
+        if (auto min = w->minSize()) {
+            field("min_w", min->x);
+            field("min_h", min->y);
+        }
+        if (auto max = w->maxSize()) {
+            if (max->x > 0) field("max_w", max->x);
+            if (max->y > 0) field("max_h", max->y);
+        }
         return 1;
     });
     api("regular", [](lua_State *L) {

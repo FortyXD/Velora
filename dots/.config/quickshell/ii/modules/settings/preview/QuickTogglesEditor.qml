@@ -14,7 +14,7 @@ ColumnLayout {
     id: root
     readonly property bool classic: Config.options.sidebar.quickToggles.style === "classic"
     readonly property int columns: Config.options.sidebar.quickToggles.android.columns
-    readonly property var used: root.classic ? SidebarLayout.classicToggles().map(type => ({ "type": type, "size": 1 }))
+    readonly property var used: root.classic ? SidebarLayout.classicToggles().map(type => ({ "type": type, "size": Math.min(root.perRow, SidebarLayout.classicSize(type)) }))
         : SidebarLayout.androidToggles().map(t => ({ "type": t.type, "size": Math.min(t.size, root.columns) }))
     readonly property var unused: SidebarCatalog.toggles.filter(t => (!root.classic || t.classic) && !root.used.some(u => u.type === t.type))
     readonly property real tileSpacing: 6
@@ -186,8 +186,9 @@ ColumnLayout {
                         } else if (dragged) {
                             if (classic) SidebarLayout.moveClassicToggle(type, target);
                             else SidebarLayout.moveAndroidToggle(type, target);
-                        } else if (!classic) {
-                            SidebarLayout.resizeAndroidToggle(type);
+                        } else {
+                            if (classic) SidebarLayout.resizeClassicToggle(type);
+                            else SidebarLayout.resizeAndroidToggle(type);
                         }
                     }
                     onCanceled: {

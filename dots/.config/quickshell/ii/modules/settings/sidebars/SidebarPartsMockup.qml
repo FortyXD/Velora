@@ -74,10 +74,12 @@ Rectangle {
     function fixedHeight(part) {
         if (!SidebarLayout.shown(part)) return root.hiddenHeight;
         const options = SidebarLayout.optionsOf(part);
+        if (options.height > 0 && !root.isFolded(part)) return Math.max(16, Math.round(options.height * 0.55));
         switch (part.type) {
             case "header": return 30;
             case "sliders": return Math.max(1, root.slidersShown.length) * 20 + 10;
             case "toggles": return root.classic ? 40 : Math.max(1, root.toggleRows.length) * 34 + 10;
+            case "clock": case "connection": return 40;
             case "media": return 64;
             case "weather": return 46 + (options.showHours ? 34 : 0) + (options.showDays ? 48 : 0) + (options.showDetails ? 52 : 0);
             case "system": return 74;

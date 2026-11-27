@@ -15,7 +15,7 @@ DesktopWidgetCard {
     id: root
     configEntryName: "note"
 
-    readonly property var options: Config.options.background.widgets.note
+    readonly property var options: root.configEntry
     property bool editing: false
 
     hoverEnabled: true

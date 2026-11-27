@@ -15,9 +15,15 @@ Item {
     id: root
     property bool playVideo: false
     readonly property var lock: Config.options.lock
-    readonly property string path: Config.options.background.wallpaperPath
+    readonly property string path: root.lock.backgroundPath || Config.options.background.wallpaperPath
+    readonly property bool animatedImage: /\.(gif|webp)$/i.test(path)
+    function mediaUrl(value) {
+        if (!value || value.startsWith("file:")) return value;
+        return value.startsWith("/") ? "file://" + value.split("/").map(encodeURIComponent).join("/") : Qt.resolvedUrl(value);
+    }
+    readonly property bool motion: root.playVideo && root.visible && root.lock.animatedWallpaper && !PowerSaving.pauseLiveWallpaper
     readonly property bool isVideo: FileUtils.isVideoPath(root.path)
-    readonly property string still: root.isVideo ? Config.options.background.thumbnailPath : root.path
+    readonly property string still: root.isVideo ? (root.lock.backgroundPath ? "" : Config.options.background.thumbnailPath) : root.path
     readonly property var safety: Config.options.workSafety
     readonly property bool hideWallpaper: safety.enable.wallpaper
         && StringUtils.stringListContainsSubstring(path.toLowerCase(), safety.triggerCondition.fileKeywords)
@@ -27,47 +33,63 @@ Item {
     Item {
         id: picture
         anchors.fill: parent
-        visible: false
+        layer.enabled: true
+        scale: root.lock.blur.enable ? root.lock.blur.extraZoom : 1
+        layer.effect: MultiEffect {
+            autoPaddingEnabled: false
+            blurEnabled: root.lock.blur.enable
+            blurMax: 64
+            blur: Math.min(1, root.lock.blur.radius / 64)
+            blurMultiplier: Math.max(0, root.lock.blur.radius / 64 - 1)
+        }
 
         Image {
             anchors.fill: parent
-            source: root.hideWallpaper || !root.still ? "" : root.still.startsWith("/") ? `file://${root.still}` : root.still
+            source: root.hideWallpaper || !root.still ? "" : root.mediaUrl(root.still)
             fillMode: Image.PreserveAspectCrop
             sourceSize.width: Math.min(2560, root.width)
             asynchronous: true
             cache: false
         }
+        AnimatedImage {
+            anchors.fill: parent
+            source: root.animatedImage && root.motion && !root.hideWallpaper ? root.mediaUrl(root.path) : ""
+            fillMode: Image.PreserveAspectCrop
+            playing: root.motion
+            cache: false
+            asynchronous: true
+        }
         ShaderWallpaperView {
             anchors.fill: parent
-            visible: ShaderWallpaper.active
-            name: ShaderWallpaper.active ? ShaderWallpaper.name : ""
-            running: root.playVideo && root.lock.animatedWallpaper && !PowerSaving.pauseLiveWallpaper
+            visible: !root.lock.backgroundPath && !root.hideWallpaper && ShaderWallpaper.active
+            name: visible ? ShaderWallpaper.name : ""
+            running: root.motion
             speed: Config.options.background.shaderWallpaper.speed
             fps: Config.options.background.shaderWallpaper.fps
             colors: Config.options.background.shaderWallpaper.colors
         }
         Loader {
             anchors.fill: parent
-            active: root.playVideo && root.isVideo && !root.hideWallpaper && root.lock.animatedWallpaper && !PowerSaving.pauseLiveWallpaper
-            sourceComponent: Video {
-                source: root.path.startsWith("/") ? `file://${root.path}` : root.path
-                autoPlay: true
-                loops: MediaPlayer.Infinite
-                muted: true
-                fillMode: VideoOutput.PreserveAspectCrop
+            active: root.isVideo && !root.hideWallpaper && (root.motion || !!root.lock.backgroundPath)
+            sourceComponent: Item {
+                VideoOutput { id: videoOutput; anchors.fill: parent; fillMode: VideoOutput.PreserveAspectCrop }
+                MediaPlayer {
+                    id: player
+                    source: root.mediaUrl(root.path)
+                    videoOutput: videoOutput
+                    loops: MediaPlayer.Infinite
+                    autoPlay: true
+                }
+                Connections {
+                    target: videoOutput.videoSink
+                    function onVideoFrameChanged() { if (!root.motion && player.playbackState === MediaPlayer.PlayingState) player.pause(); }
+                }
+                Connections {
+                    target: root
+                    function onMotionChanged() { if (root.motion) player.play(); else player.pause(); }
+                }
             }
         }
-    }
-
-    MultiEffect {
-        anchors.fill: picture
-        source: picture
-        autoPaddingEnabled: false
-        blurEnabled: root.lock.blur.enable
-        blurMax: 64
-        blur: Math.min(1, root.lock.blur.radius / 64)
-        blurMultiplier: Math.max(0, root.lock.blur.radius / 64 - 1) // Past 64 px the blur gets coarser, as on the lock screen
-        scale: root.lock.blur.enable ? root.lock.blur.extraZoom : 1
     }
 
     Rectangle {

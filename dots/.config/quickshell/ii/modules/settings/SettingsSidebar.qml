@@ -20,9 +20,11 @@ Item {
     property bool searching: false
     property alias searchText: searchInput.text
     property string profilePageKey: "about"
-    // A subpage (one with a `parentKey`, opened from inside another page) keeps that page highlighted
+    // The profile has its own button. Other subpages highlight their parent row.
     readonly property int highlightedPage: {
-        const parentKey = root.pages[root.currentPage]?.parentKey ?? "";
+        const page = root.pages[root.currentPage];
+        if (page?.key === root.profilePageKey) return -1;
+        const parentKey = page?.parentKey ?? "";
         const parentIndex = parentKey.length > 0 ? root.pages.findIndex(page => page.key === parentKey) : -1;
         return parentIndex >= 0 ? parentIndex : root.currentPage;
     }
@@ -43,7 +45,7 @@ Item {
         searchInput.selectAll();
     }
     function revealCurrentPage() {
-        const item = navRepeater.itemAt(root.highlightedPage);
+        const item = activeIndicator.target;
         if (!item?.visible || navFlickable.height <= 0) return;
         const top = item.y + item.buttonY;
         if (top < navFlickable.contentY || top + root.itemHeight > navFlickable.contentY + navFlickable.height)
@@ -99,6 +101,13 @@ Item {
             fill: 1
             color: "white"
         }
+    }
+
+    component RailToolTip: StyledToolTip {
+        objectName: "settingsRailTip"
+        extraVisibleCondition: !root.expanded
+        x: parent ? parent.width + root.sidePadding : 0
+        y: parent ? (parent.height - height) / 2 : 0
     }
 
     ColumnLayout {
@@ -195,10 +204,12 @@ Item {
         // Profile
         RippleButton {
             id: profileButton
+            objectName: "settingsProfileButton"
             readonly property int pageIndex: root.pages.findIndex(page => page.key === root.profilePageKey)
             readonly property bool current: root.currentPage === pageIndex && !root.searching
             Layout.fillWidth: true
             implicitHeight: 58
+            horizontalPadding: 0
             buttonRadius: Appearance.rounding.normal
             colBackground: current ? Appearance.colors.colPrimary : "transparent"
             colBackgroundHover: current ? Appearance.colors.colPrimaryHover : Appearance.colors.colLayer0Hover
@@ -208,6 +219,7 @@ Item {
             contentItem: Item {
                 Rectangle {
                     id: avatar
+                    objectName: "settingsRailIcon"
                     x: (root.railContentWidth - width) / 2
                     anchors.verticalCenter: parent.verticalCenter
                     implicitWidth: 40
@@ -255,10 +267,7 @@ Item {
                     }
                 }
             }
-            StyledToolTip {
-                extraVisibleCondition: !root.expanded
-                text: SystemInfo.username
-            }
+            RailToolTip { text: SystemInfo.username }
         }
 
         // Pages
@@ -273,7 +282,9 @@ Item {
 
             Rectangle { // Selected page, slides between items
                 id: activeIndicator
-                readonly property Item target: navRepeater.count > root.highlightedPage ? navRepeater.itemAt(root.highlightedPage) : null
+                objectName: "settingsNavHighlight"
+                readonly property Item target: root.highlightedPage >= 0 && root.highlightedPage < navRepeater.count
+                    ? navRepeater.itemAt(root.highlightedPage) : null
                 visible: target !== null && target.visible
                 width: navColumn.width
                 height: root.itemHeight
@@ -330,8 +341,10 @@ Item {
 
                         RippleButton {
                             id: navButton
+                            objectName: "settingsNav-" + navDelegate.modelData.key
                             Layout.fillWidth: true
                             implicitHeight: root.itemHeight
+                            horizontalPadding: 0
                             buttonRadius: Appearance.rounding.small
                             colBackgroundHover: navDelegate.current ? "transparent" : Appearance.colors.colLayer0Hover
                             colRipple: navDelegate.current ? Appearance.colors.colPrimaryActive : Appearance.colors.colLayer0Active
@@ -340,6 +353,7 @@ Item {
                             contentItem: Item {
                                 PageIcon {
                                     id: navIcon
+                                    objectName: "settingsRailIcon"
                                     x: (root.railContentWidth - width) / 2
                                     anchors.verticalCenter: parent.verticalCenter
                                     icon: navDelegate.modelData.icon
@@ -372,10 +386,7 @@ Item {
                                 }
                             }
 
-                            StyledToolTip {
-                                extraVisibleCondition: !root.expanded
-                                text: navDelegate.modelData.name
-                            }
+                            RailToolTip { text: navDelegate.modelData.name }
                         }
                     }
                 }

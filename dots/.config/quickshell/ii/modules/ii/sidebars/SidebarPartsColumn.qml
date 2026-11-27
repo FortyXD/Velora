@@ -9,8 +9,13 @@ import qs.modules.common.widgets
  * The parts of one sidebar, top to bottom (SidebarLayout). Parts that fill share the free height;
  * a tabs part with a share of its own keeps it while another part takes the rest.
  */
-ColumnLayout {
+Flickable {
     id: root
+    clip: true
+    contentWidth: width
+    contentHeight: layout.height
+    interactive: contentHeight > height
+    boundsBehavior: Flickable.StopAtBounds
     required property string side
     property bool open: false
     property bool editMode: false // Quick toggles being arranged (the edit button of the top row)
@@ -20,7 +25,7 @@ ColumnLayout {
     readonly property bool hasToggles: root.parts.some(part => part.type === "toggles")
 
     function fills(part) {
-        return SidebarCatalog.part(part.type)?.fill ?? false;
+        return !(part.options?.height > 0) && (SidebarCatalog.part(part.type)?.fill ?? false);
     }
     function shareOf(part) {
         return part.type === "tabs" ? (part.options?.share ?? 0) : 0;
@@ -48,45 +53,53 @@ ColumnLayout {
         root.mainTabs?.snap();
     }
 
-    spacing: 10
+    ColumnLayout {
+        id: layout
+        width: root.width
+        height: Math.max(root.height, implicitHeight)
+        spacing: 10
 
-    Repeater {
-        id: repeater
-        model: root.parts
-        delegate: SidebarPartHost {
-            id: host
-            required property var modelData
-            part: modelData
-            column: root
-            visible: host.partVisible
-            readonly property real share: root.shareOf(modelData)
-            readonly property bool fillsNow: root.fills(modelData) && !host.collapsed
-            readonly property real minHeight: SidebarCatalog.part(modelData.type)?.minHeight ?? 0
-            readonly property bool takesRest: host.fillsNow && (host.share <= 0 || !root.hasRest)
-            Layout.fillWidth: true
-            Layout.fillHeight: host.takesRest
-            Layout.minimumHeight: host.fillsNow ? host.minHeight : -1
-            Layout.preferredHeight: !host.fillsNow ? (host.item?.implicitHeight ?? 0)
-                : (host.share > 0 && root.hasRest) ? Math.max(host.minHeight, Math.round(root.height * host.share))
-                : host.minHeight
-            Layout.verticalStretchFactor: host.takesRest ? 1 : -1
+        Repeater {
+            id: repeater
+            model: root.parts
+            delegate: SidebarPartHost {
+                id: host
+                required property var modelData
+                part: modelData
+                column: root
+                visible: host.partVisible
+                readonly property real share: root.shareOf(modelData)
+                readonly property bool fillsNow: !host.chosenHeight && root.fills(modelData) && !host.collapsed
+                readonly property real minHeight: SidebarCatalog.part(modelData.type)?.minHeight ?? 0
+                readonly property bool takesRest: host.fillsNow && (host.share <= 0 || !root.hasRest)
+                readonly property int chosenHeight: host.collapsed ? 0 : (host.options.height || host.item?.pageHeight || 0)
+                clip: chosenHeight > 0
+                Layout.fillWidth: true
+                Layout.fillHeight: host.takesRest
+                Layout.minimumHeight: host.chosenHeight > 0 ? host.chosenHeight : host.fillsNow ? host.minHeight : -1
+                Layout.maximumHeight: host.chosenHeight > 0 ? host.chosenHeight : Infinity
+                Layout.preferredHeight: host.chosenHeight > 0 ? host.chosenHeight : !host.fillsNow ? (host.item?.implicitHeight ?? 0)
+                    : (host.share > 0 && root.hasRest) ? Math.max(host.minHeight, Math.round(root.height * host.share))
+                    : host.minHeight
+                Layout.verticalStretchFactor: host.takesRest ? 1 : -1
+            }
         }
-    }
 
-    // Keeps the parts at the top when none of them takes the free height
-    Item {
-        visible: !root.parts.some(part => root.fills(part))
-        Layout.fillHeight: true
-    }
+        // Keeps the parts at the top when none of them takes the free height
+        Item {
+            visible: !root.parts.some(part => root.fills(part))
+            Layout.fillHeight: true
+        }
 
-    StyledText {
-        visible: root.parts.length === 0
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        horizontalAlignment: Text.AlignHCenter
-        verticalAlignment: Text.AlignVCenter
-        wrapMode: Text.Wrap
-        text: Translation.tr("Nothing here yet. Add parts on the Sidebars page of the settings.")
-        color: Appearance.colors.colSubtext
+        StyledText {
+            visible: root.parts.length === 0
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            wrapMode: Text.Wrap
+            text: Translation.tr("Nothing here yet. Add parts on the Sidebars page of the settings.")
+            color: Appearance.colors.colSubtext
+        }
     }
 }

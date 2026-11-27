@@ -47,6 +47,17 @@ class WindowModeTests(unittest.TestCase):
 
 @unittest.skipUnless(qml.QT_TEST_RUNNER, 'Qt 6 Quick Test is not installed')
 class GestureMotionTests(unittest.TestCase):
+    def test_snap_highlight_motion(self):
+        with tempfile.TemporaryDirectory(prefix='velora-snap-motion-') as directory:
+            root = Path(directory)
+            qml.write_singletons(root, {
+                'Appearance': 'property bool animate: true; property var colors: ({colPrimary: "#83b8ff"}); '
+                              'property var rounding: ({windowRounding: 12}); function scaledDuration(ms) { return animate ? ms : 0; }',
+                'ColorUtils': 'function transparentize(color, amount) { return Qt.rgba(0.5, 0.7, 1, 1 - amount); }',
+            })
+            (root / 'WindowSnapHighlight.qml').write_text(qml.production('modules/common/panels/WindowSnapHighlight.qml'))
+            qml.ConnectivityQmlTests().run_tests(root, 'tst_window_snap_highlight.qml')
+
     def test_interactive_panels(self):
         with tempfile.TemporaryDirectory(prefix='velora-gesture-motion-') as directory:
             root = Path(directory)

@@ -45,7 +45,7 @@ hl.define_submap("global", function()
         [64] = "Alt", [108] = "Alt", [133] = "Super", [134] = "Super" }
     hl.on("input.keyboard.key", function(keycode, _, pressed)
         local commit = switch_mod == nil or modifier_codes[keycode] == switch_mod
-        if pressed ~= 1 and commit and switching_windows then
+        if pressed == 0 and commit and switching_windows then
             switching_windows = false
             hl.dispatch(hl.dsp.global("quickshell:windowSwitcherCommit"))
         end
@@ -91,7 +91,7 @@ hl.define_submap("global", function()
     bind("Ctrl+Super+Alt", "T", hl.dsp.global("quickshell:wallpaperSelectorRandom"), { id = "shell.wallpaper_random", description = "Random wallpaper" })
     bind("Super", "I", exec("$settingsApp"), { id = "shell.settings", description = "Settings" })
     bind("Super+Shift", "Space", hl.dsp.global("quickshell:appLibraryToggle"), { id = "shell.app_library", description = "All apps" })
-    bind("Ctrl+Super", "R", exec([=[killall ydotool qs quickshell; qs -c $qsConfig &]=]), { id = "shell.restart", description = "Restart the shell" })
+    bind("Ctrl+Super", "R", exec([=["${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/ii/scripts/shell-session" --restart "$qsConfig"]=]), { id = "shell.restart", description = "Restart the shell" })
     bind("Ctrl+Super", "P", hl.dsp.global("quickshell:panelFamilyCycle"), { id = "shell.panel_family", description = "Switch panel style" })
     bind("Shift+Super+Alt", "Slash", exec([=[qs -p ~/.config/quickshell/$qsConfig/onboarding.qml]=]), { id = "shell.setup", description = "Setup assistant" })
     -- Always closes the setup assistant, even if it stopped responding
@@ -161,7 +161,7 @@ hl.define_submap("global", function()
     bind("Super", "Q", hl.dsp.window.close(), { id = "window.close", description = "Close window" })
     bind("Alt", "F4", hl.dsp.window.close())
     bind("Super+Shift+Alt", "Q", exec([=[hyprctl kill]=]), { id = "window.kill", description = "Force quit an app (click its window)" })
-    bind("Super+Alt", "Space", hl.dsp.window.float(), { id = "window.float", description = free and "Tile or free window" or "Float or tile window" })
+    bind("Super+Alt", "Space", mode == "floating" and free.toggle_float or hl.dsp.window.float(), { id = "window.float", description = free and "Tile or free window" or "Float or tile window" })
     bind("Alt", "Tab", function()
         switching_windows = true
         switch_mod = keymap.current_mods("window.switch_next")[1]
@@ -188,6 +188,8 @@ hl.define_submap("global", function()
         end
     end, { non_consuming = true })
     if free then
+        h.bind("", "mouse:272", free.press, { ignore_mods = true, transparent = true, non_consuming = true })
+        h.bind("", "mouse:272", free.release, { ignore_mods = true, transparent = true, non_consuming = true, release = true })
         bind("Super", "Up", free.up, { id = "window.free_up", description = "Maximize, or snap to the top quarter" })
         bind("Super", "Down", free.down, { id = "window.free_down", description = "Restore, snap to the bottom quarter or minimize" })
         bind("Super", "Left", free.left, { id = "window.snap_left", description = "Snap to the left half" })

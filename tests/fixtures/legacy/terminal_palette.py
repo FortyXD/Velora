@@ -184,6 +184,6 @@ if __name__ == "__main__":
     state = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state")
     config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
     try:
-        apply(state / "quickshell/user/generated", config_home / "illogical-impulse/config.json")
+        apply(state / "quickshell/user/generated", config_home / "velora/config.json")
     except (OSError, ValueError) as error:
         sys.exit(f"Terminal colors: {error}")

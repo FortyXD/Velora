@@ -1,7 +1,7 @@
 # Login and file previews
 
 `velora install --login-theme velora` opts into the Autumn GDM appearance.
-The default is `keep`; the chosen setting is retained for updates.
+New GDM setups select this appearance automatically. Use `--login-theme keep` to retain the standard appearance. The installer remembers that choice for updates.
 `velora greeter status` reports support and installation state.
 `velora greeter restore` restores the original files and returns the saved choice
 to `keep`. Changes appear on the next GDM start; installation does not end a session.
@@ -36,14 +36,23 @@ for the installing account. Existing Velora GDM installations receive the bridge
 through the same update button, with normal authorization once for its system files.
 Subsequent wallpaper changes require no password or terminal commands.
 
-**Wallpaper > Login screen wallpaper** controls synchronization. Disabling it
+Under **Wallpaper > Login screen wallpaper**, enable **Use desktop colors on the
+login screen** to apply the designated account's Material colors to the login
+dialog, logo, selection and controls. This is independent of wallpaper sync.
+The bridge carries nine RGB colors. Turning the setting off restores Autumn.
+
+**Use desktop wallpaper on the login screen** controls wallpaper synchronization. Disabling it
 returns to Autumn and deletes the generated wallpaper copies. The login background
 is public to all users of the computer. It follows one designated account; an update
 from another account does not change that ownership. Velora wallpaper changes and
 GNOME's `picture-uri`, `picture-uri-dark` and light/dark preference are observed
-automatically. Videos use Velora's existing still thumbnail; GIF uses its first frame.
-Missing or unsupported files retain the last working background. Shader animations
-are not rendered into the greeter: the configured underlying image remains in use.
+automatically. In **Settings → Lock screen → Background and motion**, choose independent files for the lock and login screens or select **Same as lock screen**. The lock screen loops a GIF, animated WebP or muted video at its original duration. For GDM the bridge prepares a poster and up to eight seconds of animation at 8 fps, using 512 × 288 pixel frames. The original media stays in the user session. The bridge accepts local files up to 64 MiB.
+Missing or unsupported files retain the last working background.
+**Animate built-in wallpapers on the login screen** also renders the selected
+Aurora, Liquid, Neon grid or Dunes preset with the desktop colors, speed and
+frame rate. The bridge carries a preset index, playback settings and four RGB
+colors alongside the still image. This is off by default. GDM uses the still image when animations
+are disabled or the preset is unavailable. Media animation pauses with the power saver.
 
 The bridge has two separate processes:
 
@@ -56,12 +65,11 @@ The bridge has two separate processes:
   logind must report an active local graphical session with no locked hint. This
   is account-based authorization, not a guarantee that the sending process itself
   originated at the local keyboard. No active local graphical session means refusal.
-  The service accepts only bounded raw pixels or a reset request, never source paths,
+  The service accepts only bounded appearance data or a reset request, never source paths,
   URLs, commands or compressed images. It checks the session again before publication.
 
 The service can write only `/var/lib/velora-greeter`, applies fixed blur/dimming,
-and atomically publishes immutable JPEG names and `current.json`. At most two images
-are retained. The GDM extension watches that manifest, validates filenames, and
+and atomically publishes immutable JPEG names and `current.json`. It retains the current and previous posters and their animation atlases. The GDM extension watches that manifest, validates filenames, and
 falls back to bundled Autumn when no valid image is available. The daemon exits
 after 30 seconds idle; the user watcher uses settings notifications and a 15-second
 fallback for session activation or editing an existing image. Broken images are
@@ -126,6 +134,10 @@ Choose a window mode under **Settings → Desktop → Windows**. In Free windows
 use the title bar or Alt+Space to minimize, maximize, restore or close a
 window. The dock, taskbar and Alt+Tab can restore it. Super+Down restores a
 maximized window and minimizes a free window. Super+Z opens snap layouts.
+Drag the title bar to a side for half the screen, a corner for a quarter, or the
+top to maximize. A highlight shows the destination while you hold the mouse.
+You can also hold Super and drag any part of the window with the left mouse
+button. If the title ends up offscreen, Velora brings it back into reach.
 Each Wayland window can draw its own header or request a Velora title bar.
 Brave and VS Code keep their built-in controls by default. XWayland windows
 use their Motif hints and GTK frame extents. Changing a window's decoration
@@ -145,3 +157,11 @@ geometry in `window-geometry.lua` in the same directory, normally
 positions. The installer builds the native module for Hyprland
 0.57.0. If the installed compositor has another ABI, Free windows stays
 available through the window menu, panel and shortcuts.
+
+## Velora application themes
+
+With **Settings → Appearance → Terminal colors → Color the terminal** enabled, btop and tmux follow the wallpaper palette. Changing wallpapers updates the graphs and selection in an open btop and the status line, borders and copy mode in existing Velora tmux sessions. Both use the terminal's light or dark palette, including **Keep the terminal dark**.
+
+btop uses **Velora** on a fresh installation or when migrating its stock theme. To switch from a personal theme, select **Options → Color theme → Velora** in btop.
+
+Kate offers **Velora** under **Configure Kate → Color Themes**. The installer selects it for a standard automatic Breeze setup. A fresh neofetch setup starts with Velora branding. To use it with an existing configuration, run `neofetch --config "${XDG_CONFIG_HOME:-$HOME/.config}/neofetch/velora.conf"`.

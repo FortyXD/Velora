@@ -40,6 +40,7 @@ RippleButton {
             StyledText {
                 Layout.fillWidth: true
                 text: root.title
+                textFormat: Text.PlainText
                 elide: Text.ElideRight
                 font.pixelSize: Appearance.font.pixelSize.small
                 color: Appearance.colors.colOnLayer2
@@ -48,6 +49,7 @@ RippleButton {
                 visible: root.description.length > 0
                 Layout.fillWidth: true
                 text: root.description
+                textFormat: Text.PlainText
                 wrapMode: Text.Wrap
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
@@ -57,6 +59,7 @@ RippleButton {
             visible: root.valueText.length > 0
             Layout.maximumWidth: 220
             text: root.valueText
+            textFormat: Text.PlainText
             elide: Text.ElideRight
             font.pixelSize: Appearance.font.pixelSize.small
             color: Appearance.colors.colSubtext

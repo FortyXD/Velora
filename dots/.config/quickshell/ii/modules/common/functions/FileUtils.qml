@@ -26,6 +26,29 @@ Singleton {
         return trimmed.split(/[\\/]/).pop();
     }
 
+    function fileUrl(path) {
+        return path.startsWith("/") ? "file://" + path.split("/").map(encodeURIComponent).join("/") : path;
+    }
+
+    function localPath(path) {
+        let raw = trimFileProtocol(path || "");
+        if (String(path).startsWith("file://")) {
+            try { raw = decodeURIComponent(raw); } catch (error) { /* Older paths can contain a literal percent. */ }
+        }
+        if (!raw.startsWith("/")) return raw;
+        const parts = [];
+        for (const part of raw.split("/")) {
+            if (part === "..") parts.pop();
+            else if (part && part !== ".") parts.push(part);
+        }
+        return "/" + parts.join("/");
+    }
+
+    function wallpaperPicture(path, thumbnail) {
+        if (!isVideoPath(path)) return path;
+        return fileNameForPath(thumbnail).startsWith(fileNameForPath(path) + ".") ? thumbnail : "";
+    }
+
     // Remote filenames are one component, even when the URL encodes separators.
     function fileNameForUrl(url) {
         const source = String(url ?? "");

@@ -6,6 +6,7 @@ import qs.modules.common.functions
 import QtCore
 import QtQuick
 import Quickshell
+import Quickshell.Io
 
 Singleton {
     // XDG Dirs, with "file://"
@@ -33,8 +34,26 @@ Singleton {
     property string booruPreviews: FileUtils.trimFileProtocol(`${Directories.cache}/media/boorus`)
     property string booruDownloads: FileUtils.trimFileProtocol(Directories.pictures  + "/homework")
     property string booruDownloadsNsfw: FileUtils.trimFileProtocol(Directories.pictures + "/homework/🌶️")
-    property string latexOutput: FileUtils.trimFileProtocol(`${Directories.cache}/media/latex`)
-    property string shellConfig: FileUtils.trimFileProtocol(`${Directories.config}/illogical-impulse`)
+    readonly property string latexOutput: `${temporary}/latex`
+    // A restored chat can request its first formula before mkdir even starts.
+    readonly property bool preparingLatexOutput: !latexDirectory.finished
+    Process {
+        id: latexDirectory
+        property bool finished: false
+        command: ["mkdir", "-p", "--", Directories.latexOutput]
+        running: true
+        onExited: finished = true
+    }
+    property string shellConfig: {
+        const base = FileUtils.trimFileProtocol(Directories.config);
+        // A linked shell can reload from an updated checkout before the installer runs.
+        for (const name of ["velora", "illogical-impulse"]) {
+            const local = base + "/" + name;
+            const found = StandardPaths.locate(StandardPaths.ConfigLocation, name + "/config.json");
+            if (FileUtils.trimFileProtocol(found) === local + "/config.json") return local;
+        }
+        return base + "/velora";
+    }
     property string shellConfigName: "config.json"
     property string shellConfigPath: `${Directories.shellConfig}/${Directories.shellConfigName}`
 	property string todoPath: FileUtils.trimFileProtocol(`${Directories.state}/user/todo.json`)
@@ -60,7 +79,7 @@ Singleton {
     Component.onCompleted: {
         Quickshell.execDetached(["mkdir", "-p", `${shellConfig}`])
         Quickshell.execDetached(["mkdir", "-p", `${favicons}`])
-        for (const directory of [coverArt, booruPreviews, latexOutput, cliphistDecode])
+        for (const directory of [coverArt, booruPreviews, cliphistDecode])
             Quickshell.execDetached(["bash", "-c", 'rm -rf -- "$1" && mkdir -p -- "$1"', "cleanup", directory]);
         Quickshell.execDetached(["mkdir", "-p", `${aiChats}`])
         Quickshell.execDetached(["mkdir", "-p", `${userActions}`])

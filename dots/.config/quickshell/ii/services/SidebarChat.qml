@@ -8,12 +8,14 @@ import qs.services.ai
 
 Singleton {
     id: root
-    readonly property string mode: Assistant.enabled ? "assistant" : "chat"
+    readonly property string mode: Assistant.enabled || Assistant.fileMode ? "assistant" : "chat"
     readonly property bool busy: active || Ai.generating || Ai.requestAfterKeyring || Assistant.busy || Assistant.preparingSubmission || Assistant.queued !== null || LocalAiRuntime.unloading
     readonly property bool compatible: conversationMode === mode
     readonly property string modelName: mode === "assistant" ? (Assistant.useStrong ? Assistant.profile.strong_model : Assistant.profile.model) : (Ai.getModel()?.name ?? Translation.tr("Choose a model"))
     readonly property bool localModel: mode === "assistant" ? Assistant.profile.provider === "ollama" : Ai.currentModelIsLocal
-    readonly property int attachmentLimit: mode === "assistant" ? 100 : Ai.getModel()?.api_format === "gemini" ? 1 : 0
+    readonly property bool fileAccessEnabled: Assistant.allowFiles && (Assistant.enabled || !Ai.currentModelIsLocal || Assistant.fileMode)
+    readonly property bool commandAccessEnabled: Assistant.allowCommands && (Assistant.enabled || (mode === "chat" && Ai.effectiveTool === "functions"))
+    readonly property int attachmentLimit: !Assistant.allowFiles ? 0 : mode === "assistant" ? 100 : Ai.getModel()?.api_format === "gemini" ? 1 : 0
     readonly property bool actionsAvailable: mode === "assistant" || Ai.effectiveTool === "functions"
     readonly property bool canSend: !busy && compatible && !GlobalStates.screenLocked && draft.trim().length > 0 && Config.options.policies.ai !== 0
     property string conversationId: ""
@@ -46,6 +48,43 @@ Singleton {
     }
     signal submitted()
     signal inputRequested()
+    function prepareForInput(typing = false) {
+        if (!Config.ready || !localModel || busy || GlobalStates.screenLocked || Config.options.policies.ai === 0) return;
+        if (!typing && (PowerSaving.onBattery || PowerSaving.active || LocalAiRuntime.memoryStatus)) return;
+        const assistant = mode === "assistant";
+        const profile = Assistant.profile;
+        const chatModel = Ai.getModel();
+        const assistantModel = Assistant.useStrong && profile.strong_model ? profile.strong_model : profile.model;
+        const model = assistant ? assistantModel : chatModel?.model;
+        if (!Ai.installedModelIds.some(id => Ai.models[id]?.model === model)) return;
+        if (!(Config.options.assistant?.contextTokens > 0) && !LocalAiRuntime.totalMemoryKiB && (assistant || !chatModel?.extraParams?.options?.num_ctx)) {
+            LocalAiRuntime.waitForMemory(typing);
+            return;
+        }
+        const gpu = assistant ? profile.gpu : (Config.options.ai.localGpu ?? true) && LocalAiRuntime.allowGpu;
+        const options = (!assistant && chatModel.extraParams?.options) || LocalAiRuntime.runnerOptions(model, gpu);
+        if (assistant && PowerSaving.onBattery) options.num_thread = 4;
+        LocalAiRuntime.preload(model, assistant ? profile.endpoint : chatModel.endpoint, gpu, options, assistant && !Assistant.fileMode);
+    }
+    function setFileAccess(allowed) {
+        if (busy || GlobalStates.screenLocked || Config.options.policies.ai === 0) return;
+        const pendingDraft = draft;
+        Config.options.assistant.allowFileAccess = allowed;
+        Assistant.fileMode = allowed && !Assistant.enabled && Ai.currentModelIsLocal;
+        if (!allowed) attachments = [];
+        draft = pendingDraft;
+    }
+    function setCommandAccess(allowed) {
+        if (busy || GlobalStates.screenLocked || Config.options.policies.ai === 0) return;
+        const pendingDraft = draft;
+        const files = fileAccessEnabled;
+        Config.options.assistant.allowCommands = allowed;
+        if (allowed && !Assistant.enabled && (Assistant.fileMode || Ai.effectiveTool !== "functions")) {
+            Config.options.assistant.allowFileAccess = files;
+            Config.options.assistant.enabled = true;
+        }
+        draft = pendingDraft;
+    }
     function releaseMemory() {
         if (busy || !localModel) return;
         save();
@@ -70,10 +109,11 @@ Singleton {
     function contextEntries() {
         return serialized().filter(message => !message.contextExcluded).map(message => {
             if (message.role !== "assistant" || !message.submissionId) return message;
-            const details = message.steps.map(step => step.label + (step.path ? ": " + step.path : ""));
+            // Only the step title belongs in restored model context. The approved program is for display in history.
+            const details = message.steps.map(step => step.label.split("\n", 1)[0] + (step.path ? ": " + step.path : ""));
             details.push("Task status: " + (message.transactionState || message.status));
             if (message.error) details.push(message.error);
-            return Object.assign({}, message, {text:message.text + "\n" + details.join("\n")});
+            return Object.assign({}, message, {displayText:message.text, text:message.text + "\n" + details.join("\n")});
         });
     }
     function changed() { if (!loading && initialized && !autosave.running) autosave.start(); }
@@ -207,6 +247,7 @@ Singleton {
         const text = draft.trim();
         conversationModel = mode === "assistant" ? (Assistant.useStrong ? Assistant.profile.strong_model : Assistant.profile.model) : Ai.currentModelId;
         if (mode === "assistant") {
+            if (!Assistant.profile.model) { problem = Translation.tr("Choose a local model in AI settings."); return false; }
             if (restoreNeeded || !Assistant.ready) Assistant.restoreConversation(contextEntries());
             restoreNeeded = false;
             Assistant.selectedPaths = attachments.slice();
@@ -351,7 +392,13 @@ Singleton {
             if (!root.active || !root.currentReply) return;
             if (event.type === "step") {
                 root.currentReply.hasActions = true;
-                if (event.state === "done") root.currentReply.steps = root.currentReply.steps.concat([{label:Assistant.actionLabel(event.tool), path:event.result?.path ?? ""}]);
+                if (event.state === "done" || event.state === "retry") {
+                    const mark = ({retry:"↻", failed:"×", empty:"—", done:"✓"})[Assistant.stepOutcome(event)];
+                    let label = mark + " " + Assistant.stepLabel(event);
+                    if (event.tool === "terminal_run" && Assistant.runningProgram)
+                        label += "\n" + Assistant.runningProgram;
+                    root.currentReply.steps = root.currentReply.steps.concat([{label, path:event.result?.path ?? ""}]);
+                }
             } else if (event.type === "approval") {
                 root.currentReply.status = "approval";
                 if (event.details?.diff) root.currentReply.changes = event.details.diff;

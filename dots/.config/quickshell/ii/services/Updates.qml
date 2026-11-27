@@ -12,6 +12,31 @@ import Quickshell.Io
 Singleton {
     id: root
 
+    property bool veloraAvailable: false
+    property bool hasUpdateState: false
+    Timer {
+        id: retryState
+        interval: 2000
+        repeat: true
+        running: !root.hasUpdateState
+        onTriggered: {
+            updateState.reload();
+            interval = Math.min(interval * 2, 60000);
+        }
+    }
+    FileView {
+        id: updateState
+        path: `${Quickshell.env("XDG_STATE_HOME") || FileUtils.trimFileProtocol(Directories.home) + "/.local/state"}/velora/update.json`
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            root.hasUpdateState = true;
+            retryState.interval = 2000;
+            try { const state = JSON.parse(text()); root.veloraAvailable = state.available === true; }
+            catch (_) { root.veloraAvailable = false; }
+        }
+        onLoadFailed: { root.hasUpdateState = false; root.veloraAvailable = false; }
+    }
     property bool available: false
     property alias checking: checkUpdatesProc.running
     property int count: 0

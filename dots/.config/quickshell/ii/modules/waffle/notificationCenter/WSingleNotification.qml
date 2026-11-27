@@ -2,7 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Services.Notifications
+import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -13,24 +13,23 @@ MouseArea {
     id: root
 
     required property var notification
-    property bool expanded: notification.actions.length > 0
+    property bool expanded: (notification?.actions.length ?? 0) > 0
     property string groupExpandControlMessage: ""
 
     readonly property bool isPopup: notification?.popup ?? false
 
     signal groupExpandToggle
     hoverEnabled: true
+    enabled: !removeAnimation.running
 
     function dismiss() {
-        Qt.callLater(() => {
-            Notifications.discardNotification(root.notification?.notificationId);
-        });
-        removeAnimation.start();
+        const id = root.notification?.notificationId;
+        if (id !== undefined) removeAnimation.dismiss([id]);
     }
 
     WNotificationDismissAnim {
         id: removeAnimation
-        target: root
+        target: contentItem
     }
 
     implicitHeight: contentItem.implicitHeight
@@ -45,6 +44,7 @@ MouseArea {
         axis: Drag.XAxis
         target: contentItem
         minimumX: 0
+        maximumX: root.width
         onActiveChanged: {
             if (drag.active)
                 return;
@@ -68,6 +68,7 @@ MouseArea {
         border.color: root.isPopup ? Looks.colors.bg2Border : Looks.colors.bgPanelSeparator
 
         Behavior on x {
+            enabled: !root.drag.active && !removeAnimation.running
             animation: Looks.transition.enter.createObject(this)
         }
 
@@ -97,12 +98,12 @@ MouseArea {
                         top: parent.top
                         left: parent.left
                     }
-                    active: root.notification.image != ""
+                    active: !!root.notification?.image
                     sourceComponent: StyledImage {
                         readonly property int size: 48
                         width: size
                         height: size
-                        source: root.notification.image
+                        source: root.notification?.image ?? ""
                         fillMode: Image.PreserveAspectFit
                     }
                 }
@@ -165,21 +166,34 @@ MouseArea {
         }
     }
 
-    component ActionsRow: RowLayout {
-        visible: root.expanded && root.notification.actions.length > 0
-        uniformCellSizes: true
+    component ActionsRow: GridLayout {
+        id: actions
+        readonly property var entries: root.notification?.actions ?? []
+        readonly property real buttonPadding: 12
+        readonly property real buttonWidth: entries.reduce((widest, action) =>
+            Math.max(widest, Math.ceil(metrics.advanceWidth(action.text)) + 2 * buttonPadding), 1)
+        visible: root.expanded && entries.length > 0
+        columns: Math.max(1, Math.min(entries.length, Math.floor((width + columnSpacing) / (buttonWidth + columnSpacing))))
+        uniformCellWidths: true
+
+        FontMetrics {
+            id: metrics
+            font.family: Looks.font.family.ui
+            font.pixelSize: Looks.font.pixelSize.large
+        }
         Repeater {
-            id: actionRepeater
-            model: root.notification.actions
+            model: actions.entries
             delegate: WBorderedButton {
                 id: actionButton
                 Layout.fillHeight: true
                 required property var modelData
                 Layout.fillWidth: true
-                verticalPadding: 16
-                horizontalPadding: 12
+                Layout.minimumWidth: 0
+                verticalPadding: 8
+                horizontalPadding: actions.buttonPadding
                 text: modelData.text
-                implicitHeight: actionButtonText.implicitHeight + verticalPadding * 2
+                implicitHeight: Math.max(36, actionButtonText.implicitHeight + verticalPadding * 2)
+                onClicked: Notifications.attemptInvokeAction(root.notification.notificationId, modelData.identifier)
                 contentItem: WText {
                     id: actionButtonText
                     text: actionButton.text
@@ -195,7 +209,7 @@ MouseArea {
     component SummaryText: WText {
         Layout.fillWidth: true
         elide: Text.ElideRight
-        text: root.notification?.summary
+        text: root.notification?.summary ?? ""
         textFormat: Text.PlainText
         font.pixelSize: Looks.font.pixelSize.large
     }
@@ -207,7 +221,7 @@ MouseArea {
         verticalAlignment: Text.AlignTop
         wrapMode: Text.Wrap
         maximumLineCount: root.expanded ? 100 : 1
-        text: NotificationUtils.processNotificationBody(root.notification.body, root.notification.appName || root.notification.summary)
+        text: NotificationUtils.processNotificationBody(root.notification?.body, root.notification?.appName || root.notification?.summary)
         color: Looks.colors.subfg
         textFormat: Text.StyledText
         onLinkActivated: link => {

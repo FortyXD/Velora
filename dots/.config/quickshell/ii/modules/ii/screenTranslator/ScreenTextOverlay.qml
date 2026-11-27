@@ -21,7 +21,7 @@ Item {
     property color textColor: "white"
     required property string screenshotPath
 
-    readonly property string wikiLink: "https://ii.clsty.link/en/ii-qs/02usage/#setting-it-up" // TODO: write a page for this
+    readonly property string setupGuide: "https://github.com/FortyXD/Velora/blob/main/docs/screen-capture.md#screen-translation"
 
     property bool loading: true
     property var visionParagraphs: []
@@ -120,12 +120,12 @@ Item {
                 textFormat: Text.StyledText
                 wrapMode: Text.Wrap
                 text: "<b>" + StringUtils.escapeHtml(Translation.tr("Screen Translator")) + "</b><br/><br/>"
-                    + StringUtils.escapeHtml(root.errorMessage).replace(/\n/g, "<br/>") + '<br/><br/><a href="' + root.wikiLink + '">'
-                    + StringUtils.escapeHtml(Translation.tr("See setup instructions on the wiki")) + "</a>"
+                    + StringUtils.escapeHtml(root.errorMessage).replace(/\n/g, "<br/>") + '<br/><br/><a href="' + root.setupGuide + '">'
+                    + StringUtils.escapeHtml(Translation.tr("Velora setup guide")) + "</a>"
                 font.pixelSize: Appearance.font.pixelSize.small * root.scaleFactor
                 color: root.textColor
                 onLinkActivated: (link) => {
-                    Qt.openUrlExternally(root.wikiLink)
+                    Qt.openUrlExternally(root.setupGuide)
                     GlobalStates.screenTranslatorOpen = false
                 }
 

@@ -13,7 +13,6 @@ class NotificationGroupTests(unittest.TestCase):
         pages.SettingsPagesTests.setUpClass()
 
     def test_grouped_messages_and_actions(self):
-        driver = (Path(__file__).parent / 'qml/NotificationGroupFixture.qml').read_text()
         fake = '''pragma Singleton
 import Quickshell
 Singleton {
@@ -22,11 +21,15 @@ Singleton {
     signal discard(int id)
     function attemptInvokeAction(id, action) { invoked = id + "/" + action; }
     function discardNotification(id) { dismissed = id; discard(id); }
+    function discardAfter(ids, delay) { ids.forEach(id => discardNotification(id)); }
 }
 '''
-        output = pages.SettingsPagesTests().run_driver(driver, service_overrides={'Notifications.qml': fake})
-        self.assertIn('DRIVER_PASS', output, output[-3500:])
-        self.assertNotRegex(output, r'CHECK_FAIL|TypeError|ReferenceError|Binding loop|Cannot assign|Unable to assign')
+        for fixture in ('NotificationGroupFixture.qml', 'WaffleNotificationFixture.qml'):
+            with self.subTest(fixture=fixture):
+                driver = (Path(__file__).parent / 'qml' / fixture).read_text()
+                output = pages.SettingsPagesTests().run_driver(driver, service_overrides={'Notifications.qml': fake})
+                self.assertIn('DRIVER_PASS', output, output[-3500:])
+                self.assertNotRegex(output, r'CHECK_FAIL|TypeError|ReferenceError|Binding loop|Cannot assign|Unable to assign')
 
     def test_large_stack_reveals_without_moving_the_front(self):
         driver = (Path(__file__).parent / 'qml/NotificationStackMotionFixture.qml').read_text()

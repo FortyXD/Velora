@@ -10,6 +10,7 @@
 //!   toolbox-open [tab] [files...]               the toolbox, in its running window if there is one
 //!   toolbox-quick <target> files...             converts from the file manager's menu
 //!   top-apps                                    this user's processes, with CPU and memory
+//!   storage-usage PATH                          live disk usage and folder views for Settings
 //!   layout-keys <layout> [variant]              what each key of a keyboard layout types, as JSON
 //!   pick-color                                  picks a color on screen and remembers it
 //!   zoom <reset|increase STEP|decrease STEP>    the screen zoom
@@ -59,6 +60,7 @@ mod recorder;
 mod region;
 mod regions;
 mod scheme;
+mod storage_usage;
 mod subprocess;
 mod terminal;
 mod textcolor;
@@ -66,6 +68,7 @@ mod theme;
 mod thumbnails;
 mod toolbox;
 
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
@@ -78,6 +81,19 @@ fn main() -> ExitCode {
         eprintln!("velora-helper {command}: {error:#}");
         ExitCode::FAILURE
     })
+}
+
+fn shell_dir() -> PathBuf {
+    std::env::var_os("VELORA_SHELL_DIR").map_or_else(
+        || {
+            let config = std::env::var_os("XDG_CONFIG_HOME").map_or_else(
+                || PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".config"),
+                PathBuf::from,
+            );
+            config.join("quickshell/ii")
+        },
+        PathBuf::from,
+    )
 }
 
 fn dispatch(command: &str, argv: Vec<String>) -> anyhow::Result<ExitCode> {
@@ -115,6 +131,7 @@ fn dispatch(command: &str, argv: Vec<String>) -> anyhow::Result<ExitCode> {
         "region" => region::run(argv),
         "backlight" => backlight::run(argv),
         "top-apps" => processes::run(),
+        "storage-usage" => storage_usage::run(&argv),
         "layout-keys" => keyboard::run(argv),
         "zoom" => hypr::zoom(argv),
         "apps" => apps::run(argv),
@@ -134,6 +151,16 @@ fn dispatch(command: &str, argv: Vec<String>) -> anyhow::Result<ExitCode> {
         "cloud-screen" => cloud::run(false),
         "cloud-token" => cloud::run(true),
         "assistant-select" => dolphin::select(argv),
+        "vpn-import" => {
+            use std::os::unix::process::CommandExt;
+            let script = shell_dir().join("scripts/network/proxy_vpn.py");
+            return Err(std::process::Command::new("/usr/bin/python3")
+                .arg("-B")
+                .arg(script)
+                .arg("import-link")
+                .exec()
+                .into());
+        }
         "--version" => {
             println!("velora-helper {}", env!("CARGO_PKG_VERSION"));
             Ok(())

@@ -21,8 +21,7 @@ The recording indicator and timer start only after encoder/muxer initialization;
   after two minutes if its controller is killed before releasing it. Expiry uses the
   same bounded cursor check and leave-before-reentry guard; it does not poll the pointer.
 - **Audio:** silent, system sound (default), microphone only, or system + microphone.
-  Unlike the previous illogical-impulse button, the microphone is **not enabled by
-  default**. Select both explicitly to restore that behavior. A muted device records
+  Select a microphone mode to include your voice. A muted device records
   silence; use normal sound settings to adjust volume/mute before recording.
 - **Devices:** follow the system default at launch, or pin a particular output/input.
   System sound records exactly one playback monitor. A missing selected device is

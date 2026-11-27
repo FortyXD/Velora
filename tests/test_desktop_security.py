@@ -42,7 +42,7 @@ class DesktopSecurityTests(unittest.TestCase):
         stubs = {
             'Probe': 'property var jobs: []',
             'Config': 'property var options: ({networking:{userAgent:"audit-agent"}})',
-            'Directories': 'property string latexOutput:"/unused"',
+            'Directories': 'property string latexOutput:"/unused"; property bool preparingLatexOutput:false',
             'Appearance': 'property var font:({pixelSize:{normal:12}}); property var colors:({colOnLayer1:"white"})',
         }
         for name, body in stubs.items():
@@ -259,10 +259,14 @@ sys.exit(int(os.environ.get('CURL_EXIT','0')))
         self.qml('''
             SignalSpy { id: rendered; target: LatexRenderer; signalName:"renderFinished" }
             function test_lifecycle() {
+                Directories.preparingLatexOutput = true;
                 const result = LatexRenderer.requestRender("x+1");
                 verify(result[1]);
                 verify(!LatexRenderer.requestRender("x+1")[1]);
                 compare(Probe.jobs.length, 1);
+                compare(Probe.jobs[0].running, false);
+                Directories.preparingLatexOutput = false;
+                compare(Probe.jobs[0].running, true);
                 compare(rendered.count, 0);
                 Probe.jobs[0].exited(1, 0);
                 compare(rendered.count, 0);
@@ -667,7 +671,7 @@ for arg in sys.argv[1:]:
             source = (SHELL / 'services/LatexRenderer.qml').read_text().replace('import qs.modules.common\n', '')
             (root / 'LatexRenderer.qml').write_text(source)
             (root / 'Directories.qml').write_text(
-                'pragma Singleton\nimport QtQuick\nQtObject { property string latexOutput:' + json.dumps(str(root)) + ' }')
+                'pragma Singleton\nimport QtQuick\nQtObject { property bool preparingLatexOutput:false; property string latexOutput:' + json.dumps(str(root)) + ' }')
             (root / 'Appearance.qml').write_text(
                 'pragma Singleton\nimport QtQuick\nQtObject { property var font:({pixelSize:{normal:12}}); property var colors:({colOnLayer1:"white"}) }')
             (root / 'qmldir').write_text(''.join(f'singleton {name} 1.0 {name}.qml\n'
@@ -862,14 +866,16 @@ name=pathlib.Path(sys.argv[0]).name
 if name=='magick':
  p=pathlib.Path(sys.argv[-1]);p.write_bytes(b'jpeg')
  pathlib.Path(os.environ['IMAGE_LOG']).write_text(json.dumps({'path':str(p),'mode':stat.S_IMODE(p.stat().st_mode)}))
-elif name=='secret-tool': print('{"apiKeys":{"gemini":"test-key"}}')
+elif name=='velora-helper':
+ assert sys.argv[1:]==['keyring','lookup']
+ print('{"apiKeys":{"gemini":"test-key"}}')
 elif name=='curl':
  pathlib.Path(os.environ['PAYLOAD_LOG']).write_text(pathlib.Path(sys.argv[sys.argv.index('--data-binary')+1][1:]).read_text())
  assert 'test-key' not in str(sys.argv)
  assert pathlib.Path(sys.argv[sys.argv.index('-H')+1][1:]).read_text() == 'x-goog-api-key: test-key\\n'
  print('{"candidates":[{"content":{"parts":[{"text":"abstract"}]}}]}')
 '''
-            for name in ('magick', 'secret-tool', 'curl'):
+            for name in ('magick', 'velora-helper', 'curl'):
                 path = binary / name
                 path.write_text(fake)
                 path.chmod(0o755)
@@ -877,6 +883,7 @@ elif name=='curl':
             result = subprocess.run([str(SHELL / 'scripts/ai/gemini-categorize-wallpaper.sh'),
                                      str(root / 'image with spaces.jpg'), 'test-model', prompt],
                                     env={**os.environ, 'PATH': str(binary) + ':/usr/bin', 'TMPDIR': str(root),
+                                         'VELORA_HELPER': str(binary / 'velora-helper'),
                                          'IMAGE_LOG': str(root / 'image.json'), 'PAYLOAD_LOG': str(root / 'payload.json')},
                                     capture_output=True, text=True, timeout=10)
             self.assertEqual(result.returncode, 0, result.stderr)

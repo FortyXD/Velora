@@ -327,6 +327,7 @@ QtObject {
     // Names, descriptions and icons of the components offered
     readonly property var componentInfo: ({
         "applications": [Translation.tr("Everyday apps"), Translation.tr("A file manager, terminals and command-line helpers"), "folder_open"],
+        "vpn": [Translation.tr("VPN protocols"), Translation.tr("Manage VPN files, proxy links and subscriptions in Settings"), "vpn_key"],
         "toolbox": [Translation.tr("Tools"), Translation.tr("Convert files, download videos, QR codes, text from images"), "construction"],
         "appearance": [Translation.tr("Themes and fonts"), Translation.tr("Other apps in Velora's colors and fonts"), "palette"],
         "live-wallpapers": [Translation.tr("Live wallpapers"), Translation.tr("Videos as wallpapers"), "movie"],
@@ -429,17 +430,17 @@ QtObject {
 
     // Everything back as it was before the assistant started
     function undoAll() {
-        root.run(["bash", "-c", 'cp -f -- "$1/config.json" "$2/illogical-impulse/config.json"; '
+        root.run(["bash", "-c", 'cp -f -- "$1/config.json" "$3"; '
             + 'cp -f -- "$1/shell_settings.json" "$2/hypr/custom/shell_settings.json" 2>/dev/null; '
             + 'cp -f -- "$1/monitors.json" "$2/hypr/custom/monitors.json" 2>/dev/null; '
-            + 'qs -c ii ipc call presets reload; hyprctl reload', "_", root.backupDir, root.configDir]);
+            + 'qs -c ii ipc call presets reload; hyprctl reload', "_", root.backupDir, root.configDir, Directories.shellConfigPath]);
     }
 
     property Process backup: Process {
         // Only once: a resumed assistant keeps the copy from before its first run
-        command: ["bash", "-c", '[ -d "$1" ] && exit 0; mkdir -p "$1" && cp -f -- "$2/illogical-impulse/config.json" "$1/" '
+        command: ["bash", "-c", '[ -d "$1" ] && exit 0; mkdir -p "$1" && cp -f -- "$3" "$1/config.json" '
             + '&& { cp -f -- "$2/hypr/custom/shell_settings.json" "$1/" 2>/dev/null; cp -f -- "$2/hypr/custom/monitors.json" "$1/" 2>/dev/null; true; }',
-            "_", root.backupDir, root.configDir]
+            "_", root.backupDir, root.configDir, Directories.shellConfigPath]
         onRunningChanged: if (!running) {
             root.backupReady = true;
             root.prepareInitialTheme();

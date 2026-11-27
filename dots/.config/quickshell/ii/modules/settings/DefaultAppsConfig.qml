@@ -1,461 +1,391 @@
 pragma ComponentBehavior: Bound
-
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import Quickshell.Widgets
 import qs.services
 import qs.modules.common
-import qs.modules.common.functions
 import qs.modules.common.widgets
+import qs.modules.settings.apps
 
-ContentPage {
+SettingsDetailPage {
     id: root
+    readonly property Item popupPane: root
+    sectionTitles: ({ formats: Translation.tr("File types"), commands: Translation.tr("Desktop tools") })
 
-    readonly property string helper: Quickshell.shellPath("scripts/helper")
-    property var roles: ({}) // role id -> { current: { app } | { command, name } | { ask }, candidates, allowsCommand, allowsAsk }
-    property var apps: []    // Every app, for "Other apps"
-    property var webmailServices: []
-    property var types: []   // File types the chooser remembered an app for
-    property bool loaded: false
-
+    readonly property var dailyRoles: ["browser", "mail", "files", "terminal", "text", "code"]
+    readonly property var formatRoles: ["images", "video", "music", "pdf", "documents", "spreadsheets", "presentations", "archives"]
     readonly property var roleInfo: ({
-        "browser": { icon: "language", name: Translation.tr("Web browser"), description: Translation.tr("Opens links and web pages"), shortcut: "app.browser" },
-        "mail": { icon: "mail", name: Translation.tr("Email"), description: Translation.tr("Opens email links. A browser uses the web mail below.") },
-        "files": { icon: "folder", name: Translation.tr("File manager"), description: Translation.tr("Opens folders"), shortcut: "app.files" },
-        "terminal": { icon: "terminal", name: Translation.tr("Terminal emulator"), description: Translation.tr("Also used by Dolphin's Open Terminal"), shortcut: "app.terminal" },
-        "text": { icon: "edit_note", name: Translation.tr("Text editor"), description: Translation.tr("Opens plain text files"), shortcut: "app.text" },
-        "code": { icon: "code", name: Translation.tr("Code editor"), description: Translation.tr("For programming"), shortcut: "app.code" },
-        "images": { icon: "image", name: Translation.tr("Images"), description: Translation.tr("PNG, JPEG, WebP and other pictures") },
-        "video": { icon: "movie", name: Translation.tr("Video"), description: Translation.tr("MP4, MKV, WebM and other videos") },
-        "music": { icon: "music_note", name: Translation.tr("Music"), description: Translation.tr("MP3, FLAC, OGG and other audio") },
-        "pdf": { icon: "picture_as_pdf", name: Translation.tr("PDF documents"), description: Translation.tr("Opens PDF files") },
-        "documents": { icon: "description", name: Translation.tr("Documents"), description: Translation.tr("ODT, DOCX, DOC and RTF") },
-        "spreadsheets": { icon: "table_chart", name: Translation.tr("Spreadsheets"), description: Translation.tr("ODS, XLSX and XLS") },
-        "presentations": { icon: "slideshow", name: Translation.tr("Presentations"), description: Translation.tr("ODP, PPTX and PPT") },
-        "archives": { icon: "folder_zip", name: Translation.tr("Archives"), description: Translation.tr("ZIP, 7z and TAR open as folders in Dolphin") }
+        browser: { example: "https://", color: "#79aafd", icon: "link", action: Translation.tr("Open web links"), title: Translation.tr("Default browser"), description: Translation.tr("Opens web links from messages, emails and documents."), shortcut: "app.browser" },
+        mail: { example: "mailto:", color: "#da86b3", icon: "mail", action: Translation.tr("Compose email"), title: Translation.tr("Email application"), description: Translation.tr("Composes a message when you open an email link.") },
+        files: { example: "~/", color: "#edb971", icon: "folder_open", action: Translation.tr("Browse folders"), title: Translation.tr("File manager"), description: Translation.tr("Opens folders and shows their contents."), shortcut: "app.files" },
+        terminal: { example: ">_", color: "#76bfa6", icon: "terminal", action: Translation.tr("Launch a terminal"), title: Translation.tr("Terminal emulator"), description: Translation.tr("Opens a terminal window, including from the file manager."), shortcut: "app.terminal" },
+        text: { example: ".txt", color: "#b49aeb", icon: "edit_note", action: Translation.tr("Edit text files"), title: Translation.tr("Text editor"), description: Translation.tr("Opens plain text files such as notes.txt."), shortcut: "app.text" },
+        code: { example: "{ }", color: "#7caed0", icon: "code", action: Translation.tr("Launch the code editor"), title: Translation.tr("Code editor"), description: Translation.tr("Opens your programming editor from its launcher shortcut."), shortcut: "app.code" },
+        images: { icon: "image", title: Translation.tr("Images"), description: "JPG · PNG · WebP" },
+        video: { icon: "movie", title: Translation.tr("Video"), description: "MP4 · MKV · WebM" },
+        music: { icon: "music_note", title: Translation.tr("Music"), description: "MP3 · FLAC · OGG" },
+        pdf: { icon: "picture_as_pdf", title: Translation.tr("PDF documents"), description: "PDF" },
+        documents: { icon: "description", title: Translation.tr("Documents"), description: "ODT · DOCX · DOC · RTF" },
+        spreadsheets: { icon: "table_chart", title: Translation.tr("Spreadsheets"), description: "ODS · XLSX · XLS" },
+        presentations: { icon: "slideshow", title: Translation.tr("Presentations"), description: "ODP · PPTX · PPT" },
+        archives: { icon: "folder_zip", title: Translation.tr("Archives"), description: "ZIP · 7z · RAR · TAR" }
     })
-
-    readonly property string askValue: "__ask__"
-
-    function iconSource(icon) {
-        if (!icon) return Quickshell.iconPath("application-x-executable");
-        return icon.startsWith("/") ? `file://${icon}` : Quickshell.iconPath(icon, "application-x-executable");
-    }
-
-    // Names that more than one app uses ("Files", "Text Editor") also show the desktop id
+    property var roles: ({})
+    property var apps: []
+    property var types: []
+    property var webmailServices: []
+    property bool loaded: false
+    property string catalogueError: ""
+    property string assignmentError: ""
+    property var failedAssignment: null
+    readonly property string errorMessage: [assignmentError, catalogueError].filter(Boolean).join("\n")
     readonly property var sharedNames: {
-        let counts = {};
-        for (const app of root.apps) counts[app.name] = (counts[app.name] ?? 0) + 1;
+        const counts = {};
+        for (const app of apps) counts[app.name] = (counts[app.name] ?? 0) + 1;
         return counts;
     }
-    function appDescription(app) {
+    readonly property var currentNames: {
+        const names = {};
+        for (const id of [...dailyRoles, ...formatRoles]) {
+            const current = roles[id]?.current ?? {};
+            names[id] = current.app?.name || current.name || current.command || (current.ask ? Translation.tr("Ask every time") : loaded ? Translation.tr("No app selected") : "…");
+        }
+        return names;
+    }
+
+    function roleSearch(id) {
+        const info = roleInfo[id], data = roles[id];
+        const examples = formatRoles.includes(id) ? info.description.split(" · ").map(s => "." + s.toLowerCase()) : [];
+        return [info.title, info.action, info.description, currentNames[id], ...(data?.mimes ?? []),
+            ...(data?.patterns ?? []), ...examples].join(" ");
+    }
+    function typeSearch(type) {
+        return [type.description, type.mime, ...type.patterns, type.app.name].join(" ");
+    }
+    function matches(searchText) {
+        const haystack = searchText.toLowerCase();
+        return formatSearch.text.trim().toLowerCase().split(/\s+/).every(term => haystack.includes(term));
+    }
+    function appDetail(app) {
+        if (app.symbol) return "";
         const id = app.id.replace(/\.desktop$/, "");
-        if ((root.sharedNames[app.name] ?? 0) > 1 || !app.comment) return app.comment ? `${app.comment} · ${id}` : id;
-        return app.comment;
-    }
-    function appOption(app, extra) {
-        return Object.assign({ displayName: app.name, value: app.id, iconSource: root.iconSource(app.icon),
-            description: root.appDescription(app), keywords: app.id }, extra ?? {});
+        if (!app.comment) return id;
+        return sharedNames[app.name] > 1 ? app.comment + " · " + id : app.comment;
     }
 
-    // Changes run one after another, then the list is read again
-    property var queue: []
-    function run(args) {
-        root.queue = [...root.queue, args];
-        if (!actionProc.running) root.runNext();
+    // Use one process for reads and writes. Only a successful list response publishes selections.
+    property var writes: []
+    property var activeJob: null
+    property bool needsRead: false
+    property bool initialized: false
+    function refresh() {
+        needsRead = true;
+        startNext();
     }
-    function runNext() {
-        if (root.queue.length === 0) {
-            listProc.running = true;
-            return;
+    function write(args) {
+        assignmentError = "";
+        failedAssignment = null;
+        writes = [...writes, args];
+        refresh();
+    }
+    function startNext() {
+        if (!initialized || activeJob || (!writes.length && !needsRead)) return;
+        if (writes.length) {
+            activeJob = writes[0];
+            writes = writes.slice(1);
+        } else {
+            activeJob = ["list", Translation.languageCode];
+            needsRead = false;
         }
-        actionProc.command = [root.helper, "apps", ...root.queue[0]];
-        root.queue = root.queue.slice(1);
-        actionProc.running = true;
+        worker.command = [Quickshell.shellPath("scripts/helper"), "apps", ...activeJob];
+        worker.running = true;
     }
-
-    function chooseApp(role, appId) {
-        let newRoles = Object.assign({}, root.roles);
-        const app = root.apps.find(a => a.id === appId) ?? newRoles[role]?.candidates.find(a => a.id === appId);
-        newRoles[role] = Object.assign({}, newRoles[role], { current: appId === "ask" ? { ask: true } : { app: app } });
-        root.roles = newRoles;
-        root.run(["set", role, appId]);
+    function readCatalogue(json) {
+        const data = JSON.parse(json);
+        const byRole = {};
+        for (const role of data.roles) byRole[role.id] = role;
+        if (!Array.isArray(data.apps) || !Array.isArray(data.types) || !Array.isArray(data.webmail)) throw Error("Invalid catalogue");
+        roles = byRole;
+        apps = data.apps;
+        // Keep search results and focused rows alive when returning to an unchanged catalogue.
+        if (JSON.stringify(types) !== JSON.stringify(data.types)) types = data.types;
+        webmailServices = data.webmail;
+        loaded = true;
+        catalogueError = "";
+        searchContentChanged();
     }
-
-    function setCommand(role, command) {
-        let newRoles = Object.assign({}, root.roles);
-        newRoles[role] = Object.assign({}, newRoles[role], { current: { command: command } });
-        root.roles = newRoles;
-        root.run(["set-command", role, command]);
-    }
-
     Process {
-        id: actionProc
-        onExited: root.runNext()
+        id: worker
+        stdout: StdioCollector { id: output }
+        stderr: StdioCollector { id: diagnostic }
+        onExited: (code, status) => {
+            const reading = root.activeJob?.[0] === "list";
+            if (code !== 0 || status !== 0) {
+                const message = reading ? Translation.tr("Could not read default applications") : Translation.tr("Could not save the assignment");
+                const detail = [message, diagnostic.text.trim()].filter(Boolean).join(" · ");
+                if (reading) root.catalogueError = detail;
+                else {
+                    root.assignmentError = detail;
+                    root.failedAssignment = root.activeJob;
+                }
+            } else if (reading) {
+                try { root.readCatalogue(output.text); }
+                catch (error) { root.catalogueError = Translation.tr("Could not read default applications"); }
+            }
+            root.activeJob = null;
+            Qt.callLater(root.startNext);
+        }
+    }
+    Component.onCompleted: { initialized = true; refresh(); }
+    Connections {
+        target: Translation
+        function onLanguageCodeChanged() { root.refresh(); }
+    }
+    onPageShownChanged: {
+        if (pageShown) refresh();
+        else {
+            if (picker?.visible) picker.close();
+            formatSearch?.clear();
+        }
     }
 
-    Process {
-        id: listProc
-        running: true
-        command: [root.helper, "apps", "list", Translation.languageCode]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    const data = JSON.parse(text);
-                    let roles = {};
-                    for (const role of data.roles) roles[role.id] = role;
-                    root.roles = roles;
-                    root.apps = data.apps;
-                    root.webmailServices = data.webmail;
-                    root.types = data.types;
-                    root.loaded = true;
-                } catch (e) {
-                    console.warn("[DefaultApps] Couldn't read default apps:", e);
+    function showPicker(role, mime, trigger, inspected = null) {
+        picker.inspected = inspected;
+        picker.role = role;
+        picker.mime = mime;
+        picker.trigger = trigger;
+        picker.open();
+    }
+    AppPickerPopup {
+        id: picker
+        objectName: "defaultAppPicker"
+        pane: root.popupPane
+        property string role: ""
+        property string mime: ""
+        property Item trigger
+        property var inspected: null
+        readonly property var remembered: mime ? (inspected?.mime === mime ? inspected : root.types.find(type => type.mime === mime)) : null
+        readonly property var data: root.roles[role]
+        readonly property var info: root.roleInfo[role]
+        readonly property bool forFormat: root.formatRoles.includes(role)
+        sorted: false
+        title: inspected ? Translation.tr("Default app") : info?.title ?? remembered?.description ?? mime
+        fileName: inspected?.name ?? ""
+        description: {
+            if (remembered) return Translation.tr("Applies to this file type · %1").arg(remembered.patterns.join("  ") || mime);
+            if (forFormat && info) return Translation.tr("Group assignment · %1. The app opens the formats it supports.").arg(info.description);
+            return info?.description ?? "";
+        }
+        currentId: remembered?.app?.id ?? data?.current?.app?.id ?? (remembered?.ask || data?.current?.ask ? "ask" : "")
+        readonly property var selectedApp: remembered?.app ?? data?.current?.app
+        readonly property var candidates: {
+            if (data) return data.candidates ?? [];
+            const group = mime ? root.formatRoles.find(id => root.roles[id]?.mimes?.includes(mime)) : null;
+            return root.roles[group]?.candidates ?? [];
+        }
+        readonly property var suggestedIds: new Set([selectedApp?.id, "ask", ...candidates.map(app => app.id)])
+        groupForEntry: entry => suggestedIds.has(entry?.id) ? Translation.tr("Current and suggested") : Translation.tr("Installed apps")
+        entryDetail: root.appDetail
+        entries: {
+            if (!visible) return [];
+            let list = selectedApp ? [selectedApp] : [];
+            if (mime || data?.allowsAsk) list.push({id: "ask", name: mime && !inspected ? Translation.tr("Ask again") : Translation.tr("Ask every time"), symbol: mime && !inspected ? "restart_alt" : "help"});
+            const seen = new Set(list.map(app => app.id));
+            for (const app of [...candidates, ...root.apps]) {
+                if (!seen.has(app.id)) { list.push(app); seen.add(app.id); }
+            }
+            return list;
+        }
+        onPicked: entry => {
+            if (mime) root.write(entry.id === "ask" ? ["unset-mime", mime] : ["set-mime", entry.id, mime]);
+            else root.write(["set", role, entry.id]);
+        }
+        onClosed: if (root.pageShown) (trigger?.visible ? trigger : formatSearch).forceActiveFocus()
+    }
+
+    RowLayout {
+        visible: !!root.errorMessage
+        Layout.fillWidth: true
+        MaterialSymbol { text: "error"; iconSize: 20; color: Appearance.colors.colError }
+        StyledText {
+            Layout.fillWidth: true
+            text: root.errorMessage
+            textFormat: Text.PlainText
+            wrapMode: Text.WrapAnywhere
+            maximumLineCount: 3
+            elide: Text.ElideRight
+            color: Appearance.colors.colError
+        }
+        RippleButtonWithIcon {
+            objectName: "retryDefaultApps"
+            enabled: !root.activeJob && !root.needsRead
+            materialIcon: "refresh"
+            mainText: Translation.tr("Retry")
+            Accessible.name: mainText
+            onClicked: {
+                if (root.failedAssignment) root.write(root.failedAssignment);
+                else root.refresh();
+            }
+        }
+    }
+
+    Item {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        SettingsBranch {
+            key: "overview"
+            page: root
+            AppRoleAssignments {
+                objectName: "dailyRoleAssignments"
+                roles: root.dailyRoles
+                info: root.roleInfo
+                assignments: root.roles
+                currentNames: root.currentNames
+                webmailServices: root.webmailServices
+                loaded: root.loaded
+                pageActive: root.pageShown && root.tab === "overview"
+                searchForRole: root.roleSearch
+                onAssign: (role, appId) => root.write(["set", role, appId])
+                onSaveCommand: (role, value) => root.write(["set-command", role, value])
+                onSetWebmail: service => root.write(["set-webmail", service])
+                onEnsureVisible: card => {
+                    const pane = root.scrollerOf(card);
+                    if (!pane || pane.moving) return;
+                    const top = card.mapToItem(pane.contentItem, 0, 0).y;
+                    const bottom = top + card.height + 8;
+                    if (top >= pane.contentY && bottom <= pane.contentY + pane.height) return;
+                    const offset = top < pane.contentY || card.height >= pane.height ? top - 8 : bottom - pane.height;
+                    const target = Math.max(0, Math.min(offset, pane.contentHeight - pane.height));
+                    if (Appearance.animationSpeed > 0) pane.scrollTo(target);
+                    else pane.contentY = target;
+                }
+                onChoose: (role, trigger) => root.showPicker(role, "", trigger)
+            }
+            ContentSection {
+                title: ""
+                SettingsBranchLink {
+                    branch: formats
+                    buttonIcon: "file_copy"
+                    detail: Translation.tr("Choose apps by file extension")
+                    Accessible.name: title
+                    Accessible.description: detail
+                }
+                SettingsBranchLink {
+                    branch: commands
+                    buttonIcon: "tune"
+                    detail: Translation.tr("Task manager, volume mixer and more")
+                    searchText: [title, detail, Translation.tr("Shell commands")].join(" ")
+                    Accessible.name: title
+                    Accessible.description: detail
                 }
             }
         }
-    }
-
-    ContentSection {
-        title: Translation.tr("Internet")
-        DefaultAppRow { role: "browser" }
-        DefaultAppRow { role: "mail" }
-        ConfigComboRow {
-            readonly property var mail: root.roles["mail"]?.current ?? {}
-            visible: !!mail.webmail
-            Layout.leftMargin: 38
-            icon: "alternate_email"
-            text: Translation.tr("Web mail")
-            description: Translation.tr("Where email links open in %1").arg(mail.app?.name ?? "")
-            currentValue: mail.webmail
-            options: root.webmailServices.map(service => ({ displayName: service.name, value: service.id }))
-            onSelected: value => {
-                let newRoles = Object.assign({}, root.roles);
-                newRoles["mail"] = Object.assign({}, newRoles["mail"], { current: Object.assign({}, mail, { webmail: value }) });
-                root.roles = newRoles;
-                root.run(["set-webmail", value]);
-            }
-        }
-    }
-
-    ContentSection {
-        title: Translation.tr("Work")
-        description: Translation.tr("The keys next to an app open it. Change them in Keyboard Shortcuts.")
-        DefaultAppRow { role: "files" }
-        DefaultAppRow { role: "terminal" }
-        DefaultAppRow { role: "text" }
-        DefaultAppRow { role: "code" }
-    }
-
-    ContentSection {
-        title: Translation.tr("File types")
-        description: Translation.tr("Every app that opens files follows these. Other types ask which app to use the first time.")
-        DefaultAppRow { role: "images" }
-        DefaultAppRow { role: "video" }
-        DefaultAppRow { role: "music" }
-        DefaultAppRow { role: "pdf" }
-        DefaultAppRow { role: "documents" }
-        DefaultAppRow { role: "spreadsheets" }
-        DefaultAppRow { role: "presentations" }
-        DefaultAppRow { role: "archives" }
-    }
-
-    ContentSection {
-        title: Translation.tr("Remembered choices")
-        description: root.types.length > 0
-            ? Translation.tr("Apps picked with “Always use this app” when a file was opened")
-            : Translation.tr("When you open a file of a new type and pick an app with “Always use this app”, it shows up here")
-
-        Repeater {
-            model: root.types
-            delegate: TypeRow {}
-        }
-
-        ConfigNavRow {
-            visible: root.types.length > 0
-            buttonIcon: "restart_alt"
-            title: Translation.tr("Ask again for all of these")
-            trailingIcon: ""
-            onClicked: {
-                const mimes = root.types.map(type => type.mime);
-                root.types = [];
-                root.run(["unset-mime", ...mimes]);
-            }
-        }
-    }
-
-    ContentSection {
-        title: Translation.tr("Shell commands")
-        description: Translation.tr("What the shell starts from its own buttons, like the volume mixer link or network settings")
-
-        AppCommandRow {
-            appKey: "taskManager"
-            icon: "monitor_heart"
-            text: Translation.tr("Task manager")
-            presets: [
-                { bin: "plasma-systemmonitor", name: Translation.tr("System Monitor (KDE)"), command: "plasma-systemmonitor --page-name Processes" },
-                { bin: "gnome-system-monitor", name: Translation.tr("System Monitor (GNOME)"), command: "gnome-system-monitor" },
-                { bin: "missioncenter", name: "Mission Center", command: "missioncenter" },
-                { bin: "resources", name: "Resources", command: "resources" },
-                { bin: "btop", name: Translation.tr("btop in a terminal"), command: `${terminalRow.runPrefix} btop` },
-                { bin: "htop", name: Translation.tr("htop in a terminal"), command: `${terminalRow.runPrefix} htop` }
-            ]
-        }
-        AppCommandRow {
-            appKey: "volumeMixer"
-            icon: "tune"
-            text: Translation.tr("Volume mixer")
-            presets: [
-                { name: Translation.tr("The first one installed"), command: `~/.config/hypr/hyprland/scripts/launch_first_available.sh "pavucontrol-qt" "pavucontrol"` },
-                { bin: "pavucontrol-qt", name: "PulseAudio Volume Control (Qt)", command: "pavucontrol-qt" },
-                { bin: "pavucontrol", name: "PulseAudio Volume Control", command: "pavucontrol" },
-                { bin: "pwvucontrol", name: "pwvucontrol", command: "pwvucontrol" },
-                { bin: "kcmshell6", name: Translation.tr("KDE sound settings"), command: "kcmshell6 kcm_pulseaudio" }
-            ]
-        }
-        AppCommandRow {
-            id: terminalRow
-            appKey: "terminal"
-            icon: "terminal"
-            text: Translation.tr("Terminal for shell actions")
-            description: Translation.tr("Runs commands from the launcher and terminal apps")
-            // `command` is what the shell stores; `run` is put in front of a command to run it in a window
-            presets: [
-                { bin: "kitty", name: "Kitty", command: "kitty -1", run: "kitty -1 --hold=yes" },
-                { bin: "foot", name: "Foot", command: "foot", run: "foot --hold" },
-                { bin: "alacritty", name: "Alacritty", command: "alacritty", run: "alacritty --hold -e" },
-                { bin: "wezterm", name: "WezTerm", command: "wezterm start", run: "wezterm start --" },
-                { bin: "konsole", name: "Konsole", command: "konsole", run: "konsole --hold -e" },
-                { bin: "ghostty", name: "Ghostty", command: "ghostty", run: "ghostty -e" },
-                { bin: "kgx", name: Translation.tr("Console (GNOME)"), command: "kgx", run: "kgx -e" }
-            ]
-            readonly property string runPrefix: (terminalRow.presets.find(p => p.command === Config.options.apps.terminal)?.run) ?? `${Config.options.apps.terminal} -e`
-        }
-        AppCommandRow {
-            appKey: "update"
-            icon: "system_update_alt"
-            text: Translation.tr("System update")
-            presets: [
-                { bin: "pacman", name: Translation.tr("pacman (official packages)"), command: `${terminalRow.runPrefix} fish -i -c 'pkexec pacman -Syu'` },
-                { bin: "yay", name: Translation.tr("yay (packages and AUR)"), command: `${terminalRow.runPrefix} fish -i -c 'yay -Syu'` },
-                { bin: "paru", name: Translation.tr("paru (packages and AUR)"), command: `${terminalRow.runPrefix} fish -i -c 'paru -Syu'` }
-            ]
-        }
-    }
-
-    // Which preset programs exist, checked once
-    property var installedBins: []
-    Process {
-        running: true
-        command: ["bash", "-c", "for c in plasma-systemmonitor gnome-system-monitor missioncenter resources btop htop pavucontrol-qt pavucontrol pwvucontrol kcmshell6 nm-connection-editor gnome-control-center blueman-manager overskride kitty foot alacritty wezterm konsole ghostty kgx pacman yay paru; do command -v $c >/dev/null && echo $c; done"]
-        stdout: StdioCollector {
-            onStreamFinished: root.installedBins = text.split("\n").filter(line => line.length > 0)
-        }
-    }
-
-    component AppCommandRow: ConfigComboRow {
-        id: commandRow
-        required property string appKey
-        property var presets: []
-        readonly property string value: Config.options.apps[commandRow.appKey]
-        // Installed ones, and the current one even if its program is gone, so it's clear why it does nothing
-        readonly property var available: commandRow.presets.filter(preset => !preset.bin || root.installedBins.includes(preset.bin) || preset.command === commandRow.value)
-        readonly property bool isPreset: commandRow.presets.some(preset => preset.command === commandRow.value)
-        options: commandRow.available.map(preset => ({
-            displayName: preset.name,
-            value: preset.command,
-            icon: !preset.bin || root.installedBins.includes(preset.bin) ? "" : "error",
-            description: !preset.bin || root.installedBins.includes(preset.bin) ? preset.command : Translation.tr("Not installed · %1").arg(preset.command)
-        }))
-        currentValue: commandRow.value
-        maximumWidth: 280
-        customLabel: Translation.tr("Custom command…")
-        customDescription: Translation.tr("Type any command")
-        customPlaceholder: commandRow.value
-        customActive: !commandRow.isPreset
-        customValue: commandRow.isPreset ? "" : commandRow.value
-        customDisplayName: Translation.tr("Custom command")
-        onSelected: value => Config.options.apps[commandRow.appKey] = value
-        onCustomEntered: text => Config.options.apps[commandRow.appKey] = text
-    }
-
-    component TypeRow: RowLayout {
-        id: typeRow
-        required property var modelData
-        readonly property bool settingsSearchable: true
-        property string searchText: `${typeRow.modelData.description} ${typeRow.modelData.patterns.join(" ")} ${typeRow.modelData.app.name}`
-        Layout.fillWidth: true
-        Layout.leftMargin: 12
-        Layout.rightMargin: 6
-        Layout.topMargin: 3
-        Layout.bottomMargin: 3
-        spacing: 12
-
-        ConfigIconTile {
-            icon: "draft"
-        }
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 1
-            StyledText {
+        SettingsBranch {
+            id: formats
+            key: "formats"
+            page: root
+            GridLayout {
+                id: formatToolbar
                 Layout.fillWidth: true
-                text: typeRow.modelData.description
-                elide: Text.ElideRight
+                columns: width >= fileButton.implicitWidth + 190 ? 2 : 1
+                columnSpacing: 8
+                rowSpacing: 6
+                AppSearchField {
+                    id: formatSearch
+                    objectName: "formatSearch"
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    placeholderText: formatToolbar.width < 500 ? Translation.tr("Type or extension") : Translation.tr("Find a file type or extension")
+                }
+                FileTypeButton {
+                    id: fileButton
+                    objectName: "inspectLocalFile"
+                    pageActive: root.pageShown && root.tab === "formats" && root.loaded && !picker.visible
+                    onResolved: type => root.showPicker("", type.mime, fileButton, type)
+                }
+            }
+            StyledText {
+                objectName: "fileLookupError"
+                Layout.fillWidth: true
+                visible: fileButton.failed
+                text: Translation.tr("Could not check this file")
+                color: Appearance.colors.colError
                 font.pixelSize: Appearance.font.pixelSize.small
-                color: Appearance.colors.colOnLayer2
+                wrapMode: Text.Wrap
+            }
+            ContentSection {
+                icon: "file_copy"
+                title: Translation.tr("File types")
+                visible: root.formatRoles.some(id => root.matches(root.roleSearch(id)))
+                Repeater {
+                    model: root.formatRoles
+                    delegate: ConfigNavRow {
+                        id: formatRow
+                        required property string modelData
+                        readonly property var info: root.roleInfo[modelData]
+                        objectName: "format-" + modelData
+                        visible: root.matches(searchText)
+                        title: info.title
+                        description: info.description
+                        buttonIcon: info.icon
+                        valueText: root.currentNames[modelData]
+                        searchText: root.roleSearch(modelData)
+                        Accessible.name: title
+                        Accessible.description: description + " · " + valueText
+                        onClicked: root.showPicker(modelData, "", formatRow)
+                    }
+                }
+            }
+            ContentSection {
+                icon: "history"
+                title: Translation.tr("Remembered choices")
+                card: root.types.length > 0
+                visible: !formatSearch.text.trim() || root.types.some(type => root.matches(root.typeSearch(type)))
+                description: root.types.length ? Translation.tr("Apps picked with “Always use this app” when a file was opened")
+                    : Translation.tr("When you open a file of a new type and pick an app with “Always use this app”, it shows up here")
+                Repeater {
+                    model: root.types
+                    delegate: ConfigNavRow {
+                        id: typeRow
+                        required property var modelData
+                        objectName: "mime-" + modelData.mime
+                        visible: root.matches(searchText)
+                        title: modelData.description
+                        description: modelData.patterns.slice(0, 3).join("  ") || modelData.mime
+                        valueText: modelData.app.name
+                        buttonIcon: "draft"
+                        searchText: root.typeSearch(modelData)
+                        Accessible.name: title
+                        Accessible.description: description + " · " + valueText
+                        onClicked: root.showPicker("", modelData.mime, typeRow)
+                    }
+                }
+                ConfigNavRow {
+                    objectName: "clearRememberedApps"
+                    visible: root.types.length > 0 && !formatSearch.text.trim()
+                    buttonIcon: "restart_alt"
+                    title: Translation.tr("Ask again for all of these")
+                    trailingIcon: ""
+                    Accessible.name: title
+                    onClicked: root.write(["unset-mime", ...root.types.map(type => type.mime)])
+                }
             }
             StyledText {
                 Layout.fillWidth: true
-                text: typeRow.modelData.patterns.length > 0 ? typeRow.modelData.patterns.join("  ") : typeRow.modelData.mime
-                elide: Text.ElideRight
-                font.family: Appearance.font.family.monospace
-                font.pixelSize: Appearance.font.pixelSize.smaller
-                color: Appearance.colors.colSubtext
-            }
-        }
-        ChoiceDropdown {
-            maximumWidth: 240
-            currentValue: typeRow.modelData.app.id
-            searchable: true
-            options: root.apps.map(app => root.appOption(app))
-            displayText: typeRow.modelData.app.name
-            displayIconSource: root.iconSource(typeRow.modelData.app.icon)
-            onSelected: value => root.run(["set-mime", value, typeRow.modelData.mime])
-        }
-        RippleButton {
-            implicitWidth: 36
-            implicitHeight: 36
-            buttonRadius: Appearance.rounding.full
-            colBackgroundHover: Appearance.colors.colLayer2Hover
-            colRipple: Appearance.colors.colLayer2Active
-            onClicked: {
-                root.types = root.types.filter(type => type.mime !== typeRow.modelData.mime);
-                root.run(["unset-mime", typeRow.modelData.mime]);
-            }
-            contentItem: MaterialSymbol {
                 horizontalAlignment: Text.AlignHCenter
-                text: "close"
-                iconSize: 20
+                visible: !!formatSearch.text.trim() && !root.formatRoles.some(id => root.matches(root.roleSearch(id)))
+                    && !root.types.some(type => root.matches(root.typeSearch(type)))
+                text: Translation.tr("Nothing found")
                 color: Appearance.colors.colSubtext
             }
-            StyledToolTip {
-                text: Translation.tr("Ask again")
-            }
         }
-    }
-
-    component DefaultAppRow: ColumnLayout {
-        id: appRow
-        required property string role
-        readonly property var info: root.roleInfo[appRow.role]
-        readonly property var roleData: root.roles[appRow.role] ?? null
-        readonly property var current: appRow.roleData?.current ?? {}
-        readonly property var shortcut: appRow.info.shortcut ? HyprlandKeybinds.bindMap[appRow.info.shortcut] ?? null : null
-        readonly property string currentName: appRow.current.app?.name ?? appRow.current.name
-            ?? (appRow.current.command ? Translation.tr("Custom command")
-                : appRow.current.ask ? Translation.tr("Ask every time")
-                : (root.loaded ? Translation.tr("Not set") : "…"))
-        property bool editingCommand: false
-
-        readonly property var options: {
-            const candidates = appRow.roleData?.candidates ?? [];
-            const ids = candidates.map(app => app.id);
-            const others = root.apps.filter(app => !ids.includes(app.id));
-            return [
-                ...candidates.map(app => root.appOption(app, { section: others.length > 0 ? Translation.tr("Suggested") : "" })),
-                ...(appRow.roleData?.allowsAsk ? [{ displayName: Translation.tr("Ask every time"), value: root.askValue, icon: "help",
-                    description: Translation.tr("Pick an app each time"), section: Translation.tr("Suggested") }] : []),
-                ...others.map(app => root.appOption(app, { more: true, section: Translation.tr("Other apps") }))
-            ];
-        }
-
-        // Settings search
-        readonly property bool settingsSearchable: true
-        readonly property string text: appRow.info.name
-        readonly property string description: appRow.info.description
-        property string searchText: `${appRow.info.name} ${appRow.info.description} ${appRow.currentName}`
-
-        Layout.fillWidth: true
-        spacing: 0
-
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 12
-            Layout.rightMargin: 6
-            Layout.topMargin: 5
-            Layout.bottomMargin: 5
-            spacing: 12
-
-            ConfigIconTile {
-                icon: appRow.info.icon
-            }
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignVCenter
-                spacing: 1
-                StyledText {
-                    Layout.fillWidth: true
-                    text: appRow.info.name
-                    elide: Text.ElideRight
-                    font.pixelSize: Appearance.font.pixelSize.small
-                    color: Appearance.colors.colOnLayer2
-                }
-                StyledText {
-                    Layout.fillWidth: true
-                    text: appRow.current.command ? appRow.current.command : appRow.info.description
-                    elide: Text.ElideRight
-                    font.family: appRow.current.command ? Appearance.font.family.monospace : Appearance.font.family.main
-                    font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: Appearance.colors.colSubtext
-                }
-            }
-            KeyCombo {
-                visible: !!appRow.shortcut && !appRow.shortcut.disabled
-                mods: appRow.shortcut?.mods ?? []
-                key: appRow.shortcut?.key ?? ""
-                opacity: 0.75
-            }
-
-            ChoiceDropdown {
-                maximumWidth: 240
-                searchable: true
-                options: appRow.options
-                moreLabel: Translation.tr("Other apps…")
-                currentValue: appRow.current.ask ? root.askValue : appRow.current.app?.id
-                customSelected: !!appRow.current.command
-                customLabel: appRow.roleData?.allowsCommand ? Translation.tr("Custom command…") : ""
-                customDescription: Translation.tr("Run your own launcher")
-                displayText: appRow.currentName
-                displayIcon: appRow.current.app ? "" : (appRow.current.command ? "terminal" : "help")
-                displayIconSource: appRow.current.app ? root.iconSource(appRow.current.app.icon) : ""
-                onSelected: value => {
-                    appRow.editingCommand = false;
-                    root.chooseApp(appRow.role, value === root.askValue ? "ask" : value);
-                }
-                onCustomRequested: appRow.editingCommand = true
-            }
-        }
-
-        ConfigTextRow { // Own launcher command, for the terminal and code editor
-            visible: appRow.editingCommand
-            Layout.leftMargin: 50
-            icon: ""
-            label: Translation.tr("Command")
-            description: Translation.tr("Press Enter to save")
-            inline: true
-            inlineFieldWidth: 320
-            monospace: true
-            wrapMode: TextEdit.NoWrap
-            placeholderText: "kitty -1"
-            value: appRow.current.command ?? ""
-            onEditingFinished: {
-                if (value.trim().length === 0) return;
-                root.setCommand(appRow.role, value.trim());
-                appRow.editingCommand = false;
-            }
+        SettingsBranch {
+            id: commands
+            key: "commands"
+            page: root
+            ShellCommands { choiceWidth: root.width < 570 ? 185 : 280 }
         }
     }
 }

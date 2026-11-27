@@ -7,6 +7,7 @@ import QtQuick
 
 Item {
     id: root
+    property var colors: Appearance.colors
     property string style: "bubble"
     property color color: Appearance.colors.colOnSecondaryContainer
     property real dateSquareSize: 64
@@ -14,8 +15,9 @@ Item {
     // Rotating date
     FadeLoader {
         anchors.fill: parent
-        shown: Config.options.background.widgets.clock.cookie.dateStyle === "border"
+        shown: root.style === "border"
         sourceComponent: RotatingDate {
+            style: root.style
             color: root.color
         }
     }
@@ -31,7 +33,7 @@ Item {
         }
 
         sourceComponent: RectangleDate {
-            color: ColorUtils.mix(root.color, Appearance.colors.colSecondaryContainerHover, 0.5)
+            color: ColorUtils.mix(root.color, root.colors.colSecondaryContainerHover, 0.5)
             radius: Appearance.rounding.small
             implicitWidth: 45 * rectLoader.opacity
             implicitHeight: 30 * rectLoader.opacity
@@ -49,6 +51,7 @@ Item {
         }
 
         sourceComponent: BubbleDate {
+            colors: root.colors
             implicitWidth: dayBubbleLoader.targetSize
             implicitHeight: dayBubbleLoader.targetSize
             isMonth: false
@@ -67,6 +70,7 @@ Item {
         }
 
         sourceComponent: BubbleDate {
+            colors: root.colors
             implicitWidth: monthBubbleLoader.targetSize
             implicitHeight: monthBubbleLoader.targetSize
             isMonth: true

@@ -137,7 +137,7 @@ Item { // Wrapper
             topMargin: Appearance.sizes.elevationMargin
         }
         clip: true
-        implicitWidth: columnLayout.implicitWidth
+        implicitWidth: Math.min(root.Window.window?.screen?.width ?? 1600, (Assistant.panelOpen ? Math.max(560, Appearance.sizes.searchWidth) : searchBar.implicitWidth) + 20)
         implicitHeight: columnLayout.implicitHeight
         radius: searchBar.height / 2 + searchBar.verticalPadding
         color: Appearance.colors.colBackgroundSurfaceContainer
@@ -150,6 +150,7 @@ Item { // Wrapper
 
         ColumnLayout {
             id: columnLayout
+            width: searchWidgetContent.width
             anchors {
                 top: parent.top
                 horizontalCenter: parent.horizontalCenter

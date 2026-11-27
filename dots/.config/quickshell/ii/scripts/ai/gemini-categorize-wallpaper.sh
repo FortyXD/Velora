@@ -9,6 +9,7 @@ if [[ -z "${1:-}" ]]; then
 fi
 
 # Variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_IMG_PATH="$1"
 MODEL="${2:-${GEMINI_WALLPAPER_MODEL:-gemini-2.5-flash}}" # We use the flash variant so it's fast
 WALLPAPER_NAME="$(basename "$SOURCE_IMG_PATH")"
@@ -20,7 +21,7 @@ trap 'rm -f -- "$RESIZED_IMG_PATH"' EXIT
 magick "$SOURCE_IMG_PATH" -resize 200x -quality 50 "$RESIZED_IMG_PATH"
 
 # Get API key
-API_KEY=$(secret-tool lookup 'application' 'illogical-impulse' | jq -r '.apiKeys.gemini')
+API_KEY=$("$SCRIPT_DIR/../helper" keyring lookup | jq -er '.apiKeys.gemini // empty')
 case "$API_KEY" in *$'\r'*|*$'\n'*) echo "Invalid API key" >&2; exit 1;; esac
 
 # Encode image to base64

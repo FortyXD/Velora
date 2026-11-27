@@ -17,8 +17,8 @@ AbstractBackgroundWidget {
     implicitWidth: contentColumn.implicitWidth
 
     // The lock screen has its own clock (modules/ii/lock/LockClock.qml), which glides in from where this one is
-    readonly property string clockStyle: Config.options.background.widgets.clock.style
-    readonly property bool shouldShow: !Config.options.background.widgets.clock.showOnlyWhenLocked
+    readonly property string clockStyle: root.configEntry.style
+    readonly property bool shouldShow: !root.configEntry.showOnlyWhenLocked
     property bool wallpaperSafetyTriggered: false
     property string screenName: ""
     needsColText: clockStyle === "digital"
@@ -36,7 +36,7 @@ AbstractBackgroundWidget {
     onScreenNameChanged: root.publishPosition()
 
     property var textHorizontalAlignment: {
-        if (!Config.options.background.widgets.clock.digital.adaptiveAlignment || Config.options.background.widgets.clock.digital.vertical)
+        if (!root.configEntry.digital.adaptiveAlignment || root.configEntry.digital.vertical)
             return Text.AlignHCenter;
         if (root.x < root.scaledScreenWidth / 3)
             return Text.AlignLeft;
@@ -59,11 +59,14 @@ AbstractBackgroundWidget {
                 spacing: 10
                 CookieClock {
                     anchors.horizontalCenter: parent.horizontalCenter
+                    options: root.configEntry.cookie
+                    colors: root.widgetColors
+                    preview: root.preview
                 }
                 FadeLoader {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    shown: Config.options.background.widgets.clock.quote.enable && Config.options.background.widgets.clock.quote.text !== ""
-                    sourceComponent: CookieQuote {}
+                    shown: root.configEntry.quote.enable && root.configEntry.quote.text !== ""
+                    sourceComponent: CookieQuote { quoteText: root.configEntry.quote.text; colors: root.widgetColors }
                 }
             }
         }
@@ -74,6 +77,7 @@ AbstractBackgroundWidget {
             shown: root.clockStyle === "digital" && (root.shouldShow)
             fade: false
             sourceComponent: DigitalClock {
+                options: root.configEntry
                 colText: root.colText
                 textHorizontalAlignment: root.textHorizontalAlignment
             }
@@ -101,7 +105,7 @@ AbstractBackgroundWidget {
             implicitHeight: statusTextRow.implicitHeight + 5 * 2
             implicitWidth: statusTextRow.implicitWidth + 5 * 2
             radius: Appearance.rounding.small
-            color: ColorUtils.transparentize(Appearance.colors.colSecondaryContainer, root.clockStyle === "cookie" ? 0 : 1)
+            color: ColorUtils.transparentize(root.widgetColors.colSecondaryContainer, root.clockStyle === "cookie" ? 0 : 1)
 
             Behavior on implicitWidth {
                 animation: Appearance.animation.elementResize.numberAnimation.createObject(this)
@@ -146,7 +150,7 @@ AbstractBackgroundWidget {
         property alias statusIcon: statusIconWidget.text
         property alias statusText: statusTextWidget.text
         property bool shown: true
-        property color textColor: root.clockStyle === "cookie" ? Appearance.colors.colOnSecondaryContainer : root.colText
+        property color textColor: root.clockStyle === "cookie" ? root.widgetColors.colOnSecondaryContainer : root.colText
         opacity: shown ? 1 : 0
         visible: opacity > 0
         Behavior on opacity {
@@ -159,7 +163,7 @@ AbstractBackgroundWidget {
             iconSize: Appearance.font.pixelSize.huge
             color: statusTextRow.textColor
             style: Text.Raised
-            styleColor: Appearance.colors.colShadow
+            styleColor: root.widgetColors.colShadow
         }
         ClockText {
             id: statusTextWidget
@@ -171,7 +175,7 @@ AbstractBackgroundWidget {
                 weight: Font.Normal
             }
             style: Text.Raised
-            styleColor: Appearance.colors.colShadow
+            styleColor: root.widgetColors.colShadow
         }
     }
 }

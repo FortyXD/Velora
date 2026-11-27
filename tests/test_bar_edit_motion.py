@@ -18,9 +18,18 @@ class BarEditMotionTests(unittest.TestCase):
             'TestHint.qml': 'import QtQuick\nItem { property bool reveal; property string side; property string icon; property string tooltipText }',
             'TestBarLayout.qml': 'import qs.modules.ii.bar.layout\n' + layout.replace('BarWidgetFactory {', 'TestWidgets {').replace('BarZone {', 'TestZone {'),
             'TestWidgets.qml': '''import QtQuick
+import qs.modules.ii.bar
 QtObject {
+    id: widgets
+    property var barOptions
+    property var barColors
+    property bool preview
+    property var previewScreen
+    property int previewWorkspace
+    property bool sidebarActivity: false
     function gate(type) { return true; }
-    function component(type, vertical) { return widget; }
+    function component(type, vertical) { return type === "leftSidebarButton" ? sidebar : widget; }
+    property Component sidebar: Component { LeftSidebarButton { property var host; thinking: widgets.sidebarActivity } }
     property Component widget: Component { Item { property var host; implicitWidth: 54; implicitHeight: 30 } }
 }''',
         }

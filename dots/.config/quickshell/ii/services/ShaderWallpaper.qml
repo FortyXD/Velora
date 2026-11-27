@@ -41,6 +41,17 @@ Singleton {
         return `${FileUtils.trimFileProtocol(Directories.state)}/user/generated/shader-wallpapers/${name}.png`;
     }
 
+    function posterPath(name) {
+        // Packaged stills use the wallpaper shaders and their own palettes at time 75.
+        return Quickshell.shellPath("assets/shaders/posters/" + name + ".webp");
+    }
+
+    function requestWithColors(name, colors) {
+        const palette = colors ?? root.shader(name)?.colors ?? [];
+        Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "shaderWallpaper", "setWithColors",
+            name, palette.length ? palette.join("|") : "theme"]);
+    }
+
     // ---- Shell only ----
 
     // A still frame is wanted for the wallpaper picture; Background.qml takes it and calls frameSaved()
@@ -101,6 +112,12 @@ Singleton {
     IpcHandler {
         target: "shaderWallpaper"
         function set(name: string): void {
+            root.activate(name);
+        }
+        function setWithColors(name: string, palette: string): void {
+            const colors = palette === "theme" ? [] : palette.split("|");
+            if (!root.shader(name) || ![0, 4].includes(colors.length)) return;
+            root.options.colors = colors;
             root.activate(name);
         }
         function list(): string {

@@ -1,33 +1,44 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
-import Qt5Compat.GraphicalEffects
-import QtMultimedia
 import Quickshell
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
-import qs.modules.common.functions
 import qs.modules.settings.presets
 
-ContentPage {
-    id: page
+SettingsDetailPage {
+    id: root
 
-    readonly property var systemPresets: Presets.presets.filter(preset => !page.isBarOnly(preset))
+    readonly property var systemPresets: Presets.presets.filter(preset => !root.isBarOnly(preset))
     // Whole looks with their own wallpaper come first, plain styles after
-    readonly property var allLooks: systemPresets.filter(preset => Presets.previewOf(preset).length > 0 || Presets.isLive(preset))
+    readonly property var allLooks: systemPresets.filter(preset => root.hasWallpaper(preset))
     property bool liveOnly: false // Only looks with a moving wallpaper
-    readonly property var lookPresets: page.allLooks.filter(preset => !page.liveOnly || Presets.isLive(preset))
-    readonly property var stylePresets: systemPresets.filter(preset => Presets.previewOf(preset).length === 0 && !Presets.isLive(preset))
-    readonly property var barPresets: Presets.presets.filter(preset => page.isBarOnly(preset))
-    property string expandedId: "" // Preset whose apply options are open
+    readonly property var lookPresets: root.allLooks.filter(preset => !root.liveOnly || Presets.isLive(preset))
+    readonly property var stylePresets: systemPresets.filter(preset => !root.hasWallpaper(preset))
+    readonly property var barPresets: Presets.presets.filter(preset => root.isBarOnly(preset))
+    property string selectedId: ""
+    readonly property var selectedPreset: selectedId ? Presets.find(selectedId) : null
     property var chosenCategories: []
+    property PresetCoverCache coverCache: PresetCoverCache {}
+    sectionTitles: ({
+        preview: selectedPreset ? Translation.tr(selectedPreset.name) : Translation.tr("Preview"),
+        save: Translation.tr("Save current settings"),
+        importPreset: Translation.tr("Import a preset")
+    })
 
-    // Styles and bar presets keep your wallpaper, so their miniatures are drawn over it
-    readonly property string currentWallpaper: {
-        const path = Config.options.background.wallpaperPath ?? "";
-        const picture = FileUtils.isVideoPath(path) ? (Config.options.background.thumbnailPath ?? "") : path;
-        return picture.length > 0 ? `file://${FileUtils.trimFileProtocol(picture)}` : "";
+    function openPreview(preset, trigger) {
+        trigger.forceActiveFocus();
+        selectedId = preset.id;
+        chosenCategories = Presets.categoriesOf(preset);
+        tab = "preview";
+        // Disabling the catalog can clear the window's focus before tabChanged is delivered.
+        detailHistory = [{ key: overviewKey, focus: trigger }];
+    }
+    onSelectedPresetChanged: {
+        if (tab !== "preview") return;
+        if (!selectedPreset) navigateBack();
+        else chosenCategories = chosenCategories.filter(part => Presets.categoriesOf(selectedPreset).includes(part));
     }
 
     function isBarOnly(preset) {
@@ -35,8 +46,14 @@ ContentPage {
         return categories.length === 1 && categories[0] === "bar";
     }
 
+    function hasWallpaper(preset) {
+        const motion = preset.wallpaperAnimations;
+        return !!(motion?.wallpaper || motion?.config?.background?.shaderWallpaper?.name || Presets.previewOf(preset));
+    }
+
     // Applying happens in the shell, which owns the bar and the theme
     function applyPreset(id, categories) {
+        if (!id || !categories.length) return;
         Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "presets", "apply", id, categories.join(",")]);
         refreshTimer.restart();
     }
@@ -47,553 +64,352 @@ ContentPage {
         onTriggered: Presets.load()
     }
 
-    component CategoryIcon: MaterialSymbol {
-        required property string category
-        text: Presets.categories.find(entry => entry.id === category)?.icon ?? "help"
-        iconSize: 16
-        color: Appearance.colors.colSubtext
-    }
-
-    component PresetCard: Rectangle {
-        id: card
-        required property var preset
-        readonly property bool expanded: page.expandedId === preset.id
-        readonly property var categories: Presets.categoriesOf(preset)
-        readonly property bool barOnly: page.isBarOnly(preset)
-        readonly property string preview: Presets.previewOf(preset) || page.currentWallpaper
-        readonly property bool live: Presets.isLive(preset)
-        readonly property string shaderName: (preset.wallpaperAnimations?.wallpaper ?? "").startsWith("shader:") ? preset.wallpaperAnimations.wallpaper.slice(7) : ""
-        readonly property string previewVideo: Presets.previewVideoOf(preset)
-        readonly property bool hovered: cardHover.hovered
-        readonly property bool settingsSearchable: true
-        property string searchText: `${Translation.tr(preset.name)} ${Translation.tr(preset.description ?? "")}`
-
-        Layout.fillWidth: true
-        Layout.alignment: Qt.AlignTop
-        implicitHeight: cardColumn.implicitHeight
-        radius: Appearance.rounding.large
-        color: card.expanded ? Appearance.colors.colPrimaryContainer : Appearance.colors.colLayer2
-
-        HoverHandler {
-            id: cardHover
+    function partSummary(part) {
+        if (part === "windows") {
+            const options = selectedPreset?.windows?.hyprland ?? {};
+            const mode = options["shell:windowMode"] ?? HyprlandSettings.windowMode;
+            if (mode === "floating") return Translation.tr("Free windows");
+            if (mode === "canvas") return Translation.tr("Infinite canvas");
+            return Translation.tr("Tiling") + " · " + (options["general:layout"] ?? HyprlandSettings.get("general:layout", "dwindle"));
         }
-
-        ColumnLayout {
-            id: cardColumn
-            anchors {
-                left: parent.left
-                right: parent.right
-                top: parent.top
-            }
-            spacing: 0
-
-            Item { // The preset on screen: its wallpaper with a miniature of its bar, widgets and dock
-                id: previewBox
-                visible: card.preview.length > 0
-                Layout.fillWidth: true
-                implicitHeight: Math.round(width * (card.barOnly ? 0.14 : 9 / 16))
-
-                Item {
-                    anchors.fill: parent
-                    layer.enabled: true
-                    layer.effect: OpacityMask {
-                        maskSource: Rectangle {
-                            width: previewBox.width
-                            height: previewBox.height
-                            radius: card.radius
-                            Rectangle { // Only the top corners are round
-                                anchors.bottom: parent.bottom
-                                width: parent.width
-                                height: parent.radius
-                            }
-                        }
-                    }
-                    Loader {
-                        id: previewLoader
-                        anchors.fill: parent
-                        active: card.preview.length > 0
-                        sourceComponent: card.preview.startsWith("http") ? remotePreview : localPreview
-                    }
-                    // Moving wallpapers: the shader itself (still until hovered), or the clip while hovered
-                    Loader {
-                        anchors.fill: parent
-                        active: card.shaderName.length > 0
-                        sourceComponent: ShaderWallpaperView {
-                            name: card.shaderName
-                            colors: card.preset.wallpaperAnimations?.config?.background?.shaderWallpaper?.colors ?? []
-                            running: page.pageShown && card.hovered
-                            fps: 24
-                        }
-                    }
-                    Loader {
-                        anchors.fill: parent
-                        active: page.pageShown && card.hovered && card.previewVideo.length > 0
-                        sourceComponent: Video {
-                            source: card.previewVideo
-                            autoPlay: true
-                            loops: MediaPlayer.Infinite
-                            muted: true
-                            fillMode: VideoOutput.PreserveAspectCrop
-                        }
-                    }
-                    Loader { // A dozen mockups at once took a third of a second, so they draw in over the next frames
-                        anchors.fill: parent
-                        asynchronous: true
-                        sourceComponent: PresetMockup {
-                            preset: card.preset
-                            barOnly: card.barOnly
-                        }
-                    }
-                }
-                // "Live" in the corner, with a hint to hover
-                Rectangle {
-                    visible: card.live
-                    anchors {
-                        left: parent.left
-                        top: parent.top
-                        margins: 10
-                    }
-                    implicitWidth: liveRow.implicitWidth + 14
-                    implicitHeight: liveRow.implicitHeight + 6
-                    radius: height / 2
-                    color: ColorUtils.transparentize("black", 0.45)
-                    RowLayout {
-                        id: liveRow
-                        anchors.centerIn: parent
-                        spacing: 4
-                        MaterialSymbol {
-                            text: card.hovered ? "play_circle" : "motion_photos_on"
-                            iconSize: 14
-                            fill: 1
-                            color: "white"
-                        }
-                        StyledText {
-                            text: Translation.tr("LIVE")
-                            font.pixelSize: Appearance.font.pixelSize.smallest
-                            font.weight: Font.DemiBold
-                            color: "white"
-                        }
-                    }
-                }
-                Component {
-                    id: remotePreview
-                    RemoteImage {
-                        url: card.preview
-                    }
-                }
-                Component {
-                    id: localPreview
-                    StyledImage {
-                        source: card.preview
-                        fillMode: Image.PreserveAspectCrop
-                        sourceSize.width: previewBox.width * 2
-                        asynchronous: true
-                    }
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.margins: 14
-                spacing: 8
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 12
-                    Item {
-                        implicitWidth: 44
-                        implicitHeight: 44
-                        MaterialShape {
-                            anchors.fill: parent
-                            shape: MaterialShape.Shape.Cookie7Sided
-                            color: card.expanded ? Appearance.colors.colPrimary : Appearance.colors.colSecondaryContainer
-                        }
-                        MaterialSymbol {
-                            anchors.centerIn: parent
-                            text: card.preset.icon ?? "bookmark"
-                            iconSize: 22
-                            fill: 1
-                            color: card.expanded ? Appearance.colors.colOnPrimary : Appearance.colors.colOnSecondaryContainer
-                        }
-                    }
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 2
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 6
-                            StyledText {
-                                Layout.fillWidth: true
-                                elide: Text.ElideRight
-                                text: Translation.tr(card.preset.name)
-                                textFormat: Text.PlainText
-                                font.pixelSize: Appearance.font.pixelSize.normal
-                                color: card.expanded ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
-                            }
-                            Rectangle {
-                                visible: !!card.preset.isDefault
-                                implicitWidth: defaultLabel.implicitWidth + 12
-                                implicitHeight: defaultLabel.implicitHeight + 4
-                                radius: height / 2
-                                color: Appearance.colors.colPrimary
-                                StyledText {
-                                    id: defaultLabel
-                                    anchors.centerIn: parent
-                                    text: Translation.tr("Default")
-                                    font.pixelSize: Appearance.font.pixelSize.smallest
-                                    color: Appearance.colors.colOnPrimary
-                                }
-                            }
-                        }
-                        StyledText {
-                            Layout.fillWidth: true
-                            wrapMode: Text.Wrap
-                            text: Translation.tr(card.preset.description ?? "")
-                            textFormat: Text.PlainText
-                            font.pixelSize: Appearance.font.pixelSize.smaller
-                            color: Appearance.colors.colSubtext
-                        }
-                    }
-                    DialogButton {
-                        buttonText: card.expanded ? Translation.tr("Close") : Translation.tr("Apply")
-                        onClicked: {
-                            if (card.expanded) {
-                                page.expandedId = "";
-                            } else if (card.categories.length === 1) {
-                                page.applyPreset(card.preset.id, card.categories);
-                            } else {
-                                page.chosenCategories = card.categories.slice();
-                                page.expandedId = card.preset.id;
-                            }
-                        }
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 6
-                    Repeater {
-                        model: card.categories
-                        delegate: CategoryIcon {
-                            required property string modelData
-                            category: modelData
-                        }
-                    }
-                    StyledText {
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                        horizontalAlignment: Text.AlignRight
-                        text: card.preset.credits
-                            ? Translation.tr("By %1 · %2").arg(card.preset.credits.author).arg(card.preset.credits.license)
-                            : card.preset.kind === "user" ? Translation.tr("Yours") : ""
-                        font.pixelSize: Appearance.font.pixelSize.smallest
-                        color: Appearance.colors.colSubtext
-                        MouseArea {
-                            anchors.fill: parent
-                            enabled: !!card.preset.credits?.page
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: Qt.openUrlExternally(card.preset.credits.page)
-                        }
-                    }
-                }
-
-                StyledText {
-                    Layout.fillWidth: true
-                    visible: !!card.preset.credits?.restrictions
-                    wrapMode: Text.Wrap
-                    text: card.preset.credits?.restrictions ? (card.preset.credits.copyright ?? "") + "\n" + Translation.tr(card.preset.credits.restrictions) : ""
-                    font.pixelSize: Appearance.font.pixelSize.smallest
-                    color: Appearance.colors.colSubtext
-                }
-
-                ColumnLayout { // What to take from the preset
-                    visible: card.expanded
-                    Layout.fillWidth: true
-                    spacing: 4
-
-                    StyledText {
-                        text: Translation.tr("Apply these parts:")
-                        font.pixelSize: Appearance.font.pixelSize.small
-                        color: Appearance.colors.colOnPrimaryContainer
-                    }
-                    Repeater {
-                        model: card.categories
-                        delegate: ConfigSwitch {
-                            required property string modelData
-                            Layout.fillWidth: true
-                            buttonIcon: Presets.categories.find(entry => entry.id === modelData)?.icon ?? "help"
-                            text: Presets.categories.find(entry => entry.id === modelData)?.name ?? modelData
-                            autoToggle: false
-                            checked: page.chosenCategories.includes(modelData)
-                            onClicked: page.chosenCategories = checked
-                                ? page.chosenCategories.filter(category => category !== modelData)
-                                : [...page.chosenCategories, modelData]
-                        }
-                    }
-                    Flow {
-                        Layout.fillWidth: true
-                        spacing: 6
-                        DialogButton {
-                            buttonText: Translation.tr("Apply selected")
-                            enabled: page.chosenCategories.length > 0
-                            onClicked: {
-                                page.applyPreset(card.preset.id, page.chosenCategories);
-                                page.expandedId = "";
-                            }
-                        }
-                        DialogButton {
-                            buttonText: Translation.tr("Copy as text")
-                            onClicked: Quickshell.clipboardText = Presets.exportText(card.preset.id)
-                        }
-                        DialogButton {
-                            visible: card.preset.kind === "user"
-                            buttonText: Translation.tr("Delete")
-                            colEnabled: Appearance.colors.colError
-                            onClicked: {
-                                Presets.remove(card.preset.id);
-                                page.expandedId = "";
-                            }
-                        }
-                    }
-                }
-            }
+        if (part === "lock") {
+            const lock = selectedPreset?.lock?.config?.lock ?? {};
+            const details = [];
+            if (lock.layout !== undefined) details.push(lock.layout ? Translation.tr("Custom layout") : Translation.tr("Default layout"));
+            if (lock.dim !== undefined) details.push(Translation.tr("Dimming %1%").arg(Math.round(lock.dim * 100)));
+            if (lock.blur) details.push(lock.blur.enable === false ? Translation.tr("Blur off")
+                : Translation.tr("Blur %1").arg(lock.blur.radius ?? Config.options.lock.blur.radius));
+            if (lock.animations) details.push(Translation.tr("Motion") + " · " + Translation.tr(({full: "Full motion", calm: "Calm", none: "Off"})[lock.animations] ?? lock.animations));
+            if (lock.animatedWallpaper !== undefined) details.push(Translation.tr(lock.animatedWallpaper ? "Animated wallpaper" : "Still wallpaper"));
+            if (lock.showLockedText !== undefined) details.push(Translation.tr(lock.showLockedText ? "Show lock label" : "Hide lock label"));
+            const clockStyle = selectedPreset?.lock?.config?.background?.widgets?.clock?.styleLocked;
+            if (clockStyle) details.push(Translation.tr("Clock") + " · " + clockStyle);
+            return details.join(" · ");
         }
+        return "";
     }
 
     component PresetGrid: GridLayout {
-        property var presets: []
+        id: grid
+        required property var presets
         Layout.fillWidth: true
-        columns: width > 620 ? 2 : 1
-        columnSpacing: 10
+        columns: width >= 550 ? 2 : 1
+        uniformCellWidths: true
+        columnSpacing: 12
         rowSpacing: 10
         Repeater {
-            model: parent.presets
+            model: grid.presets
             delegate: PresetCard {
+                id: card
                 required property var modelData
                 preset: modelData
+                viewport: root.scrollerOf(card)
+                coverCache: root.coverCache
+                pageShown: root.pageShown && overview.shown
+                onClicked: root.openPreview(preset, card)
+                onQuickApply: root.applyPreset(preset.id, categories)
             }
+            onItemAdded: root.searchContentChanged()
         }
     }
 
-    ContentSection {
-        visible: Presets.defaultPreset !== null
-        icon: "home"
-        title: Translation.tr("Your look")
-        description: Translation.tr("Your wallpaper, bar, theme, dock and motion as you saved them. Come back to them any time.")
+    Item {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
 
-        RowLayout {
-            spacing: 6
-            DialogButton {
-                buttonText: Translation.tr("Return to my look")
-                onClicked: page.applyPreset(Presets.defaultPreset.id, Presets.categoriesOf(Presets.defaultPreset))
-            }
-            DialogButton {
-                buttonText: Translation.tr("Save the current setup as my look")
-                onClicked: {
-                    Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "presets", "saveDefault", Presets.defaultPreset.name]);
-                    refreshTimer.restart();
-                }
-            }
-        }
-    }
+        SettingsBranch {
+            id: overview
+            key: "overview"
+            page: root
 
-    ContentSection {
-        icon: "auto_awesome_mosaic"
-        title: Translation.tr("Looks")
-        description: Translation.tr("A whole look in one click: wallpaper, colors, bar, dock and widgets, and motion. Pick which parts to take.")
-
-        RowLayout {
-            visible: Presets.hasBackup
-            Layout.fillWidth: true
-            spacing: 8
-            MaterialSymbol {
-                text: "history"
-                iconSize: 20
-                color: Appearance.colors.colOnLayer1
-            }
-            StyledText {
-                Layout.fillWidth: true
-                wrapMode: Text.Wrap
-                text: Translation.tr("Your settings from before the last preset are kept.")
-                font.pixelSize: Appearance.font.pixelSize.small
-                color: Appearance.colors.colOnLayer1
-            }
-            DialogButton {
-                buttonText: Translation.tr("Undo the last preset")
-                onClicked: {
-                    Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "presets", "undo"]);
-                    refreshTimer.restart();
-                }
-            }
-        }
-
-        Flow {
-            visible: page.allLooks.some(preset => Presets.isLive(preset))
-            Layout.fillWidth: true
-            spacing: 6
-            Repeater {
-                model: [
-                    { "live": false, "icon": "apps", "label": Translation.tr("All looks") },
-                    { "live": true, "icon": "motion_photos_on", "label": Translation.tr("With a moving wallpaper") }
-                ]
-                delegate: RippleButton {
-                    id: filterChip
-                    required property var modelData
-                    readonly property bool chosen: page.liveOnly === modelData.live
-                    implicitHeight: 34
-                    leftPadding: 10
-                    rightPadding: 12
-                    buttonRadius: Appearance.rounding.full
-                    colBackground: filterChip.chosen ? Appearance.colors.colSecondaryContainer : Appearance.colors.colLayer3
-                    colBackgroundHover: filterChip.chosen ? Appearance.colors.colSecondaryContainerHover : Appearance.colors.colLayer3Hover
-                    onClicked: page.liveOnly = modelData.live
-                    contentItem: RowLayout {
-                        spacing: 6
-                        MaterialSymbol {
-                            text: filterChip.modelData.icon
-                            iconSize: 16
-                            color: filterChip.chosen ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer3
-                        }
-                        StyledText {
-                            text: filterChip.modelData.label
-                            font.pixelSize: Appearance.font.pixelSize.small
-                            color: filterChip.chosen ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer3
-                        }
-                    }
-                }
-            }
-        }
-
-        PresetGrid {
-            presets: page.lookPresets
-        }
-    }
-
-    ContentSection {
-        icon: "style"
-        title: Translation.tr("Styles")
-        description: Translation.tr("Keep your wallpaper and change how everything else looks and moves")
-
-        PresetGrid {
-            presets: page.stylePresets
-        }
-    }
-
-    ContentSection {
-        icon: "toast"
-        title: Translation.tr("Bar presets")
-        description: Translation.tr("Change only the bar's layout and look")
-
-        Repeater {
-            model: page.barPresets
-            delegate: PresetCard {
-                required property var modelData
-                preset: modelData
-            }
-        }
-    }
-
-    ContentSection {
-        id: saveSection
-        icon: "bookmark_add"
-        title: Translation.tr("Save current settings")
-        description: Translation.tr("Keep your look as a preset to come back to or share")
-
-        property var categories: Presets.categoryIds.slice()
-
-        ConfigTextRow {
-            id: nameField
-            icon: "label"
-            label: Translation.tr("Name")
-            placeholderText: Translation.tr("My setup")
-        }
-        ConfigTextRow {
-            id: descriptionField
-            icon: "notes"
-            label: Translation.tr("Description")
-        }
-        Repeater {
-            model: Presets.categories
-            delegate: ConfigSwitch {
-                required property var modelData
-                buttonIcon: modelData.icon
-                text: modelData.name
-                autoToggle: false
-                checked: saveSection.categories.includes(modelData.id)
-                onClicked: saveSection.categories = checked
-                    ? saveSection.categories.filter(category => category !== modelData.id)
-                    : [...saveSection.categories, modelData.id]
-            }
-        }
-        DialogButton {
-            buttonText: Translation.tr("Save preset")
-            enabled: nameField.value.trim().length > 0 && saveSection.categories.length > 0
-            onClicked: {
-                Presets.saveCurrent(nameField.value.trim(), descriptionField.value.trim(), saveSection.categories);
-                nameField.value = "";
-                descriptionField.value = "";
-            }
-        }
-    }
-
-    ContentSection {
-        id: importSection
-        icon: "content_paste"
-        title: Translation.tr("Import a preset")
-        description: Translation.tr("Paste a preset someone shared as text")
-
-        property var pasted: null
-
-        DialogButton {
-            buttonText: Translation.tr("Paste from clipboard")
-            onClicked: importSection.pasted = Presets.parse(Quickshell.clipboardText)
-        }
-
-        ColumnLayout {
-            visible: importSection.pasted !== null
-            Layout.fillWidth: true
-            spacing: 6
-
-            StyledText {
-                Layout.fillWidth: true
-                wrapMode: Text.Wrap
-                color: importSection.pasted?.error ? Appearance.colors.colError : Appearance.colors.colOnLayer1
-                text: importSection.pasted?.error ?? Translation.tr("“%1” is ready to import.").arg(importSection.pasted?.preset?.name ?? "")
-                textFormat: Text.PlainText
-            }
-            StyledText {
-                Layout.fillWidth: true
-                visible: (importSection.pasted?.commands?.length ?? 0) > 0
-                wrapMode: Text.Wrap
-                color: Appearance.colors.colError
-                text: Translation.tr("Bar widgets can run the commands below automatically or when you interact with them.")
-            }
-            Repeater {
-                model: importSection.pasted?.commands ?? []
-                delegate: StyledText {
-                    required property string modelData
+            ContentSection {
+                title: Translation.tr("Your look")
+                icon: "home"
+                Flow {
                     Layout.fillWidth: true
-                    wrapMode: Text.WrapAnywhere
-                    text: modelData
-                    textFormat: Text.PlainText
-                    font.family: Appearance.font.family.monospace
-                    font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: Appearance.colors.colOnLayer1
+                    Layout.margins: 8
+                    spacing: 6
+                    SettingsToolButton {
+                        visible: !!Presets.defaultPreset
+                        materialIcon: "home"
+                        mainText: Translation.tr("Return to my look")
+                        onClicked: root.applyPreset(Presets.defaultPreset.id, Presets.categoriesOf(Presets.defaultPreset))
+                    }
+                    SettingsToolButton {
+                        visible: Presets.hasBackup
+                        materialIcon: "undo"
+                        mainText: Translation.tr("Undo the last preset")
+                        onClicked: {
+                            Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "presets", "undo"]);
+                            refreshTimer.restart();
+                        }
+                    }
+                    SettingsToolButton {
+                        materialIcon: "bookmark_add"
+                        mainText: Translation.tr("Remember my current look")
+                        onClicked: {
+                            Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "presets", "saveDefault", Presets.defaultPreset?.name ?? ""]);
+                            refreshTimer.restart();
+                        }
+                    }
+                }
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: width >= 465 ? 2 : 1
+                    uniformCellWidths: true
+                    columnSpacing: 6
+                    rowSpacing: 0
+                    SettingsBranchLink {
+                        Layout.preferredWidth: 1
+                        Layout.minimumWidth: 0
+                        branch: saveBranch
+                        buttonIcon: "add"
+                        title: Translation.tr("Create a preset")
+                    }
+                    SettingsBranchLink {
+                        Layout.preferredWidth: 1
+                        Layout.minimumWidth: 0
+                        branch: importBranch
+                        buttonIcon: "content_paste"
+                    }
                 }
             }
-            RowLayout {
-                spacing: 6
-                DialogButton {
-                    visible: !!importSection.pasted?.preset
-                    buttonText: Translation.tr("Import")
-                    onClicked: {
-                        Presets.importPreset(importSection.pasted.preset);
-                        importSection.pasted = null;
+            ContentSection {
+                icon: "auto_awesome_mosaic"
+                title: Translation.tr("Looks")
+                card: false
+                ConfigSelectionArray {
+                    visible: root.allLooks.some(preset => Presets.isLive(preset))
+                    currentValue: root.liveOnly
+                    onSelected: value => root.liveOnly = value
+                    options: [
+                        {displayName: Translation.tr("All looks"), icon: "apps", value: false},
+                        {displayName: Translation.tr("With a moving wallpaper"), icon: "motion_photos_on", value: true}
+                    ]
+                }
+                PresetGrid { presets: root.lookPresets }
+            }
+            ContentSection {
+                icon: "style"
+                title: Translation.tr("Styles")
+                description: Translation.tr("Keep your wallpaper and change how everything else looks and moves")
+                card: false
+                PresetGrid { presets: root.stylePresets }
+            }
+            ContentSection {
+                icon: "toast"
+                title: Translation.tr("Bar presets")
+                card: false
+                PresetGrid { presets: root.barPresets }
+            }
+        }
+
+        SettingsBranch {
+            id: previewBranch
+            key: "preview"
+            page: root
+            ContentSection {
+                visible: !!root.selectedPreset
+                icon: "compare"
+                card: false
+                title: root.selectedPreset ? Translation.tr(root.selectedPreset.name) : ""
+                Loader {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: item?.implicitHeight ?? 0
+                    active: previewBranch.shown && !!root.selectedPreset
+                    sourceComponent: PresetComparison {
+                        preset: root.selectedPreset
+                        categories: root.chosenCategories
+                        coverCache: root.coverCache
+                        pageShown: root.pageShown && previewBranch.shown
+                    }
+                    onLoaded: Qt.callLater(() => { if (item && root.pageShown && previewBranch.shown) item.focusDivider(); })
+                }
+            }
+            ContentSection {
+                visible: !!root.selectedPreset
+                title: Translation.tr("Parts to apply")
+                Repeater {
+                    model: Presets.categoriesOf(root.selectedPreset)
+                    delegate: ConfigSwitch {
+                        required property string modelData
+                        readonly property var entry: Presets.categories.find(part => part.id === modelData)
+                        objectName: "previewPart-" + modelData
+                        buttonIcon: entry?.icon ?? ""
+                        text: entry?.name ?? ""
+                        description: root.partSummary(modelData)
+                        autoToggle: false
+                        checked: root.chosenCategories.includes(modelData)
+                        onClicked: root.chosenCategories = checked
+                            ? root.chosenCategories.filter(part => part !== modelData)
+                            : [...root.chosenCategories, modelData]
+                    }
+                }
+                Flow {
+                    Layout.fillWidth: true
+                    Layout.margins: 8
+                    spacing: 6
+                    SettingsToolButton {
+                        objectName: "applyPresetSelection"
+                        materialIcon: "check"
+                        mainText: Translation.tr("Apply selected")
+                        enabled: root.chosenCategories.length > 0
+                        onClicked: {
+                            root.applyPreset(root.selectedId, root.chosenCategories);
+                            root.navigateBack();
+                        }
+                    }
+                    SettingsToolButton {
+                        materialIcon: "content_copy"
+                        mainText: Translation.tr("Copy as text")
+                        onClicked: Quickshell.clipboardText = Presets.exportText(root.selectedId)
+                    }
+                    SettingsToolButton {
+                        visible: root.selectedPreset?.kind === "user"
+                        materialIcon: "delete"
+                        mainText: Translation.tr("Delete")
+                        onClicked: {
+                            Presets.remove(root.selectedId);
+                            root.navigateBack();
+                        }
+                    }
+                }
+            }
+            ContentSection {
+                visible: !!root.selectedPreset?.credits
+                title: Translation.tr("Artwork")
+                ConfigNavRow {
+                    buttonIcon: "attribution"
+                    title: root.selectedPreset?.credits?.author ?? ""
+                    description: root.selectedPreset?.credits?.license ?? ""
+                    enabled: !!root.selectedPreset?.credits?.page
+                    trailingIcon: enabled ? "open_in_new" : ""
+                    onClicked: Qt.openUrlExternally(root.selectedPreset.credits.page)
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    Layout.margins: 10
+                    visible: !!text
+                    text: [root.selectedPreset?.credits?.copyright,
+                        Translation.tr(root.selectedPreset?.credits?.restrictions ?? "")].filter(Boolean).join("\n")
+                    textFormat: Text.PlainText
+                    wrapMode: Text.Wrap
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                }
+            }
+        }
+        SettingsBranch {
+            id: saveBranch
+            page: root
+            key: "save"
+            ContentSection {
+                id: saveSection
+                icon: "bookmark_add"
+                title: Translation.tr("Save current settings")
+                description: Translation.tr("Keep your look as a preset to come back to or share")
+
+                property var categories: Presets.categoryIds.slice()
+
+                ConfigTextRow {
+                    id: nameField
+                    icon: "label"
+                    label: Translation.tr("Name")
+                    placeholderText: Translation.tr("My setup")
+                }
+                ConfigTextRow {
+                    id: descriptionField
+                    icon: "notes"
+                    label: Translation.tr("Description")
+                }
+                Repeater {
+                    model: Presets.categories
+                    delegate: ConfigSwitch {
+                        required property var modelData
+                        buttonIcon: modelData.icon
+                        text: modelData.name
+                        autoToggle: false
+                        checked: saveSection.categories.includes(modelData.id)
+                        onClicked: saveSection.categories = checked
+                            ? saveSection.categories.filter(category => category !== modelData.id)
+                            : [...saveSection.categories, modelData.id]
                     }
                 }
                 DialogButton {
-                    buttonText: Translation.tr("Cancel")
-                    onClicked: importSection.pasted = null
+                    buttonText: Translation.tr("Save preset")
+                    enabled: nameField.value.trim().length > 0 && saveSection.categories.length > 0
+                    onClicked: {
+                        Presets.saveCurrent(nameField.value.trim(), descriptionField.value.trim(), saveSection.categories);
+                        nameField.value = "";
+                        descriptionField.value = "";
+                    }
+                }
+            }
+        }
+        SettingsBranch {
+            id: importBranch
+            page: root
+            key: "importPreset"
+            ContentSection {
+                id: importSection
+                icon: "content_paste"
+                title: Translation.tr("Import a preset")
+                description: Translation.tr("Paste a preset someone shared as text")
+
+                property var pasted: null
+
+                DialogButton {
+                    buttonText: Translation.tr("Paste from clipboard")
+                    onClicked: importSection.pasted = Presets.parse(Quickshell.clipboardText)
+                }
+
+                ColumnLayout {
+                    visible: importSection.pasted !== null
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        color: importSection.pasted?.error ? Appearance.colors.colError : Appearance.colors.colOnLayer1
+                        text: importSection.pasted?.error ?? Translation.tr("“%1” is ready to import.").arg(importSection.pasted?.preset?.name ?? "")
+                        textFormat: Text.PlainText
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: (importSection.pasted?.commands?.length ?? 0) > 0
+                        wrapMode: Text.Wrap
+                        color: Appearance.colors.colError
+                        text: Translation.tr("Bar widgets can run the commands below automatically or when you interact with them.")
+                    }
+                    Repeater {
+                        model: importSection.pasted?.commands ?? []
+                        delegate: StyledText {
+                            required property string modelData
+                            Layout.fillWidth: true
+                            wrapMode: Text.WrapAnywhere
+                            text: modelData
+                            textFormat: Text.PlainText
+                            font.family: Appearance.font.family.monospace
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: Appearance.colors.colOnLayer1
+                        }
+                    }
+                    RowLayout {
+                        spacing: 6
+                        DialogButton {
+                            visible: !!importSection.pasted?.preset
+                            buttonText: Translation.tr("Import")
+                            onClicked: {
+                                Presets.importPreset(importSection.pasted.preset);
+                                importSection.pasted = null;
+                            }
+                        }
+                        DialogButton {
+                            buttonText: Translation.tr("Cancel")
+                            onClicked: importSection.pasted = null
+                        }
+                    }
                 }
             }
         }

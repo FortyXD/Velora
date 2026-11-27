@@ -163,12 +163,11 @@ ShellRoot {
         self.assertFalse(self.is_active())
         self.assertEqual(len(self.starts()), 2)
 
-    def test_new_compositor_session_resets_the_choice(self):
+    def test_new_compositor_session_restores_the_choice(self):
         self.start(previous='previous-session')
-        self.wait_for(lambda: self.status()['restored'])
-        self.assertFalse(self.status()['requested'])
-        self.wait_for(lambda: not self.saved())
-        self.assertEqual(self.starts(), [])
+        self.wait_for(self.is_active)
+        self.assertTrue(self.status()['requested'])
+        self.assertTrue(self.saved())
 
     def test_shell_reload_restores_without_leaking_a_helper(self):
         self.start()

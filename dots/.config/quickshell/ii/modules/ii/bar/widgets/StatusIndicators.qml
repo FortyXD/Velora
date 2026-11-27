@@ -75,6 +75,7 @@ RippleButton {
                 color: root.colText
             }
         }
+        VeloraUpdateDot { Layout.alignment: Qt.AlignVCenter }
         HyprlandXkbIndicator {
             visible: active && root.shows("showKeyboardLayout")
             Layout.alignment: Qt.AlignVCenter

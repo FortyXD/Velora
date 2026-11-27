@@ -8,7 +8,7 @@ case "${VELORA_SCREENSHOT_CURSOR-}" in
     true) cursor_args+=(-c) ;;
     false) ;;
     "")
-        config="${XDG_CONFIG_HOME:-$HOME/.config}/illogical-impulse/config.json"
+        config="${XDG_CONFIG_HOME:-$HOME/.config}/velora/config.json"
         if jq -e '.screenSnip.showCursor == true' "$config" >/dev/null 2>&1; then
             cursor_args+=(-c)
         fi

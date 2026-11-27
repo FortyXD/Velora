@@ -126,13 +126,24 @@
         "accent": "#FF6D00",
         "previewPalette": {
             "surface_container_low": "#261812",
+            "surface_container": "#2a1c16",
             "surface_container_high": "#362720",
+            "surface_container_highest": "#41312a",
             "on_surface": "#f7ddd2",
+            "on_surface_variant": "#e2bfb0",
+            "outline_variant": "#594136",
             "primary": "#ffb692",
             "on_primary": "#562000",
             "primary_container": "#ff6d00",
             "on_primary_container": "#170400",
-            "tertiary": "#dac93c"
+            "secondary": "#ffb692",
+            "secondary_container": "#773207",
+            "on_secondary_container": "#ffd8c7",
+            "tertiary": "#dac93c",
+            "tertiary_container": "#bdad1f",
+            "on_tertiary_container": "#252100",
+            "outline": "#a98a7c",
+            "error": "#ffb4ab"
         }
     },
     "dockWidgets": {

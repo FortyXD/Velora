@@ -12,7 +12,8 @@ import Qt5Compat.GraphicalEffects
 
 Item {
     id: root
-    readonly property HyprlandMonitor monitor: Hyprland.monitorFor(root.QsWindow.window?.screen)
+    property var screen: root.QsWindow.window?.screen
+    readonly property HyprlandMonitor monitor: screen ? Hyprland.monitorFor(screen) : null
     readonly property Toplevel activeWindow: ToplevelManager.activeToplevel
 
     property string activeWindowAddress: `0x${activeWindow?.HyprlandToplevel?.address}`

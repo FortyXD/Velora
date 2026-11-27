@@ -53,7 +53,7 @@ Singleton {
     // General
     Component.onCompleted: {
         lastLapDuration = pomodoroLapDuration;
-        if (!stopwatchRunning)
+        if (!Config.isSettingsApp && !stopwatchRunning)
             stopwatchReset();
     }
 
@@ -69,6 +69,10 @@ Singleton {
     function refreshPomodoro() {
         // Work <-> break ?
         if (getCurrentTimeInSeconds() >= Persistent.states.timer.pomodoro.start + pomodoroLapDuration) {
+            if (Config.isSettingsApp) {
+                pomodoroSecondsLeft = 0;
+                return;
+            }
             // Reset counts
             Persistent.states.timer.pomodoro.isBreak = !Persistent.states.timer.pomodoro.isBreak;
             Persistent.states.timer.pomodoro.start = getCurrentTimeInSeconds();
@@ -149,7 +153,7 @@ Singleton {
             return;
         }
         root.countdownSecondsLeft = Math.max(0, root.countdown.end - getCurrentTimeInSeconds());
-        if (root.countdownSecondsLeft > 0) return;
+        if (root.countdownSecondsLeft > 0 || Config.isSettingsApp) return;
         Persistent.states.timer.countdown.running = false;
         Persistent.states.timer.countdown.left = 0;
         root.countdownDone = true;
@@ -198,6 +202,7 @@ Singleton {
 
     // qs -c ii ipc call timer start 10m | toggle | reset | left
     IpcHandler {
+        enabled: !Config.isSettingsApp
         target: "timer"
         function start(duration: string): string {
             const seconds = DateUtils.parseDuration(duration);

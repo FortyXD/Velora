@@ -181,7 +181,7 @@ Singleton {
         const generation = ++queryGeneration;
         results = [];
         semanticDelay.stop();
-        if (!enabled || !ready || status.opening || !text.trim() || GlobalStates.screenLocked) { call("cancel", {}); return; }
+        if (!enabled || !ready || status.locked || status.opening || !text.trim() || GlobalStates.screenLocked) { call("cancel", {}); return; }
         const id = call("search", {query: text, semantic: false}, value => {
             if (generation === queryGeneration && value && !GlobalStates.screenLocked) {
                 queryKind = value.query?.kind ?? "";
@@ -195,7 +195,7 @@ Singleton {
 
     function configure(changes, done) {
         const config = Object.assign({}, status.config ?? {roots: [], excludes: [], activity: true, media: false, semantic: false, paused: false, max_files: 100000}, changes);
-        call("configure", config, value => { if (value) { status = value; search(query); } if (done) done(value); });
+        call("configure", config, value => { if (value) { acceptStatus(value); if (query.trim()) search(query); } if (done) done(value); });
     }
 
     function reviewSource(path, include) {
@@ -257,6 +257,7 @@ Singleton {
             refresh();
         } else if (message.type === "response") {
             const callback = pending[message.id]; delete pending[message.id];
+            if (!callback && message.id < nextId && !message.ok && message.error?.message === "Search unavailable") return;
             if (!message.ok) problem = message.error?.message ?? Translation.tr("Lens is unavailable");
             if (callback) callback(message.ok ? message.result : null);
         }

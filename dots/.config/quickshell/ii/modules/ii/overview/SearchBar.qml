@@ -76,7 +76,7 @@ RowLayout {
             anchors.right: parent.right
             anchors.rightMargin: 8
             anchors.verticalCenter: parent.verticalCenter
-            active: Assistant.thinking || (Lens.thinking && Lens.query === LauncherSearch.query)
+            active: (Assistant.origin === "launcher" && Assistant.thinking) || (Lens.thinking && Lens.query === LauncherSearch.query)
         }
 
         Behavior on implicitWidth {

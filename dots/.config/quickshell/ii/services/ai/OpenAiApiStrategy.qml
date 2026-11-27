@@ -7,7 +7,7 @@ ApiStrategy {
     
     function buildEndpoint(model: AiModel): string {
         // console.log("[AI] Endpoint: " + model.endpoint);
-        return model.local ? model.endpoint.replace(/\/v1\/chat\/completions\/?$/, "/api/chat") : model.endpoint;
+        return model.local ? LocalAiRuntime.endpointFor(model.endpoint, Config.options.ai?.localGpu ?? true).replace(/\/v1\/chat\/completions\/?$/, "/api/chat") : model.endpoint;
     }
 
     function buildRequestData(model: AiModel, messages, systemPrompt: string, temperature: real, tools: list<var>, filePath: string) {
@@ -27,8 +27,9 @@ ApiStrategy {
         };
         if (tools && tools.length > 0) baseData.tools = tools; // An empty list makes some servers reject the request
         if (model.local) {
-            baseData.keep_alive = PowerSaving.onBattery ? "60s" : "5m";
-            baseData.options = {temperature, num_ctx:8192, num_predict:4096, num_gpu:(Config.options.ai.localGpu ?? true) && !PowerSaving.onBattery ? -1 : 0};
+            baseData.keep_alive = LocalAiRuntime.idleSeconds;
+            const gpu = (Config.options.ai.localGpu ?? true) && LocalAiRuntime.allowGpu;
+            baseData.options = Object.assign(LocalAiRuntime.runnerOptions(model.model, gpu), {temperature, num_predict:4096});
             delete baseData.temperature;
         }
         const data = model.extraParams ? Object.assign({}, baseData, model.extraParams) : baseData;

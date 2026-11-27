@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Dialogs as Dialogs
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
@@ -28,6 +29,21 @@ ContentPage {
     readonly property real partsWidth: 210 // The column of parts beside the miniature
     readonly property var selectedSpec: LockElementCatalog.get(page.selectedId)
     readonly property var selectedItem: LockLayout.items[page.selectedId]
+
+    Dialogs.FileDialog {
+        id: mediaPicker
+        property bool greeting: false
+        nameFilters: [Translation.tr("Images and videos (*.jpg *.jpeg *.png *.gif *.webp *.mp4 *.webm *.mkv *.mov)"), Translation.tr("All files (*)")]
+        onAccepted: {
+            const path = FileUtils.trimFileProtocol(decodeURIComponent(selectedFile.toString()));
+            if (greeting) {
+                page.lock.greeterPath = path;
+                page.lock.greeterSource = "file";
+                Config.options.background.syncGreeterWallpaper = true;
+            } else page.lock.backgroundPath = path;
+        }
+    }
+    function chooseMedia(greeting) { mediaPicker.greeting = greeting; mediaPicker.open(); }
 
     // A lock.* switch
     component ShowRow: ConfigSwitch {
@@ -506,6 +522,38 @@ ContentPage {
                 ContentSection {
                     icon: "wallpaper"
                     title: Translation.tr("Background and motion")
+
+                    ConfigNavRow {
+                        buttonIcon: "wallpaper"
+                        title: Translation.tr("Lock screen background")
+                        description: page.lock.backgroundPath || Translation.tr("Desktop wallpaper")
+                        onClicked: page.chooseMedia(false)
+                    }
+                    ConfigNavRow {
+                        visible: !!page.lock.backgroundPath
+                        buttonIcon: "restart_alt"
+                        title: Translation.tr("Use desktop wallpaper")
+                        onClicked: page.lock.backgroundPath = ""
+                    }
+                    ConfigComboRow {
+                        icon: "login"
+                        text: Translation.tr("Login screen background")
+                        options: [{value:"desktop", displayName:Translation.tr("Desktop wallpaper")},
+                                  {value:"lock", displayName:Translation.tr("Same as lock screen")},
+                                  {value:"file", displayName:Translation.tr("Choose a file…")}]
+                        currentValue: page.lock.greeterSource
+                        onSelected: value => {
+                            if (value === "file") page.chooseMedia(true);
+                            else { page.lock.greeterSource = value; Config.options.background.syncGreeterWallpaper = true; }
+                        }
+                    }
+                    ConfigNavRow {
+                        visible: page.lock.greeterSource === "file"
+                        buttonIcon: "movie"
+                        title: Translation.tr("Change login screen file")
+                        description: page.lock.greeterPath
+                        onClicked: page.chooseMedia(true)
+                    }
 
                     ConfigSwitch {
                         buttonIcon: "blur_on"

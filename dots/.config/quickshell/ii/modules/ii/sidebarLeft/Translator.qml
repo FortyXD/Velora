@@ -128,12 +128,8 @@ Item {
         }
     }
 
-    // Local Ollama model for refinement: configured one, otherwise the smallest installed
     function refineModel() {
-        const configured = Config.options.language.translator.llmModel;
-        if (configured.length > 0) return configured;
-        const local = Object.values(Ai.models).filter(model => model.local).sort((a, b) => a.size - b.size);
-        return local[0]?.model ?? "";
+        return Config.options.language.translator.llmModel || Ai.models[Ai.defaultLocalModelId]?.model || "";
     }
 
     function refine() {
@@ -407,7 +403,7 @@ Item {
                             visible: !OfflineTranslator.installing
                             Layout.alignment: Qt.AlignRight
                             materialIcon: "download"
-                            mainText: OfflineTranslator.installError.length > 0 ? Translation.tr("Try again") : Translation.tr("Install")
+                            mainText: OfflineTranslator.installError.length > 0 ? Translation.tr("Try again") : OfflineTranslator.partial ? Translation.tr("Resume download") : Translation.tr("Install")
                             colBackground: Appearance.colors.colPrimary
                             colBackgroundHover: Appearance.colors.colPrimaryHover
                             onClicked: OfflineTranslator.install()

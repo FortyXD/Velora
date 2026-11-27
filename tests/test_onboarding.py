@@ -30,7 +30,7 @@ class OnboardingTests(unittest.TestCase):
                 'Translation': 'function tr(text) { return text; }',
                 'Appearance': 'property var m3colors: ({ darkmode: true })',
                 'MaterialThemeLoader': 'property int reloads: 0; function reapplyTheme() { reloads++; }',
-                'Directories': 'property string home: "/home/test"; property string config: "/home/test/.config"; property string wallpaperSwitchScriptPath: "/switchwall"',
+                'Directories': 'property string home: "/home/test"; property string config: "/home/test/.config"; property string shellConfigPath: config + "/velora/config.json"; property string wallpaperSwitchScriptPath: "/switchwall"',
                 'FileUtils': 'function trimFileProtocol(path) { return path; } function isVideoPath(path) { return path.endsWith(".mp4"); }',
             }
             for name, body in stubs.items():

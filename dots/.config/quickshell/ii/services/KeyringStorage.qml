@@ -24,16 +24,7 @@ Singleton {
     property var keyringData: ({})
     property var rollbackData: null
     
-    property var properties: {
-        "application": "illogical-impulse",
-        "explanation": Translation.tr("For storing API keys and other sensitive information"),
-    }
-    property var propertiesAsArgs: Object.keys(root.properties).reduce(
-        function(arr, key) {
-            return arr.concat([key, root.properties[key]]);
-        }, []
-    )
-    property string keyringLabel: Translation.tr("%1 Safe Storage").arg("illogical-impulse")
+    property string keyringLabel: Translation.tr("%1 Safe Storage").arg("Velora")
 
     function setNestedField(path, value) {
         if (!saving) rollbackData = JSON.parse(JSON.stringify(root.keyringData));
@@ -89,7 +80,7 @@ Singleton {
         }
         command: [
             "secret-tool", "store", "--label=" + keyringLabel,
-            ...propertiesAsArgs,
+            "application", "velora",
         ]
         onRunningChanged: {
             if (saveData.running) {

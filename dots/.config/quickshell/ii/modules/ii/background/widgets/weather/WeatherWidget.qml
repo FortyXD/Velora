@@ -25,7 +25,7 @@ AbstractBackgroundWidget {
         id: backgroundShape
         anchors.fill: parent
         shape: MaterialShape.Shape.Pill
-        color: Appearance.colors.colPrimaryContainer
+        color: root.widgetColors.colPrimaryContainer
         implicitSize: 200
 
         StyledText {
@@ -34,7 +34,7 @@ AbstractBackgroundWidget {
                 family: Appearance.font.family.expressive
                 weight: Font.Medium
             }
-            color: Appearance.colors.colPrimary
+            color: root.widgetColors.colPrimary
             text: Weather.data.tempShort
             anchors {
                 right: parent.right
@@ -46,7 +46,7 @@ AbstractBackgroundWidget {
 
         MaterialSymbol {
             iconSize: 80
-            color: Appearance.colors.colOnPrimaryContainer
+            color: root.widgetColors.colOnPrimaryContainer
             text: Weather.hasData ? (Icons.getWeatherIcon(Weather.data.wCode, Weather.data.night) ?? "cloud") : (Weather.status === "error" ? "cloud_off" : "cloud_sync")
             anchors {
                 left: parent.left
