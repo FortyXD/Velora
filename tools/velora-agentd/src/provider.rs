@@ -542,13 +542,17 @@ fn generation_timeout(profile: &Profile, battery: bool, extended: bool) -> u64 {
     }
 }
 
+pub struct GenerationOptions {
+    pub on_battery: bool,
+    pub extended: bool,
+    pub deliberate: bool,
+}
+
 pub async fn generate(
     profile: &Profile,
     messages: &[Value],
     tools: &[Value],
-    battery: bool,
-    extended: bool,
-    deliberate: bool,
+    options: GenerationOptions,
     events: &mpsc::Sender<Value>,
     task: u64,
 ) -> Result<Reply> {
@@ -558,14 +562,14 @@ pub async fn generate(
     } else {
         ""
     };
-    let mut body = body(profile, messages, tools, battery, extended);
-    if deliberate && profile.provider == "ollama" {
+    let mut body = body(profile, messages, tools, options.on_battery, options.extended);
+    if options.deliberate && profile.provider == "ollama" {
         body["think"] = json!(true);
         body["options"]["num_predict"] = json!(2048);
     }
     // Secrets and prompts are written only to stdin, never argv, a file or a log.
     let config = request_config(profile, path, Some(&body));
-    let seconds = generation_timeout(profile, battery, extended);
+    let seconds = generation_timeout(profile, options.on_battery, options.extended);
     let mut cmd = Command::new("curl");
     cmd.args([
         "--disable",
@@ -664,7 +668,12 @@ pub async fn probe(profile: &Profile) -> Result<Value> {
         let (tx, mut rx) = mpsc::channel(256);
         let drain = tokio::spawn(async move { while rx.recv().await.is_some() {} });
         let tool = json!({"type":"function","function":{"name":"connection_check","description":"Verify tool calling","parameters":{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}}});
-        let reply=generate(profile,&[json!({"role":"system","content":"Call connection_check with ok=true. Do not answer in text."}),json!({"role":"user","content":"Check connection"})],&[tool],true,false,false,&tx,0).await;
+        let messages = [
+            json!({"role":"system","content":"Call connection_check with ok=true. Do not answer in text."}),
+            json!({"role":"user","content":"Check connection"}),
+        ];
+        let options = GenerationOptions { on_battery: true, extended: false, deliberate: false };
+        let reply = generate(profile, &messages, &[tool], options, &tx, 0).await;
         drop(tx);
         let _ = drain.await;
         let reply = reply?;

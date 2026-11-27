@@ -859,9 +859,14 @@ impl Task {
                 &self.context.profile,
                 &messages,
                 &wire,
-                self.context.on_battery,
-                self.extended,
-                supports_thinking && (self.extended || (local_desktop && has_selection && round > 0) || !problems.is_empty() || !outputs_to_check.is_empty()),
+                provider::GenerationOptions {
+                    on_battery: self.context.on_battery,
+                    extended: self.extended,
+                    deliberate: supports_thinking && (self.extended
+                        || (local_desktop && has_selection && round > 0)
+                        || !problems.is_empty()
+                        || !outputs_to_check.is_empty()),
+                },
                 &self.events,
                 self.id,
             )
