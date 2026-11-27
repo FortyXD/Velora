@@ -181,6 +181,28 @@ Item {
             verify(Network.wifiConnecting);
         }
 
+        function test_saved_credentials_are_tried_before_asking() {
+            // A profile that never connected but does store credentials: join silently first,
+            // and only ask for a password if the daemon reports the saved ones don't work
+            publish({ networks: [ap("Home", { savedUuid: "u", neverUsed: true, savedCredentials: true })] });
+            Network.connectToWifiNetwork(network("Home"));
+            verify(!network("Home").askingPassword);
+            compare(Network.passwordPromptSsid, "");
+            compare(lastCall().method, "network.connectWifi");
+            compare(lastCall().params.uuid, "u");
+            verify(Network.connectionPending);
+            ConnectivityBackend.event("wifiPassword", { operation: Network.operationId, request: "1", retry: true });
+            verify(network("Home").askingPassword);
+            compare(network("Home").errorText, "Password rejected. Try again.");
+        }
+
+        function test_a_profile_without_credentials_still_asks_first() {
+            publish({ networks: [ap("Home", { savedUuid: "u", neverUsed: true, savedCredentials: false })] });
+            Network.connectToWifiNetwork(network("Home"));
+            verify(network("Home").askingPassword);
+            compare(ConnectivityBackend.calls.length, 0);
+        }
+
         function test_an_open_network_joins_directly() {
             publish({ networks: [ap("Cafe", { security: "", securityType: "none" })] });
             Network.connectToWifiNetwork(network("Cafe"));

@@ -53,4 +53,12 @@ Item {
         anchors.fill: parent
         open: GlobalStates.sidebarRightOpen
     }
+
+    // Requests from the bar arrive through GlobalStates; the bar has no column to signal through
+    Connections {
+        target: GlobalStates
+        function onSidebarDialogRequested(name) {
+            if (GlobalStates.sidebarRightOpen) dialogs.show(name);
+        }
+    }
 }

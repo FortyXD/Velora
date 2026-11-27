@@ -53,6 +53,16 @@ Singleton {
         root.sidebarRightOpen = false;
     }
 
+    // Emitted for SidebarRightContent, which forwards it to its SidebarDialogs. Widgets outside the
+    // sidebar (the bar's network icon) reach a dialog through showSidebarDialog rather than a toggle.
+    signal sidebarDialogRequested(string name)
+
+    /** Opens the right sidebar and one of its dialogs ("wifi", "bluetooth", ...). */
+    function showSidebarDialog(name: string): void {
+        root.sidebarRightOpen = true; // the content loads synchronously, so it is ready for the signal
+        root.sidebarDialogRequested(name);
+    }
+
     // Notifications are read once the sidebar showing them opens (the right one, unless they were moved left)
     function markNotificationsRead() {
         Notifications.timeoutAll();

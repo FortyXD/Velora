@@ -45,6 +45,14 @@ RippleButton {
         GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen;
     }
 
+    // Right-click on the network icon opens its Wi-Fi dialog in the right sidebar; anywhere else in
+    // the cluster it toggles the sidebar, like a right-click on the bar does
+    altAction: (event) => {
+        const point = networkIndicator.mapFromItem(root, event.x, event.y);
+        if (networkIndicator.visible && networkIndicator.contains(point)) GlobalStates.showSidebarDialog("wifi");
+        else GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen;
+    }
+
     RowLayout {
         id: indicatorsRowLayout
         anchors.centerIn: parent
@@ -96,6 +104,7 @@ RippleButton {
             }
         }
         NetworkIndicator {
+            id: networkIndicator
             visible: root.shows("showNetwork")
             color: root.colText
         }

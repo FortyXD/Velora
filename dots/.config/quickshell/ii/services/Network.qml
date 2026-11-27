@@ -206,9 +206,10 @@ Singleton {
         const previous = wifiNetworks.find(item => item.key === passwordPromptKey);
         if (previous && previous !== network) { previous.askingPassword = false; previous.errorText = ""; }
         passwordPromptUuid = "";
-        // A password is asked for right away, like other systems do, for a new network and for a saved one
-        // that never got connected (its profile has no working password)
-        if (network.isSecure && !network.known) {
+        // A secure network is tried silently when we have something to try with: a known profile or
+        // saved credentials on it. The password is asked for up front only when there is neither; if
+        // the saved credentials turn out unusable, the daemon's wifiPassword event opens the form
+        if (network.isSecure && !network.known && !network.savedCredentials) {
             network.askingPassword = true;
             passwordPromptSsid = network.ssid;
             passwordPromptKey = network.key;
