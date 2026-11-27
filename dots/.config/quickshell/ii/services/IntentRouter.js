@@ -40,7 +40,7 @@ function isMathExpression(text) {
 
 function hint(text) {
     if (/\b(?:command|shell|terminal|bash|script)\b|команд|терминал|скрипт/i.test(text)) return "terminal";
-    if (/\b(?:workspace|window|app)\b|рабочий стол|окно|приложени/i.test(text)) return "desktop";
+    if (/\b(?:workspace|desktop|window|app)\b|рабоч(?:ий|ем) стол|десктоп|окно|приложени/i.test(text)) return "desktop";
     return "files";
 }
 
@@ -59,6 +59,10 @@ function classify(input, mode) {
     const requested = polite.test(text);
     text = text.replace(polite, "").replace(/^пожалуйста[,\s]+/, "");
     if (question.test(text)) return result("chat", .95, "question");
+    const workspace = /^(?:на|on)\s+(?:(?:рабочем столе|рабочий стол|столе|десктопе|десктоп|workspace|desktop)\s+)?(?:1000|[1-9]\d{0,2})(?:-(?:м|ом|й))?(?:\s+(?:рабочем столе|рабочий стол|столе|десктопе|workspace|desktop))?[,\s]+(?=(?:открой(?:те)?|запусти(?:те)?|open|launch)\s)/i;
+    const command = text.replace(workspace, "");
+    const onWorkspace = command !== text;
+    text = command;
     if (/^open\s+source(?:\s|$)/.test(text)) return result("search", .95, "description");
     const segments = text.split(/\s*(?:[,;]|\b(?:and\s+then|then|and|but)\b|\s+(?:и\s+затем|затем|и|но)\s+)\s*/);
     let negated = false;
@@ -72,7 +76,7 @@ function classify(input, mode) {
         if (negated && imperative.test(segment) && !/[,;]|\bbut\b|\sно\s/.test(text))
             return result("ambiguous", .5, "needs_choice");
         if (imperative.test(segment) || (requested && infinitive.test(segment)))
-            return result("action", .95, "request", hint(text));
+            return result("action", .95, "request", onWorkspace ? "desktop" : hint(text));
         if (infinitive.test(segment)) uncertain = true;
     }
     if (negated) return result("chat", .9, "negation");

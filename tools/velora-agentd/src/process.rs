@@ -75,6 +75,20 @@ pub async fn output(
     seconds: u64,
     limit: usize,
 ) -> Result<Vec<u8>> {
+    let (status, data) = output_status(program, args, input, seconds, limit).await?;
+    if !status.success() {
+        return Err(ProcessExit(status).into());
+    }
+    Ok(data)
+}
+
+pub async fn output_status(
+    program: &str,
+    args: &[String],
+    input: &[u8],
+    seconds: u64,
+    limit: usize,
+) -> Result<(std::process::ExitStatus, Vec<u8>)> {
     let mut cmd = Command::new(program);
     cmd.args(args);
     let mut child = spawn(&mut cmd)?;
@@ -98,10 +112,7 @@ pub async fn output(
         };
         let (_, data) = tokio::try_join!(async { send.await.map_err(anyhow::Error::from) }, read)?;
         let status = child.wait().await?;
-        if !status.success() {
-            return Err(ProcessExit(status).into());
-        }
-        Ok(data)
+        Ok((status, data))
     };
     tokio::time::timeout(Duration::from_secs(seconds), run)
         .await

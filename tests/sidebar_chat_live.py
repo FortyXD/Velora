@@ -52,7 +52,7 @@ ShellRoot {
     }
     Process {
         id: loadedModels
-        command: ["curl","--noproxy","*","--silent","--fail","http://127.0.0.1:11434/api/ps"]
+        command: ["curl","--noproxy","*","--silent","--fail",LocalAiRuntime.endpointFor("http://127.0.0.1:11434/api/ps", Config.options.ai.localGpu)]
         stdout: StdioCollector { id: loadedOutput }
         onExited: (code, status) => {
             let empty = false;

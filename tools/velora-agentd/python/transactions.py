@@ -1,16 +1,24 @@
 #!/usr/bin/env python3
 """Private durable write-ahead undo journal. No model input is executable here."""
 import ctypes
+import codecs
+from collections import deque
 import difflib
 import fcntl
 import hashlib
+import heapq
 from functools import lru_cache
 import json
 import os
 from pathlib import Path
+import re
 import shutil
+import resource
+import subprocess
+import tempfile
 import stat
 import sys
+import time
 import uuid
 
 DEFAULT_BUDGET = 2 * 1024 ** 3
@@ -34,11 +42,12 @@ def protection_roots():
              checkout / 'tools/target/release/velora-agentd', checkout / 'tools/Cargo.toml',
              checkout / 'tools/Cargo.lock', checkout / '.cargo',
              checkout / 'dots/.config/quickshell',
-             checkout / 'dots/.config/illogical-impulse/config.json',
-             checkout / 'dots/.config/illogical-impulse/config.example.json',
              home / '.local/bin', home / 'bin/velora-agentd',
-             config / 'quickshell', home / '.config/quickshell',
-             config / 'illogical-impulse/config.json', home / '.config/illogical-impulse/config.json']
+             config / 'quickshell', home / '.config/quickshell']
+    for name in ('velora', 'illogical-impulse'):
+        roots.extend([checkout / 'dots/.config' / name / 'config.json',
+                      checkout / 'dots/.config' / name / 'config.example.json',
+                      config / name / 'config.json', home / '.config' / name / 'config.json'])
     try:
         roots.append(Path(os.readlink('/proc/' + str(os.getppid()) + '/exe')))
     except OSError:
@@ -261,24 +270,224 @@ def checked_descriptor(value, expected_device=None, expected_inode=None, allow_d
         raise
 
 
-def guarded_read(request):
+def open_directory(path):
+    parent = parent_fd(path)
+    try:
+        return os.open(path.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+    finally:
+        os.close(parent)
+
+
+def list_directory(req):
+    path = safe_path(req['path'], True)
+    fd, _ = checked_descriptor(path, req['device'], req['inode'], allow_directory=True)
+    def visible(children):
+        for child in children:
+            if child.name <= req.get('after', '') or secret(child.name) or protected_path(path / child.name):
+                continue
+            try:
+                info = child.stat(follow_symlinks=False)
+            except FileNotFoundError:
+                continue
+            if info.st_uid == os.getuid() and not info.st_mode & (stat.S_ISUID | stat.S_ISGID):
+                if stat.S_ISDIR(info.st_mode) or (stat.S_ISREG(info.st_mode) and info.st_nlink == 1):
+                    yield child.name
+    try:
+        with os.scandir(fd) as children:
+            entries = heapq.nsmallest(65, visible(children))
+    finally:
+        os.close(fd)
+    return {'entries': entries[:64], 'next_cursor': entries[63] if len(entries) > 64 else None}
+
+
+class MetadataScan:
+    """Walk by name and inode without opening file contents or following links."""
+    def __init__(self, root, fd, lookup):
+        self.root, self.fd, self.lookup = root, fd, lookup
+        self.partial = False
+
+    def entries(self):
+        initial = os.fstat(self.fd)
+        pending = deque([(self.root, initial.st_ino, 0)])
+        remaining = 40000 if self.lookup else 250000
+        deadline = time.monotonic() + (3 if self.lookup else 12)
+        blocked = protection_roots()
+        while pending:
+            if time.monotonic() >= deadline:
+                self.partial = True
+                return
+            path, inode, depth = pending.popleft()
+            try:
+                fd = os.dup(self.fd) if depth == 0 else open_directory(path)
+                try:
+                    current = os.fstat(fd)
+                    if (current.st_dev, current.st_ino, current.st_uid) != (initial.st_dev, inode, os.getuid()):
+                        self.partial = True
+                        continue
+                    with os.scandir(fd) as children:
+                        for child in children:
+                            remaining -= 1
+                            if remaining < 0 or time.monotonic() >= deadline:
+                                self.partial = True
+                                return
+                            if self.lookup and child.name.startswith('.'):
+                                continue
+                            location = path / child.name
+                            if secret(child.name) or location in blocked:
+                                self.partial = True
+                                continue
+                            try:
+                                info = child.stat(follow_symlinks=False)
+                            except OSError:
+                                self.partial = True
+                                continue
+                            directory = stat.S_ISDIR(info.st_mode)
+                            if not directory and not stat.S_ISREG(info.st_mode):
+                                continue
+                            if info.st_uid != os.getuid() or info.st_dev != initial.st_dev or info.st_mode & (stat.S_ISUID | stat.S_ISGID):
+                                self.partial = True
+                                continue
+                            yield location, info
+                            if directory:
+                                if depth >= (5 if self.lookup else 64):
+                                    self.partial = True
+                                elif not self.lookup or child.name not in ('node_modules', 'target', '__pycache__'):
+                                    pending.append((location, info.st_ino, depth + 1))
+                finally:
+                    os.close(fd)
+            except OSError:
+                self.partial = True
+
+
+# Match names such as «велора» and Velora in either script.
+_LATIN = str.maketrans(dict(zip('абвгдеёжзийклмнопрстуфхцчшщъыьэюя',
+                                ('a','b','v','g','d','e','e','zh','z','i','y','k','l','m','n','o',
+                                 'p','r','s','t','u','f','kh','ts','ch','sh','sch','','y','','e','yu','ya'))))
+
+
+def lookup_name(request):
+    def folded(text):
+        return text.casefold().translate(_LATIN)
+
+    query = folded(request['query'].strip().rstrip('/').rsplit('/', 1)[-1][:512])
+    words = set(re.findall(r'[\w.-]+', query))
+    if not words:
+        return {'results': [], 'partial': False}
+    home = safe_path(request['root'], root=True) if 'root' in request else Path.home()
+    fd = open_directory(home)
+    matches = [(0, len(home.parts), str(home))] if 'root' in request and folded(home.name) == query else []
+    try:
+        scan = MetadataScan(home, fd, lookup=True)
+        for path, info in scan.entries():
+            directory = stat.S_ISDIR(info.st_mode)
+            if request.get('kind') == 'folder' and not directory:
+                continue
+            if not directory and info.st_nlink != 1:
+                continue
+            name = folded(path.name)
+            if name == query:
+                rank = 0
+            elif name in words and len(name) >= 3:
+                rank = 1
+            elif query in name:
+                rank = 2
+            else:
+                continue
+            matches.append((rank, len(path.parts), str(path)))
+    finally:
+        os.close(fd)
+    return {'results': [{'path': path} for _, _, path in sorted(matches)[:12]], 'partial': scan.partial}
+
+
+def folder_usage(request):
+    path = Path(request['path'])
+    fd, info = checked_descriptor(path, request['device'], request['inode'], allow_directory=True)
+    try:
+        if not stat.S_ISDIR(info.st_mode):
+            raise ValueError('Select a folder to measure')
+        total = info.st_blocks * 512
+        sizes = {}
+        links = set()
+        scan = MetadataScan(path, fd, lookup=False)
+        for child, entry in scan.entries():
+            if stat.S_ISREG(entry.st_mode) and entry.st_nlink > 1:
+                if entry.st_ino in links:
+                    continue
+                links.add(entry.st_ino)
+            size = entry.st_blocks * 512
+            total += size
+            name = child.relative_to(path).parts[0]
+            sizes[name] = sizes.get(name, 0) + size
+        largest = sorted(sizes.items(), key=lambda item: (-item[1], item[0]))[:10]
+        return {'path': str(path), 'allocated_bytes': total, 'partial': scan.partial,
+                'largest': [{'name': name, 'allocated_bytes': size} for name, size in largest], 'untrusted': True}
+    finally:
+        os.close(fd)
+
+
+def pdf_excerpt(source, page=None):
+    # The only user file supplied to the parser is the already verified descriptor on stdin.
+    command = ['/usr/bin/bwrap', '--unshare-all', '--die-with-parent', '--new-session', '--clearenv',
+               '--ro-bind', '/usr', '/usr', '--symlink', 'usr/lib', '/lib', '--symlink', 'usr/lib', '/lib64',
+               '--dev', '/dev', '--tmpfs', '/tmp', '--chdir', '/tmp',
+               '--', '/usr/bin/pdftotext', '-f', str(page or 1), '-l', str(page or 12), '-enc', 'UTF-8', '-', '-']
+
+    def limits():
+        resource.setrlimit(resource.RLIMIT_CPU, (4, 4))
+        resource.setrlimit(resource.RLIMIT_AS, (512 << 20, 512 << 20))
+        resource.setrlimit(resource.RLIMIT_FSIZE, (1 << 20, 1 << 20))
+
+    with tempfile.TemporaryFile() as output:
+        try:
+            result = subprocess.run(command, stdin=source, stdout=output, stderr=subprocess.DEVNULL,
+                                    timeout=6, preexec_fn=limits)
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise ValueError('PDF text extraction is unavailable') from error
+        if result.returncode != 0:
+            raise ValueError('Could not extract text from this PDF')
+        output.seek(0)
+        text = output.read(32 * 1024).decode('utf-8', 'ignore').strip()
+    if not text:
+        raise ValueError('This PDF has no readable text in its first 12 pages')
+    return {'text': text[:2500], 'truncated': True, 'untrusted': True}
+
+
+def guarded_read(request, script=False):
     if not isinstance(request.get('device'), int) or not isinstance(request.get('inode'), int):
         raise ValueError('A remembered file identity is required')
     fd, before = checked_descriptor(request['path'], request['device'], request['inode'])
     with os.fdopen(fd, 'rb') as source:
-        if before.st_size > 128 * 1024:
-            raise ValueError('Select a smaller text file (128 KiB maximum)')
-        data = source.read(128 * 1024 + 1)
+        if script:
+            data = source.read(32769)
+            if len(data) > 32768:
+                raise ValueError('Script exceeds the 32 KiB execution preview')
+            result = {'code': data.decode('utf-8')}
+        elif source.peek(5)[:5] == b'%PDF-':
+            page = request.get('page')
+            if request.get('offset') or (page is not None and (type(page) is not int or not 1 <= page <= 100000)):
+                raise ValueError('Use a PDF page number starting at 1')
+            if before.st_size > 32 * 1024 * 1024:
+                raise ValueError('Select a smaller PDF (32 MiB maximum)')
+            # peek() may have filled the Python buffer. Rewind the underlying descriptor for the child.
+            os.lseek(source.fileno(), 0, os.SEEK_SET)
+            result = pdf_excerpt(source, page)
+        else:
+            offset = request.get('offset', 0)
+            if request.get('page') is not None or type(offset) is not int or not 0 <= offset <= before.st_size:
+                raise ValueError('Use a byte offset returned by files_read')
+            source.seek(offset)
+            data = source.read(10000)
+            try:
+                text = codecs.getincrementaldecoder('utf-8')().decode(data, final=source.tell() == before.st_size)[:2500]
+            except UnicodeDecodeError:
+                raise ValueError('This file is not UTF-8 text')
+            next_offset = offset + len(text.encode('utf-8'))
+            more = next_offset < before.st_size
+            result = {'text': text, 'truncated': more, 'next_offset': next_offset if more else None, 'untrusted': True}
         after = os.fstat(source.fileno())
         if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns, before.st_nlink) != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns, after.st_nlink):
             raise ValueError('File changed while reading')
-    if len(data) > 128 * 1024:
-        raise ValueError('Select a smaller text file (128 KiB maximum)')
-    try:
-        text = data.decode('utf-8')
-    except UnicodeDecodeError:
-        raise ValueError('This file is not UTF-8 text')
-    return {'text': text[:2500], 'truncated': len(text) > 2500, 'untrusted': True}
+    return result
 
 
 def rename_at(fd, source, target, flags):
@@ -494,6 +703,14 @@ def file_changes(operation, args):
 
 
 def execute(req):
+    if req['operation'] == 'list_directory':
+        return list_directory(req)
+    if req['operation'] == 'lookup_name':
+        return lookup_name(req)
+    if req['operation'] == 'folder_usage':
+        return folder_usage(req)
+    if req['operation'] == 'read_script':
+        return guarded_read(req, script=True)
     root = store()
     lock = root / '.lock'
     fd = os.open(lock, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
@@ -574,8 +791,56 @@ def execute(req):
             for p in folder.glob('stage-*'):
                 shutil.rmtree(p)
             return summary(j)
+        if op == 'prepare_write':
+            file = req['file']
+            target = safe_path(file['target'])
+            before = identity(target)
+            if 'inode' in file:
+                fd, _ = checked_descriptor(target, file['device'], file['inode'])
+                os.close(fd)
+            elif before is not None:
+                raise ValueError('File already exists. List it and use its ref to edit it')
+            content = req['text'].encode('utf-8')
+            if len(content) > 32768:
+                raise ValueError('Text exceeds the 32 KiB write limit')
+            with tempfile.NamedTemporaryFile(dir=folder) as staged:
+                staged.write(content)
+                staged.flush()
+                source = Path(staged.name)
+                after = identity(source)
+                if before:
+                    after.update({key: before[key] for key in ('mode', 'gid', 'xattrs')})
+                return prepare(root, folder, j, [{'path': str(target), 'before': before, 'after': after, 'source': str(source)}])
         if op == 'prepare_files':
             return prepare(root, folder, j, file_changes(req['kind'], req['args']))
+        if op == 'snapshot_inputs':
+            items = req['inputs']
+            if not isinstance(items, list) or not 1 <= len(items) <= 32:
+                raise ValueError('Choose up to 32 input files')
+            stage = folder / ('stage-inputs-' + uuid.uuid4().hex)
+            private_dir(stage)
+            try:
+                for i, item in enumerate(items, 1):
+                    fd, info = checked_descriptor(item['path'], item['device'], item['inode'])
+                    with os.fdopen(fd, 'rb') as source:
+                        input_version = (info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+                        if input_version[1:] != (item['mtime_ns'], item['ctime_ns']):
+                            raise ValueError('Input file changed while awaiting approval')
+                        budget(root, j['budget'], info.st_size)
+                        with (stage / str(i)).open('xb') as target:
+                            remaining = info.st_size
+                            while remaining:
+                                block = source.read(min(remaining, 1024 * 1024))
+                                if not block: raise ValueError('Input file changed during staging')
+                                target.write(block)
+                                remaining -= len(block)
+                        end = os.fstat(fd)
+                        if input_version != (end.st_size, end.st_mtime_ns, end.st_ctime_ns) or end.st_nlink != 1:
+                            raise ValueError('Input file changed during staging')
+                return {'stage':stage.name,'path':str(stage)}
+            except BaseException:
+                shutil.rmtree(stage)
+                raise
         if op == 'stage':
             cwd = safe_path(req['cwd'], True)
             before = manifest(cwd, skip_secrets=True)
@@ -599,11 +864,14 @@ def execute(req):
             work.chmod(before['.']['mode'])
             save(staging / 'before.json', {'cwd': str(cwd), 'manifest': before})
             return {'stage': sid, 'path': str(work), 'cwd': str(cwd)}
-        if op == 'prepare_stage':
+        if op in ('prepare_stage', 'discard_stage'):
             sid = req['stage']
             if not sid.startswith('stage-') or '/' in sid or '..' in sid:
                 raise ValueError('Invalid staging reference')
             staging = folder / sid
+            if op == 'discard_stage':
+                shutil.rmtree(staging)
+                return {'discarded': True}
             recorded = read(staging / 'before.json')
             cwd = safe_path(recorded['cwd'], True)
             before = recorded['manifest']

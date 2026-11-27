@@ -1,7 +1,23 @@
 .pragma library
 
+function proseLines(text) {
+    if (!text.includes("\n")) return [text];
+    const spans = mathSpans(text);
+    if (!spans.length) return text.split("\n");
+    const lines = [];
+    let start = 0, span = 0;
+    for (let newline = text.indexOf("\n"); newline !== -1; newline = text.indexOf("\n", newline + 1)) {
+        while (span < spans.length && spans[span].end <= newline) span++;
+        if (span < spans.length && spans[span].start < newline) continue;
+        lines.push(text.slice(start, newline));
+        start = newline + 1;
+    }
+    lines.push(text.slice(start));
+    return lines;
+}
+
 function textBlocks(text) {
-    const lines = text.split("\n");
+    const lines = proseLines(text);
     const blocks = [];
     let prose = [];
     function flush() {
@@ -63,4 +79,41 @@ function safeMarkdown(text) {
     // Model images are links; only our own math renderer inserts inline images.
     return text.replace(/!+(?=\[)/g, "")
         .replace(/<(?!https?:\/\/|\/?(?:b|strong|i|em|u|s|sub|sup|code|br)\s*\/?>)(?=[a-z/!?])/gi, "&lt;");
+}
+
+// Only closed math can be handed to MicroTeX. A stream can split either delimiter.
+function mathSpans(text) {
+    const spans = [];
+    const tokens = /`+|\\[\\`$()[\]]|\$\$?|\n/g;
+    let code = "", closing = "", start = 0;
+    let match;
+    while ((match = tokens.exec(text)) !== null) {
+        const token = match[0];
+        if (code) {
+            if (token === code) code = "";
+            continue;
+        }
+        if (closing) {
+            if (closing === "$") {
+                if (token[0] === "$" && match.index > start + 1 && !/\s/.test(text[match.index - 1])
+                        && !/\d/.test(text.charAt(match.index + 1))) {
+                    tokens.lastIndex = match.index + 1;
+                } else if (token === "\n" || token[0] === "$" || token[0] === "`" || token === "\\(" || token === "\\[") {
+                    closing = "";
+                } else continue;
+            } else if (token !== closing) continue;
+            if (closing) {
+                if (text.slice(start + closing.length, match.index).trim())
+                    spans.push({start, end:tokens.lastIndex, expression:text.slice(start, tokens.lastIndex)});
+                closing = "";
+                continue;
+            }
+        }
+        start = match.index;
+        if (token[0] === "`") code = token;
+        else if (token === "$$" || (token === "$" && /\S/.test(text.charAt(tokens.lastIndex)))) closing = token;
+        else if (token === "\\[") closing = "\\]";
+        else if (token === "\\(") closing = "\\)";
+    }
+    return spans;
 }

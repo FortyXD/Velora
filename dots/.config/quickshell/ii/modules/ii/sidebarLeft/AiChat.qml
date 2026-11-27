@@ -56,10 +56,11 @@ Item {
                 onClicked: { root.showModelPicker = !root.showModelPicker; root.showHistory = false; Ai.refreshLists(); }
                 contentItem: RowLayout {
                     spacing: 6
+                    AiThinkingIndicator { active: SidebarChat.localModel && SidebarChat.busy }
                     ColumnLayout {
                         Layout.fillWidth: true; spacing: 2
                         StyledText { Layout.fillWidth: true; text: SidebarChat.modelName; elide: Text.ElideRight; font.pixelSize: Appearance.font.pixelSize.normal; font.weight: Font.DemiBold }
-                        StyledText { Layout.fillWidth: true; text: (SidebarChat.localModel ? Translation.tr("Local") : Translation.tr("Cloud")) + " · " + (SidebarChat.mode === "assistant" ? Translation.tr("Desktop assistant") : Translation.tr("Chat")); elide: Text.ElideRight; color: Appearance.colors.colSubtext; font.pixelSize: Appearance.font.pixelSize.smaller }
+                        StyledText { Layout.fillWidth: true; text: (SidebarChat.localModel ? Translation.tr("Local") : Translation.tr("Cloud")) + " · " + (Assistant.fileMode ? Translation.tr("File chat") : SidebarChat.mode === "assistant" ? Translation.tr("Desktop assistant") : Translation.tr("Chat")); elide: Text.ElideRight; color: Appearance.colors.colSubtext; font.pixelSize: Appearance.font.pixelSize.smaller }
                     }
                     MaterialSymbol { text: "expand_more"; iconSize: 18; color: Appearance.colors.colSubtext }
                 }
@@ -103,8 +104,11 @@ Item {
                 onMovementStarted: followTail = false
                 onMovementEnded: if (atYEnd) followTail = true
                 onContentYChanged: { if (moving || wheelArea.gliding) followTail = atYEnd; }
-                onContentHeightChanged: if (followTail) Qt.callLater(() => { if (timeline.followTail) timeline.positionViewAtEnd(); })
-                onHeightChanged: if (followTail) Qt.callLater(() => { if (timeline.followTail) timeline.positionViewAtEnd(); })
+                function followAfterLayout() {
+                    if (followTail && !moving && !wheelArea.gliding && !atYEnd) positionViewAtEnd();
+                }
+                onContentHeightChanged: if (followTail) Qt.callLater(followAfterLayout)
+                onHeightChanged: if (followTail) Qt.callLater(followAfterLayout)
                 Connections { target: timeline.wheelArea; function onUserScrolled() { timeline.followTail = timeline.atYEnd; } }
                 delegate: Item {
                     required property var modelData
@@ -157,7 +161,7 @@ Item {
             }
             FadeLoader {
                 anchors.fill: parent; shown: root.showModelPicker
-                sourceComponent: ModelPicker { assistantMode: SidebarChat.mode === "assistant"; Component.onCompleted: focusSearch(); onClosed: { root.showModelPicker = false; composer.inputField.forceActiveFocus(); } }
+                sourceComponent: ModelPicker { assistantMode: SidebarChat.mode === "assistant" && !Assistant.fileMode; Component.onCompleted: focusSearch(); onClosed: { root.showModelPicker = false; composer.inputField.forceActiveFocus(); } }
             }
         }
         StyledText {

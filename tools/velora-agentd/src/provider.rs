@@ -21,22 +21,33 @@ impl ModelProvider {
         if profile.provider != "ollama"
             || !matches!(
                 profile.endpoint.trim_end_matches('/'),
-                "http://127.0.0.1:11434" | "http://localhost:11434"
+                "http://127.0.0.1:11434" | "http://localhost:11434" | "http://127.0.0.1:11435"
             )
         {
             return Ok(());
         }
-        if tokio::net::TcpStream::connect("127.0.0.1:11434")
+        let private_cpu = profile.endpoint.trim_end_matches('/') == "http://127.0.0.1:11435";
+        let address = if private_cpu { "127.0.0.1:11435" } else { "127.0.0.1:11434" };
+        if tokio::net::TcpStream::connect(address)
             .await
             .is_ok()
         {
             return Ok(());
         }
         let mut runtime = self.runtime.lock().await;
+        if let Some(child) = runtime.as_mut() {
+            if child.try_wait()?.is_some() { *runtime = None; }
+        }
         if runtime.is_none() {
-            let mut cmd = Command::new("ollama");
+            // Runners may detach from the server's process group. Destroying the
+            // private PID namespace also releases their weights and KV caches.
+            let mut cmd = Command::new("bwrap");
+            cmd.args(["--die-with-parent", "--unshare-pid", "--bind", "/", "/", "--proc", "/proc"]);
+            if private_cpu { cmd.args(["--dev", "/dev"]); }
+            else { cmd.args(["--dev-bind", "/dev", "/dev"]); }
+            cmd.args(["--", "ollama"]);
             cmd.arg("serve")
-                .env("OLLAMA_HOST", "127.0.0.1:11434")
+                .env("OLLAMA_HOST", address)
                 .env("OLLAMA_NO_CLOUD", "1")
                 .env("OLLAMA_NOPRUNE", "1")
                 .env("OLLAMA_NUM_PARALLEL", "1")
@@ -53,7 +64,7 @@ impl ModelProvider {
             {
                 cmd.env("OLLAMA_MODELS", directory);
             }
-            if battery || !profile.gpu {
+            if private_cpu || battery || !profile.gpu {
                 cmd.env("CUDA_VISIBLE_DEVICES", "-1")
                     .env("ROCR_VISIBLE_DEVICES", "-1")
                     .env("OLLAMA_VULKAN", "0");
@@ -69,7 +80,7 @@ impl ModelProvider {
             *runtime = Some(child);
         }
         for _ in 0..40 {
-            if tokio::net::TcpStream::connect("127.0.0.1:11434")
+            if tokio::net::TcpStream::connect(address)
                 .await
                 .is_ok()
             {
@@ -375,10 +386,17 @@ pub fn body(
         m
     }).collect();
     if profile.provider == "ollama" {
+        let mut options = json!({"num_ctx":profile.context_tokens.clamp(512,32768),"num_predict":output,
+            "temperature":0.1,"num_gpu":if profile.gpu && !battery {-1} else {0}});
+        if profile.model == "gemma4:e4b" && (!profile.gpu || battery) {
+            options["num_batch"] = json!(32);
+        }
+        if battery {
+            options["num_thread"] = json!(std::thread::available_parallelism().map_or(2, |n| n.get().min(4)));
+        }
         json!({"model":profile.model,"messages":mapped,"tools":tools,"stream":true,"think":false,
-            "keep_alive":if battery {"60s"} else {"5m"},
-            "options":{"num_ctx":profile.context_tokens.clamp(4096,32768),"num_predict":output,"temperature":0.1,
-                "num_gpu":if profile.gpu && !battery {-1} else {0},"num_thread":std::thread::available_parallelism().map_or(2,|n|n.get().clamp(1,4))}})
+            "keep_alive":profile.keep_alive(battery),
+            "options":options})
     } else {
         // Current reasoning models may reject temperature and the legacy token limit.
         let mut request =
@@ -453,7 +471,11 @@ impl Decoder {
                 .flatten()
                 .enumerate()
             {
-                let i = c["index"].as_u64().unwrap_or(index as u64) as usize;
+                // Ollama emits complete native calls with the index inside function.
+                let native = format == "ollama";
+                let i = c["function"]["index"].as_u64().filter(|_| native)
+                    .or_else(|| c["index"].as_u64())
+                    .unwrap_or(if native { self.calls.len() } else { index } as u64) as usize;
                 anyhow::ensure!(i < 16, "Too many tool calls");
                 let entry = self
                     .calls
@@ -463,7 +485,10 @@ impl Decoder {
                     entry.0 = id.into();
                 }
                 if let Some(name) = c["function"]["name"].as_str() {
-                    entry.1.push_str(name);
+                    if native {
+                        anyhow::ensure!(entry.1.is_empty() || entry.1 == name, "Conflicting tool calls at index {i}");
+                        entry.1 = name.to_owned();
+                    } else { entry.1.push_str(name); }
                 }
                 let arguments = &c["function"]["arguments"];
                 if let Some(s) = arguments.as_str() {
@@ -523,6 +548,7 @@ pub async fn generate(
     tools: &[Value],
     battery: bool,
     extended: bool,
+    deliberate: bool,
     events: &mpsc::Sender<Value>,
     task: u64,
 ) -> Result<Reply> {
@@ -532,7 +558,11 @@ pub async fn generate(
     } else {
         ""
     };
-    let body = body(profile, messages, tools, battery, extended);
+    let mut body = body(profile, messages, tools, battery, extended);
+    if deliberate && profile.provider == "ollama" {
+        body["think"] = json!(true);
+        body["options"]["num_predict"] = json!(2048);
+    }
     // Secrets and prompts are written only to stdin, never argv, a file or a log.
     let config = request_config(profile, path, Some(&body));
     let seconds = generation_timeout(profile, battery, extended);
@@ -634,7 +664,7 @@ pub async fn probe(profile: &Profile) -> Result<Value> {
         let (tx, mut rx) = mpsc::channel(256);
         let drain = tokio::spawn(async move { while rx.recv().await.is_some() {} });
         let tool = json!({"type":"function","function":{"name":"connection_check","description":"Verify tool calling","parameters":{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}}});
-        let reply=generate(profile,&[json!({"role":"system","content":"Call connection_check with ok=true. Do not answer in text."}),json!({"role":"user","content":"Check connection"})],&[tool],true,false,&tx,0).await;
+        let reply=generate(profile,&[json!({"role":"system","content":"Call connection_check with ok=true. Do not answer in text."}),json!({"role":"user","content":"Check connection"})],&[tool],true,false,false,&tx,0).await;
         drop(tx);
         let _ = drain.await;
         let reply = reply?;
@@ -660,8 +690,12 @@ pub async fn ollama_capabilities(profile: &Profile) -> Result<Value> {
         .as_array()
         .cloned()
         .unwrap_or_default();
-    Ok(json!({"tools":capabilities.iter().any(|v|v=="tools"),
-        "vision":capabilities.iter().any(|v|v=="vision"),"details":result["details"]}))
+    let maximum = result["model_info"].as_object().and_then(|info| {
+        let arch = info.get("general.architecture")?.as_str()?;
+        info.get(&format!("{arch}.context_length"))?.as_u64()
+    });
+    Ok(json!({"context_length":maximum,"tools":capabilities.iter().any(|v|v=="tools"),
+        "vision":capabilities.iter().any(|v|v=="vision"),"thinking":capabilities.iter().any(|v|v=="thinking"),"details":result["details"]}))
 }
 
 pub async fn pull(profile: &Profile, events: &mpsc::Sender<Value>, task: u64) -> Result<()> {
@@ -705,6 +739,29 @@ pub async fn pull(profile: &Profile, events: &mpsc::Sender<Value>, task: u64) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn native_stream_keeps_parallel_names_and_indices() {
+        let mut decoder = Decoder::default();
+        for (index, name) in [(1, "app_open"), (0, "apps_list"), (1, "app_open")] {
+            decoder.feed(&json!({"message":{"tool_calls":[{"function":{"index":index,"name":name,"arguments":{}}}]}}), "ollama").unwrap();
+        }
+        let calls = decoder.finish().unwrap().calls;
+        assert_eq!(calls.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["apps_list","app_open"]);
+    }
+    #[test]
+    fn cpu_requests_select_the_private_backend_before_probing_ollama() {
+        for (endpoint, gpu, battery, expected) in [
+            ("http://localhost:11434", true, true, "http://127.0.0.1:11435"),
+            ("http://[::1]:11434/", false, false, "http://127.0.0.1:11435"),
+            ("http://127.0.0.1:11434", true, false, "http://127.0.0.1:11434"),
+            ("http://localhost:22000", false, true, "http://localhost:22000"),
+        ] {
+            let mut profile = Profile { endpoint: endpoint.into(), gpu, ..Profile::default() };
+            profile.select_local_backend(battery);
+            assert_eq!(profile.endpoint, expected);
+        }
+    }
+
     #[test]
     fn model_store_matches_catalogue_precedence() {
         let root = tempfile::tempdir().unwrap();
@@ -755,18 +812,23 @@ mod tests {
     #[test]
     fn cpu_generation_has_time_for_loading_and_preserves_cpu_only_options() {
         let mut profile = Profile::default();
+        profile.model = "gemma4:e4b".into();
         assert_eq!(generation_timeout(&profile, false, false), 600);
         assert_eq!(generation_timeout(&profile, false, true), 1200);
         let request = body(&profile, &[], &[], false, false);
+        assert_eq!(request["options"]["num_batch"], 32);
+        assert!(request["options"].get("num_thread").is_none());
         assert_eq!(request["options"]["num_gpu"], 0);
         assert_eq!(request["options"]["num_predict"], 1024);
+        assert_eq!(request["keep_alive"], 3600);
         profile.gpu = true;
+        assert!(body(&profile, &[], &[], false, false)["options"].get("num_batch").is_none());
         assert_eq!(generation_timeout(&profile, false, false), 300);
         assert_eq!(generation_timeout(&profile, true, false), 600);
-        assert_eq!(
-            body(&profile, &[], &[], true, false)["options"]["num_gpu"],
-            0
-        );
+        let on_battery = body(&profile, &[], &[], true, false);
+        assert!((1..=4).contains(&on_battery["options"]["num_thread"].as_u64().unwrap()));
+        assert_eq!(on_battery["options"]["num_gpu"], 0);
+        assert_eq!(on_battery["keep_alive"], 1800);
         profile.endpoint = "https://example.invalid".into();
         assert_eq!(generation_timeout(&profile, true, false), 180);
     }

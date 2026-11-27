@@ -3,7 +3,39 @@ import QtTest
 import "ChatMarkdown.js" as Markdown
 
 TestCase {
+    id: suite
     name: "ChatMarkdown"
+    Component { id: prose; ChatTextBlock { completed: false } }
+
+    function test_formula_appears_before_the_answer_finishes() {
+        const item = createTemporaryObject(prose, suite, {content:"First $$x$"});
+        wait(0);
+        compare(LatexRenderer.requests.length, 0);
+        item.content += "$";
+        tryCompare(LatexRenderer, "requests", ["$$x$$"]);
+        item.content += " and `$$x$$`";
+        LatexRenderer.finish("$$x$$");
+        tryVerify(() => item.rendered.includes("![formula]"));
+        item.content += " and $$x$$ again";
+        tryVerify(() => item.rendered.endsWith(" again"));
+        compare(item.rendered.split("![formula]").length - 1, 2);
+        verify(item.rendered.includes("`$$x$$`"));
+        compare(LatexRenderer.requests.length, 1);
+        verify(!item.completed);
+        item.markdown = false;
+        tryCompare(item, "text", item.content);
+    }
+
+    function test_math_delimiters_in_streaming_text() {
+        const text = "Pay $5 or $10. `$code$` Then $2+2$ and \\(x\\), \\[a\nb\\], \\$5 and $$x < y$$";
+        compare(Markdown.mathSpans(text).map(span => span.expression), ["$2+2$", "\\(x\\)", "\\[a\nb\\]", "$$x < y$$"]);
+        compare(Markdown.mathSpans("Start $$x$").length, 0);
+        compare(Markdown.mathSpans("$$$$ and \\(\\) and $$ \n $$").length, 0);
+        compare(Markdown.mathSpans("Start \\(x\\").length, 0);
+        const display = "$$\na + b\n\n= c\n$$";
+        const blocks = Markdown.parse("Before\n\n" + display + "\n\nAfter");
+        compare(blocks.map(block => block.body), ["Before", display, "After"]);
+    }
     function test_partial_fences_keep_code_and_language() {
         const message = "A paragraph\n\n```c++\nint main() { return 0; }\n```\n\nAfter";
         for (let end = 23; end <= message.length; end++) {

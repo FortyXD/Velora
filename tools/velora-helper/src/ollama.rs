@@ -15,9 +15,14 @@ pub fn run(args: Vec<String>) -> Result<ExitCode> {
     if crate::apps::which("ollama").is_none() {
         return Ok(ExitCode::from(127));
     }
-    let mut cmd = Command::new("ollama");
+    let gpu = args == ["gpu"];
+    let mut cmd = Command::new("bwrap");
+    cmd.args(["--die-with-parent", "--unshare-pid", "--bind", "/", "/", "--proc", "/proc"]);
+    if gpu { cmd.args(["--dev-bind", "/dev", "/dev"]); }
+    else { cmd.args(["--dev", "/dev"]); }
+    cmd.args(["--", "ollama"]);
     cmd.arg("serve").envs([
-        ("OLLAMA_HOST", "127.0.0.1:11434"),
+        ("OLLAMA_HOST", if gpu { "127.0.0.1:11434" } else { "127.0.0.1:11435" }),
         ("OLLAMA_NO_CLOUD", "1"),
         ("OLLAMA_NOPRUNE", "1"),
         ("OLLAMA_NUM_PARALLEL", "1"),

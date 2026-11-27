@@ -23,7 +23,8 @@ ShellRoot {
         {name:"large:latest", size:8000000000},
         {name:"small:latest", size:2000000000}
     ]
-    readonly property var moreModels: [{name:"tiny:latest", size:1000000000}].concat(initialModels)
+    readonly property var withGemma: initialModels.concat([{name:"gemma4:e4b", size:6583656264}])
+    readonly property var moreModels: [{name:"tiny:latest", size:1000000000}].concat(withGemma)
     function check(ok, message) {
         if (!ok) { failed = true; console.log("CHECK_FAIL " + message); }
     }
@@ -62,6 +63,11 @@ ShellRoot {
                 root.check(Ai.currentModelId === "small_latest", "chat chooses smallest installed model");
                 root.check(Ai.defaultLocalModelId === "small_latest", "default uses installed snapshot only");
                 root.check(Config.options.assistant.model === "small:latest", "assistant chooses installed model while disabled");
+                Config.options.assistant.model = "";
+                Ai.installLocalModels(root.withGemma);
+                Assistant.chooseInstalledDefault();
+                root.check(Ai.currentModelId === "gemma4_e4b", "Gemma takes priority over smaller installed models in chat");
+                root.check(Config.options.assistant.model === "gemma4:e4b", "desktop actions also default to Gemma");
                 root.checkIdle();
                 Ai.setModel("large_latest", false);
                 Config.options.assistant.model = "large:latest";
@@ -70,8 +76,8 @@ ShellRoot {
                 Assistant.chooseInstalledDefault();
                 root.check(Ai.currentModelId === "large_latest", "new smaller model preserves explicit chat selection");
                 root.check(Config.options.assistant.model === "large:latest", "new smaller model preserves assistant selection");
-                Ai.selectedModelId = "";
-                root.check(Ai.currentModelId === "large_latest", "saved chat selection survives initialization");
+                Persistent.states.ai.model = "gemma4_e4b";
+                root.check(Ai.currentModelId === "gemma4_e4b", "saved model change from another settings window reaches the open chat");
                 Ai.installLocalModels([{name:"tiny:latest",size:1000000000}]);
                 root.check(!Ai.models.large_latest && !Ai.models.small_latest, "rescan removes uninstalled catalogue entries");
                 root.check(Ai.currentModelId === "tiny_latest", "missing saved chat model falls back to installed model");

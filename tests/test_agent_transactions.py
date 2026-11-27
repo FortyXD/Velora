@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import runpy
@@ -84,7 +85,8 @@ class TransactionTests(unittest.TestCase):
                      checkout/'dots/.config/quickshell/ii/services/LauncherSearch.qml',
                      checkout/'dots/.config/quickshell/ii/services/IntentRouter.js',
                      checkout/'dots/.config/quickshell/ii/modules/common/Config.qml',
-                     config/'quickshell/ii/services/Assistant.qml', config/'illogical-impulse/config.json',
+                     config/'quickshell/ii/services/Assistant.qml', config/'velora/config.json',
+                     config/'illogical-impulse/config.json',
                      home/'.local/bin/velora-agentd', home/'.local/bin/python3']
         with patch.dict(os.environ, {**self.env, 'HOME':str(home), 'XDG_CONFIG_HOME':str(config)}), patch.dict(namespace, {'__file__':str(fake_helper)}):
             for path in protected:
@@ -153,7 +155,45 @@ class TransactionTests(unittest.TestCase):
         self.assertTrue(value['truncated'])
         self.assertTrue(value['untrusted'])
         source.write_bytes(b'x' * (128 * 1024 + 1))
-        self.call('read_file', path=str(source), device=info.st_dev, inode=info.st_ino, error=True)
+        tail = self.call('read_file', path=str(source), device=info.st_dev, inode=info.st_ino, offset=128*1024)
+        self.assertEqual(tail['text'], 'x')
+        self.assertIsNone(tail['next_offset'])
+        content = '🎨Ж' * 1900
+        source.write_text(content)
+        first = self.call('read_file', path=str(source), device=info.st_dev, inode=info.st_ino)
+        second = self.call('read_file', path=str(source), device=info.st_dev, inode=info.st_ino, offset=first['next_offset'])
+        self.assertEqual(first['text'] + second['text'], content)
+
+    def test_directory_pages_and_guarded_write_undo(self):
+        for i in range(66): (self.work/f'n{i:02d}').touch()
+        (self.work/'.env').touch()
+        (self.work/'alias').symlink_to(self.work/'n00')
+        info = self.work.stat()
+        args = dict(path=str(self.work), device=info.st_dev, inode=info.st_ino)
+        page = self.call('list_directory', **args)
+        rest = self.call('list_directory', after=page['next_cursor'], **args)
+        self.assertEqual(page['entries'] + rest['entries'], [f'n{i:02d}' for i in range(66)])
+        self.assertIsNone(rest['next_cursor'])
+        output = self.work/'n00'
+        info = output.stat()
+        target = dict(target=str(output), device=info.st_dev, inode=info.st_ino)
+        self.call('prepare_write', file={'target':str(output)}, text='x', error=True)
+        prepared = self.call('prepare_write', file=target, text='первая строка\n')
+        self.assertEqual(output.read_bytes(), b'')
+        self.apply(prepared)
+        self.assertEqual(output.read_text(), 'первая строка\n')
+        self.call('rollback')
+        self.assertEqual(output.read_bytes(), b'')
+
+    @unittest.skipUnless(shutil.which('ps2pdf') and os.environ.get('VELORA_TEST_PREBUILT'), 'isolated PDF parser test')
+    def test_selected_pdf_reaches_the_local_reader(self):
+        source = self.work/'report.pdf'
+        postscript = b'%!PS\n/Helvetica findfont 12 scalefont setfont 40 700 moveto (February total: 123) show showpage\n'
+        subprocess.run(['ps2pdf', '-', str(source)], input=postscript, check=True)
+        info = source.stat()
+        result = self.call('read_file', path=str(source), device=info.st_dev, inode=info.st_ino)
+        self.assertIn('February total: 123', result['text'])
+        self.assertTrue(result['untrusted'])
 
     def test_atomic_new_file_publication_recovers_after_post_rename_crash(self):
         helper = runpy.run_path(str(SCRIPT))

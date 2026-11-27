@@ -16,14 +16,6 @@ ColumnLayout {
     property bool highlighted: false
     readonly property bool user: entry?.role === "user"
     spacing: 8
-    opacity: 0
-    transform: Translate { id: entrance; y: 10 }
-    Component.onCompleted: appear.start()
-    ParallelAnimation {
-        id: appear
-        NumberAnimation { target: root; property: "opacity"; to: 1; duration: Appearance.scaledDuration(220); easing.type: Easing.OutCubic }
-        NumberAnimation { target: entrance; property: "y"; to: 0; duration: Appearance.scaledDuration(300); easing.type: Easing.OutCubic }
-    }
     Rectangle {
         Layout.fillWidth: true
         visible: root.highlighted

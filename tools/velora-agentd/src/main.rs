@@ -13,6 +13,10 @@ use velora_agentd::{
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
+    if std::env::args().nth(1).as_deref() == Some("--warmup-prefix") {
+        println!("{}", velora_agentd::task::warmup_prefix());
+        return Ok(());
+    }
     unsafe {
         libc::prctl(libc::PR_SET_DUMPABLE, 0);
     }
@@ -77,7 +81,7 @@ async fn main() -> Result<()> {
             _=terminate.recv()=>break,
 
             _=tokio::time::sleep(std::time::Duration::from_secs(30)),if job.is_none()=>{
-                if last_use.elapsed().as_secs()>if context.on_battery{60}else{300} || low_memory(){runtime.stop().await;}
+                if last_use.elapsed().as_secs() >= context.profile.keep_alive(context.on_battery) || low_memory(){runtime.stop().await;}
             },
             completed=async {match job.as_mut(){Some(j)=>Some(j.await),None=>std::future::pending().await}},if job.is_some()=>{
                 job=None;decisions=None;last_use=std::time::Instant::now();if let Some(Ok(saved))=completed{session=saved;active_tx=None;}else{recover_active(&mut active_tx, active, &events).await;let _=events.send(json!({"type":"error","task":active,"message":"Task interrupted; recovery attempted"})).await;let _=events.send(json!({"type":"finished","task":active})).await;}
@@ -94,14 +98,18 @@ async fn main() -> Result<()> {
                 let result:Result<Value>=match method {
                     "configure"=>{
                         if job.is_some(){Err(anyhow::anyhow!("Stop the active task before changing its configuration"))}
-                        else {match serde_json::from_value::<Context>(p.clone()){Ok(c)=>{
+                        else {match serde_json::from_value::<Context>(p.clone()){Ok(mut c)=>{
+                            c.profile.select_local_backend(c.on_battery);
                             if c.policy==0||c.locked {session=Session::default();runtime.stop().await;}
-                            if c.profile.gpu!=context.profile.gpu {runtime.stop().await;}
+                            if c.profile.gpu!=context.profile.gpu || c.profile.endpoint!=context.profile.endpoint {runtime.stop().await;}
                             context=c;Ok(json!({}))},Err(_)=>Err(anyhow::anyhow!("Invalid assistant configuration"))}}
                     },
                     "context"=>{
                         context.locked=p["locked"].as_bool().unwrap_or(true);
                         context.on_battery=p["on_battery"].as_bool().unwrap_or(true);
+                        let previous_endpoint = context.profile.endpoint.clone();
+                        context.profile.select_local_backend(context.on_battery);
+                        if previous_endpoint != context.profile.endpoint {runtime.stop().await;}
                         if context.locked {if let Some(j)=job.take(){j.abort();let _=j.await;}recover_active(&mut active_tx, active, &events).await;runtime.stop().await;decisions=None;session=Session::default();context.selection.clear();context.profile.key.clear();events.send(json!({"type":"cancelled","task":active})).await?;}
                         Ok(json!({}))
                     },

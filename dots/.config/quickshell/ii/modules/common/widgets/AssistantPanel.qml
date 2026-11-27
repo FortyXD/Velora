@@ -39,7 +39,8 @@ ColumnLayout {
             implicitWidth: 38; implicitHeight: 38
             radius: 13
             color: Appearance.colors.colSecondaryContainer
-            MaterialSymbol { anchors.centerIn: parent; text: "auto_awesome"; iconSize: 22; color: Appearance.colors.colOnSecondaryContainer }
+            AiThinkingIndicator { anchors.centerIn: parent; active: Assistant.thinking }
+            MaterialSymbol { visible: !Assistant.thinking; anchors.centerIn: parent; text: "auto_awesome"; iconSize: 22; color: Appearance.colors.colOnSecondaryContainer }
         }
         ColumnLayout {
             Layout.fillWidth: true
@@ -56,7 +57,7 @@ ColumnLayout {
         }
         ChatIconButton {
             symbol: "open_in_full"; tooltip: Translation.tr("Open conversation")
-            onClicked: { GlobalStates.sidebarLeftOpen = true; Assistant.panelOpen = false; }
+            onClicked: { Assistant.origin = "sidebar"; Assistant.panelOpen = false; GlobalStates.overviewOpen = false; GlobalStates.searchOpen = false; GlobalStates.sidebarLeftOpen = true; }
         }
         ChatIconButton {
             symbol: "add_comment"; tooltip: Translation.tr("New conversation")
@@ -75,7 +76,7 @@ ColumnLayout {
         id: scroll
         objectName: "launcherAssistantTranscript"
         Layout.fillWidth: true
-        Layout.preferredHeight: Math.min(root.maximumTranscriptHeight, Math.max(88, conversation.implicitHeight + 8))
+        Layout.preferredHeight: Assistant.busy || Assistant.streaming.length ? root.maximumTranscriptHeight : Math.min(root.maximumTranscriptHeight, Math.max(88, conversation.implicitHeight + 8))
         contentWidth: availableWidth
         clip: true
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
@@ -87,6 +88,7 @@ ColumnLayout {
         Connections {
             target: scroll.contentItem
             ignoreUnknownSignals: true
+            function onMovementStarted() { scroll.followTail = false; }
             function onMovementEnded() { scroll.followTail = scroll.contentItem.contentY + scroll.availableHeight >= scroll.contentHeight - 24; }
         }
         Connections {
@@ -96,7 +98,7 @@ ColumnLayout {
         }
         ColumnLayout {
             id: conversation
-            width: scroll.availableWidth
+            width: Math.max(0, scroll.availableWidth)
             spacing: 16
             Repeater {
                 model: Assistant.messages
@@ -115,7 +117,8 @@ ColumnLayout {
                     }
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.maximumWidth: messageRow.user ? conversation.width * 0.93 : conversation.width
+                        Layout.preferredWidth: messageRow.user ? conversation.width * 0.93 : conversation.width
+                        Layout.maximumWidth: conversation.width
                         Layout.alignment: messageRow.user ? Qt.AlignRight : Qt.AlignLeft
                         implicitHeight: messageText.implicitHeight + (messageRow.user ? 22 : 4)
                         radius: Appearance.rounding.normal
@@ -171,7 +174,7 @@ ColumnLayout {
                     required property var modelData
                     Layout.fillWidth: true
                     spacing: 8
-                    MaterialSymbol { text: "check_circle"; iconSize: 18; color: Appearance.colors.colPrimary }
+                    MaterialSymbol { text: ({retry:"refresh", failed:"error_outline", empty:"search_off"})[parent.modelData.outcome] ?? "check_circle"; iconSize: 18; color: Appearance.colors.colPrimary }
                     ChatTextBlock {
                         Layout.fillWidth: true; markdown: false
                         content: modelData.label + (modelData.result?.path ? "\n" + modelData.result.path : "")
@@ -217,7 +220,7 @@ ColumnLayout {
                 }
             }
             Rectangle {
-                visible: Assistant.approval !== null
+                visible: Assistant.approval !== null || !!Assistant.runningProgram
                 Layout.fillWidth: true
                 implicitHeight: approvalContent.implicitHeight + 24
                 radius: Appearance.rounding.normal
@@ -229,9 +232,9 @@ ColumnLayout {
                     RowLayout {
                         spacing: 8
                         MaterialSymbol { text: "verified_user"; iconSize: 20; color: Appearance.colors.colOnSecondaryContainer }
-                        StyledText { Layout.fillWidth: true; text: Translation.tr("Your confirmation is needed"); font.weight: Font.DemiBold; wrapMode: Text.Wrap }
+                        StyledText { Layout.fillWidth: true; text: Assistant.approval ? Translation.tr("Your confirmation is needed") : Translation.tr("Approved command or script"); font.weight: Font.DemiBold; wrapMode: Text.Wrap }
                     }
-                    StyledText { text: Assistant.actionLabel(Assistant.approval?.tool ?? ""); wrapMode: Text.Wrap; Layout.fillWidth: true }
+                    StyledText { visible: Assistant.approval !== null; text: Assistant.actionLabel(Assistant.approval?.tool ?? ""); wrapMode: Text.Wrap; Layout.fillWidth: true }
                     ScrollView {
                         id: approvalScroll
                         objectName: "launcherApprovalScroll"
@@ -243,8 +246,9 @@ ColumnLayout {
                         ChatTextBlock {
                             id: approvalText
                             width: approvalScroll.availableWidth
-                            content: Assistant.approvalDescription()
+                            content: Assistant.approval ? Assistant.approvalDescription() : Assistant.runningProgram
                             markdown: false
+                            font.family: !Assistant.approval || Assistant.approval.tool === "terminal_run" ? Appearance.font.family.monospace : Appearance.font.family.main
                             font.pixelSize: Appearance.font.pixelSize.small
                         }
                     }
@@ -256,6 +260,7 @@ ColumnLayout {
                         source: visible ? "data:image/png;base64," + Assistant.approval.details.preview : ""
                     }
                     Flow {
+                        visible: Assistant.approval !== null
                         Layout.fillWidth: true
                         spacing: 8
                         RippleButtonWithIcon { materialIcon: "check"; mainText: Translation.tr("Allow this action"); enabled: Assistant.approvalReviewComplete; onClicked: Assistant.decide(true) }
@@ -321,7 +326,11 @@ ColumnLayout {
                     implicitWidth: 0
                     width: inputScroll.availableWidth
                     text: SidebarChat.draft
-                    onTextChanged: if (SidebarChat.draft !== text) SidebarChat.draft = text
+                    onActiveFocusChanged: if (activeFocus && visible && input.QsWindow.window?.visible) SidebarChat.prepareForInput()
+                    onTextChanged: if (SidebarChat.draft !== text) {
+                        SidebarChat.draft = text;
+                        if (activeFocus && visible && text.trim()) SidebarChat.prepareForInput(true);
+                    }
                     placeholderText: SidebarChat.busy ? Translation.tr("Write your next message…") : Translation.tr("Ask or describe an action…")
                     wrapMode: TextEdit.Wrap
                     font.pixelSize: Appearance.font.pixelSize.small

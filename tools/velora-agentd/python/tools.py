@@ -107,17 +107,32 @@ def accessibility(request):
     target = request.get('node')
     while pending and len(nodes) < 200:
         element, identifier, depth = pending.pop(0)
+        if element.get_role() == Atspi.Role.PASSWORD_TEXT:
+            continue
         label = element.get_name() or ''
         role = element.get_role_name() or ''
+        state = element.get_state_set()
+        active = state.contains(Atspi.StateType.ENABLED) and state.contains(Atspi.StateType.SENSITIVE)
         actions = element.get_action_iface()
-        action_names = [actions.get_action_name(i) for i in range(actions.get_n_actions())] if actions else []
+        action_names = [actions.get_action_name(i) for i in range(actions.get_n_actions())] if active and actions else []
+        editable = active and state.contains(Atspi.StateType.EDITABLE) and element.get_editable_text_iface() is not None
+        node = {'id': identifier, 'object': element.path, 'name': label[:300], 'role': role, 'actions': action_names, 'editable': editable}
         if target and identifier == target['id']:
-            if label != target['name'] or role != target['role'] or not action_names:
+            if not node['object'] or node != target:
                 raise ValueError('The accessible element changed')
-            if not actions.do_action(0):
+            if request['operation'] == 'set_text':
+                text = request['text']
+                if not editable or len(text.encode('utf-8')) > 32768:
+                    raise ValueError('The approved field cannot accept this text')
+                if not element.get_editable_text_iface().set_text_contents(text):
+                    raise ValueError('Application rejected the text change')
+                field = element.get_text_iface()
+                if not field or field.get_character_count() != len(text) or Atspi.Text.get_text(field, 0, len(text)) != text:
+                    raise ValueError('Could not verify the changed field')
+            elif request['action'] not in action_names or not actions.do_action(action_names.index(request['action'])):
                 raise ValueError('Application rejected the accessibility action')
             return {'accepted': True}
-        nodes.append({'id': identifier, 'name': label[:300], 'role': role, 'actions': action_names})
+        nodes.append(node)
         if depth < 8:
             for i in range(min(40, element.get_child_count())):
                 child = element.get_child_at_index(i)
@@ -136,7 +151,7 @@ def execute(request):
         return move(request['source'], request['target'])
     if operation == 'copy':
         return copy(request['source'], request['target'])
-    if operation in ('inspect', 'action'):
+    if operation in ('inspect', 'action', 'set_text'):
         return accessibility(request)
     raise ValueError('Unknown operation')
 

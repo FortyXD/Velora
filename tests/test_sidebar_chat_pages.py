@@ -43,7 +43,14 @@ ShellRoot {
         const expectedWidth = Number(name.split("-").pop());
         if (expectedWidth) root.check(capture.width === expectedWidth,"actual screenshot width " + name);
         root.grabbing = true;
-        capture.grabToImage(result => { result.saveToFile(root.artifacts + "/" + name + "-SCALE.png"); root.grabbing = false; if (root.afterCapture) { const action = root.afterCapture; root.afterCapture = null; action(); } });
+        capture.grabToImage(result => {
+            result.saveToFile(root.artifacts + "/" + name + "-SCALE.png");
+            const action = root.afterCapture;
+            root.afterCapture = null;
+            // Input helpers can spin the event loop while a screenshot's interaction is in progress.
+            if (action) action();
+            root.grabbing = false;
+        });
     }
     FloatingWindow {
         id: window
@@ -139,7 +146,32 @@ ShellRoot {
                 if (capture.Overlay.overlay) capture.Overlay.overlay.parent = capture;
             } else if (root.step === 15) {
                 root.check(chat.optionsOpen, "options open after first click");
-                root.snapshot("settings-light-460"); root.afterCapture = () => interaction.mouseClick(root.find(chat,"sidebarChatMenu"));
+                const options = capture.Overlay.overlay;
+                for (const name of ["chatFileAccess", "chatCodeExecution", "chatChooseFiles", "chatRunScript"])
+                    root.check(!!root.find(options, name), "chat options expose " + name);
+                root.snapshot("settings-light-460"); root.afterCapture = () => {
+                    const files = root.find(options, "chatFileAccess");
+                    const commands = root.find(options, "chatCodeExecution");
+                    const runScript = root.find(options, "chatRunScript");
+                    const scroll = root.find(options, "chatOptionsScroll");
+                    const last = root.find(options, "chatOpenSettings");
+                    root.check([commands, runScript, last].every(row => row.width === files.width && row.height === files.height), "option rows have the same dimensions");
+                    root.check(scroll.contentWidth === scroll.width && scroll.contentHeight > scroll.height, "options only overflow vertically");
+                    interaction.mouseWheel(scroll, 60, 40, 0, -120);
+                    interaction.wait(320);
+                    root.check(scroll.contentY > 0, "mouse wheel scrolls the option list");
+                    scroll.contentY = scroll.contentHeight - scroll.height;
+                    root.check(last.mapToItem(scroll, 0, last.height).y <= scroll.height + 1, "last action is fully reachable");
+                    root.check(!commands.checked && !runScript.enabled, "plain chat has no command access");
+                    files.clicked();
+                    root.check(files.checked && root.find(options, "chatChooseFiles").enabled, "file access enables the picker");
+                    commands.clicked();
+                    root.check(Assistant.enabled && commands.checked && runScript.enabled, "command access enables the agent and script picker");
+                    commands.clicked();
+                    root.check(!Assistant.allowCommands && !runScript.enabled, "revoking commands disables the script picker");
+                    Config.options.assistant.enabled = false;
+                    interaction.mouseClick(root.find(chat,"sidebarChatMenu"));
+                };
             } else if (root.step === 16) {
                 root.check(!chat.optionsOpen, "second options click closes it");
                 SidebarChat.openConversation(root.originalConversation);

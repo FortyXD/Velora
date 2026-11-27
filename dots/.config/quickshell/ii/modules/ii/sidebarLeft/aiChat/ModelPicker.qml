@@ -8,7 +8,7 @@ import QtQuick.Layouts
 import Quickshell
 
 /**
- * Searchable model list: local Ollama models (smallest first), then cloud models.
+ * Searchable model list with the preferred installed model first, followed by other local and cloud models.
  * Type to filter, Up/Down to move, Enter to pick, Esc to close.
  */
 Rectangle {
@@ -28,7 +28,7 @@ Rectangle {
                 const model = Ai.models[id];
                 return q.length === 0 || [model.name, model.model, id].some(text => (text ?? "").toLowerCase().includes(q));
             });
-        const local = matches.filter(id => Ai.models[id].local).sort((a, b) => Ai.models[a].size - Ai.models[b].size);
+        const local = matches.filter(id => Ai.models[id].local).sort(Ai.compareLocalModels);
         const cloud = matches.filter(id => !Ai.models[id].local);
         return [...local, ...cloud];
     }
@@ -244,7 +244,7 @@ Rectangle {
             Layout.fillWidth: true
             visible: SidebarChat.localModel
             enabled: !SidebarChat.busy
-            materialIcon: "memory"; mainText: Translation.tr("Free memory")
+            materialIcon: "memory"; mainText: Translation.tr("Unload model")
             onClicked: SidebarChat.releaseMemory()
         }
         StyledText {

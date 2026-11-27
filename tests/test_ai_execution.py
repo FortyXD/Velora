@@ -49,6 +49,17 @@ assert.deepEqual(calls[1],['terminal_run',{command,network:false},command,'sideb
 approveCommand(message); assert.equal(calls.length,2);
 ''')
 
+    def test_search_only_needs_remote_consent_when_it_uses_a_remote_service(self):
+        self.run_js(function("needsRemoteConsent") + '''
+root.effectiveTool = 'search';
+root.tools = {openai:{search:[]}, gemini:{search:[{google_search:{}}]}};
+const local = {local:true, endpoint:'http://127.0.0.1:11435', model:'gemma4:e4b', api_format:'openai'};
+assert.equal(needsRemoteConsent(local), false);
+assert.equal(needsRemoteConsent({...local, endpoint:'https://example.org/chat'}), true);
+assert.equal(needsRemoteConsent({...local, model:'model:cloud'}), true);
+assert.equal(needsRemoteConsent({...local, api_format:'gemini'}), true);
+''')
+
     def test_config_bypass_and_unrecognized_tools_are_denied(self):
         self.run_js('''
 handleFunctionCall('set_shell_config',{key:'policies.ai',value:1},{});

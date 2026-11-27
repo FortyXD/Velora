@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Dialogs
 import Quickshell
 import qs.services
 import qs.modules.common
@@ -63,13 +62,17 @@ Rectangle {
                 objectName: "sidebarChatInput"
                 width: inputScroll.availableWidth
                 text: SidebarChat.draft
-                onTextChanged: if (SidebarChat.draft !== text) SidebarChat.draft = text
+                onActiveFocusChanged: if (activeFocus && visible && input.QsWindow.window?.visible) SidebarChat.prepareForInput()
+                onTextChanged: if (SidebarChat.draft !== text) {
+                    SidebarChat.draft = text;
+                    if (activeFocus && visible && text.trim()) SidebarChat.prepareForInput(true);
+                }
                 wrapMode: TextEdit.Wrap
                 font.pixelSize: Appearance.font.pixelSize.normal
                 padding: 8
                 background: null
                 selectByMouse: true
-                placeholderText: SidebarChat.busy ? Translation.tr("Write your next message…") : Translation.tr("Ask anything or describe a task…")
+                placeholderText: SidebarChat.busy ? Translation.tr("Write your next message…") : Assistant.fileMode ? Translation.tr("Ask about a file or folder…") : Translation.tr("Ask anything or describe a task…")
                 Keys.onPressed: event => {
                     if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier) && !input.inputMethodComposing) {
                         SidebarChat.send(); event.accepted = true;
@@ -84,11 +87,6 @@ Rectangle {
         }
         RowLayout {
             Layout.fillWidth: true
-            ChatIconButton {
-                symbol: "attach_file"; tooltip: SidebarChat.attachmentLimit ? Translation.tr("Attach files") : Translation.tr("This model does not support file attachments")
-                enabled: SidebarChat.attachmentLimit > 0 && SidebarChat.compatible
-                onClicked: fileDialog.open()
-            }
             StyledText {
                 Layout.fillWidth: true
                 text: Translation.tr("Shift+Enter for a new line")
@@ -116,11 +114,5 @@ Rectangle {
                 onClicked: SidebarChat.stop()
             }
         }
-    }
-    FileDialog {
-        id: fileDialog
-        title: Translation.tr("Attach files")
-        fileMode: SidebarChat.attachmentLimit === 1 ? FileDialog.OpenFile : FileDialog.OpenFiles
-        onAccepted: SidebarChat.attach(selectedFiles)
     }
 }

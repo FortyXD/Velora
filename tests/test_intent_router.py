@@ -42,6 +42,10 @@ class IntentRouterTests(unittest.TestCase):
             self.assertEqual(value["kind"], expected, text)
 
     def test_explicit_choice_and_bounded_input(self):
+        command = "на 5 десктопе открой фаерфокс и вс код"
+        auto, forced = self.classify([[command], [command, "search"]])
+        self.assertEqual((auto["kind"], auto["actionHint"]), ("action", "desktop"))
+        self.assertEqual(forced["kind"], "search")
         cases = [["удали файл", "search"], ["как удалить файл", "action"], ["создай файл", "chat"],
                  [""], ["x" * 100000], ["'" * 4000], ['"unterminated delete files']]
         values = self.classify(cases)

@@ -13,7 +13,7 @@ StyledTextArea {
     property bool markdown: true
     property bool completed: true
     property int headingLevel: 0
-    property var expressions: ({})
+    property var renderHashes: ({})
     property string rendered: ""
     readOnly: true
     selectByMouse: true
@@ -31,29 +31,34 @@ StyledTextArea {
     textFormat: markdown ? TextEdit.MarkdownText : TextEdit.PlainText
     text: markdown ? rendered : content
     function refresh() {
-        let value = Markdown.safeMarkdown(content);
-        for (const expression in expressions) value = value.split(expression).join("![formula](" + expressions[expression] + ")");
-        rendered = value;
+        const hashes = {};
+        let value = "", start = 0;
+        for (const span of markdown ? Markdown.mathSpans(content) : []) {
+            const expression = span.expression;
+            const hash = hashes[expression] ?? renderHashes[expression] ?? LatexRenderer.requestRender(expression)[0];
+            hashes[expression] = hash;
+            const path = LatexRenderer.renderedImagePaths[hash];
+            if (path) {
+                value += Markdown.safeMarkdown(content.slice(start, span.start)) + "![formula](<" + path + ">)";
+                start = span.end;
+            }
+        }
+        renderHashes = hashes;
+        rendered = value + Markdown.safeMarkdown(content.slice(start));
     }
-    function renderMath() {
-        if (!markdown || !completed) return;
-        const regex = /\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$(?!\s|\d+[.,]?\d*\b)[^$\n]+?\$/g;
-        let match;
-        while ((match = regex.exec(content)) !== null) LatexRenderer.requestRender(match[0]);
+    onContentChanged: Qt.callLater(refresh)
+    onMarkdownChanged: Qt.callLater(refresh)
+    onCompletedChanged: if (completed) {
+        // A renderer that was unavailable during streaming gets one more chance.
+        renderHashes = {};
+        Qt.callLater(refresh);
     }
-    onContentChanged: { refresh(); if (completed) mathDelay.restart(); }
-    onCompletedChanged: if (completed) mathDelay.restart()
-    onMarkdownChanged: { refresh(); if (markdown) mathDelay.restart(); }
-    Component.onCompleted: { refresh(); if (completed) mathDelay.restart(); }
-    Timer { id: mathDelay; interval: 300; onTriggered: root.renderMath() }
+    Component.onCompleted: Qt.callLater(refresh)
     Connections {
         target: LatexRenderer
         function onRenderFinished(hash, path) {
             const expression = LatexRenderer.processedExpressions[hash];
-            if (expression && root.content.includes(expression)) {
-                root.expressions[expression] = path;
-                root.refresh();
-            }
+            if (root.renderHashes[expression] === hash) Qt.callLater(root.refresh);
         }
     }
     onLinkActivated: link => { if (StringUtils.parseWebUrl(link)) Qt.openUrlExternally(link); }

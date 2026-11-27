@@ -1,3 +1,4 @@
+pub mod desktop;
 pub mod process;
 pub mod provider;
 pub mod task;
@@ -7,7 +8,7 @@ pub mod transaction;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const PROTOCOL: u32 = 3;
+pub const PROTOCOL: u32 = 6;
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
@@ -22,6 +23,21 @@ pub struct Profile {
     pub vision: bool,
     pub gpu: bool,
     pub context_tokens: usize,
+    pub idle_seconds: Option<u64>,
+}
+impl Profile {
+    pub fn select_local_backend(&mut self, on_battery: bool) {
+        if self.provider == "ollama" && (on_battery || !self.gpu) && matches!(
+            self.endpoint.trim_end_matches('/'),
+            "http://127.0.0.1:11434" | "http://localhost:11434" | "http://[::1]:11434"
+        ) {
+            self.endpoint = "http://127.0.0.1:11435".into();
+        }
+    }
+
+    pub fn keep_alive(&self, battery: bool) -> u64 {
+        self.idle_seconds.unwrap_or(if battery { 30 * 60 } else { 60 * 60 }).min(86400)
+    }
 }
 impl Default for Profile {
     fn default() -> Self {
@@ -33,7 +49,8 @@ impl Default for Profile {
             key: String::new(),
             vision: false,
             gpu: false,
-            context_tokens: 4096,
+            context_tokens: 16384,
+            idle_seconds: None,
         }
     }
 }
@@ -56,8 +73,11 @@ pub struct Context {
     pub policy: u8,
     pub profile: Profile,
     pub apps: Vec<App>,
+    pub terminal_command: String,
     pub presets: Vec<Value>,
     pub selection: Vec<String>,
+    pub auto_local_search: bool,
+    pub trusted_read_folders: Vec<String>,
     pub rollback_budget_bytes: u64,
 }
 impl Default for Context {
@@ -69,10 +89,29 @@ impl Default for Context {
             policy: 2,
             profile: Profile::default(),
             apps: vec![],
+            terminal_command: String::new(),
             presets: vec![],
             selection: vec![],
+            auto_local_search: true,
+            trusted_read_folders: vec![],
             rollback_budget_bytes: 2 * 1024 * 1024 * 1024,
         }
+    }
+}
+
+impl Context {
+    fn local_ollama(&self) -> bool {
+        self.profile.provider == "ollama" && provider::local_endpoint(&self.profile.endpoint)
+    }
+
+    fn scoped_search(&self, args: &Value) -> bool {
+        self.local_ollama() && !self.trusted_read_folders.is_empty() && args["scope"] != "all"
+    }
+
+    fn permits_search(&self, tool: &str, args: &Value) -> bool {
+        self.auto_local_search && self.local_ollama()
+            && (tool == "apps_list" || (tool == "search"
+                && (self.trusted_read_folders.is_empty() || self.scoped_search(args))))
     }
 }
 

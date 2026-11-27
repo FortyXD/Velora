@@ -15,6 +15,7 @@ Item {
     readonly property bool localInstalled: root.installedModels.some(model => {
         return model.name === Config.options.assistant.model;
     })
+    readonly property string downloadState: (Config.options.assistant.downloadAttempts ?? {})["model:" + Config.options.assistant.model] ?? ""
     property bool pageShown: true
     readonly property var savedConnection: AiConnections.records.find(m => {
         return m.model === Config.options.assistant.model && m.endpoint === Config.options.assistant.endpoint;
@@ -170,15 +171,6 @@ Item {
                         onEditingFinished: Config.options.assistant.strongModel = value.trim()
                     }
 
-                    ConfigSpinBox {
-                        from: 4096
-                        stepSize: 4096
-                        text: Translation.tr("Context tokens")
-                        to: 32768
-                        value: Config.options.assistant.contextTokens
-
-                        onValueChanged: Config.options.assistant.contextTokens = value
-                    }
                 }
             }
         }
@@ -245,10 +237,13 @@ Item {
                     visible: root.source === "local"
 
                     ConfigComboRow {
+                        objectName: "assistantDownloadProfile"
                         currentValue: Config.options.assistant.provider === "ollama"
-                                      ? Config.options.assistant.model : ""
+                                      ? Config.options.assistant.model || Ai.preferredLocalModel : ""
                         icon: "download"
                         options: [
+                            { "value": Ai.preferredLocalModel, "displayName": "Gemma 4 E4B · ≈6.6 GB · " + Translation.tr("Default") },
+                            { "value": "ministral-3:3b", "displayName": "Ministral 3 3B · ≈3.0 GB" },
                             {
                                 "value": "qwen3.5:2b-q4_K_M",
                                 "displayName": Translation.tr("Economy · 2B") + " · ≈1.9 GB"
@@ -259,7 +254,7 @@ Item {
                             },
                             {
                                 "value": "qwen3.5:9b-q4_K_M",
-                                "displayName": Translation.tr("Quality · 9B") + " · ≈6.6 GB"
+                                "displayName": "Qwen3.5 · 9B · ≈6.6 GB"
                             }
                         ]
                         text: Translation.tr("Download profile")
@@ -458,10 +453,9 @@ Item {
             }
 
             ContentSection {
-                description: Assistant.enabled ? Translation.tr(
-                                                     "Checking starts the selected model. Downloads can be stopped and resumed later.") :
-                                                 Translation.tr(
-                                                     "Enable the assistant to check or download its model.")
+                description: root.localInstalled ? Translation.tr("Model installed") : root.downloadState === "failed"
+                    ? Translation.tr("Download failed. Retry to reuse completed parts.") : root.downloadState === "partial"
+                    ? Translation.tr("Download incomplete") : Translation.tr("Download a model for local use.")
                 icon: "download"
                 title: Translation.tr("Check & download")
 
@@ -482,15 +476,18 @@ Item {
                     }
 
                     RippleButtonWithIcon {
-                        enabled: Assistant.enabled && !Assistant.busy
-                        mainText: Assistant.problem ? Translation.tr("Retry download") : Translation.tr(
-                                                          "Download model")
+                        enabled: Config.options.policies.ai !== 0 && !Assistant.busy
+                        mainText: root.downloadState === "failed" ? Translation.tr("Retry download") :
+                                  root.downloadState === "partial" ? Translation.tr("Resume download") : Translation.tr("Download model")
                         materialIcon: "download"
                         objectName: "assistantDownloadModel"
                         visible: Config.options.assistant.provider === "ollama" && !Assistant.busy &&
                                  !root.localInstalled
 
-                        onClicked: Assistant.downloadModel()
+                        onClicked: {
+                            if (!Config.options.assistant.model) Config.options.assistant.model = Ai.preferredLocalModel;
+                            Assistant.downloadModel();
+                        }
                     }
 
                     RippleButtonWithIcon {

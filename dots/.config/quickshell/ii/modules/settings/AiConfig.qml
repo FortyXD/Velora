@@ -1,4 +1,6 @@
 import QtQuick
+import QtQuick.Dialogs
+import qs.modules.common.functions
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
@@ -29,16 +31,26 @@ SettingsDetailPage {
         description: Ai.models[id].local ? Translation.tr("On this computer") : Translation.tr("Cloud")
     }))
 
-    // Ready-made system prompts: the shell's own and ones in ~/.config/illogical-impulse/ai/prompts
+    FolderDialog {
+        id: trustedFolder
+        onAccepted: {
+            const path = FileUtils.trimFileProtocol(decodeURIComponent(selectedFolder.toString()));
+            const roots = Config.options.assistant.trustedReadFolders;
+            if (path.length > 1 && !roots.includes(path)) Config.options.assistant.trustedReadFolders = [...roots, path];
+        }
+    }
+
+    // Ready-made system prompts: the shell's own and ones in ~/.config/velora/ai/prompts
     property var promptFiles: []
 
     fitToWindow: true
     maxContentWidth: 940
     sectionParents: ({
                          connection: "models",
-                         "assistant-model": "assistant"
+                         "assistant-model": "models"
                      })
     sectionTitles: ({
+                        access: Translation.tr("File access"),
                         models: Translation.tr("Models & connections"),
                         chat: Translation.tr("Chat"),
                         assistant: Translation.tr("Desktop actions"),
@@ -130,6 +142,13 @@ SettingsDetailPage {
                     }
 
                     ConfigNavRow {
+                        buttonIcon: "folder_open"
+                        title: Translation.tr("File access")
+                        description: Translation.tr("Local search and trusted folders")
+                        onClicked: root.tab = "access"
+                    }
+
+                    ConfigNavRow {
                         buttonIcon: "chat"
                         description: root.effectiveModel
                         objectName: "aiChatSummary"
@@ -166,6 +185,50 @@ SettingsDetailPage {
                             root.tab = "models";
                         }
                     }
+                }
+            }
+        }
+
+        SettingsTabPage {
+            anchors.fill: parent
+            current: root.tab
+            enabled: shown
+            key: "access"
+            onRevealRequested: key => root.tab = key
+            SettingsScrollPane {
+                anchors.fill: parent
+                ContentSection {
+                    title: Translation.tr("Local search")
+
+                    ConfigSwitch {
+                        objectName: "aiAutoLocalSearch"
+                        autoToggle: false
+                        buttonIcon: "search"
+                        text: Translation.tr("Allow local searches without asking")
+                        description: Translation.tr("Find apps, windows and files locally. A file you name in your message can be read when it is the only match.")
+                        checked: Config.options.assistant.autoLocalSearch
+                        onClicked: Config.options.assistant.autoLocalSearch = !checked
+                    }
+                }
+                ContentSection {
+                    title: Translation.tr("Trusted folders for local chats")
+                    ConfigNavRow {
+                        buttonIcon: "folder_open"
+                        title: Translation.tr("Trust a folder for local reads")
+                        description: Translation.tr("Local chats can read files in the folders listed here.")
+                        onClicked: trustedFolder.open()
+                    }
+                    Repeater {
+                        model: Config.options.assistant.trustedReadFolders
+                        delegate: ConfigNavRow {
+                            required property string modelData
+                            title: modelData
+                            buttonIcon: "folder"
+                            trailingIcon: "close"
+                            onClicked: Config.options.assistant.trustedReadFolders = Config.options.assistant.trustedReadFolders.filter(path => path !== modelData)
+                        }
+                    }
+
                 }
             }
         }
@@ -214,6 +277,49 @@ SettingsDetailPage {
                     }
                 }
 
+                ConfigComboRow {
+                    icon: "memory"
+                    text: Translation.tr("Conversation context")
+                    currentValue: Config.options.assistant.contextTokens
+                    options: [0, 4096, 8192, 16384, 32768].map(n => ({value:n, displayName:n ? String(n) : Translation.tr("Automatic")}))
+                    onSelected: value => Config.options.assistant.contextTokens = value
+                }
+                ConfigComboRow {
+                    icon: "memory"
+                    text: Translation.tr("Unload the local model")
+                    currentValue: Config.options.ai.modelIdleSeconds < 0 ? "auto" : Config.options.ai.modelIdleSeconds === 0 ? "now" : "custom"
+                    options: [
+                        {value:"auto", displayName:Translation.tr("Auto · 30 min on battery, 60 min on AC")},
+                        {value:"now", displayName:Translation.tr("After each response")},
+                        {value:"custom", displayName:Translation.tr("After a set number of minutes")}
+                    ]
+                    onSelected: value => {
+                        if (value !== currentValue) Config.options.ai.modelIdleSeconds = value === "auto" ? -1 : value === "now" ? 0 : 900;
+                    }
+                }
+                ConfigSwitch {
+                    objectName: "aiPreloadOnLogin"
+                    autoToggle: false
+                    buttonIcon: "speed"
+                    text: Translation.tr("Prepare the local assistant after login")
+                    description: Translation.tr("Load the CPU model on external power when enough memory is free.")
+                    checked: Config.options.assistant.preloadOnLogin
+                    onClicked: Config.options.assistant.preloadOnLogin = !checked
+                }
+                ConfigTextRow {
+                    visible: Config.options.ai.modelIdleSeconds > 0
+                    label: Translation.tr("Minutes of inactivity")
+                    icon: "timer"
+                    inline: true
+                    inlineFieldWidth: 96
+                    wrapMode: TextEdit.NoWrap
+                    value: String(Math.max(1, Math.ceil(Config.options.ai.modelIdleSeconds / 60)))
+                    onEditingFinished: {
+                        const minutes = Number(value);
+                        if (Number.isInteger(minutes) && minutes >= 1 && minutes <= 1440) Config.options.ai.modelIdleSeconds = minutes * 60;
+                        value = Qt.binding(() => String(Math.max(1, Math.ceil(Config.options.ai.modelIdleSeconds / 60))));
+                    }
+                }
                 ConfigExpander {
                     title: Translation.tr("More options")
 

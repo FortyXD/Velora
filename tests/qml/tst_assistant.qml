@@ -15,12 +15,12 @@ TestCase {
         for (let i = 0; i < 6 && !Assistant.busy; i++) replyLast();
         verify(Assistant.busy);
     }
-    function connectAndRun() { incoming({type:"hello", protocol:3}); runPending(); }
+    function connectAndRun() { incoming({type:"hello", protocol:6}); runPending(); }
     function finish() { incoming({type:"finished", task:Assistant.task}); }
     function init() {
         Assistant.cancel(); Assistant.backend.running = false; Assistant.backend.exited(0,0);
         GlobalStates.screenLocked = false;
-        Config.options = {assistant:{enabled:true,model:"test",provider:"ollama",endpoint:"http://localhost:11434",vision:false},policies:{ai:2},panelFamily:"ii"};
+        Config.options = {assistant:{enabled:true,model:"test",provider:"ollama",endpoint:"http://localhost:11434",vision:false},policies:{ai:2},panelFamily:"velora"};
         ChatStore.deferred = false; ChatStore.failure = ""; ChatStore.waiting = []; ChatStore.saved = ({});
         Ai.nativeGenerating = false;
         SidebarChat.active = false; SidebarChat.fresh();
@@ -29,12 +29,14 @@ TestCase {
         GlobalStates.overviewOpen = false; GlobalStates.sidebarLeftOpen = false;
     }
     function test_lazy_start_and_complete() {
+        Config.options = Object.assign({}, Config.options, {apps:{terminal:"foot --hold"}});
         verify(Assistant.enabled); verify(!Assistant.backend.running);
         verify(Assistant.submit("hello")); verify(Assistant.backend.running); verify(!Assistant.busy);
         verify(ChatStore.saved[SidebarChat.conversationId]);
         connectAndRun(); verify(Lens.assistantBusy);
         const request = lastRequest();
         compare(request.method, "submit"); compare(request.params.conversation_id, SidebarChat.conversationId);
+        compare(request.params.terminal_command, "foot --hold");
         compare(request.params.submission_id, SidebarChat.currentReply.submissionId);
         incoming({type:"answer",task:Assistant.task,text:"answer"}); finish();
         verify(!Assistant.busy); verify(!Lens.assistantBusy); compare(Assistant.messages.length,2);
@@ -68,7 +70,7 @@ TestCase {
     function test_sidebar_continues_existing_history() {
         SidebarChat.append({role:"user",text:"past"}); SidebarChat.append({role:"assistant",text:"answer"});
         const id = SidebarChat.conversationId; SidebarChat.draft = "continue";
-        verify(SidebarChat.send()); incoming({type:"hello",protocol:3}); replyLast();
+        verify(SidebarChat.send()); incoming({type:"hello",protocol:6}); replyLast();
         compare(lastRequest().method,"restore"); compare(lastRequest().params.messages[0].content,"past");
         runPending(); compare(SidebarChat.conversationId,id); compare(SidebarChat.messages.length,4);
         compare(SidebarChat.draft,"");
@@ -76,7 +78,7 @@ TestCase {
     function test_selected_files_survive_history_restore() {
         Assistant.selectedPaths = ["/example/report.txt"];
         verify(Assistant.submit("read the selected file"));
-        incoming({type:"hello",protocol:3}); replyLast();
+        incoming({type:"hello",protocol:6}); replyLast();
         compare(lastRequest().method,"restore"); replyLast();
         compare(lastRequest().method,"selection");
         compare(lastRequest().params.paths[0],"/example/report.txt");
@@ -133,7 +135,7 @@ TestCase {
         compare(Assistant.streaming,""); compare(Assistant.problem,""); compare(SidebarChat.currentReply.text,"Done");
     }
     function test_cancelled_configuration_cannot_discard_next_request() {
-        Assistant.submit("old request"); incoming({type:"hello",protocol:3});
+        Assistant.submit("old request"); incoming({type:"hello",protocol:6});
         const oldConfigure = lastRequest().id;
         Assistant.cancel();
         verify(Assistant.submit("new request")); const newConfigure = lastRequest().id;
@@ -176,7 +178,7 @@ TestCase {
         compare(lastRequest().method,"surface_ready"); compare(lastRequest().params.token,"surface:1:1");
     }
     function test_file_picker_cancel_returns_to_launcher_without_error() {
-        for (const family of ["ii", "waffle"]) {
+        for (const family of ["velora", "waffle"]) {
             Config.options = {assistant:{enabled:true,model:"test"},policies:{ai:2},panelFamily:family};
             verify(Assistant.submit("choose a file"));
             if (!Assistant.ready) connectAndRun(); else runPending();
@@ -226,6 +228,11 @@ TestCase {
         Assistant.submit("how to remove a folder",undefined,"launcher","chat"); connectAndRun();
         compare(lastRequest().params.intent,"chat");
     }
+    function test_launcher_uses_desktop_assistant_for_local_questions() {
+        Assistant.submit("Почему папка такая большая?", undefined, "launcher", "auto"); connectAndRun();
+        compare(lastRequest().params.intent, "action");
+        verify(lastRequest().params.desktop_agent);
+    }
     function test_transaction_history_and_manual_rollback() {
         Assistant.submit("task"); connectAndRun();
         const id=Assistant.submissionId;
@@ -239,16 +246,34 @@ TestCase {
         compare(SidebarChat.currentReply.conflicts[0],"/changed");
     }
     function test_configuration_failure_ends_waiting() {
-        Assistant.submit("hello"); incoming({type:"hello",protocol:3});
+        Assistant.submit("hello"); incoming({type:"hello",protocol:6});
         incoming({type:"response",id:lastRequest().id,ok:false,error:"configuration failed"});
         compare(Assistant.queued,null); verify(!Assistant.busy); compare(Assistant.problem,"configuration failed");
         compare(SidebarChat.currentReply.status,"error");
     }
     function test_sidebar_infers_action_and_clarification_keeps_intent() {
         SidebarChat.draft="создай папку"; verify(SidebarChat.send()); connectAndRun();
-        compare(lastRequest().params.intent,"action"); finish();
+        compare(lastRequest().params.intent,"action"); verify(lastRequest().params.desktop_agent);
+        verify(lastRequest().params.allow_files); verify(lastRequest().params.allow_commands); finish();
         Assistant.submitChoice("target-1","My folder","sidebar"); runPending();
         compare(lastRequest().params.intent,"action");
+    }
+    function test_exact_approved_program_in_chat_and_history() {
+        const source = "print('fixture-review')\nprint(2 + 2)\n";
+        verify(Assistant.submitTool("terminal_run",{code:source,language:"python"},"Compute","sidebar"));
+        connectAndRun();
+        incoming({type:"approval",task:Assistant.task,tool:"terminal_run",approval:"code-1",
+                 details:{code:source,argv:["/usr/bin/python3","-I","-"],temporary:true,network:false}});
+        const preview = Assistant.approvalDescription();
+        verify(preview.endsWith(source)); verify(preview.includes("/usr/bin/python3 -I -"));
+        Assistant.decide(true); compare(Assistant.runningProgram,preview);
+        incoming({type:"step",task:Assistant.task,state:"done",tool:"terminal_run",result:{exit_code:0}});
+        compare(Assistant.runningProgram,""); verify(SidebarChat.currentReply.steps[0].label.endsWith(source));
+        incoming({type:"answer",task:Assistant.task,text:"4"}); finish();
+        const id = SidebarChat.conversationId; SidebarChat.save(); SidebarChat.fresh(); SidebarChat.openConversation(id);
+        verify(SidebarChat.messages[1].steps[0].label.endsWith(source));
+        verify(!SidebarChat.contextEntries()[1].text.includes("fixture-review"));
+        compare(Assistant.approval,null);
     }
     function test_native_chat_context_receives_executor_result_without_permissions() {
         Config.options={assistant:{enabled:false,model:"test"},policies:{ai:2}};
@@ -265,7 +290,7 @@ TestCase {
         SidebarChat.append({role:"user",text:"actual request"});
         compare(SidebarChat.contextEntries().length,1);
         compare(SidebarChat.contextEntries()[0].text,"actual request");
-        SidebarChat.draft="continue"; SidebarChat.send(); incoming({type:"hello",protocol:3}); replyLast();
+        SidebarChat.draft="continue"; SidebarChat.send(); incoming({type:"hello",protocol:6}); replyLast();
         compare(lastRequest().method,"restore"); compare(lastRequest().params.messages.length,1);
     }
     function test_legacy_preset_ipc_cannot_mutate_while_busy() {
@@ -301,7 +326,7 @@ TestCase {
         SidebarChat.append({role:"assistant",text:"Past action",transactionId:"old-task",rollbackAvailable:true});
         SidebarChat.save(); SidebarChat.fresh(); SidebarChat.openConversation(id);
         compare(SidebarChat.messages.length,1); compare(Assistant.approval,null);
-        incoming({type:"hello",protocol:3}); replyLast();
+        incoming({type:"hello",protocol:6}); replyLast();
         compare(lastRequest().method,"transactions");
         replyLast({transactions:[{transaction_id:"old-task",state:"rolled_back",rollback_available:false,conflicts:[]}]});
         compare(SidebarChat.messages[0].transactionState,"rolled_back");

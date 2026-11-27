@@ -16,7 +16,10 @@ ColumnLayout {
         const values = sourceView ? [{kind:"text", body:content, language:"", complete:true}] : Markdown.parse(content);
         while (blocks.count > values.length) blocks.remove(blocks.count - 1);
         for (let i = 0; i < values.length; i++) {
-            if (i < blocks.count) blocks.set(i, values[i]); else blocks.append(values[i]);
+            if (i === blocks.count) { blocks.append(values[i]); continue; }
+            const previous = blocks.get(i), next = values[i];
+            for (const key of ["kind", "body", "language", "complete"])
+                if (previous[key] !== next[key]) blocks.setProperty(i, key, next[key]);
         }
     }
     onContentChanged: update()
@@ -34,14 +37,6 @@ ColumnLayout {
             required property bool complete
             Layout.fillWidth: true
             Layout.topMargin: kind === "heading" && index > 0 ? 8 : 0
-            opacity: 0
-            transform: Translate { id: entrance; y: 5 }
-            Component.onCompleted: appear.start()
-            ParallelAnimation {
-                id: appear
-                NumberAnimation { target: block; property: "opacity"; to: 1; duration: Appearance.scaledDuration(200); easing.type: Easing.OutCubic }
-                NumberAnimation { target: entrance; property: "y"; to: 0; duration: Appearance.scaledDuration(260); easing.type: Easing.OutCubic }
-            }
             sourceComponent: kind === "code" ? codeComponent : kind === "think" ? thinkComponent : kind === "table" ? tableComponent : kind === "quote" ? quoteComponent : textComponent
             Component { id: textComponent; ChatTextBlock { content: block.body; completed: root.completed; markdown: !root.sourceView; headingLevel: block.kind === "heading" ? Number(block.language) : 0 } }
             Component { id: codeComponent; ChatCodeBlock { content: block.body; language: block.language } }

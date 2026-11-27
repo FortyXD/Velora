@@ -21,7 +21,7 @@ class AgentQmlTests(unittest.TestCase):
                 'AppSearch':'property var list: []',
                 'Presets':'property var presets: []; signal applied(string id); function apply(id) { applied(id); }',
                 'KeyringStorage':'property var keyringData: ({})',
-                'LocalAiRuntime':'property string memoryStatus: ""; property bool unloading: false; function stop() {}',
+                'LocalAiRuntime':'property string memoryStatus: ""; property bool unloading: false; property bool allowGpu: false; property int contextTokens: 16384; function endpointFor(url, gpu) { return url; } function stop() {}',
                 'Ai':'property bool localModelsLoaded: false; property var installedModelIds: []; property string defaultLocalModelId: ""; property var models: ({}); '
                     'property bool nativeGenerating: false; readonly property bool generating: nativeGenerating || Assistant.busy || Assistant.preparingSubmission; property bool requestAfterKeyring: false; property string currentModelId: "test"; '
                     'property string effectiveTool: "none"; property bool currentModelIsLocal: true; property var messageIDs: []; property var messageByID: ({}); '

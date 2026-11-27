@@ -200,9 +200,12 @@ ShellRoot {
                 root.check(root.find(ai,"aiModelsSummary").activeFocus,"Back restores focus to models row");
                 Config.options.assistant.enabled = true;
                 Config.options.assistant.provider = "ollama";
-                Config.options.assistant.model = "test-download:local";
+                Config.options.assistant.model = "";
                 ai.tab = "assistant-model";
                 root.find(ai,"assistantSettings").installedModels = [];
+                root.check(root.find(ai,"assistantDownloadProfile").currentValue === "gemma4:e4b", "Gemma is the default download profile");
+                root.check(root.find(ai,"assistantDownloadModel").enabled, "the default can be downloaded in one click");
+                Config.options.assistant.model = "test-download:local";
             } else if (step === 38) {
                 root.check(root.find(ai,"assistantDownloadModel").visible && !root.find(ai,"assistantCheckModel").visible,"missing local model offers download");
                 root.find(ai,"assistantSettings").installedModels = [{name:Config.options.assistant.model,size:1024}];
@@ -213,6 +216,7 @@ ShellRoot {
                 root.check(root.find(ai,"assistantStopModel").visible && !root.find(ai,"assistantCheckModel").visible,"busy model offers stop");
                 Assistant.busy = false;
                 root.find(ai,"assistantSettings").installedModels = [];
+                Config.options.assistant.downloadAttempts = {"model:test-download:local":"failed"};
                 Assistant.problem = "Fixture download failed";
             } else if (step === 41) {
                 root.check(root.find(ai,"assistantDownloadModel").mainText === Translation.tr("Retry download"),"failed download offers retry");
@@ -222,6 +226,12 @@ ShellRoot {
                 root.check(Config.options.policies.ai === 0,"AI policy selection persists");
                 root.check(!root.find(ai,"desktopAssistantEnable").enabled,"AI off disables assistant enable");
                 root.choose(ai,"aiAccessPolicy",2);
+                ai.tab = "access";
+            } else if (step === 42) {
+                const toggle = root.find(ai,"aiAutoLocalSearch");
+                root.check(toggle.checked && Assistant.autoLocalSearch, "local searches default to allowed");
+                root.click(ai,"aiAutoLocalSearch");
+                root.check(!Config.options.assistant.autoLocalSearch && !Assistant.autoLocalSearch, "search approval preference reaches assistant");
             } else {
                 root.check(!Ai.generating && !Assistant.ready && !Assistant.busy, "UI interaction never starts models");
                 root.check(LauncherSearch.query === "", "query cleared after leaving overview");

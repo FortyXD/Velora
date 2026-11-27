@@ -13,9 +13,11 @@ ColumnLayout {
     property bool expanded: false
     property bool confirmingDelete: false
     readonly property bool approval: live && Assistant.approval !== null
+    readonly property bool runningProgram: live && !approval && !!Assistant.runningProgram
     readonly property bool legacyApproval: entry?.source?.functionPending ?? false
     readonly property bool remoteApproval: legacyApproval && entry?.source?.functionCall?.name === "remote_context"
-    readonly property bool checkpointDeletable: !!entry?.transactionId && ["committed", "rolled_back", "failed"].includes(entry?.transactionState)
+    readonly property bool hasCheckpoint: entry?.rollbackAvailable === true || (entry?.changes?.length ?? 0) > 0 || (entry?.conflicts?.length ?? 0) > 0
+    readonly property bool checkpointDeletable: hasCheckpoint && !!entry?.transactionId && ["committed", "rolled_back", "failed"].includes(entry?.transactionState)
     spacing: 8
     RippleButtonWithIcon {
         visible: (root.entry?.steps?.length ?? 0) > 0
@@ -26,13 +28,21 @@ ColumnLayout {
     }
     Repeater {
         model: root.expanded ? (root.entry?.steps ?? []) : []
-        delegate: ChatTextBlock {
+        delegate: ScrollView {
+            id: stepScroll
             required property var modelData
             Layout.fillWidth: true
-            markdown: false
-            content: "✓ " + modelData.label + (modelData.path ? "\n" + modelData.path : "")
-            color: Appearance.colors.colSubtext
-            font.pixelSize: Appearance.font.pixelSize.small
+            Layout.preferredHeight: Math.min(260, stepText.implicitHeight)
+            contentWidth: availableWidth
+            clip: true
+            ChatTextBlock {
+                id: stepText
+                width: stepScroll.availableWidth
+                markdown: false
+                content: stepScroll.modelData.label + (stepScroll.modelData.path ? "\n" + stepScroll.modelData.path : "")
+                color: Appearance.colors.colSubtext
+                font.pixelSize: Appearance.font.pixelSize.small
+            }
         }
     }
     StyledText {
@@ -43,7 +53,7 @@ ColumnLayout {
         wrapMode: Text.Wrap
     }
     Rectangle {
-        visible: root.approval || root.legacyApproval
+        visible: root.approval || root.legacyApproval || root.runningProgram
         Layout.fillWidth: true
         implicitHeight: approvalLayout.implicitHeight + 24
         radius: Appearance.rounding.normal
@@ -52,7 +62,7 @@ ColumnLayout {
             id: approvalLayout
             anchors { left: parent.left; right: parent.right; top: parent.top; margins: 12 }
             spacing: 8
-            StyledText { Layout.fillWidth: true; wrapMode: Text.Wrap; font.bold: true; text: Translation.tr("Your confirmation is needed") }
+            StyledText { Layout.fillWidth: true; wrapMode: Text.Wrap; font.bold: true; text: root.runningProgram ? Translation.tr("Approved command or script") : Translation.tr("Your confirmation is needed") }
             ScrollView {
                 id: approvalScroll
                 objectName: "chatApprovalScroll"
@@ -64,8 +74,10 @@ ColumnLayout {
                     id: approvalDetails
                     objectName: "chatApprovalText"
                     width: approvalScroll.availableWidth; markdown: false
+                    font.family: root.runningProgram || Assistant.approval?.tool === "terminal_run" ? Appearance.font.family.monospace : Appearance.font.family.main
                     content: {
                         if (root.approval) return Assistant.actionLabel(Assistant.approval?.tool ?? "") + "\n" + Assistant.approvalDescription();
+                        if (root.runningProgram) return Assistant.runningProgram;
                         if (root.remoteApproval) {
                             const args = root.entry.source.functionCall.args;
                             return Translation.tr("Send conversation context to %1?").arg(args.endpoint) + "\n"
@@ -82,6 +94,7 @@ ColumnLayout {
                 fillMode: Image.PreserveAspectFit
             }
             Flow {
+                visible: root.approval || root.legacyApproval
                 Layout.fillWidth: true
                 spacing: 8
                 RippleButtonWithIcon {
@@ -108,7 +121,7 @@ ColumnLayout {
         }
     }
     ChatTextBlock {
-        visible: !!root.entry?.transactionState
+        visible: !!root.entry?.transactionState && (root.hasCheckpoint || root.entry.transactionState === "checkpoint_deleted")
         Layout.fillWidth: true; markdown: false
         content: {
             const labels = {preparing:"Preparing a checkpoint",running:"Task in progress",committed:"Changes saved",rolled_back:"Changes rolled back",rollback_conflict:"Rollback paused: files changed since this task",failed:"Task failed",checkpoint_deleted:"Checkpoint removed"};
