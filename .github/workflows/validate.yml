@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install native test dependencies
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev libglib2.0-dev pkg-config bubblewrap dbus-daemon python3-pil poppler-utils libarchive-tools zsh
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev libglib2.0-dev pkg-config bubblewrap dbus-daemon python3-pil poppler-utils libarchive-tools ffmpeg nodejs zsh
       - name: Check shell entry points
         run: bash -n velora install.sh setup diagnose scripts/install.sh dots/.config/quickshell/ii/scripts/maintenance/velora.sh
       - name: Test the native helper

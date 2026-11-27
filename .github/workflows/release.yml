@@ -22,7 +22,7 @@ jobs:
       contents: write
     steps:
       - name: Install build tools
-        run: pacman -Syu --noconfirm --needed git python python-pillow sudo github-cli rust openssl glib2 cmake extra-cmake-modules qt6-base kio hyprland jsoncpp lua wayland libei pkgconf dbus bubblewrap nodejs jq poppler libarchive ttf-dejavu zsh
+        run: pacman -Syu --noconfirm --needed git python python-pillow sudo github-cli rust openssl glib2 cmake extra-cmake-modules qt6-base kio hyprland jsoncpp lua wayland libei pkgconf dbus bubblewrap nodejs ffmpeg jq poppler libarchive ttf-dejavu zsh
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.release_tag || github.ref }}
