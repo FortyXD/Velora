@@ -443,6 +443,17 @@ fn profile_timestamp(settings: &Settings) -> i64 {
     connection_section(settings).and_then(|section| values::number(section, "timestamp")).unwrap_or(0)
 }
 
+/// True when a saved profile already holds this network's password in the system, so the shell must not
+/// ask for it again just because the profile has never connected. A bare key-mgmt line is not enough:
+/// the secret's own flag must read 0 (stored by the service), the way `wifi::secret_key` names it.
+fn saved_secret_present(settings: &Settings) -> bool {
+    let security_type = profile_security(settings);
+    if !security_type.is_personal() { return false; }
+    let Some(security) = settings.get("802-11-wireless-security") else { return false };
+    let flags_key = if security_type == Security::Wep { "wep-key-flags" } else { "psk-flags" };
+    values::number(security, flags_key) == Some(0)
+}
+
 /// Bond and bridge members and the like are parts of another profile, not things to list.
 fn is_port(settings: &Settings) -> bool {
     connection_section(settings).is_some_and(|section| {
@@ -474,6 +485,32 @@ fn pick_profile<'a>(
         .max_by_key(|(_, settings)| {
             let uuid = connection_section(settings).map(|section| values::text_or_empty(section, "uuid")).unwrap_or_default();
             (active_uuids.contains_key(&uuid), profile_timestamp(settings))
+        })
+}
+
+/// A saved profile to reuse for a name before making a new one, so the service never ends up with a
+/// second "name 2". Prefers one that can serve this network's security (an open lookalike never borrows
+/// a secure profile), else the most recently joined; a lone profile under an unknown security still counts.
+pub fn profile_for_ssid<'a>(profiles: &'a [ProfileInfo], ssid: &str, desired: Option<Security>) -> Option<&'a ProfileInfo> {
+    let named = |profile: &&'a ProfileInfo| profile.connection_type == "802-11-wireless" && profile.ssid == ssid;
+    // With no access point to check against (hidden or out of range) the name is the only tie; the
+    // uuid branch already repairs an incomplete profile's security.
+    let compatible = |profile: &&'a ProfileInfo| match desired {
+        None => true,
+        Some(join) => profile.security_type == join || (join.is_personal() && profile.security_type == Security::None),
+    };
+    profiles
+        .iter()
+        .filter(named)
+        .filter(compatible)
+        .max_by_key(|profile| (profile.timestamp, profile.uuid.as_str()))
+        .or_else(|| {
+            let mut lone = profiles.iter().filter(named);
+            let only = lone.next()?;
+            // Reuse a single profile whose security the access point does not contradict: an open
+            // network must not borrow the one secure profile just because the names match.
+            let borrows_secure = desired == Some(Security::None) && only.security_type.is_personal();
+            (lone.next().is_none() && !borrows_secure).then_some(only)
         })
 }
 
@@ -625,7 +662,7 @@ pub fn snapshot(objects: &Objects, profiles: &BTreeMap<String, Settings>, vpn_pl
                 saved_credentials: security.is_empty() || chosen.is_some_and(|(_, settings)| settings.contains_key("802-11-wireless-security")),
                 security,
                 security_type,
-                never_used: chosen.is_some_and(|(_, settings)| profile_timestamp(settings) == 0),
+                never_used: chosen.is_some_and(|(_, settings)| profile_timestamp(settings) == 0 && !saved_secret_present(settings)),
                 saved_uuid: chosen_uuid,
                 device: device.path.clone(),
                 access_point: ap_path.clone(),
@@ -926,6 +963,50 @@ mod tests {
         assert!(result.networks[0].never_used);
         // A security section is not proof that credentials exist or have ever worked.
         assert_eq!(result.networks[0].saved_uuid, "never");
+    }
+
+    #[test]
+    fn a_profile_with_a_system_stored_password_is_not_flagged_as_never_used() {
+        let mut objects = base();
+        add_wifi_device(&mut objects, &["/ap/1"], "/", 30);
+        add_ap(&mut objects, "/ap/1", b"Home", "00:00:00:00:00:01", 40, PSK);
+        let mut with_secret = wifi_profile("kept", b"Home", 0, Some("wpa-psk"));
+        with_secret.get_mut("802-11-wireless-security").unwrap().insert("psk-flags".to_string(), owned(0u32));
+        let result = snapshot(&objects, &BTreeMap::from([("/c/1".to_string(), with_secret)]), &[]);
+        assert_eq!(result.networks[0].saved_uuid, "kept");
+        assert!(!result.networks[0].never_used);
+
+        // The flag only reads as stored when it is the service's own (0); agent-held or not-saved still ask.
+        for flag in [1u32, 2u32] {
+            let mut elsewhere = wifi_profile("agent", b"Home", 0, Some("wpa-psk"));
+            elsewhere.get_mut("802-11-wireless-security").unwrap().insert("psk-flags".to_string(), owned(flag));
+            let result = snapshot(&objects, &BTreeMap::from([("/c/1".to_string(), elsewhere)]), &[]);
+            assert!(result.networks[0].never_used, "psk-flags {flag} is not a system secret");
+        }
+    }
+
+    #[test]
+    fn a_saved_profile_is_picked_for_a_name_by_security_then_last_use() {
+        // A profile as the snapshot lists it, with only the fields the reuse rule reads.
+        fn row(uuid: &str, ssid: &str, security: Security, timestamp: i64) -> ProfileInfo {
+            ProfileInfo { uuid: uuid.into(), ssid: ssid.into(), connection_type: "802-11-wireless".into(), security_type: security, timestamp, ..row_empty() }
+        }
+        fn row_empty() -> ProfileInfo {
+            ProfileInfo { uuid: String::new(), path: String::new(), id: String::new(), connection_type: String::new(), autoconnect: true, timestamp: 0, ssid: String::new(), security_type: Security::None, vpn_type: String::new(), available: false, in_range: false, active_state: 0, device: String::new(), signal: 0, read_only: false, hidden: false }
+        }
+        let profiles = vec![
+            row("old-psk", "Home", Security::WpaPsk, 5),
+            row("new-sae", "Home", Security::Sae, 50),
+            row("other", "Else", Security::Sae, 99),
+        ];
+        // Prefer the compatible one even though the other was used more recently.
+        assert_eq!(profile_for_ssid(&profiles, "Home", Some(Security::WpaPsk)).map(|p| p.uuid.as_str()), Some("old-psk"));
+        assert_eq!(profile_for_ssid(&profiles, "Home", Some(Security::Sae)).map(|p| p.uuid.as_str()), Some("new-sae"));
+        // With no access point to match against, the most recently used profile under the name wins.
+        assert_eq!(profile_for_ssid(&profiles, "Home", None).map(|p| p.uuid.as_str()), Some("new-sae"));
+        // An open network must not borrow the one secure profile of the same name.
+        assert_eq!(profile_for_ssid(&profiles, "Home", Some(Security::None)), None);
+        assert_eq!(profile_for_ssid(&profiles, "Absent", Some(Security::WpaPsk)), None);
     }
 
     #[test]

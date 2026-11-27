@@ -413,3 +413,50 @@ async fn rollback_does_not_adopt_a_concurrent_writers_version() {
     assert_eq!(nm.saved_secret("saved", SECURITY, "psk").as_deref(), Some("old-password"));
     no_disruption(&nm);
 }
+
+#[tokio::test]
+async fn a_saved_password_reenables_autoconnect_on_an_existing_profile() {
+    let (_bus, nm, mut daemon) = setup().await;
+    // A profile that was left with autoconnect off; joining it with a typed password should turn it back on.
+    let settings = std::collections::HashMap::from([
+        ("connection".into(), Props::from([("uuid".into(), value("saved")), ("id".into(), value("Home")), ("type".into(), value("802-11-wireless")), ("autoconnect".into(), value(false)), ("timestamp".into(), value(100u64))])),
+        ("802-11-wireless".into(), Props::from([("ssid".into(), value(b"Home".to_vec()))])),
+        (SECURITY.into(), Props::from([("key-mgmt".into(), value("wpa-psk")), ("psk".into(), value("old-password"))])),
+    ]);
+    nm.add_profile(settings).await.unwrap();
+    assert!(!nm.setting("saved", "connection", "autoconnect").unwrap().downcast_ref::<bool>().unwrap());
+    let reply = daemon.call("network.connectWifi", json!({"operation":"reenable", "ssid":"Home", "uuid":"saved", "password":"new-password"})).await;
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["result"]["saved"], true, "{reply}");
+    assert!(nm.setting("saved", "connection", "autoconnect").unwrap().downcast_ref::<bool>().unwrap(), "{:?}", nm.calls());
+    no_disruption(&nm);
+}
+
+#[tokio::test]
+async fn connecting_by_name_reuses_a_compatible_saved_profile_instead_of_duplicating_it() {
+    let (_bus, nm, mut daemon) = setup().await;
+    nm.add_wifi_profile("saved", b"Home", "wpa-psk", "old-password", 100).await.unwrap();
+    // No UUID given: the saved profile for the visible network is activated, not added again as "Home 1".
+    let reply = daemon.call("network.connectWifi", json!({"operation":"reuse", "ssid":"Home", "password":"new-password"})).await;
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["result"]["saved"], true, "{reply}");
+    assert_eq!(nm.profile_count(), 1, "{:?}", nm.calls());
+    assert_eq!(nm.saved_profile_count(), 1, "{:?}", nm.calls());
+    assert!(!nm.calls().iter().any(|call| call.starts_with("AddAndActivateConnection2") || call.starts_with("AddConnection2")), "{:?}", nm.calls());
+    assert!(nm.calls().iter().any(|call| call == "ActivateConnection"), "{:?}", nm.calls());
+    assert_eq!(nm.saved_secret("saved", SECURITY, "psk").as_deref(), Some("new-password"));
+    no_disruption(&nm);
+}
+
+#[tokio::test]
+async fn a_network_with_a_system_saved_password_is_not_shown_as_never_used() {
+    let (_bus, nm, mut daemon) = setup().await;
+    // Never joined (timestamp 0) but the service already stores the password (psk-flags 0): don't ask again.
+    let security = Props::from([("key-mgmt".into(), value("wpa-psk")), ("psk".into(), value("system-password")), ("psk-flags".into(), value(0u32))]);
+    nm.add_secret_profile("saved", b"Home", security).await.unwrap();
+    let state = daemon.wait_network("the network with a saved password", |state| state["networks"].as_array().is_some_and(|rows| rows.iter().any(|row| row["savedUuid"] == "saved"))).await;
+    let row = state["networks"].as_array().unwrap().iter().find(|row| row["savedUuid"] == "saved").expect("the saved row");
+    assert_eq!(row["neverUsed"], false, "{row}");
+    assert!(row["savedCredentials"].as_bool().unwrap(), "{row}");
+    no_disruption(&nm);
+}

@@ -171,7 +171,7 @@ impl Operations {
         Ok(waiting.answer.take().is_some_and(|answer| answer.send(password).is_ok()))
     }
 
-    pub async fn connect(&self, request: Connect, out: mpsc::UnboundedSender<String>) -> Result<Value, ApiError> {
+    pub async fn connect(&self, request: Connect, out: mpsc::UnboundedSender<String>, snapshots: &NmClient) -> Result<Value, ApiError> {
         if request.operation.is_empty() || request.operation.len() > 128 || !request.operation.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-') {
             return Err(ApiError::invalid("Invalid connection operation"));
         }
@@ -214,7 +214,7 @@ impl Operations {
             if active.is_some() { return Err(ApiError::new(ErrorCode::Conflict, "Another Wi-Fi connection is still in progress")); }
             *active = Some(Arc::clone(&operation));
         }
-        let result = run(&connection, &client, &operation, prepared, &request, &mut budget).await;
+        let result = run(&connection, &client, snapshots, &operation, prepared, &request, &mut budget).await;
         operation.canceled.send_replace(true);
         operation.waiting.lock().expect("operation lock").answer = None;
         let _ = connection.close().await;
@@ -274,7 +274,24 @@ async fn prepare(client: &NmClient, request: &Connect) -> Result<Prepared, ApiEr
     if !request.hidden && !request.bssid.is_empty() && target.is_none() {
         return Err(ApiError::new(ErrorCode::NotFound, "The network is out of range"));
     }
-    let (path, settings, security, repair_security) = if request.uuid.is_empty() {
+    // A saved profile for this name is reactivated, never duplicated: adding a fresh one with the same
+    // id only makes the service store a second as "name 2". Reuse it when the caller gave no UUID, but
+    // only where a network actually grounds the name — an out-of-range lookalike must not grab one.
+    let desired = match target {
+        Some(network) => Some(network.security_type),
+        None => match request.security.as_str() {
+            "none" | "open" => Some(Security::None),
+            "sae" => Some(Security::Sae),
+            "wpa-psk" => Some(Security::WpaPsk),
+            _ => None,
+        },
+    };
+    let resolved_uuid = if request.uuid.is_empty() && (target.is_some() || request.hidden) {
+        model::profile_for_ssid(&snapshot.profiles, &request.ssid, desired).map(|profile| profile.uuid.clone()).unwrap_or_default()
+    } else {
+        request.uuid.clone()
+    };
+    let (path, settings, security, repair_security) = if resolved_uuid.is_empty() {
         if target.is_none() && !request.hidden { return Err(ApiError::new(ErrorCode::NotFound, "The network is out of range")); }
         let security = if request.hidden {
             match request.security.as_str() {
@@ -291,7 +308,7 @@ async fn prepare(client: &NmClient, request: &Connect) -> Result<Prepared, ApiEr
         section.insert("autoconnect".into(), owned(false));
         (None, settings, security, false)
     } else {
-        let path = client.find_profile(&request.uuid).await?;
+        let path = client.find_profile(&resolved_uuid).await?;
         let mut settings = client.settings(&path).await?;
         if settings.get("connection").is_none_or(|section| values::text_or_empty(section, "type") != "802-11-wireless") {
             return Err(ApiError::invalid("This connection is not a Wi-Fi network"));
@@ -343,7 +360,7 @@ async fn version(client: &NmClient, path: &str) -> Result<u64, ApiError> {
     Ok(version)
 }
 
-async fn run(connection: &Connection, client: &NmClient, operation: &Arc<Operation>, prepared: Prepared, request: &Connect, budget: &mut WorkBudget) -> Result<Value, ApiError> {
+async fn run(connection: &Connection, client: &NmClient, snapshots: &NmClient, operation: &Arc<Operation>, prepared: Prepared, request: &Connect, budget: &mut WorkBudget) -> Result<Value, ApiError> {
     let mut restore = None;
     // The profile revision this operation owns. Saving later must write against it, not against
     // whatever a concurrent editor left behind while the connection was activating.
@@ -426,7 +443,12 @@ async fn run(connection: &Connection, client: &NmClient, operation: &Arc<Operati
     };
     let secret = operation.waiting.lock().expect("operation lock").secret.clone();
     let save = tokio::time::timeout(WORK_TIMEOUT, async {
-        if prepared.path.is_some() && secret.is_none() { return Ok(()); }
+        if prepared.path.is_some() && secret.is_none() {
+            // Activation nudges a profile's timestamp without sending "Updated", so the cache the UI
+            // reads keeps the stale one; dropping it here lets the next snapshot see the network as used.
+            if let Some(path) = &prepared.path { snapshots.invalidate_profile(path); }
+            return Ok(());
+        }
         let path = operation.waiting.lock().expect("operation lock").path.clone().ok_or_else(|| ApiError::new(ErrorCode::NotFound, NOT_SAVED))?;
         // An existing profile is saved against the revision this operation owned before activating,
         // so a write that landed in between is refused by NetworkManager rather than overwritten.
@@ -441,6 +463,7 @@ async fn run(connection: &Connection, client: &NmClient, operation: &Arc<Operati
             return Err(ApiError::new(ErrorCode::SecretsRequired, NOT_SAVED));
         }
         let mut settings = settings_with_secrets(client, &path, plain).await?;
+        let typed = secret.is_some();
         if let Some(secret) = secret {
             let (key, flags_key) = secret_key(prepared.security);
             let section = settings.entry(SECURITY.into()).or_default();
@@ -448,7 +471,9 @@ async fn run(connection: &Connection, client: &NmClient, operation: &Arc<Operati
             if flags != 0 { return Err(ApiError::new(ErrorCode::SecretsRequired, NOT_SAVED)); }
             section.insert(key.into(), owned(secret.expose()));
         }
-        if prepared.path.is_none() { settings.get_mut("connection").expect("connection section").insert("autoconnect".into(), owned(true)); }
+        // A profile created here or a saved password written into an existing one should join on its own.
+        // An existing profile touched without a password keeps whatever autoconnect the person set.
+        if prepared.path.is_none() || typed { settings.get_mut("connection").expect("connection section").insert("autoconnect".into(), owned(true)); }
         update(client, &path, &settings, 0x1, expected).await
     }).await.unwrap_or_else(|_| Err(ApiError::new(ErrorCode::Timeout, NOT_SAVED)));
     Ok(json!({ "active": active, "saved": save.is_ok(), "warning": if save.is_err() { NOT_SAVED } else { "" } }))

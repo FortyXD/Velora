@@ -194,7 +194,7 @@ impl Service {
             }
             "network.connectWifi" => {
                 let request: wifi::Connect = params(parameters)?;
-                let result = self.wifi.connect(request, self.out.clone()).await;
+                let result = self.wifi.connect(request, self.out.clone(), &self.network).await;
                 self.network.changed.notify_one();
                 result
             }
