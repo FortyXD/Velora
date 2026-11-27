@@ -9,6 +9,7 @@ Item {
     readonly property var page: host.currentPageItem
     property int step: 0
     property var observedBoard: null
+    readonly property bool mapSettled: !!observedBoard && observedBoard.displayedKeys === observedBoard.keys && !observedBoard.switchingLayout
     property int transitions: 0
     Connections {
         target: root.observedBoard
@@ -103,7 +104,7 @@ Item {
                 break;
             }
             case 2: {
-                if (preview.keymap.AD01?.levels[0] !== "й" || root.observedBoard.switchingLayout) return;
+                if (preview.keymap.AD01?.levels[0] !== "й" || !root.mapSettled) return;
                 if (!root.check(preview.keymap.AD01.levels[0] === "й" && root.find("keyboardKey-AD01").upper === "Й"
                                 && field.text === "a" && field.activeFocus && preview.keyBindings.AD01[0].id === "q"
                                 && root.transitions > 0, "layout change lost its animation, input or physical shortcut")) return;
@@ -133,7 +134,7 @@ Item {
                 break;
             }
             case 4: {
-                if (preview.sourceMap.displayedId !== "us/intl" || root.observedBoard.switchingLayout) return;
+                if (preview.sourceMap.displayedId !== "us/intl" || !root.mapSettled) return;
                 if (!root.check(preview.index === 0 && preview.variant === "intl" && root.find("keyboardKey-AD01").upper === "Q",
                                 "rapid layout changes lost the final XKB variant")) return;
                 root.find("keyboardPreviewLayout").selected(1);
@@ -142,7 +143,7 @@ Item {
             case 5: {
                 // The offscreen compositor stub reports Russian only after the selector switches the right device and group.
                 if (preview.layout !== "ru") { HyprlandXkb.refreshDevices(); return; }
-                if (preview.sourceMap.displayedId !== "ru/" || root.observedBoard.switchingLayout) return;
+                if (preview.sourceMap.displayedId !== "ru/" || !root.mapSettled) return;
                 if (!root.check(preview.index === 1 && root.find("keyboardKey-AD01").upper === "Й" && field.text === "a",
                                 "selecting the input layout lost the key labels or typed text")) return;
                 root.clickKey("LCTL");
