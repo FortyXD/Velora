@@ -121,6 +121,13 @@ impl NmClient {
         self.cache.lock().expect("no panics while holding this lock").profiles.remove(path);
     }
 
+    /// Drops a cached profile and asks for a fresh snapshot. Activation nudges a profile's timestamp
+    /// without sending "Updated", so the stale copy must go or a known network still reads as never-used.
+    pub(crate) fn invalidate_profile(&self, path: &str) {
+        self.forget_profile(path);
+        self.changed.notify_one();
+    }
+
     pub async fn is_running(&self) -> bool {
         self.objects().await.is_ok()
     }

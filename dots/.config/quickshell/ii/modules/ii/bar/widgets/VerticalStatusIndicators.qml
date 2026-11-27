@@ -38,6 +38,14 @@ RippleButton {
 
     onPressed: GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen
 
+    // Same rule as the horizontal cluster: right-click on the network icon opens its Wi-Fi dialog,
+    // elsewhere it toggles the sidebar
+    altAction: (event) => {
+        const point = networkIndicator.mapFromItem(root, event.x, event.y);
+        if (networkIndicator.visible && networkIndicator.contains(point)) GlobalStates.showSidebarDialog("wifi");
+        else GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen;
+    }
+
     ColumnLayout {
         id: indicatorsColumnLayout
         anchors.centerIn: parent
@@ -93,6 +101,7 @@ RippleButton {
             }
         }
         NetworkIndicator {
+            id: networkIndicator
             visible: root.shows("showNetwork")
             Layout.alignment: Qt.AlignHCenter
             color: root.colText

@@ -63,7 +63,10 @@ Button {
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         onPressed: (event) => { 
             if(event.button === Qt.RightButton) {
+                // With no alt action, the right click belongs to whatever is behind the button
+                // (the bar's own right-click handling), so let it propagate instead of swallowing it
                 if (root.altAction) root.altAction(event);
+                else event.accepted = false;
                 return;
             }
             if(event.button === Qt.MiddleButton) {
