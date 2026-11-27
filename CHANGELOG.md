@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2 — 2026-11-27
+
+- Compare a desktop preset with the current setup before choosing which parts to apply. Wallpaper settings include recent backgrounds and previews of built-in animations. The lock screen and GDM greeter support separate backgrounds.
+- Settings adds a storage explorer, keyboard and shortcut maps, and controls for default apps. Power analytics shows estimated per-application usage alongside measured battery discharge when available.
+- Network settings can import VPN profiles and proxy subscriptions. The optional VPN component includes NetworkManager plugins and the sing-box engine.
+- The opt-in local assistant can work with an attached folder, run approved tasks and use application accessibility controls. Model settings include context size, memory retention and optional preparation after login.
+- The installer migrates personal settings to `~/.config/velora/` and preserves existing Velora files. Settings can run an update in the background and show its progress when reopened.
+- btop and tmux follow the terminal palette. Fresh neofetch configurations use the two-color Velora logo. The README recordings show the updated desktop.
+
 ## 0.2.1 — 2026-11-18
 
 - Toolbox, Quick Look, thumbnail management, recording, wallpaper palettes and battery analytics now use native Rust helpers. The sidebar's offline translator runs on demand and reuses its installed models.
