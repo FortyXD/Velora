@@ -74,7 +74,14 @@ external power. Enable it in Settings → Search.
 **Desktop assistant:** the optional [assistant harness](docs/assistant.md) adds
 local Ollama or API dialogue, typed desktop actions, confirmed terminal commands
 and application interaction. It works on CPU, supports larger custom models,
-and starts models only on demand. Lens remains usable independently.
+and can prepare the local CPU model on external power when memory permits.
+The switch is **Settings → AI → Models & connections → Prepare the local assistant after login**. Lens remains usable independently.
+
+Open **Settings → AI → Models & connections** to pick a local model, set conversation context and choose when to release its memory. Gemma 4 E4B is the default local model and passed all 42 language and tool checks. Ministral 3 3B was the fastest in the desktop-action check. A local assistant can find apps, windows and file names without asking. Under **AI → File access** you can turn this off or choose trusted folders for reading. **Settings → Search** controls launcher sources, personal folders and indexing. [Assistant settings](docs/assistant.md)
+
+Attach a working folder to ask the assistant to process its files and check the resulting output. It can run a Python, Bash or JavaScript program, show the proposed file changes for approval, and operate controls exposed by an application's accessibility interface. [Desktop tasks and permissions](docs/assistant.md)
+
+In **Settings → Lock screen → Background and motion**, choose an image, GIF, animated WebP or muted video. The Velora GDM login screen can follow the desktop, match the lock screen or use its own file. [Lock and login backgrounds](docs/desktop-extras.md)
 
 **Arch Linux is the only supported distribution.** Start with working graphics drivers, a normal user account, network access, and sudo configured. Velora uses Hyprland's Lua configuration format.
 
@@ -157,7 +164,7 @@ Build a package archive without installing it:
 ./velora package --output ./artifacts/release
 ```
 
-Official dependencies come from pacman. AUR packages use **yay** or **paru**; if neither is installed, the installer builds yay from its AUR recipe. Source builds fetch recipes from Arch's packaging repositories or AUR and use makepkg. Package managers retain their normal prompts. Dependencies are managed directly, without the old `illogical-impulse-*` metapackages.
+Official dependencies come from pacman. AUR packages use **yay** or **paru**. If neither is installed, the installer builds yay from its AUR recipe. Source builds fetch recipes from Arch's packaging repositories or AUR and use makepkg. Package managers retain their normal prompts.
 
 | Flag | Behavior |
 | --- | --- |
@@ -165,7 +172,7 @@ Official dependencies come from pacman. AUR packages use **yay** or **paru**; if
 | `--with-aur` | Enable AUR packages, overriding a saved `--skip-aur` preference. |
 | `--no-reload` | Keep the current Hyprland session running without a reload. |
 | `--no-updates` | Disable scheduled update checks. |
-| `--login-manager gdm` | Opt into GNOME's graphical login screen; `existing`, `sddm` and `skip` are also available. |
+| `--login-manager gdm` | Use GNOME's login screen with the Velora appearance. Use `existing` to retain another manager or `skip` to skip login setup. |
 | `--yes` | Accept the installer plan; pacman and AUR helpers still prompt normally. |
 
 Checkout installations link configuration into the repository, so keep the checkout in place. Package installations include Velora's actual source and maintenance tools and keep writable configuration under `~/.local/share/velora/runtime/`, preserving local edits when refreshing templates.
@@ -185,8 +192,11 @@ Checkout installations link configuration into the repository, so keep the check
 | `Super+Shift+I` | Toolbox |
 | `Super+N` | Quick settings and notifications |
 | `Super+L` | Lock the screen |
+| `Super+H` | Open Hiddify VPN |
 
-Open **Settings → Presets** to save your current look. Visit **Settings → Wallpaper** for local images, online sources, live wallpapers, and animated backgrounds. Unsplash, Pexels, and Pixabay require your own API keys.
+Open **Settings → Presets** to save your current look. **Settings → Wallpaper** shows your three most recently applied backgrounds. You can preview one again, choose a picture or shuffle wallpapers. **Live wallpapers** lets you pick a video or preview a built-in animation. **Motion** controls playback and parallax. Manage daily pictures, online providers and their API keys in **Settings → Advanced → Wallpaper sources**.
+
+Import a VPN link or subscription with **Settings → Connections → From clipboard**, then choose **Connect**. In the GPU widget, hover to see the selected graphics profile and the discrete GPU’s actual power state. **Battery → Power analytics** shows the measured total alongside estimated application and system watts.
 
 ## Updates
 
@@ -194,9 +204,9 @@ Open **Settings → Presets** to save your current look. Visit **Settings → Wa
 
 1. Open **Settings → General → Software Update**.
 2. Choose published GitHub releases or your tracked branch, and toggle automatic checks.
-3. When a version is available, select **Install update** and confirm in the terminal.
+3. Select **Install update**, or **Finish update** if the new files are already installed. Settings shows progress and requests administrator authorization when needed.
 
-The page shows installed and available versions. Background checks run approximately every six hours; opening the page also checks when automatic checks are enabled. **Update Velora** in the application launcher opens the same installation flow. Package installations build and install a new Velora package from the selected GitHub source.
+A dot in the status indicators opens this page when a Velora update is available. **Optional components** shows missing packages and lets you resume incomplete installations. The page shows installed and available versions. Background checks run approximately every six hours; opening the page also checks when automatic checks are enabled. **Update Velora** in the application launcher opens the same installation flow. Package installations build and install a new Velora package from the selected GitHub source.
 
 ```bash
 velora update --check
@@ -250,7 +260,7 @@ tests/                 Installer and updater regression tests
 licenses/              Third-party notices and license texts
 ```
 
-Internal paths such as `quickshell/ii`, `illogical-impulse`, and `folis` remain in use for compatibility with existing configurations and integrations.
+Velora stores personal settings in `~/.config/velora/config.json`. Use `velora update` to import settings, presets and actions from an earlier installation, including after a manual `git pull` or package upgrade. Existing Quickshell shortcuts can keep using `qs -c ii`. See the [upgrade guide](docs/updates.md#upgrading-from-the-illogical-impulse-settings-directory).
 
 </details>
 
