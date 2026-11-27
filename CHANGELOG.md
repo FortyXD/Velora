@@ -7,6 +7,7 @@
 - Network settings can import VPN profiles and proxy subscriptions. The optional VPN component includes NetworkManager plugins and the sing-box engine.
 - The opt-in local assistant can work with an attached folder, run approved tasks and use application accessibility controls. Model settings include context size, memory retention and optional preparation after login.
 - The installer migrates personal settings to `~/.config/velora/` and preserves existing Velora files. Settings can run an update in the background and show its progress when reopened.
+- GDM can use the desktop palette and shader wallpapers. The installer repairs incomplete dependencies on existing Hyprland installations and configures the Velora login screen. Thanks to @YakuninVladimir for #27, #28, #29 and #30.
 - btop and tmux follow the terminal palette. Fresh neofetch configurations use the two-color Velora logo. The README recordings show the updated desktop.
 
 ## 0.2.1 — 2026-11-18

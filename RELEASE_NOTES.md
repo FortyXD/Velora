@@ -13,6 +13,10 @@ You can now compare a preset with your current desktop by dragging a divider, ch
 - Network & VPN can import connection files, proxy links and subscriptions. The optional VPN component includes NetworkManager plugins and sing-box.
 - The opt-in local assistant can work with an attached folder, propose file changes for approval and operate controls exposed through application accessibility. You can choose trusted folders, set model context and memory retention, and enable model preparation after login. [Assistant guide](https://github.com/FortyXD/Velora/blob/v0.2.2/docs/assistant.md)
 
+## Community contributions
+
+Thanks to @YakuninVladimir for bringing the desktop palette and built-in shader wallpapers to GDM, repairing dependencies on existing Hyprland installations, and setting up the Velora login screen during installation. [#27](https://github.com/FortyXD/Velora/pull/27) · [#28](https://github.com/FortyXD/Velora/pull/28) · [#29](https://github.com/FortyXD/Velora/pull/29) · [#30](https://github.com/FortyXD/Velora/pull/30)
+
 ## Install or update
 
 Existing users can open **Settings → General → Software Update** or run `velora update --interactive --channel release`. Updates started in Settings continue when the window closes. Reopen it to see progress or finish a pending installation.
