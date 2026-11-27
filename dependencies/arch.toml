@@ -210,7 +210,7 @@ aur = ["mpvpaper"]
 [features.assistant]
 description = "Optional local assistant (CPU Ollama and application accessibility)"
 required = false
-repo = ["ollama", "at-spi2-core", "python-gobject"]
+repo = ["ollama", "at-spi2-core", "python-gobject", "nodejs"]
 aur = []
 
 [features.vpn]
