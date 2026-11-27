@@ -25,6 +25,7 @@ jobs:
       - name: Run isolated installer and updater tests
         env:
           VELORA_TEST_PREBUILT: "1"
+          VELORA_REQUIRE_SANDBOX_TESTS: "1"
         run: python3 -m unittest discover -s tests -v
       - name: Validate dependency components
         run: ./velora components

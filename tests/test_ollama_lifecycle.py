@@ -7,11 +7,13 @@ import time
 import unittest
 
 import test_agent
+from sandbox_support import require_sandbox
 
 
 @unittest.skipUnless(os.environ.get("VELORA_TEST_PREBUILT"), "requires tests/run_isolated.py")
 class OllamaLifecycle(unittest.TestCase):
     def setUp(self):
+        require_sandbox(self)
         self.fixture = test_agent.AgentTests()
         self.fixture.setUp()
         self.addCleanup(self.fixture.tearDown)
