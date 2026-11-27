@@ -59,6 +59,18 @@ ContentPage {
         ApplicationWindow.window?.openPage(page.isWifi ? "wifi" : "connections");
     }
 
+    ContentSection {
+        visible: page.isVpn || page.isWireGuard
+        icon: "network_ping"
+        title: Translation.tr("VPN server")
+        VpnServerPing {
+            Layout.fillWidth: true
+            suggestedHost: ProfileEditor.value("vpn.data.remote", "") || ProfileEditor.value("vpn.data.gateway", "")
+                || ProfileEditor.value("vpn.data.IPSec gateway", "") || ProfileEditor.value("vpn.data.address", "")
+                || (ProfileEditor.value("wireguard.peers", [])?.[0]?.endpoint ?? "")
+        }
+    }
+
     onPageShownChanged: if (!page.pageShown) ProfileEditor.forgetSecrets()
 
     NoticeBox {
@@ -544,6 +556,23 @@ ContentPage {
                     newVpnKey.text = "";
                     newVpnValue.text = "";
                 }
+            }
+        }
+        ColumnLayout {
+            visible: !page.isOpenVpn
+            Layout.fillWidth: true
+            ConfigTextRow {
+                id: vpnSecretName
+                icon: "key"
+                label: Translation.tr("VPN secret name")
+                value: "password"
+            }
+            ProfileSecretField {
+                visible: vpnSecretName.value.trim().length > 0
+                fieldKey: "vpn.secrets." + vpnSecretName.value.trim()
+                onFieldKeyChanged: revealed = false
+                flagsKey: "vpn.data." + vpnSecretName.value.trim() + "-flags"
+                flagsAsText: true
             }
         }
     }

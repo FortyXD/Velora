@@ -80,11 +80,19 @@ class ConnectivityQmlTests(unittest.TestCase):
             write_singletons(root, {
                 'ConnectivityBackend': 'property var network: ({}); property string problem: ""; property var calls: []; signal event(string name, var data); '
                 'function call(method, params, done) { calls = calls.concat([{ method, params, done }]); }',
+                'Browser': 'property string opened; property bool available: true; function open(url) { opened = url; return available; }',
             })
-            (root / 'Network.qml').write_text(production('services/Network.qml'))
+            (root / 'Network.qml').write_text(production('services/Network.qml', [
+                ('id: portalProbe', 'id: portalProbe; objectName: "wifiPortalProbe"'),
+                ('Qt.openUrlExternally(url)', 'Browser.open(url)'),
+            ]))
             (root / 'WifiAccessPoint.qml').write_text(production('services/network/WifiAccessPoint.qml'))
+            (root / 'WifiPortalProbe.qml').write_text(production('services/network/WifiPortalProbe.qml'))
+            (root / 'StringUtils.qml').write_text(production('modules/common/functions/StringUtils.qml'))
+            (root / 'StdioCollector.qml').write_text('import QtQuick\nQtObject { property string text }')
             with (root / 'qmldir').open('a') as file:
-                file.write('singleton Network 1.0 Network.qml\nWifiAccessPoint 1.0 WifiAccessPoint.qml\n')
+                file.write('singleton Network 1.0 Network.qml\nWifiAccessPoint 1.0 WifiAccessPoint.qml\n'
+                           'singleton StringUtils 1.0 StringUtils.qml\n')
             self.run_tests(root, 'tst_connectivity_network.qml')
 
 
@@ -108,14 +116,16 @@ class ConnectivityQmlTests(unittest.TestCase):
                 'Appearance': 'property var colors: ({colSubtext:"gray", colOnLayer3:"white", colSecondaryContainer:"blue", '
                 'colOnSecondaryContainer:"white", colLayer3Hover:"gray", colLayer3:"black", colError:"red", '
                 'colPrimary:"blue", colPrimaryHover:"blue", colPrimaryActive:"blue", colOnPrimary:"white"}); '
-                'property var rounding: ({small:4, full:100}); property var font: ({family:{main:"sans-serif"}, pixelSize:{small:12, smaller:10}})',
+                'property var rounding: ({small:4, full:100}); property var font: ({family:{main:"sans-serif", monospace:"monospace"}, pixelSize:{small:12, smaller:10}})',
+                'ConnectivityBackend': 'property var calls: []; function call(method, params, done) { calls = calls.concat([{method, params, done}]); }',
             })
             (root / 'PasswordForm.qml').write_text(production('modules/settings/network/PasswordForm.qml'))
+            (root / 'SavedPasswordBox.qml').write_text(production('modules/settings/network/SavedPasswordBox.qml'))
             (root / 'RippleButton.qml').write_text(
                 'import QtQuick\nimport QtQuick.Controls\nButton { property bool toggled; property real buttonRadius; '
                 'property color colBackgroundToggled; property color colBackgroundToggledHover; '
                 'property color colBackground; property color colBackgroundHover; property color colRipple }')
-            (root / 'DialogButton.qml').write_text('import QtQuick\nRippleButton { property string buttonText; property color colEnabled }')
+            (root / 'DialogButton.qml').write_text('import QtQuick\nRippleButton { property string buttonText; text: buttonText; property color colEnabled }')
             (root / 'StyledText.qml').write_text('import QtQuick\nText {}')
             (root / 'MaterialSymbol.qml').write_text('import QtQuick\nText { property real iconSize }')
             (root / 'StyledToolTip.qml').write_text('import QtQuick\nItem { property string text }')

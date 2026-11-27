@@ -55,6 +55,30 @@ Item {
             compare(Network.wifiStatus, "disconnected");
         }
 
+        function test_portal_opens_web_redirect_or_http_probe() {
+            const probe = findChild(Network, "wifiPortalProbe");
+            verify(probe);
+            for (const row of [
+                ["http://check.test/status", "https://wifi.test/login?ticket=abc", "https://wifi.test/login?ticket=abc"],
+                ["http://check.test/status", "", "http://check.test/status"],
+                ["https://check.test/", "file:///tmp/test", "http://neverssl.com/"],
+                ["", "", "http://neverssl.com/"]
+            ]) {
+                publish({connectivity:"portal", connectivityCheckUri:row[0]});
+                Network.openPublicWifiPortal();
+                compare(probe.command[probe.command.length - 1], row[0].startsWith("http:") ? row[0] : "http://neverssl.com/");
+                probe.stdout.text = row[1];
+                probe.running = false;
+                probe.exited(0, 0);
+                compare(Browser.opened, row[2]);
+            }
+            Browser.available = false;
+            Network.openPublicWifiPortal();
+            probe.exited(1, 0);
+            verify(Network.connectionWarning.includes("http://neverssl.com/"));
+            Browser.available = true;
+        }
+
         function test_network_objects_survive_updates_and_go_when_the_network_does() {
             publish({ networks: [ap("Home", { strength: 40 })] });
             const home = network("Home");

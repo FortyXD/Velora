@@ -12,7 +12,7 @@ ColumnLayout {
     readonly property int activeState: root.profile?.activeState ?? 0
     readonly property bool active: root.activeState === 2
     readonly property bool busy: root.activeState === 1 || root.starting
-    readonly property bool exportable: ["openvpn", "vpnc", "wireguard"].includes(root.profile?.vpnType ?? "")
+    readonly property bool exportable: ["vpn", "wireguard"].includes(root.profile?.connectionType ?? "")
     property bool starting: false
     property string errorText: ""
 

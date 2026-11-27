@@ -11,13 +11,13 @@ import qs.modules.common.widgets
  */
 ColumnLayout {
     id: root
+    objectName: "profileSecretField"
     required property string fieldKey
     property string label: Translation.tr("Password")
     property string flagsKey: "" // Empty when this password has no storage choice
     property bool flagsAsText: false // A VPN's flags are text in its data dictionary
     property bool revealed: false
 
-    readonly property string typed: ProfileEditor.changes[root.fieldKey] ?? ""
     readonly property string saved: ProfileEditor.secrets[root.fieldKey] ?? ""
     readonly property var storageOptions: [
         { displayName: Translation.tr("For all users (kept by the system)"), value: 0 },
@@ -31,18 +31,14 @@ ColumnLayout {
     }
     readonly property bool hasStored: root.storage === 0 || root.storage === 1
 
-    function show(): void {
-        const text = root.typed || (root.revealed ? root.saved : "");
-        if (field.text !== text) field.text = text;
-    }
-
     function toggleReveal(): void {
         root.revealed = !root.revealed;
-        if (root.revealed && root.saved.length === 0 && !ProfileEditor.isNew) ProfileEditor.readSecrets(() => root.show());
-        else root.show();
+        if (root.revealed && !(root.fieldKey in ProfileEditor.changes) && !root.saved && !ProfileEditor.isNew)
+            ProfileEditor.readSecrets(null);
     }
 
-    onSavedChanged: root.show()
+    onVisibleChanged: if (!visible) root.revealed = false
+    onHasStoredChanged: if (!hasStored) root.revealed = false
     Layout.fillWidth: true
     Layout.leftMargin: 12
     Layout.rightMargin: 12
@@ -52,10 +48,8 @@ ColumnLayout {
 
     Connections {
         target: ProfileEditor
-        function onReloaded() {
-            root.revealed = false;
-            root.show();
-        }
+        function onSecretGenerationChanged() { root.revealed = false; }
+        function onReloaded() { root.revealed = false; }
     }
 
     StyledText {
@@ -71,8 +65,11 @@ ColumnLayout {
 
         TextField {
             id: field
+            objectName: "profileSecretInput"
             Layout.fillWidth: true
+            text: root.fieldKey in ProfileEditor.changes ? (ProfileEditor.changes[root.fieldKey] ?? "") : (root.revealed ? root.saved : "")
             echoMode: root.revealed ? TextInput.Normal : TextInput.Password
+            inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
             placeholderText: ProfileEditor.isNew ? Translation.tr("Password") : Translation.tr("Saved, unchanged")
             placeholderTextColor: Appearance.colors.colSubtext
             color: Appearance.colors.colOnLayer2

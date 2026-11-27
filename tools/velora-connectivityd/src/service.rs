@@ -134,6 +134,7 @@ struct AddProfile {
 #[derive(Deserialize)]
 struct ImportFile {
     path: String,
+    protocol: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -255,8 +256,8 @@ impl Service {
                 Ok(json!({ "uuid": self.network.add_profile(&connection_type, vpn_service.as_deref(), &changes).await? }))
             }
             "network.importVpn" => {
-                let ImportFile { path } = params(parameters)?;
-                Ok(json!({ "uuid": self.network.import_vpn(&path).await? }))
+                let ImportFile { path, protocol } = params(parameters)?;
+                Ok(json!({ "uuid": self.network.import_vpn(&path, protocol.as_deref()).await? }))
             }
             "network.exportVpn" => {
                 let ExportFile { uuid, path } = params(parameters)?;

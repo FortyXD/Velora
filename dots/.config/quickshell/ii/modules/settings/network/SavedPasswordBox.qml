@@ -16,8 +16,14 @@ ColumnLayout {
     property string errorText: ""
     property bool busy: false
     property bool copied: false
+    property int requestGeneration: 0
+
+    onUuidChanged: clear()
+    onVisibleChanged: if (!visible) clear()
 
     function clear(): void {
+        ++root.requestGeneration;
+        root.busy = false;
         root.revealed = "";
         root.qrImage = "";
         root.errorText = "";
@@ -30,19 +36,25 @@ ColumnLayout {
             : Translation.tr(error.message);
     }
 
+    function request(method, onSuccess): void {
+        if (!root.uuid || root.busy) return;
+        const generation = root.requestGeneration;
+        root.errorText = "";
+        root.busy = true;
+        ConnectivityBackend.call(method, { uuid: root.uuid }, (result, error) => {
+            if (generation !== root.requestGeneration) return;
+            root.busy = false;
+            if (error) root.showError(error);
+            else onSuccess(result);
+        });
+    }
+
     function toggleReveal(): void {
         if (root.revealed.length > 0) {
             root.revealed = "";
             return;
         }
-        root.errorText = "";
-        root.busy = true;
-        ConnectivityBackend.call("network.secrets", { uuid: root.uuid }, (result, error) => {
-            root.busy = false;
-            if (error) {
-                root.showError(error);
-                return;
-            }
+        root.request("network.secrets", result => {
             const secret = result.secrets.find(entry => entry.section === "802-11-wireless-security" && (entry.key === "psk" || entry.key === "wep-key0"));
             if (secret) root.revealed = secret.value;
             else root.showError({ code: "secrets_required" });
@@ -50,12 +62,7 @@ ColumnLayout {
     }
 
     function copy(): void {
-        root.errorText = "";
-        ConnectivityBackend.call("network.copyPassword", { uuid: root.uuid }, (result, error) => {
-            if (error) {
-                root.showError(error);
-                return;
-            }
+        root.request("network.copyPassword", () => {
             root.copied = true;
             copiedTimer.restart();
         });
@@ -66,13 +73,7 @@ ColumnLayout {
             root.qrImage = "";
             return;
         }
-        root.errorText = "";
-        root.busy = true;
-        ConnectivityBackend.call("network.qrCode", { uuid: root.uuid }, (result, error) => {
-            root.busy = false;
-            if (error) root.showError(error);
-            else root.qrImage = result.image;
-        });
+        root.request("network.qrCode", result => { root.qrImage = result.image; });
     }
 
     spacing: 8
@@ -143,6 +144,7 @@ ColumnLayout {
         visible: root.errorText.length > 0
         Layout.fillWidth: true
         text: root.errorText
+        textFormat: Text.PlainText
         wrapMode: Text.Wrap
         font.pixelSize: Appearance.font.pixelSize.smaller
         color: Appearance.colors.colError

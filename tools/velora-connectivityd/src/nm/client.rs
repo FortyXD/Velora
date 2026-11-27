@@ -598,9 +598,22 @@ impl NmClient {
 
     /// Reads a VPN configuration file with the matching plugin (or NetworkManager's WireGuard reader);
     /// returns the UUID of the profile it became. Only the file's path goes on the command line.
-    pub async fn import_vpn(&self, path: &str) -> Result<String, ApiError> {
-        let text = tokio::fs::read_to_string(path).await.map_err(|_| ApiError::new(ErrorCode::NotFound, "The file couldn't be read"))?;
-        let kind = vpn_file_kind(path, &text);
+    pub async fn import_vpn(&self, path: &str, protocol: Option<&str>) -> Result<String, ApiError> {
+        use tokio::io::AsyncReadExt;
+        let unreadable = || ApiError::new(ErrorCode::NotFound, "The file couldn't be read");
+        let meta = tokio::fs::metadata(path).await.map_err(|_| unreadable())?;
+        if !meta.is_file() { return Err(unreadable()) }
+        let kind = match protocol.filter(|p| !p.is_empty()) {
+            Some("wireguard") => "wireguard",
+            Some(service) if vpn_plugins().iter().any(|installed| installed == service) => service,
+            Some(_) => return Err(ApiError::invalid("The requested VPN plugin is not installed")),
+            None => {
+                let file = tokio::fs::File::open(path).await.map_err(|_| unreadable())?;
+                let mut header = Zeroizing::new(Vec::new());
+                file.take(65536).read_to_end(&mut header).await.map_err(|_| unreadable())?;
+                vpn_file_kind(path, &String::from_utf8_lossy(&header))
+            }
+        };
         let output = Command::new("nmcli")
             .args(["connection", "import", "type", kind, "file", path])
             .env("LC_ALL", "C")
@@ -661,7 +674,9 @@ fn write_private_export(target: &Path, contents: &[u8]) -> Result<(), ApiError> 
 }
 
 fn vpn_file_kind(path: &str, text: &str) -> &'static str {
-    if path.ends_with(".conf") && text.contains("[Interface]") {
+    if path.to_ascii_lowercase().ends_with(".pcf") {
+        "vpnc"
+    } else if text.lines().any(|line| line.trim() == "[Interface]") {
         "wireguard"
     } else {
         "openvpn"

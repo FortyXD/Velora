@@ -285,6 +285,7 @@ pub struct NetworkSnapshot {
     pub wwan_enabled: bool,
     pub wwan_hardware_enabled: bool,
     pub connectivity: &'static str,
+    pub connectivity_check_uri: String,
     pub wifi_status: &'static str,
     pub wifi_connected: bool,
     pub ethernet_connected: bool,
@@ -308,6 +309,7 @@ impl NetworkSnapshot {
             wwan_enabled: false,
             wwan_hardware_enabled: false,
             connectivity: "unknown",
+            connectivity_check_uri: String::new(),
             wifi_status: "disconnected",
             wifi_connected: false,
             ethernet_connected: false,
@@ -700,6 +702,7 @@ pub fn snapshot(objects: &Objects, profiles: &BTreeMap<String, Settings>, vpn_pl
         wwan_enabled: values::flag(manager, "WwanEnabled").unwrap_or(false),
         wwan_hardware_enabled: values::flag(manager, "WwanHardwareEnabled").unwrap_or(false),
         connectivity,
+        connectivity_check_uri: values::text_or_empty(manager, "ConnectivityCheckUri"),
         wifi_status: wifi_device.map_or("disconnected", |device| wifi_status_word(device.state, connectivity)),
         wifi_connected,
         ethernet_connected: ethernet.is_some_and(|device| device.state == 100),
@@ -738,6 +741,7 @@ mod tests {
                 ("WwanEnabled", owned(false)),
                 ("WwanHardwareEnabled", owned(false)),
                 ("Connectivity", owned(4u32)),
+                ("ConnectivityCheckUri", owned("http://check.test/network")),
             ]),
         );
         objects
@@ -1149,6 +1153,7 @@ mod tests {
         add_ap(&mut objects, "/ap/1", b"Home", "00:00:00:00:00:01", 40, PSK | SEC_KEY_SAE);
         let value = serde_json::to_value(snapshot(&objects, &BTreeMap::new(), &[])).unwrap();
         assert_eq!(value["wifiEnabled"], true);
+        assert_eq!(value["connectivityCheckUri"], "http://check.test/network");
         assert_eq!(value["networks"][0]["securityType"], "sae");
         assert_eq!(value["networks"][0]["security"], "WPA2 WPA3");
         assert_eq!(value["wifiDetails"]["interface"], "wlan0");

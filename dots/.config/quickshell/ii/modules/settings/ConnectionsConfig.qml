@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
+import Quickshell
 import QtQuick.Layouts
 import qs.services
 import qs.modules.common
@@ -14,6 +15,7 @@ ContentPage {
 
     property string errorText: ""
     property string exportUuid: ""
+    property string importProtocol: ""
     property bool adding: false
 
     // Stable lists, so rows aren't rebuilt with every snapshot (see WifiConfig)
@@ -44,7 +46,7 @@ ContentPage {
 
     function importFile(path: string): void {
         page.errorText = "";
-        ConnectivityBackend.call("network.importVpn", { path }, (result, error) => {
+        ConnectivityBackend.call("network.importVpn", { path, protocol: page.importProtocol }, (result, error) => {
             if (error) page.errorText = Translation.tr(error.message);
         });
     }
@@ -66,6 +68,7 @@ ContentPage {
     ContentSection {
         icon: "vpn_key"
         title: "VPN"
+        visible: page.vpnKeys.length > 0
         Repeater {
             model: page.vpnKeys
             delegate: ConnectionRow {
@@ -77,15 +80,14 @@ ContentPage {
                 }
             }
         }
-        StyledText {
-            visible: page.vpnKeys.length === 0
-            Layout.fillWidth: true
-            Layout.margins: 12
-            text: Translation.tr("No VPN yet. Add one below, or import its configuration file.")
-            wrapMode: Text.Wrap
-            font.pixelSize: Appearance.font.pixelSize.small
-            color: Appearance.colors.colSubtext
-        }
+    }
+
+    ProxyVpnSection { pageShown: page.pageShown }
+
+    ContentSection {
+        icon: "network_ping"
+        title: Translation.tr("Ping a VPN server")
+        VpnServerPing { Layout.fillWidth: true }
     }
 
     ContentSection {
@@ -116,10 +118,18 @@ ContentPage {
         icon: "add"
         title: Translation.tr("Add a connection")
 
+        ConfigComboRow {
+            icon: "vpn_key"
+            text: Translation.tr("Import protocol")
+            currentValue: page.importProtocol
+            options: [{ displayName: Translation.tr("Detect automatically"), value: "" }, { displayName: "WireGuard", value: "wireguard" }]
+                .concat(page.vpnKinds.map(kind => ({ displayName: kind.name, value: kind.service })))
+            onSelected: value => page.importProtocol = value
+        }
         ConfigNavRow {
             buttonIcon: "upload_file"
             title: Translation.tr("Import a VPN from a file")
-            description: Translation.tr("An OpenVPN .ovpn or WireGuard .conf file")
+            description: Translation.tr("Choose a configuration supported by the selected VPN plugin.")
             onClicked: importDialog.open()
         }
         Repeater {
@@ -171,13 +181,13 @@ ContentPage {
 
     FileDialog {
         id: importDialog
-        nameFilters: [Translation.tr("VPN configuration (*.ovpn *.conf)"), Translation.tr("All files (*)")]
+        nameFilters: [Translation.tr("VPN configuration (*.ovpn *.conf *.pcf)"), Translation.tr("All files (*)")]
         onAccepted: page.importFile(FileUtils.trimFileProtocol(decodeURIComponent(selectedFile.toString())))
     }
     FileDialog {
         id: exportDialog
         fileMode: FileDialog.SaveFile
-        nameFilters: [Translation.tr("VPN configuration (*.ovpn *.conf)")]
+        nameFilters: [Translation.tr("All files (*)")]
         onAccepted: page.exportTo(FileUtils.trimFileProtocol(decodeURIComponent(selectedFile.toString())))
     }
 }

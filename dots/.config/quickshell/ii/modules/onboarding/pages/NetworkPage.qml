@@ -4,6 +4,7 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.onboarding
+import qs.modules.settings.network
 import QtQuick
 import QtQuick.Layouts
 
@@ -36,6 +37,7 @@ PageScaffold {
             StyledText {
                 Layout.fillWidth: true
                 text: Translation.tr("Connected to %1").arg(Network.networkName)
+                textFormat: Text.PlainText
                 color: Appearance.colors.colOnLayer0
             }
         }
@@ -49,7 +51,8 @@ PageScaffold {
             required property var modelData
             required property int index
             order: 2 + Math.min(entry.index, 8)
-            readonly property bool asking: Network.passwordPromptKey === modelData.key
+            readonly property bool asking: Network.passwordPromptKey !== "" && Network.passwordPromptKey === modelData.key
+            readonly property bool connecting: Network.connectionPending && Network.wifiConnectKey === modelData.key
 
             Rectangle {
                 width: parent.width
@@ -74,6 +77,7 @@ PageScaffold {
                         StyledText {
                             Layout.fillWidth: true
                             text: entry.modelData.ssid
+                            textFormat: Text.PlainText
                             elide: Text.ElideRight
                             color: Appearance.colors.colOnLayer1
                         }
@@ -84,7 +88,8 @@ PageScaffold {
                             color: Appearance.colors.colSubtext
                         }
                         RippleButton {
-                            visible: !entry.modelData.active
+                            visible: !entry.modelData.active && (!entry.asking || (entry.connecting && !Network.awaitingPassword))
+                            enabled: !Network.connectionPending
                             implicitHeight: 32
                             implicitWidth: connectText.implicitWidth + 24
                             buttonRadius: height / 2
@@ -93,59 +98,28 @@ PageScaffold {
                             contentItem: StyledText {
                                 id: connectText
                                 horizontalAlignment: Text.AlignHCenter
-                                text: Network.wifiConnecting && Network.wifiConnectKey === entry.modelData.key
-                                    ? Translation.tr("Connecting…") : Translation.tr("Connect")
+                                text: entry.connecting ? Translation.tr("Connecting…") : Translation.tr("Connect")
                             }
                         }
                     }
                     // The password, right under its network
-                    RowLayout {
-                        visible: entry.asking
+                    Loader {
+                        active: entry.asking
+                        visible: active
                         Layout.fillWidth: true
-                        spacing: 8
-                        Rectangle {
-                            Layout.fillWidth: true
-                            implicitHeight: 40
-                            radius: Appearance.rounding.small
-                            color: Appearance.colors.colLayer2
-                            TextInput {
-                                id: password
-                                anchors.fill: parent
-                                anchors.leftMargin: 12
-                                anchors.rightMargin: 12
-                                verticalAlignment: Text.AlignVCenter
-                                echoMode: TextInput.Password
-                                color: Appearance.colors.colOnLayer2
-                                font.pixelSize: Appearance.font.pixelSize.normal
-                                onVisibleChanged: if (visible) forceActiveFocus()
-                                onAccepted: Network.changePassword(entry.modelData, text)
-                                StyledText {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    visible: password.text.length === 0
-                                    text: Translation.tr("Password")
-                                    color: Appearance.colors.colSubtext
-                                }
-                            }
-                        }
-                        RippleButton {
-                            implicitHeight: 40
-                            implicitWidth: joinText.implicitWidth + 28
-                            buttonRadius: height / 2
-                            colBackground: Appearance.colors.colPrimary
-                            colBackgroundHover: Appearance.colors.colPrimaryHover
-                            onClicked: Network.changePassword(entry.modelData, password.text)
-                            contentItem: StyledText {
-                                id: joinText
-                                horizontalAlignment: Text.AlignHCenter
-                                text: Translation.tr("Join")
-                                color: Appearance.colors.colOnPrimary
-                            }
+                        sourceComponent: PasswordForm {
+                            acceptText: Translation.tr("Join")
+                            errorText: entry.modelData.errorText ?? ""
+                            busy: entry.connecting && !Network.awaitingPassword
+                            onAccepted: password => Network.changePassword(entry.modelData, password)
+                            onCanceled: Network.cancelPasswordPrompt()
                         }
                     }
                     StyledText {
-                        visible: (entry.modelData.errorText ?? "").length > 0
+                        visible: !entry.asking && (entry.modelData.errorText ?? "").length > 0
                         Layout.fillWidth: true
                         text: entry.modelData.errorText ?? ""
+                        textFormat: Text.PlainText
                         color: Appearance.colors.colError
                         font.pixelSize: Appearance.font.pixelSize.small
                         wrapMode: Text.Wrap

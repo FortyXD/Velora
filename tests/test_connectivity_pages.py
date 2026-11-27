@@ -94,7 +94,6 @@ ShellRoot {
         Loader { id: device; anchors.fill: parent; source: "modules/settings/BluetoothDeviceConfig.qml" }
         Loader { id: options; anchors.fill: parent; source: "modules/settings/BluetoothOptionsConfig.qml" }
         Loader { id: keyboard; anchors.fill: parent; source: "modules/settings/KeyboardConfig.qml" }
-        Loader { id: shortcuts; anchors.fill: parent; source: "modules/settings/ShortcutsConfig.qml" }
         Loader { id: prompt; source: "modules/common/panels/ConnectivityPromptWindow.qml"; active: false }
     }
 
@@ -140,6 +139,16 @@ ShellRoot {
                 root.check("the editor shows the profile", ProfileEditor.title === "home-uuid");
                 root.check("it knows the security", editor.item.securityChoice === "wpa-psk");
                 root.check("it has no secret until asked", Object.keys(ProfileEditor.secrets).length === 0);
+                const psk = root.findItems(editor.item, "profileSecretField").find(item => item.fieldKey === "802-11-wireless-security.psk");
+                const field = root.findItem(psk, "profileSecretInput");
+                ProfileEditor.set(psk.fieldKey, "draft");
+                psk.toggleReveal();
+                root.check("the draft is visible on request", field.echoMode === TextInput.Normal && field.text === "draft");
+                editor.item.pageShown = false;
+                root.check("leaving masks the draft", field.echoMode === TextInput.Password && field.text === "draft");
+                ProfileEditor.discard();
+                editor.item.pageShown = true;
+                root.check("discarding the draft empties the field", field.text === "");
                 ProfileEditor.set("connection.autoconnect", false);
                 ProfileEditor.set("ipv4.method", "manual");
                 ProfileEditor.set("ipv4.address-data", ["10.1.2.3/24"]);
@@ -194,7 +203,7 @@ ShellRoot {
                 root.check("the device page loaded", device.status === Loader.Ready);
                 root.check("the Bluetooth settings page loaded", options.status === Loader.Ready);
                 root.check("the keyboard page loaded", keyboard.status === Loader.Ready);
-                root.check("the shortcuts page loaded", shortcuts.status === Loader.Ready);
+                root.check("the keyboard page contains the shortcut editor", !!keyboard.item && !!root.findItem(keyboard.item, "shortcutCatalog"));
                 root.check("saved devices are listed, connected first", bluetooth.item.savedKeys[0].endsWith("11_11_11_11_11_11"));
                 root.check("new ones are apart", bluetooth.item.namedKeys.some(path => path.endsWith("33_33_33_33_33_33")));
                 root.check("a saved device isn't under nearby", !bluetooth.item.namedKeys.some(path => path.endsWith("22_22_22_22_22_22")));
@@ -324,7 +333,7 @@ class SettingsPagesTests(unittest.TestCase):
         cls.daemon = target / 'debug/velora-connectivityd'
         cls.fakes = target / 'debug/velora-connectivity-fakes'
 
-    def run_driver(self, driver, *, settings_page=None, service_overrides=None, page_sources=None):
+    def run_driver(self, driver, *, settings_page=None, service_overrides=None, page_sources=None, tool_stubs=None, screen_size=None, initial_config=None):
         with tempfile.TemporaryDirectory(prefix='velora-pages-') as directory:
             root = Path(directory)
             shell = root / 'shell'
@@ -347,11 +356,16 @@ class SettingsPagesTests(unittest.TestCase):
                 (shell / name).write_text(source)
             home = root / 'home'
             home.mkdir()
+            if initial_config is not None:
+                config_dir = home / '.config/velora'
+                config_dir.mkdir(parents=True)
+                (config_dir / 'config.json').write_text(json.dumps(initial_config))
             # Programs that act on this computer are stood in for
             tools = root / 'tools'
             tools.mkdir()
-            for name in ('rfkill', 'hyprctl', 'notify-send', 'wl-copy', 'nmcli', 'systemctl', 'qrencode', 'ddcutil'):
-                (tools / name).write_text('#!/bin/sh\nexit 0\n')
+            stubs = dict.fromkeys(('rfkill', 'hyprctl', 'notify-send', 'wl-copy', 'nmcli', 'systemctl', 'qrencode', 'ddcutil'), 'exit 0')
+            for name, script in (stubs | (tool_stubs or {})).items():
+                (tools / name).write_text('#!/bin/sh\n' + script + '\n')
                 (tools / name).chmod(0o755)
             runtime = root / 'runtime'
             runtime.mkdir(mode=0o700)
@@ -373,6 +387,11 @@ class SettingsPagesTests(unittest.TestCase):
                                'QT_QPA_PLATFORM': 'offscreen', 'QT_QPA_PLATFORMTHEME': 'generic', 'QT_QUICK_BACKEND': 'software', 'FONTCONFIG_FILE': '/etc/fonts/fonts.conf'}
                 if settings_page is not None:
                     environment.update(QS_SETTINGS_PAGE=settings_page, QS_SETTINGS_SECTION='', QS_SETTINGS_SEARCH='')
+                if screen_size:
+                    screen_file = root / 'screen.json'
+                    screen_file.write_text(json.dumps({'screens': [{'name': 'Test display', 'x': 0, 'y': 0,
+                        'width': screen_size[0], 'height': screen_size[1], 'logicalDpi': 96}]}))
+                    environment['QT_QPA_PLATFORM'] = 'offscreen:configfile=' + str(screen_file)
                 fakes = subprocess.Popen([str(self.fakes)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, env=environment)
                 self.assertEqual(fakes.stdout.readline().strip(), 'READY')
                 log = root / 'log.txt'

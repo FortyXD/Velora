@@ -43,9 +43,15 @@ ColumnLayout {
     property bool focusOnShow: true
     Component.onCompleted: if (root.focusOnShow) { if (busy) cancelButton.forceActiveFocus(); else field.forceActiveFocus(); }
 
-    RowLayout {
+    GridLayout {
+        id: controls
         Layout.fillWidth: true
-        spacing: 8
+        columnSpacing: 8
+        rowSpacing: 6
+        readonly property real buttonsWidth: cancelButton.implicitWidth + acceptButton.implicitWidth + columnSpacing
+        // Leave room to read and edit the password beside the eye, including with translated buttons.
+        columns: width >= buttonsWidth + columnSpacing + field.leftPadding + field.rightPadding + field.font.pixelSize * 8
+            ? 3 : width >= buttonsWidth ? 2 : 1
 
         TextField {
             id: field
@@ -53,6 +59,8 @@ ColumnLayout {
             enabled: !root.busy
             inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
             Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            Layout.columnSpan: controls.columns === 2 ? 2 : 1
             echoMode: revealButton.toggled ? TextInput.Normal : TextInput.Password
             placeholderText: root.placeholderText
             placeholderTextColor: Appearance.colors.colSubtext
@@ -107,10 +115,13 @@ ColumnLayout {
         DialogButton {
             id: cancelButton
             objectName: "wifiCancelButton"
+            Layout.fillWidth: controls.columns < 3
             buttonText: root.cancelText
             onClicked: root.cancel()
         }
         DialogButton {
+            id: acceptButton
+            Layout.fillWidth: controls.columns < 3
             buttonText: root.acceptText
             enabled: (field.text.length > 0 || root.allowEmpty) && !root.busy
             colBackground: Appearance.colors.colPrimary

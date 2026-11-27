@@ -22,7 +22,7 @@ Wi-Fi attempts allow 60 seconds of backend work across preparation and activatio
 
 ## Backend and troubleshooting
 
-The shell and settings use `velora-connectivityd`, a Rust D-Bus client for NetworkManager and BlueZ. This release requires JSON protocol version 2. Installation synchronizes both native executables before linking the configuration, including with `--skip-packages`. Package installations copy the packaged executables without requiring Rust. The launchers prefer this managed pair over older copies in `PATH`.
+The shell and settings use `velora-connectivityd`, a Rust D-Bus client for NetworkManager and BlueZ. This release requires JSON protocol version 3. Installation synchronizes both native executables before linking the configuration, including with `--skip-packages`. Package installations copy the packaged executables without requiring Rust. The launchers prefer this managed pair over older copies in `PATH`.
 
 If source files are already current but the native executables are missing or stale, `velora update` repairs them. It compares fingerprints of the build inputs and installed executables; background update checks never build or repair anything. The shell retries automatically after a repair. Passwords travel through the daemon's stdin and D-Bus, never command arguments, environment, temporary files, logs or network snapshots. Fields clear on submit/cancel; retries do not reuse rejected passwords. Whitespace is preserved. WPA2 accepts 8–63 UTF-8 bytes or a 64-digit hexadecimal PSK; SAE accepts 1–63 UTF-8 bytes. Qt/JSON/D-Bus cannot guarantee erasure of every secret copy in memory.
 
@@ -40,3 +40,12 @@ python3 -m unittest discover -s tests -p 'test_connectivity_pages.py' -v
 The Qt tests need Qt Quick Test and Quickshell. Set `VELORA_REQUIRE_CONNECTIVITY_TESTS=1` to make missing test dependencies an error. The native Wi-Fi suite includes a real 61-second prompt wait and a deliberately stalled save.
 
 The old Python fake-NM/libnm-agent tests are replaced by native model/work-budget unit tests and private-bus tests of the actual Rust daemon, scoped agent, transient creation, ownership/secret preservation, version conflicts, EOF, retries and cancellation. Production QML service/form tests cover inline clearing/tokens and per-security row identity; deep-link checks retain stable section IDs and bounded reveal retries. These do not prove real NetworkManager disk persistence, physical Wi-Fi authentication, external-keyring interoperability or visual navigation on hardware. No automated check activates or disconnects the user's real network.
+
+## VPNs
+
+Open **Settings → Network & VPN** or press **Super+H**. The optional **VPN protocols** component installs WireGuard tools, NetworkManager VPN plugins and the sing-box engine.
+
+- Import OpenVPN, WireGuard or Cisco PCF files using automatic detection. Choose the plugin explicitly for another configuration format. Saved connections provide Connect, Disconnect and Edit. File import and export depend on the plugin.
+- Under **Proxy and subscription VPNs**, paste a VLESS, VMess, Shadowsocks, Trojan, Hysteria, Hysteria2 or TUIC share link, enter a subscription URL, or choose a provider file. Velora reads plain and Base64-encoded share lists and compatible proxy outbounds from sing-box JSON. Choose a server and click **Connect**. **Refresh** fetches a subscription again. An unsuccessful refresh preserves the previous list.
+- **Install VPN engine** installs sing-box from the Arch repository when needed. Connecting requests system authorization for a desktop-wide IPv4 and IPv6 tunnel. The settings window can then close. **Disconnect** stops the tunnel. Application DNS uses DNS over HTTPS to Cloudflare through the tunnel. The system resolver locates the VPN server.
+- **Ping a VPN server** accepts a hostname, IPv4 address or IPv6 address. A reply shows round-trip time in milliseconds. Some VPN servers decline ICMP requests even when their tunnel is available.

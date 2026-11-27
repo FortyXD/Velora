@@ -180,6 +180,24 @@ Item {
             compare(ConnectivityBackend.calls.length, 0);
         }
 
+        function test_secret_reply_belongs_to_the_open_view() {
+            opened();
+            ProfileEditor.readSecrets(null);
+            const beforeLeaving = lastCall();
+            ProfileEditor.forgetSecrets();
+            ProfileEditor.readSecrets(null);
+            const beforeSwitching = lastCall();
+            ProfileEditor.open("other");
+            opened(); // Back on the original UUID.
+            beforeLeaving.done({ secrets: [{ section: "vpn", key: "password", value: "old" }] }, null);
+            beforeSwitching.done(null, { message: "Old request" });
+            compare(ProfileEditor.secrets, ({}));
+            compare(ProfileEditor.errorText, "");
+            ProfileEditor.readSecrets(null);
+            lastCall().done({ secrets: [{ section: "vpn", key: "password", value: "current" }] }, null);
+            compare(ProfileEditor.secrets["vpn.secrets.password"], "current");
+        }
+
         function test_opening_another_with_changes_pending_asks_first() {
             opened();
             ProfileEditor.set("connection.id", "x");
