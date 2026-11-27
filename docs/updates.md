@@ -4,7 +4,7 @@
 
 The installer registers `velora-update.service` and `velora-update.timer` in the user's systemd configuration. The timer checks shortly after login and approximately every six hours, with a small randomized delay. It fetches the remote of the current branch's configured tracking relationship and records the result in `$XDG_STATE_HOME/velora/update.json`.
 
-A check never installs dependencies, merges commits, changes checked-out files, or restarts the desktop. An available target triggers a desktop notification when the notification service is accessible. Settings → General → Software Update reads the same status file and offers **Check for updates** and **Install update** buttons. Installation opens Kitty, the required desktop terminal, to show progress and package-manager prompts.
+An available update triggers a desktop notification when the notification service is accessible. Settings → General → Software Update reads the same status file and offers **Check for updates** and **Install update**. Installation runs in a user service, so you can close Settings and reopen it to see progress. System changes request administrator authorization when needed.
 
 ```bash
 velora update --check
@@ -15,17 +15,34 @@ velora update --dry-run
 
 A dry run compares cached Git refs without network access or state-file changes. A regular check performs a fetch and updates the status file. An explicit `velora update` applies an available update; `--interactive` adds a commit preview and confirmation.
 
-The updater uses the branch's configured remote, typically your Velora `origin`. It does not merge Illogical Impulse changes automatically. Upstream integration remains a maintainer task.
+The updater uses the branch's configured remote, typically your Velora `origin`. Maintainers integrate changes from upstream projects.
 
 ## Applying an update
 
 The updater checks for local changes and diverged history before replacing source files. It fast-forwards to the exact commit that was checked, then runs the updated installer with the saved component selection. The installer reconciles newly declared dependencies and the Python lockfile, refreshes links and integrations, and backs up replaced configuration files.
 
-Local edits are never stashed or discarded automatically. Commit them before updating; if your commits and the remote have diverged, resolve that history first. Some theme and generated Hyprland files currently live in the linked checkout, so runtime changes can also require review before an update.
+The updater preserves personal shell settings and generated Hyprland files. If it reports edits to project source, review them with `git status`. If the branch has diverged, reconcile your commits with its tracked branch.
 
-Source and system package changes do not form one atomic transaction. If package installation fails after the Git fast-forward, the source remains at the newer commit. Resolve the reported error and run `velora install --yes`. `$XDG_STATE_HOME/velora/last-update.json` records the previous commit and whether the installation completed. `velora status` displays it.
+If package installation fails after the Git fast-forward, the source stays at the newer commit. Resolve the reported error and run `velora update` again or select **Finish update** in Settings. The updater resumes installation with your saved choices. `velora status` shows the previous commit and whether installation completed.
 
 After a successful update, restart Quickshell or log in again to load all changed shell code. Velora does not interrupt the active shell automatically.
+
+### Upgrading from the Illogical Impulse settings directory
+
+Use **Install update** in Settings or run `velora update` as usual. The installer imports your configuration, presets, actions and other personal files from `~/.config/illogical-impulse/` to `~/.config/velora/`. Existing files in the Velora directory take precedence. The old path continues to work for shortcuts. Both paths respect `XDG_CONFIG_HOME`.
+
+If you already received the new files through `git pull` or pacman, the same command finishes the migration. A background check only reports it. After migration, an ordinary check reports the installation as current.
+
+Some older Velora Git installations report a custom action or prompt as an untracked source edit and pause the first update. Run `git status --short --untracked-files=all` in your Velora checkout. If it lists only personal files under `?? dots/.config/illogical-impulse/`, use the following commands in that checkout to resume the update on your selected channel.
+
+```bash
+printf '\n/dots/.config/illogical-impulse/*\n' >> "$(git rev-parse --git-path info/exclude)"
+./velora update
+```
+
+The exclude entry applies only to untracked files in the old settings directory. Git continues to report edits to tracked project files.
+
+If your checkout comes directly from `end-4/dots-hyprland`, follow the [Velora installation guide](installation.md) in a separate Velora checkout. The installer imports the existing settings, and subsequent updates follow Velora.
 
 ## Timer controls
 
@@ -44,7 +61,7 @@ See [systemd timer documentation](https://www.freedesktop.org/software/systemd/m
 
 `dependencies/arch.toml` is the source of truth for Arch packages. Each component has a description, a required/optional flag, a list of official package names, and a list of AUR package names. Shared packages are deduplicated before installation.
 
-There are no local Velora or Illogical Impulse metapackages. The installer compares the chosen components with `pacman -Qq` and requests only missing packages. Package removals are left to the user. Existing packages continue to receive ordinary Arch/AUR updates through the system's package tools.
+The installer compares the chosen components with `pacman -Qq` and requests only missing packages. Package removals are left to the user. Existing packages continue to receive ordinary Arch/AUR updates through the system's package tools.
 
 ## Native desktop tools
 
@@ -52,7 +69,7 @@ The updater builds the shell helpers using `tools/Cargo.lock` or installs their 
 
 ## GitHub update settings
 
-Settings → General → Software Update provides controls for automatic checks and the update channel, displays installed and available versions, and opens an interactive update in a terminal.
+Settings → General → Software Update lets you choose a channel, toggle automatic checks, and follow installation progress while the user service runs.
 
 ```bash
 velora update-settings
@@ -71,4 +88,4 @@ Update preferences are stored in `$XDG_STATE_HOME/velora/update-settings.json`. 
 
 For a system package installation, the updater compares the embedded source revision with GitHub. It clones the requested source, checks out the exact checked commit, initializes its submodules, builds the new Velora package, installs it through pacman, and reruns the packaged installer with your saved component and dependency source-build selection.
 
-Writable user templates are refreshed separately from system package files. Local edits are retained, and conflicting incoming versions are saved under `runtime/.incoming/`. Package replacement, dependency installation, and template refresh are separate operations. If a later step fails, the preceding package or dependency changes remain installed; fix the reported error and rerun `velora install`.
+Writable user templates are refreshed separately from system package files. Local edits are retained, and conflicting incoming versions are saved under `runtime/.incoming/`. If installation stops after the package was replaced, fix the reported error and run `velora update` to finish.

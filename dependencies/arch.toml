@@ -36,16 +36,8 @@ repo = [
     "kitty",
     "foot",
     "fuzzel",
-    "tmux",
-    "zsh",
+    "btop",
     "fish",
-    "starship",
-    "zsh-autosuggestions",
-    "fzf",
-    "eza",
-    "bat",
-    "ripgrep",
-    "zoxide",
     "breeze",
 ]
 aur = []
@@ -54,6 +46,16 @@ aur = []
 description = "Shell services, media, networking and hardware controls"
 required = true
 repo = [
+    # The installed Kitty launcher, tmux configuration and interactive prompt use these.
+    "tmux",
+    "zsh",
+    "starship",
+    "zsh-autosuggestions",
+    "fzf",
+    "eza",
+    "bat",
+    "ripgrep",
+    "zoxide",
     "openssl", # SQLCipher in velora-searchd
     "bubblewrap", # Isolated local document and image parsers
     "python-gobject", # Wallpaper/GSettings monitoring for the GDM bridge
@@ -118,12 +120,17 @@ repo = [
     "bluez-obex", # Sending and receiving files in the Bluetooth settings
     "gnome-keyring",
     "networkmanager",
+    "nm-connection-editor",
+    "iputils", # User-initiated VPN server latency checks
     "plasma-nm",
     "wl-clipboard",
     "grim",
     "ffmpeg",
     "ffmpegthumbnailer",
     "mpv",
+    "gst-libav", # Decoders for GStreamer video players such as Showtime
+    "gst-plugins-bad", # H.264/H.265 bitstream parsers
+    "gst-plugins-good", # MP4, Matroska and WebM demuxers
     "jq",
     "python",
     "python-pillow",
@@ -143,6 +150,7 @@ repo = [
     "libnotify",
     "libsecret",
     "psmisc",
+    "procps-ng", # Reload open btop instances when their wallpaper palette changes
     "xdg-utils",
     "pacman-contrib",
     "matugen",
@@ -203,4 +211,10 @@ aur = ["mpvpaper"]
 description = "Optional local assistant (CPU Ollama and application accessibility)"
 required = false
 repo = ["ollama", "at-spi2-core", "python-gobject"]
+aur = []
+
+[features.vpn]
+description = "NetworkManager VPN plugins, WireGuard tools and sing-box for proxy VPNs"
+required = false
+repo = ["sing-box", "wireguard-tools", "networkmanager-openvpn", "networkmanager-openconnect", "networkmanager-vpnc", "networkmanager-l2tp", "networkmanager-pptp", "networkmanager-vpn-plugin-sstp", "networkmanager-strongswan"]
 aur = []

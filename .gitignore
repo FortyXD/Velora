@@ -27,21 +27,22 @@ __pycache__/
 *~
 
 # Runtime data; never publish local install state or editor files.
-/dots/.config/illogical-impulse/installed_*
-/dots/.config/illogical-impulse/config.json
+/dots/.config/illogical-impulse/
+/dots/.config/velora/*
+!/dots/.config/velora/config.example.json
 /dots/.config/fish/fish_history
 /dots/.config/hypr/nvim.log
 
 # Local screenshots and previews produced while testing
 /artifacts/
 /reports/
-/dots/.config/illogical-impulse/presets/
 
 # Frames of video wallpapers, made by switchwall.sh
 /dots/.config/hypr/custom/scripts/mpvpaper_thumbnails/
 
 # Rewritten while the desktop runs: colors made from the wallpaper and the settings app's output.
 # install.sh creates the missing ones from the *_default files next to them.
+/dots/.config/hypr/custom/previous_keyboard.lua
 /dots/.config/hypr/custom/shell_settings.json
 /dots/.config/hypr/custom/shell_settings.lua
 /dots/.config/hypr/custom/monitors.json

@@ -84,10 +84,15 @@ class SourceBuildTests(IsolatedTest):
         source = self.base / "source"
         (source / "packaging/arch").mkdir(parents=True)
         (source / "packaging/arch/PKGBUILD.in").write_text((PROJECT / "packaging/arch/PKGBUILD.in").read_text())
-        private = source / "dots/.config/illogical-impulse"
+        private = source / "dots/.config/velora"
         private.mkdir(parents=True)
         (private / "config.json").write_text('{"private": true}')
         (private / "config.example.json").write_text('{}')
+        (private / "actions").mkdir()
+        (private / "actions/private").touch()
+        legacy = source / "dots/.config/illogical-impulse"
+        legacy.mkdir()
+        (legacy / "config.json").write_text('{"old": true}')
         (source / "VERSION").write_text("0.1.0")
         (source / "LICENSE").write_text("license")
         (source / "NOTICE").write_text("notice")
@@ -96,8 +101,10 @@ class SourceBuildTests(IsolatedTest):
         build = self.base / "build"
         recipe = builds.prepare_package(source, build, metadata, velora.run)
         snapshot = build / "snapshot/velora"
-        self.assertFalse((snapshot / "dots/.config/illogical-impulse/config.json").exists())
-        self.assertTrue((snapshot / "dots/.config/illogical-impulse/config.example.json").exists())
+        self.assertFalse((snapshot / "dots/.config/velora/config.json").exists())
+        self.assertFalse((snapshot / "dots/.config/velora/actions").exists())
+        self.assertFalse((snapshot / "dots/.config/illogical-impulse").exists())
+        self.assertTrue((snapshot / "dots/.config/velora/config.example.json").exists())
         self.assertEqual(json.loads((snapshot / ".velora-package.json").read_text()), metadata)
         self.assertNotIn("@SHA256@", recipe.read_text())
         subprocess.run(["bash", "-n", str(recipe)], check=True)
@@ -149,6 +156,24 @@ class RuntimeTemplateTests(IsolatedTest):
         sync_runtime(self.source, self.runtime)
         self.assertFalse((self.runtime / "dots/.config/example/config").exists())
         self.assertEqual(local.read_text(), "local change")
+
+    def test_package_refresh_retains_legacy_settings_listed_by_an_old_package(self):
+        old = Path("dots/.config/illogical-impulse")
+        (self.source / old / "actions").mkdir(parents=True)
+        names = ("config.json", "actions/translate", "config.example.json")
+        for name in names:
+            (self.source / old / name).write_text(name)
+        sync_runtime(self.source, self.runtime)
+        for name in names:
+            (self.source / old / name).unlink()
+        new = self.source / "dots/.config/velora/config.example.json"
+        new.parent.mkdir()
+        new.write_text("{}")
+        self.assertEqual(sync_runtime(self.source, self.runtime), [])
+        for name in ("config.json", "actions/translate"):
+            self.assertEqual((self.runtime / old / name).read_text(), name)
+        self.assertFalse((self.runtime / old / "config.example.json").exists())
+        self.assertTrue((self.runtime / new.relative_to(self.source)).is_file())
 
     def test_external_runtime_directory_link_is_not_written_through(self):
         target = self.runtime / "dots/.config"

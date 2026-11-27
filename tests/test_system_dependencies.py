@@ -14,6 +14,9 @@ LUA = shutil.which("lua5.4") or shutil.which("lua")
 class RuntimeTests(IsolatedTest):
     def setUp(self):
         super().setUp()
+        probe = patch.object(velora, "matugen_can_select_source", return_value=True)
+        self.matugen = probe.start()
+        self.addCleanup(probe.stop)
         self.features = {"desktop": {}, "shell": {}}
         self.qml = self.base / "qml"
         for name in velora.QML_RUNTIME_MODULES:
@@ -26,6 +29,12 @@ class RuntimeTests(IsolatedTest):
         with patch.object(velora, "system_tool", side_effect=lambda name: None if name == "nmcli" else f"/usr/bin/{name}"), patch.object(velora, "run"):
             errors = velora.runtime_problems(self.features, qml_root=self.qml)
         self.assertCountEqual(errors, ["Missing command: nmcli (shell)", "Missing QML module: QtMultimedia"])
+
+    def test_incompatible_matugen_is_reported_before_linking(self):
+        self.matugen.return_value = False
+        with patch.object(velora, "system_tool", return_value="/usr/bin/tool"), patch.object(velora, "run"):
+            problems = velora.runtime_problems(self.features, qml_root=self.qml)
+        self.assertTrue(any("--source-color-index" in error for error in problems))
 
     def test_native_helper_runs_without_a_shell_venv(self):
         with patch.object(velora, "system_tool", return_value="/usr/bin/tool"), patch.object(velora, "run") as run:
@@ -78,6 +87,56 @@ class RuntimeTests(IsolatedTest):
             self.assertEqual(result.stdout.strip(), '')
 
 
+class ExistingDesktopTests(IsolatedTest):
+    def test_repairs_features_missing_from_installed_providers(self):
+        features = {"desktop": {"repo": ["quickshell", "matugen"]}}
+        with patch.object(velora, "missing_packages", return_value=[]), \
+                patch.object(velora, "POLKIT_QML", self.base / "absent"), \
+                patch.object(velora, "matugen_can_select_source", return_value=False):
+            self.assertEqual(velora.package_plan(features), (["quickshell"], ["matugen-bin"]))
+            self.assertEqual(velora.package_plan(features, skip_aur=True), (["quickshell"], []))
+            self.assertEqual(velora.package_plan(features, source_packages=["quickshell", "matugen"]), ([], []))
+
+    def test_repairs_an_incomplete_same_version_package(self):
+        args = velora.parser().parse_args(["deps", "--dry-run"])
+        with patch.object(velora, "package_plan", return_value=(["quickshell"], [])), \
+                patch.object(velora, "configure_desktop_services"), patch.object(velora, "run") as run:
+            velora.install_dependencies(args, {"desktop": {}})
+        run.assert_any_call(["sudo", "pacman", "-Syu", "--", "quickshell"], dry=True)
+
+    def test_upgrades_repository_matugen_without_installing_a_second_provider(self):
+        features = {"shell": {"repo": ["matugen"]}}
+        def missing(names):
+            return ["matugen-bin"] if "matugen-bin" in names else []
+        with patch.object(velora, "missing_packages", side_effect=missing), \
+                patch.object(velora, "matugen_can_select_source", return_value=False):
+            self.assertEqual(velora.package_plan(features), (["matugen"], []))
+
+    def test_migrates_layouts_and_switch_option_only_when_valid(self):
+        options = {"input:kb_layout": "us,de", "input:kb_variant": "[[EMPTY]]",
+                   "input:kb_options": "grp:alt_shift_toggle"}
+        with patch.dict(os.environ, HYPRLAND_INSTANCE_SIGNATURE="test"), \
+                patch.object(shutil, "which", return_value="hyprctl"), \
+                patch.object(velora, "run", side_effect=lambda cmd, **kw: json.dumps({"str": options[cmd[-1]]})):
+            self.assertEqual(velora.previous_layouts(), {"kb_layout": "us,de", "kb_options": "grp:alt_shift_toggle"})
+            options["input:kb_layout"] = "us"
+            self.assertEqual(velora.previous_layouts(), {})
+            options["input:kb_layout"] = 'us,de"'
+            self.assertEqual(velora.previous_layouts(), {})
+
+    def test_activates_loaded_modules_after_a_clean_reload_only(self):
+        args = velora.parser().parse_args(["install"])
+        for errors in ("", "bad config"):
+            with self.subTest(errors=errors), patch.dict(os.environ, HYPRLAND_INSTANCE_SIGNATURE="test"), \
+                    patch.object(shutil, "which", return_value="hyprctl"), \
+                    patch.object(velora, "register_installation"), \
+                    patch.object(velora, "run", side_effect=lambda cmd, **kw: errors if "configerrors" in cmd else "ok") as run:
+                velora.link_configuration(args, [])
+                calls = [call.args[0] for call in run.call_args_list]
+                self.assertIn(["hyprctl", "reload"], calls)
+                self.assertEqual(any(cmd[:2] == ["hyprctl", "eval"] for cmd in calls), not errors)
+
+
 class DesktopServiceTests(IsolatedTest):
     def setUp(self):
         super().setUp()
@@ -92,7 +151,7 @@ class DesktopServiceTests(IsolatedTest):
             self.assertNotEqual(command[0], 'sudo')
             return 'enabled' if command[:2] == ['systemctl', 'is-enabled'] else ''
         args = velora.parser().parse_args(['deps'])
-        with patch.object(velora, 'service_active', side_effect=lambda unit: unit == 'NetworkManager.service'), \
+        with patch.object(velora, 'service_active', side_effect=lambda unit, **kwargs: unit == 'NetworkManager.service'), \
                 patch.object(velora, 'files_equal', return_value=True), \
                 patch.object(velora, 'input_ready', return_value=True), patch.object(velora, 'run', side_effect=run):
             velora.configure_desktop_services(args)
@@ -102,6 +161,13 @@ class DesktopServiceTests(IsolatedTest):
                 patch.object(velora, 'run', return_value='disabled') as run:
             velora.ensure_system_service('power-profiles-daemon')
         run.assert_any_call(['sudo', 'systemctl', 'enable', '--now', 'power-profiles-daemon'], dry=False)
+
+    def test_restarts_an_active_virtual_keyboard_missing_its_configured_socket(self):
+        args = velora.parser().parse_args(["deps"])
+        with patch.dict(os.environ, XDG_RUNTIME_DIR=str(self.base)), \
+                patch.object(velora, "service_active", return_value=True), patch.object(velora, "run") as run:
+            velora.configure_desktop_services(args)
+            run.assert_any_call(["systemctl", "--user", "restart", "ydotool.service"], dry=False)
 
     def test_enables_network_audio_and_keyboard_on_a_new_desktop(self):
         args = velora.parser().parse_args(["deps"])
@@ -117,7 +183,7 @@ class DesktopServiceTests(IsolatedTest):
 
     def test_keeps_an_existing_network_manager_running(self):
         args = velora.parser().parse_args(["deps"])
-        with patch.object(velora, "service_active", side_effect=lambda unit: unit == "iwd.service"), \
+        with patch.object(velora, "service_active", side_effect=lambda unit, **kwargs: unit == "iwd.service"), \
                 patch.object(velora, "run") as run:
             velora.configure_desktop_services(args)
         self.assertFalse(any("NetworkManager.service" in call.args[0] for call in run.call_args_list))

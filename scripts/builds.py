@@ -11,6 +11,13 @@ import tempfile
 
 def copy_source(source, destination, root):
     """Copy source files without developer metadata or machine-specific symlinks."""
+    # A linked checkout can contain both generations of personal shell settings.
+    config = root / "dots/.config"
+    if source.is_relative_to(config / "illogical-impulse"):
+        return
+    if source.is_relative_to(config / "velora") and source not in (
+            config / "velora", config / "velora/config.example.json"):
+        return
     # An extracted source tree may have been built before it is packaged again.
     # The translator builds separately from the workspace. Test fixtures may also be named target.
     if source in (root / "tools/target", root / "tools/velora-translate/target"):
@@ -52,12 +59,6 @@ def prepare_package(root, directory, metadata, run):
             source = root / name
             if source.exists():
                 copy_source(source, snapshot / name, root)
-    # Never package runtime credentials or install state, even if tracked accidentally.
-    private = snapshot / "dots/.config/illogical-impulse"
-    for name in ("config.json", "installed_true", "installed_listfile"):
-        path = private / name
-        if path.exists() or path.is_symlink():
-            path.unlink()
     (snapshot / ".velora-package.json").write_text(json.dumps(metadata, indent=2) + "\n")
     version = re.sub(r"[^a-zA-Z0-9.+_]", ".", metadata["version"])
     revision = metadata["source_revision"][:12]

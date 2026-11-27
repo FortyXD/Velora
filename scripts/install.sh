@@ -75,13 +75,6 @@ link_item() {
   if $dry_run; then return; fi
   mkdir -p -- "$(dirname -- "$target")"
   if [[ -e $target || -L $target ]]; then
-    if [[ $target == "$config_home/illogical-impulse" && -d $target && ! -L $target ]]; then
-      for state_file in config.json installed_true installed_listfile; do
-        if [[ -e $target/$state_file && ! -e $source/$state_file ]]; then
-          cp -a -- "$target/$state_file" "$source/$state_file"
-        fi
-      done
-    fi
     relative=${target#"$target_home"/}
     [[ $relative != /* ]] || relative="external/${target#/}"
     mkdir -p -- "$backup_root/$(dirname -- "$relative")"
@@ -94,17 +87,132 @@ link_item() {
   ln -s -- "$source" "$target"
 }
 
-for name in hypr quickshell kitty foot fuzzel matugen fish fontconfig Kvantum kde-material-you-colors mpv wlogout xdg-desktop-portal zshrc.d tmux illogical-impulse; do
+for name in hypr quickshell kitty foot fuzzel matugen fish fontconfig Kvantum kde-material-you-colors mpv wlogout xdg-desktop-portal zshrc.d tmux; do
   link_item "$repo_root/dots/.config/$name" "$config_home/$name"
 done
 
-# Keep runtime settings local; seed a new installation from the tracked example.
-shell_config="$config_home/illogical-impulse/config.json"
+# Import missing files only. Preserve links as links and never merge through a
+# nested symlink. Publish each copy when complete so an interrupted relink can retry.
+rebase_settings_links() {
+  python3 - "$previous_settings" "$shell_settings" "$1" "$2" <<'PY'
+import os
+from pathlib import Path
+import stat
+import sys
+
+source, destination, item, staged = map(Path, sys.argv[1:])
+relative = item.relative_to(source)
+source, destination = source.resolve(), destination.resolve()
+links = (staged,) if staged.is_symlink() else (p for p in staged.rglob("*") if p.is_symlink())
+for link in links:
+    target = link.readlink()
+    if target.is_absolute():
+        continue
+    parent = (relative / link.relative_to(staged)).parent
+    before = source / parent / target
+    after = destination / parent / target
+    external = Path(os.path.abspath(before))
+    if external.is_relative_to(source) or external == Path(os.path.abspath(after)):
+        continue
+    # Keep the external symlink's own name if its owner retargets it later.
+    # A symlink followed by ".." in the original path needs physical resolution.
+    if os.path.realpath(before) != os.path.realpath(external):
+        external = Path(os.path.realpath(before.parent)) / before.name
+    mode = stat.S_IMODE(link.parent.stat().st_mode)
+    try:
+        if not mode & stat.S_IWUSR:
+            link.parent.chmod(mode | stat.S_IWUSR)
+        link.unlink()
+        link.symlink_to(external)
+    finally:
+        if not mode & stat.S_IWUSR:
+            link.parent.chmod(mode)
+PY
+}
+
+discard_staged_setting() {
+  [[ -n $staged ]] || return 0
+  if [[ -d $staged && ! -L $staged ]]; then
+    find -P "$staged" -type d -exec chmod u+rwx -- {} \;
+  fi
+  rm -rf -- "$staged"
+  staged=
+}
+
+import_settings() {
+  local source=$1 dest=$2 item name target
+  for item in "$source"/*; do
+    name=${item##*/}
+    target="$dest/$name"
+    if [[ $item == "$previous_settings/config.example.json" ]]; then continue; fi
+    if [[ ! -e $target && ! -L $target ]]; then
+      # A sibling can be renamed atomically even for a read-only directory or
+      # when this part of the user's configuration lives on another filesystem.
+      if [[ -d $item && ! -L $item ]]; then
+        staged=$(mktemp -d -- "$dest/.velora-settings.XXXXXXXX")
+      else
+        staged=$(mktemp -- "$dest/.velora-settings.XXXXXXXX")
+      fi
+      cp -aT --remove-destination -- "$item" "$staged"
+      if [[ -L $staged || -d $staged ]]; then rebase_settings_links "$item" "$staged"; fi
+      mv -nT -- "$staged" "$target"
+      if [[ ! -e $staged && ! -L $staged ]]; then
+        staged=
+        record_change "$target"
+        continue
+      fi
+      # A running shell created the target while the copy was being prepared.
+      discard_staged_setting
+    fi
+    if [[ -d $item && ! -L $item && -d $target && ! -L $target ]]; then
+      import_settings "$item" "$target"
+    fi
+  done
+}
+
+shell_settings="$config_home/velora"
+legacy_settings="$config_home/illogical-impulse"
+previous_settings="$legacy_settings"
+# A moved checkout can still contain runtime data behind the now-dangling old link.
+if [[ -L $legacy_settings && ! -e $legacy_settings && $(readlink -- "$legacy_settings") == */dots/.config/illogical-impulse ]]; then
+  previous_settings="$repo_root/dots/.config/illogical-impulse"
+fi
+if ! $dry_run && [[ ! -d $shell_settings ]]; then
+  mkdir -p -m 700 -- "$shell_settings"
+  record_change "$shell_settings"
+fi
+if [[ ! $legacy_settings -ef $shell_settings && ( -d $previous_settings || $previous_settings != "$legacy_settings" ) ]]; then
+  if $dry_run; then
+    if [[ -d $previous_settings ]]; then
+      printf 'Would import shell settings from %s into %s\n' "$previous_settings" "$shell_settings"
+    fi
+    printf 'Link %s -> %s\n' "$legacy_settings" "$shell_settings"
+  else
+    if [[ -d $previous_settings && ! $previous_settings -ef $shell_settings ]]; then
+      (
+        shopt -s dotglob nullglob
+        staged=
+        trap discard_staged_setting EXIT
+        import_settings "$previous_settings" "$shell_settings"
+      )
+    fi
+    link_item "$shell_settings" "$legacy_settings"
+  fi
+fi
+shell_config="$shell_settings/config.json"
 if [[ ! -e $shell_config && ! -L $shell_config ]]; then
   if $dry_run; then
-    printf 'Would create local shell settings from config.example.json.\n'
+    if [[ ! -e $previous_settings/config.json && ! -L $previous_settings/config.json ]]; then
+      printf 'Would create %s from config.example.json.\n' "$shell_config"
+    fi
   else
-    cp -- "$repo_root/dots/.config/illogical-impulse/config.example.json" "$shell_config"
+    (
+      seed=$(mktemp -- "$shell_settings/.config.json.XXXXXX")
+      trap 'rm -f -- "$seed"' EXIT
+      cp -- "$repo_root/dots/.config/velora/config.example.json" "$seed"
+      mv -nT -- "$seed" "$shell_config"
+      if [[ ! -e $seed ]]; then record_change "$shell_config"; fi
+    )
   fi
 fi
 
@@ -117,6 +225,7 @@ seed_generated() {
     printf 'Would create %s from its default\n' "$dest"
     return
   fi
+  mkdir -p -- "$(dirname -- "$dest")"
   cp -- "$template" "$dest"
 }
 seed_generated "$repo_root/dots/.config/hypr/custom/shell_settings_default.json" "$repo_root/dots/.config/hypr/custom/shell_settings.json"
@@ -127,10 +236,25 @@ seed_generated "$repo_root/dots/.config/fuzzel/fuzzel_theme_default.ini" "$repo_
 
 link_item "$repo_root/dots/.config/wireplumber/wireplumber.conf.d/51-auto-audio-routes.conf" "$config_home/wireplumber/wireplumber.conf.d/51-auto-audio-routes.conf"
 link_item "$repo_root/dots/.local/share/wireplumber/scripts/folis/prefer-plugged-routes.lua" "$data_home/wireplumber/scripts/folis/prefer-plugged-routes.lua"
+link_item "$repo_root/dots/.local/share/org.kde.syntax-highlighting/themes/Velora.theme" "$data_home/org.kde.syntax-highlighting/themes/Velora.theme"
+link_item "$repo_root/dots/.config/neofetch/velora-ascii.txt" "$config_home/neofetch/velora-ascii.txt"
+link_item "$repo_root/dots/.config/neofetch/velora.conf" "$config_home/neofetch/velora.conf"
+for theme_config in btop/btop.conf neofetch/config.conf; do
+  theme_source=$theme_config
+  [[ $theme_config != neofetch/config.conf ]] || theme_source=neofetch/velora.conf
+  if [[ ! -e $config_home/$theme_config && ! -L $config_home/$theme_config ]]; then
+    seed_generated "$repo_root/dots/.config/$theme_source" "$config_home/$theme_config"
+    if ! $dry_run; then record_change "$config_home/$theme_config"; fi
+  fi
+done
 link_item "$repo_root/dots/.config/starship.toml" "$config_home/starship.toml"
 link_item "$repo_root/home/.zshrc" "$target_home/.zshrc"
 link_item "$repo_root/home/.tmux.conf" "$target_home/.tmux.conf"
-link_item "$repo_root/dots/.local/share/icons/illogical-impulse.svg" "$data_home/icons/illogical-impulse.svg"
+link_item "$repo_root/dots/.local/share/icons/velora.svg" "$data_home/icons/velora.svg"
+legacy_icon="$data_home/icons/illogical-impulse.svg"
+if [[ -L $legacy_icon && $(readlink -- "$legacy_icon") == */dots/.local/share/icons/illogical-impulse.svg ]]; then
+  link_item "$repo_root/dots/.local/share/icons/velora.svg" "$legacy_icon"
+fi
 link_item "$repo_root/dots/.local/share/icons/hicolor/scalable/apps/org.velora.Settings.svg" "$data_home/icons/hicolor/scalable/apps/org.velora.Settings.svg"
 link_item "$repo_root/dots/.local/share/applications/org.velora.Settings.desktop" "$data_home/applications/org.velora.Settings.desktop"
 # The Python installer merges Dolphin toolbar additions into the existing XML.
@@ -141,7 +265,7 @@ fi
 
 # Writes a generated file from stdin, moving a different existing file to the backup
 install_generated() {
-  local dest=$1 tmp relative
+  local dest=$1 mode=${2:-755} tmp relative
   if $dry_run; then
     printf 'Would install %s\n' "$dest"
     cat > /dev/null
@@ -150,7 +274,7 @@ install_generated() {
   mkdir -p -- "$(dirname -- "$dest")"
   tmp=$(mktemp "${dest}.XXXXXX")
   cat > "$tmp"
-  chmod 755 "$tmp"
+  chmod "$mode" "$tmp"
   if [[ -e $dest || -L $dest ]]; then
     if cmp -s -- "$tmp" "$dest"; then
       rm -- "$tmp"
@@ -167,12 +291,25 @@ install_generated() {
   mv -- "$tmp" "$dest"
 }
 
+btop_theme="$config_home/btop/themes/Velora.theme"
+if [[ ! -e $btop_theme && ! -L $btop_theme ]]; then
+  btop_conf="$config_home/btop/btop.conf"
+  stock_theme='^[[:space:]]*color_theme[[:space:]]*=[[:space:]]*"Default"[[:space:]]*$'
+  if [[ -f $btop_conf && ! -L $btop_conf ]] && grep -Eq "$stock_theme" "$btop_conf"; then
+    install_generated "$btop_conf" "$(stat -c %a -- "$btop_conf")" < <(sed -E "s/$stock_theme/color_theme = \"Velora\"/" "$btop_conf")
+  fi
+  seed_generated "$repo_root/dots/.config/matugen/templates/btop/Velora.theme" "$btop_theme"
+  if ! $dry_run; then record_change "$btop_theme"; fi
+fi
+
 helper="$config_home/quickshell/ii/scripts/helper"
 service_menus="$data_home/kio/servicemenus"
 install_generated "$service_menus/velora-assistant.desktop" <<EOF
 [Desktop Entry]
 Type=Service
-MimeType=all/all;
+MimeType=all/allfiles;inode/directory;
+X-KDE-Protocols=file
+X-KDE-MinNumberOfUrls=1
 Actions=askVelora;
 X-KDE-ServiceTypes=KonqPopupMenu/Plugin
 [Desktop Action askVelora]

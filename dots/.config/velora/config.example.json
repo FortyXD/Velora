@@ -1,5 +1,6 @@
 {
     "ai": {
+        "modelIdleSeconds": -1,
         "extraModels": [
             {
                 "api_format": "openai",
@@ -445,7 +446,7 @@
         "rows": 2,
         "scale": 0.18
     },
-    "panelFamily": "ii",
+    "panelFamily": "velora",
     "policies": {
         "ai": 2,
         "weeb": 1

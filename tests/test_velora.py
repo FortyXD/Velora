@@ -45,7 +45,7 @@ class IsolatedTest(unittest.TestCase):
 
 
 class NativeToolsTests(IsolatedTest):
-    def fake_build(self, command, env=None, dry=False):
+    def fake_build(self, command, env=None, dry=False, cwd=None):
         release = Path(env["CARGO_TARGET_DIR"]) / "release"
         release.mkdir(parents=True, exist_ok=True)
         for name in velora.NATIVE_BINARIES:
@@ -68,7 +68,7 @@ class NativeToolsTests(IsolatedTest):
         (release / "velora-agentd").write_text("stale protocol agent")
         (release / "velora-agentd").chmod(0o755)
         requested = []
-        def selective_build(command, env=None, dry=False):
+        def selective_build(command, env=None, dry=False, cwd=None):
             packages = [command[i + 1] for i, argument in enumerate(command) if argument == "--package"]
             requested.extend(packages)
             # Model a workspace whose default selection omits the already-cached agent.
@@ -148,7 +148,7 @@ class NativeToolsTests(IsolatedTest):
 
     def test_updated_sources_invalidate_the_installed_pair(self):
         source = self.base / "source"
-        files = {"VERSION":"0.1.3", "tools/Cargo.toml":"workspace", "tools/Cargo.lock":"locked"}
+        files = {"VERSION":"0.1.3", "tools/Cargo.toml":"workspace", "tools/Cargo.lock":"locked", "tools/rust-toolchain.toml":"toolchain"}
         for name in velora.NATIVE_PACKAGES:
             files[f"tools/{name}/Cargo.toml"] = "crate"
             files[f"tools/{name}/src/main.rs"] = "old source"
@@ -330,7 +330,7 @@ class DependencyTests(IsolatedTest):
             self.assertFalse(velora.font_installed("Noto Sans"))
 
     def test_core_font_requirements_cover_configured_families_and_stay_required(self):
-        example = json.loads((PROJECT / "dots/.config/illogical-impulse/config.example.json").read_text())
+        example = json.loads((PROJECT / "dots/.config/velora/config.example.json").read_text())
         required = set(velora.FONT_PACKAGES)
         self.assertTrue(set(example["appearance"]["fonts"].values()) <= required)
         self.assertTrue({"Material Symbols Rounded", "Hack Nerd Font", "Noto Sans", "Noto Color Emoji",
@@ -490,12 +490,15 @@ class InstallerTests(IsolatedTest):
         (self.repo / "scripts").mkdir(parents=True)
         shutil.copy(PROJECT / "scripts/install.sh", self.repo / "scripts/install.sh")
         for name in ("hypr", "quickshell", "kitty", "foot", "fuzzel", "matugen", "fish", "fontconfig", "Kvantum",
-                     "kde-material-you-colors", "mpv", "wlogout", "xdg-desktop-portal", "zshrc.d", "tmux", "illogical-impulse"):
+                     "kde-material-you-colors", "mpv", "wlogout", "xdg-desktop-portal", "zshrc.d", "tmux", "velora"):
             (self.repo / "dots/.config" / name).mkdir(parents=True)
         files = ["home/.zshrc", "home/.tmux.conf", "dots/.config/starship.toml", "tools/velora-helper/Cargo.toml",
                  "dots/.config/wireplumber/wireplumber.conf.d/51-auto-audio-routes.conf",
                  "dots/.local/share/wireplumber/scripts/folis/prefer-plugged-routes.lua",
-                 "dots/.local/share/icons/illogical-impulse.svg",
+                 "dots/.local/share/org.kde.syntax-highlighting/themes/Velora.theme",
+                 "dots/.config/neofetch/velora-ascii.txt", "dots/.config/neofetch/velora.conf",
+                 "dots/.config/matugen/templates/btop/Velora.theme", "dots/.config/btop/btop.conf",
+                 "dots/.local/share/icons/velora.svg",
                  "dots/.local/share/icons/hicolor/scalable/apps/org.velora.Settings.svg",
                  "dots/.local/share/applications/org.velora.Settings.desktop",
                  "dots/.local/share/kxmlgui5/dolphin/dolphinui.rc",
@@ -509,7 +512,7 @@ class InstallerTests(IsolatedTest):
             path.write_text("fixture\n")
         shutil.copy(PROJECT / "dots/.local/share/kxmlgui5/dolphin/dolphinui.rc",
                     self.repo / "dots/.local/share/kxmlgui5/dolphin/dolphinui.rc")
-        (self.repo / "dots/.config/illogical-impulse/config.example.json").write_text('{"default": true}\n')
+        (self.repo / "dots/.config/velora/config.example.json").write_text('{"default": true}\n')
         self.home = self.base / "target user"
         self.home.mkdir()
         self.backup = self.base / "state/velora/backups/test"
@@ -524,7 +527,7 @@ class InstallerTests(IsolatedTest):
                               env=self.env, text=True, capture_output=True)
 
     def test_install_and_repeat_preserve_existing_shell_settings(self):
-        config = Path(self.env["XDG_CONFIG_HOME"]) / "illogical-impulse"
+        config = Path(self.env["XDG_CONFIG_HOME"]) / "velora"
         config.mkdir(parents=True)
         (config / "config.json").write_text('{"personal": true}\n')
         self.assertEqual(self.link().returncode, 0)
@@ -533,6 +536,246 @@ class InstallerTests(IsolatedTest):
         self.assertEqual(self.link().returncode, 0)
         self.assertEqual(self.journal.read_text(), before)
         self.assertEqual(json.loads((config / "config.json").read_text()), {"personal": True})
+
+    def test_linked_legacy_settings_migrate_and_old_shortcuts_still_work(self):
+        config = Path(self.env["XDG_CONFIG_HOME"])
+        config.mkdir(parents=True)
+        legacy = config / "illogical-impulse"
+        previous = self.repo / "dots/.config/illogical-impulse"
+        previous.mkdir()
+        legacy.symlink_to(previous)
+        (legacy / "config.json").write_text('{"wallpaper": "my photo.jpg"}')
+        (legacy / "presets/personal").mkdir(parents=True)
+        (legacy / "presets/personal/preset.json").write_text("my preset")
+        (legacy / "actions").mkdir()
+        (legacy / "actions/.hidden").write_text("my action")
+        (legacy / "config.example.json").write_text("obsolete example")
+        current = config / "velora"
+        dry = self.link("--dry-run")
+        self.assertEqual(dry.returncode, 0, dry.stderr)
+        self.assertFalse(current.exists())
+        self.assertEqual(legacy.resolve(), previous)
+
+        result = self.link()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads((current / "config.json").read_text()), {"wallpaper": "my photo.jpg"})
+        self.assertEqual((current / "presets/personal/preset.json").read_text(), "my preset")
+        self.assertEqual((current / "actions/.hidden").read_text(), "my action")
+        self.assertFalse((current / "config.example.json").exists())
+        self.assertEqual(legacy.resolve(), current)
+        (current / "actions/.hidden").unlink()
+        before = self.journal.read_text()
+        self.assertEqual(self.link().returncode, 0)
+        self.assertEqual(self.journal.read_text(), before)
+        self.assertFalse((current / "actions/.hidden").exists())
+        velora.restore_journal(self.journal)
+        self.assertEqual(legacy.resolve(), previous)
+        self.assertEqual((legacy / "actions/.hidden").read_text(), "my action")
+
+    def test_existing_velora_settings_win_when_merging_legacy_directories(self):
+        config = Path(self.env["XDG_CONFIG_HOME"])
+        current, legacy = config / "velora", config / "illogical-impulse"
+        for directory in (current, legacy):
+            (directory / "presets").mkdir(parents=True)
+            (directory / "config.json").write_text(directory.name)
+            (directory / "presets/shared").write_text(directory.name)
+        (legacy / "presets/older").write_text("older preset")
+        outside = self.base / "personal actions"
+        outside.mkdir()
+        (current / "actions").symlink_to(outside)
+        (legacy / "actions").mkdir()
+        (legacy / "actions/imported").write_text("action")
+        result = self.link()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((current / "config.json").read_text(), "velora")
+        self.assertEqual((current / "presets/shared").read_text(), "velora")
+        self.assertEqual((current / "presets/older").read_text(), "older preset")
+        self.assertFalse((outside / "imported").exists())
+        velora.restore_journal(self.journal)
+        self.assertFalse(legacy.is_symlink())
+        self.assertEqual((legacy / "actions/imported").read_text(), "action")
+        self.assertFalse((current / "presets/older").exists())
+
+    def test_update_repairs_the_old_link_when_git_removed_its_last_template(self):
+        config = Path(self.env["XDG_CONFIG_HOME"])
+        config.mkdir(parents=True)
+        legacy = config / "illogical-impulse"
+        previous = self.repo / "dots/.config/illogical-impulse"
+        legacy.symlink_to(previous)
+        self.assertTrue(velora.installation_pending("current"))
+        result = self.link("--dry-run")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"Link {legacy} -> {config / 'velora'}", result.stdout)
+        self.assertFalse(legacy.exists())
+        self.assertFalse((config / "velora").exists())
+        result = self.link()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(legacy.resolve(), config / "velora")
+        self.assertEqual(json.loads((legacy / "config.json").read_text()), {"default": True})
+        self.assertFalse(velora.installation_pending("current"))
+        velora.restore_journal(self.journal)
+        self.assertEqual(legacy.readlink(), previous)
+        self.assertFalse(legacy.exists())
+
+    def test_checkout_migration_keeps_internal_and_external_relative_links_working(self):
+        config = Path(self.env["XDG_CONFIG_HOME"])
+        config.mkdir(parents=True)
+        previous = self.repo / "dots/.config/illogical-impulse"
+        actions = previous / "actions"
+        actions.mkdir(parents=True)
+        (config / "illogical-impulse").symlink_to(previous)
+        external = previous.parent / "shared dotfiles"
+        external.mkdir()
+        (external / "light.json").write_text("light")
+        (external / "dark.json").write_text("dark")
+        selected = external / "selected.json"
+        selected.symlink_to("light.json")
+        (previous / "config.json").symlink_to("../shared dotfiles/selected.json")
+        (actions / "external").symlink_to("../../shared dotfiles/selected.json")
+        (actions / "internal").symlink_to("external")
+        actions.chmod(0o555)
+        result = self.link()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        current = config / "velora"
+        self.assertEqual((current / "config.json").read_text(), "light")
+        self.assertEqual((current / "actions/internal").readlink(), Path("external"))
+        self.assertEqual((current / "actions").stat().st_mode & 0o777, 0o555)
+        selected.unlink()
+        selected.symlink_to("dark.json")
+        self.assertEqual((current / "config.json").read_text(), "dark")
+        self.assertEqual((current / "actions/internal").read_text(), "dark")
+        self.assertFalse(velora.installation_pending("current"))
+        velora.restore_journal(self.journal)
+        self.assertEqual((config / "illogical-impulse").resolve(), previous)
+        self.assertEqual((previous / "config.json").read_text(), "dark")
+        self.assertEqual(actions.stat().st_mode & 0o777, 0o555)
+
+    def test_update_after_git_pull_finishes_the_migration_once(self):
+        # Stand in for system package installation while exercising the real linker,
+        # Git status, update lock, saved options and CLI dispatch.
+        launcher = self.repo / "velora"
+        launcher.write_text('#!/bin/sh\nset -eu\n[ "$1" = install ]\n'
+                            'printf "%s\\n" "$@" >> "$XDG_STATE_HOME/installer-args"\n'
+                            'exec bash "$(dirname "$0")/scripts/install.sh" --no-reload > "$XDG_STATE_HOME/link.log"\n')
+        launcher.chmod(0o755)
+        old_example = self.repo / "dots/.config/illogical-impulse/config.example.json"
+        old_example.parent.mkdir()
+        new_example = self.repo / "dots/.config/velora/config.example.json"
+        new_example.rename(old_example)
+        git(self.repo, "init", "--initial-branch=main")
+        git(self.repo, "add", ".")
+        git(self.repo, "commit", "-m", "Previous installation")
+        remote = self.base / "remote.git"
+        git(self.base, "clone", "--bare", str(self.repo), str(remote))
+        git(self.repo, "remote", "add", "origin", str(remote))
+        git(self.repo, "push", "-u", "origin", "main")
+        author = self.base / "author"
+        git(self.base, "clone", str(remote), str(author))
+        new_path = author / new_example.relative_to(self.repo)
+        new_path.parent.mkdir()
+        (author / old_example.relative_to(self.repo)).rename(new_path)
+        (author / ".gitignore").write_text("/dots/.config/illogical-impulse/\n")
+        git(author, "add", "-A")
+        git(author, "commit", "-m", "Rename personal settings")
+        git(author, "push")
+
+        config = Path(self.env["XDG_CONFIG_HOME"])
+        config.mkdir(parents=True)
+        legacy = config / "illogical-impulse"
+        legacy.symlink_to(old_example.parent)
+        (legacy / "config.json").write_text('{"personal": true}\n')
+        (legacy / "actions").mkdir()
+        (legacy / "actions/translate").write_text("personal action")
+        git(self.repo, "pull", "--ff-only")
+        current = git(self.repo, "rev-parse", "HEAD")
+        velora.write_json(velora.state_dir() / "installation.json",
+                          {"without": ["toolbox"], "skip_aur": True, "skip_packages": True})
+        with patch.object(velora, "ROOT", self.repo), patch.dict(os.environ, self.env):
+            for flags in (["--dry-run"], ["--check", "--json"]):
+                self.assertEqual(velora.main(["update", *flags]), 0)
+                self.assertFalse((config / "velora").exists())
+            status = velora.read_json(velora.state_dir() / "update.json")
+            self.assertTrue(status["available"] and status["installation_pending"])
+            self.assertEqual(status["behind"], 0)
+            self.assertEqual(velora.main(["update"]), 0)
+            self.assertEqual(git(self.repo, "rev-parse", "HEAD"), current)
+            self.assertEqual(legacy.resolve(), config / "velora")
+            self.assertEqual((config / "velora/actions/translate").read_text(), "personal action")
+            self.assertEqual(json.loads((config / "velora/config.json").read_text()), {"personal": True})
+            self.assertFalse(velora.read_json(velora.state_dir() / "update.json")["available"])
+            with patch.object(velora, "native_tools_current", return_value=True):
+                self.assertEqual(velora.main(["update"]), 0)
+            calls = (Path(self.env["XDG_STATE_HOME"]) / "installer-args").read_text().splitlines()
+            self.assertEqual(calls.count("install"), 1)
+            for option in ("toolbox", "--skip-aur", "--skip-packages"):
+                self.assertIn(option, calls)
+
+    def test_update_after_a_package_upgrade_imports_settings_from_the_previous_runtime(self):
+        runtime = Path(self.env["XDG_DATA_HOME"]) / "velora/runtime"
+        shutil.copytree(self.repo / "dots", runtime / "dots")
+        old_package = self.base / "previous package"
+        legacy_path = Path("dots/.config/illogical-impulse")
+        (old_package / legacy_path / "actions").mkdir(parents=True)
+        (old_package / legacy_path / "config.example.json").write_text("{}")
+        (old_package / legacy_path / "actions/personal").write_text("my action")
+        velora.sync_runtime(old_package, runtime)
+        config = Path(self.env["XDG_CONFIG_HOME"])
+        config.mkdir(parents=True)
+        legacy = config / "illogical-impulse"
+        legacy.symlink_to(runtime / legacy_path)
+        (legacy / "config.json").write_text('{"theme":"personal"}')
+        revision = "a" * 40
+        velora.write_json(self.repo / ".velora-package.json",
+                          {"source_revision": revision, "source_branch": "main", "source_repository": "test", "version": "1"})
+        (self.repo / "velora").touch()
+        actual_run = velora.run
+
+        def run(command, **kwargs):
+            if command[:2] == ["git", "ls-remote"]:
+                return revision + "\trefs/heads/main"
+            if command[0] == Path("/usr/bin/velora"):
+                options = velora.parser().parse_args(command[1:])
+                self.assertEqual(options.command, "install")
+                velora.link_configuration(options, [])
+                return ""
+            if command[0] == "systemctl":
+                return ""
+            if command[:2] == ["bash", self.repo / "scripts/install.sh"]:
+                return actual_run(command, capture=True, **kwargs)
+            return actual_run(command, **kwargs)
+
+        with patch.object(velora, "ROOT", self.repo), patch.dict(os.environ, dict(self.env, HYPRLAND_INSTANCE_SIGNATURE="")), \
+                patch.object(velora, "run", side_effect=run), patch.object(velora.builds, "build_package") as build:
+            self.assertEqual(velora.main(["update", "--check"]), 0)
+            status = velora.read_json(velora.state_dir() / "update.json")
+            self.assertTrue(status["installation_pending"])
+            self.assertFalse((config / "velora").exists())
+            self.assertEqual(velora.main(["update"]), 0)
+            build.assert_not_called()
+            self.assertEqual(legacy.resolve(), config / "velora")
+            self.assertEqual((legacy / "actions/personal").read_text(), "my action")
+            self.assertEqual(json.loads((legacy / "config.json").read_text()), {"theme": "personal"})
+            self.assertFalse(velora.update_status()["available"])
+            velora.write_json(velora.state_dir() / "update.json", dict(status, current="b" * 40, target="c" * 40, behind=1))
+            cached = velora.update_status(fetch=False)
+            self.assertFalse(cached["available"])
+            self.assertEqual(cached["target"], revision)
+
+    def test_btop_migrates_only_the_stock_theme_on_first_install(self):
+        directory = Path(self.env["XDG_CONFIG_HOME"]) / "btop"
+        directory.mkdir(parents=True)
+        config = directory / "btop.conf"
+        config.write_text('color_theme = "Default"\nupdate_ms = 543\n')
+        install = self.link()
+        self.assertEqual(install.returncode, 0, install.stderr)
+        self.assertEqual(config.read_text(), 'color_theme = "Velora"\nupdate_ms = 543\n')
+        theme = directory / "themes/Velora.theme"
+        self.assertFalse(theme.is_symlink())
+        theme.write_text("live wallpaper colors\n")
+        config.write_text('color_theme = "Default"\n')
+        self.assertEqual(self.link().returncode, 0)
+        self.assertEqual(theme.read_text(), "live wallpaper colors\n")
+        self.assertEqual(config.read_text(), 'color_theme = "Default"\n')
 
     def test_clean_install_links_right_click_defaults_without_overriding_them(self):
         hypr_source = self.repo / "dots/.config/hypr"
@@ -587,7 +830,7 @@ class InstallerTests(IsolatedTest):
         self.assertEqual(self.link("--dry-run").returncode, 0)
         self.assertEqual(self.journal.read_text(), before)
         self.assertFalse(os.path.lexists(self.home / ".zshrc"))
-        self.assertFalse((self.repo / "dots/.config/illogical-impulse/config.json").exists())
+        self.assertFalse((self.repo / "dots/.config/velora/config.json").exists())
 
     def test_installer_automatically_restores_after_registration_failure(self):
         shutil.copytree(PROJECT / "dependencies", self.repo / "dependencies")
@@ -855,9 +1098,13 @@ class UpdateTests(IsolatedTest):
         velora.write_json(velora.state_dir() / 'last-update.json',
                           {'previous': 'previous', 'target': current, 'complete': False})
         with patch.object(velora, 'install_updated_tree') as install:
+            velora.update(self.args('--check'))
+            self.assertTrue(velora.read_json(velora.state_dir() / 'update.json')['available'])
+            install.assert_not_called()
             velora.update(self.args())
         install.assert_called_once_with(None)
         self.assertTrue(velora.read_json(velora.state_dir() / 'last-update.json')['complete'])
+        self.assertFalse(velora.read_json(velora.state_dir() / 'update.json')['available'])
 
     def test_generated_files_survive_the_update_that_stops_tracking_them(self):
         colors = "dots/.config/hypr/hyprland/colors.lua"

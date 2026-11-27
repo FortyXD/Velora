@@ -60,9 +60,15 @@ def sync_runtime(source, destination):
             shutil.copy2(path, target, follow_symlinks=False)
             current[key] = incoming_hash
     # Remove only obsolete templates that the user has not edited.
+    legacy_settings = Path("dots/.config/illogical-impulse")
     for key, baseline in previous.items():
         if key not in current:
-            target = runtime_target(destination, key)
+            # Older locally built packages could list personal actions and settings
+            # as templates. Leave them in place for the installer's settings migration.
+            relative = Path(key)
+            if relative.is_relative_to(legacy_settings) and relative != legacy_settings / "config.example.json":
+                continue
+            target = runtime_target(destination, relative)
             if fingerprint(target) == baseline and (target.is_file() or target.is_symlink()):
                 target.unlink()
     destination.mkdir(parents=True, exist_ok=True)

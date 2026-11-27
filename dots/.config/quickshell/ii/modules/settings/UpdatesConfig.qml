@@ -19,6 +19,7 @@ ContentPage {
     property var installation: ({})
     property bool showUpdateDetails: false
     readonly property bool installing: installation.status === "starting" || installation.status === "running"
+    readonly property bool needsFinish: updateStatus.installation_pending === true && updateStatus.behind === 0
     readonly property string veloraCommand: Quickshell.shellPath("scripts/maintenance/velora.sh")
     readonly property bool busy: installing || startInstallation.running || checkVeloraUpdates.running || saveUpdateSettings.running || loadUpdateSettings.running
 
@@ -135,6 +136,7 @@ ContentPage {
         colRipple: Appearance.colors.colSecondaryContainerActive
     }
 
+
     // Where Velora stands, and what can be done about it
     ContentSection {
         icon: "system_update"
@@ -174,6 +176,7 @@ ContentPage {
                         : root.updateError || root.updateStatus.error ? Translation.tr("Couldn't check for updates")
                         : root.updateStatus.diverged ? Translation.tr("This installation has custom changes. Automatic updates are paused to preserve them.")
                         : root.updateStatus.dirty && root.updateStatus.available ? Translation.tr("Local changes were detected. Automatic updates are paused to preserve them.")
+                        : root.needsFinish ? Translation.tr("Finish applying this update to your desktop.")
                         : root.updateStatus.available ? Translation.tr("An update is available.")
                         : root.updateStatus.checked_at ? Translation.tr("Velora is up to date.")
                         : Translation.tr("Run the Velora installer to enable update checks.")
@@ -196,7 +199,7 @@ ContentPage {
                     wrapMode: Text.Wrap
                     text: [
                         `${Translation.tr("Installed")}: ${root.updateStatus.current_version ?? ""} (${(root.updateStatus.current ?? "").slice(0, 12)})`,
-                        ...(root.updateStatus.available ? [`${Translation.tr("Latest")}: ${root.updateStatus.latest_version ?? ""}`] : []),
+                        ...(root.updateStatus.available && !root.needsFinish ? [`${Translation.tr("Latest")}: ${root.updateStatus.latest_version ?? ""}`] : []),
                         ...(root.updateStatus.checked_at ? [`${Translation.tr("Checked")}: ${Qt.locale().toString(new Date(root.updateStatus.checked_at), "d MMM, " + Config.options.time.format)}`] : []),
                     ].join(" · ")
                     font.pixelSize: Appearance.font.pixelSize.smaller
@@ -242,7 +245,8 @@ ContentPage {
             spacing: 6
             ActionButton {
                 materialIcon: "download"
-                mainText: root.installation.status === "failed" ? Translation.tr("Retry update") : Translation.tr("Install update")
+                mainText: root.needsFinish ? Translation.tr("Finish update")
+                    : root.installation.status === "failed" ? Translation.tr("Retry update") : Translation.tr("Install update")
                 visible: !!root.updateStatus.available || root.installation.status === "failed"
                 enabled: !root.updateStatus.diverged && !root.updateStatus.dirty && !root.busy
                 onClicked: root.installUpdate()
@@ -296,4 +300,6 @@ ContentPage {
             onClicked: root.configureUpdates(["--channel", checked ? "branch" : "release"])
         }
     }
+
+    OptionalComponentsSection { pageShown: root.pageShown; updateBusy: root.installing }
 }

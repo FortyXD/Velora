@@ -1,0 +1,79 @@
+#!/usr/bin/python3
+"""Keep the main panel running on this compositor after an unexpected exit."""
+import argparse
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import select
+import signal
+import subprocess
+import sys
+import time
+
+
+def stop_panel(config):
+    listing = subprocess.run(["qs", "list", "-c", config, "-j"], capture_output=True, text=True)
+    # Quickshell 0.3 prints a sentence even with -j when there are no instances.
+    if listing.returncode or not listing.stdout.lstrip().startswith("["):
+        return
+    for instance in json.loads(listing.stdout):
+        try:
+            fd = os.pidfd_open(instance["pid"])
+        except ProcessLookupError:
+            continue
+        try:
+            subprocess.run(["qs", "kill", "--id", instance["id"]], stdout=subprocess.DEVNULL)
+            poll = select.poll()
+            poll.register(fd, select.POLLIN)
+            if not poll.poll(5000):
+                raise SystemExit("The running panel did not finish closing.")
+        finally:
+            os.close(fd)
+
+
+def run(config, socket):
+    failures = 0
+    while True:
+        started = time.monotonic()
+        status = subprocess.run(["qs", "-n", "-c", config]).returncode
+        if status in (0, -signal.SIGHUP, -signal.SIGINT, -signal.SIGTERM):
+            return 0
+        if socket and not socket.is_socket():
+            return 1
+        if time.monotonic() - started >= 30:
+            failures = 0
+        failures += 1
+        if failures >= 3:
+            return 1
+        print(f"Quickshell exited with status {status}. Restarting {config}.", file=sys.stderr, flush=True)
+        time.sleep(failures)
+
+
+def start(config, restart):
+    runtime = Path(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}")
+    display = os.environ.get("WAYLAND_DISPLAY", "")
+    key = hashlib.sha256(os.fsencode(display + "\0" + config)).hexdigest()[:20]
+    if restart:
+        stop_panel(config)
+    with (runtime / f"velora-shell-{key}.lock").open("a") as lock:
+        # The previous launcher may still be returning from wait() after a manual restart.
+        deadline = time.monotonic() + 1
+        while True:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if not restart or time.monotonic() >= deadline:
+                    return 0
+                time.sleep(0.05)
+        return run(config, runtime / display if display else None)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--restart", action="store_true")
+    parser.add_argument("config", nargs="?", default="ii")
+    args = parser.parse_args()
+    sys.exit(start(args.config, args.restart))
