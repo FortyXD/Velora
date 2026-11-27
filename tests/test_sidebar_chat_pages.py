@@ -26,6 +26,7 @@ ShellRoot {
     property var afterCapture: null
     property string originalConversation: ""
     property real readingPosition: 0
+    property double menuCloseDeadline: 0
     property string artifacts: "ARTIFACTS"
     TestCase { id: interaction; name: "SidebarInteractions"; when: false; windowShown: window.visible }
     function find(item, name) {
@@ -170,9 +171,11 @@ ShellRoot {
                     commands.clicked();
                     root.check(!Assistant.allowCommands && !runScript.enabled, "revoking commands disables the script picker");
                     Config.options.assistant.enabled = false;
+                    root.menuCloseDeadline = Date.now() + 1500;
                     interaction.mouseClick(root.find(chat,"sidebarChatMenu"));
                 };
             } else if (root.step === 16) {
+                if (chat.optionsOpen && Date.now() < root.menuCloseDeadline) return;
                 root.check(!chat.optionsOpen, "second options click closes it");
                 SidebarChat.openConversation(root.originalConversation);
             } else if (root.step === 17) {

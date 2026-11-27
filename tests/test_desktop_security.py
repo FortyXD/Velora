@@ -370,15 +370,20 @@ sys.exit(int(os.environ.get('CURL_EXIT','0')))
             function test_private_paths() {
                 verify(Directories.temporary.endsWith("/velora-123"));
                 verify(!Directories.temporary.startsWith("/tmp/quickshell"));
-                for (const path of [Directories.tempImages, Directories.cliphistDecode, Directories.screenshotTemp])
+                for (const path of [Directories.tempImages, Directories.cliphistDecode, Directories.screenshotTemp, Directories.latexOutput])
                     verify(path.startsWith(Directories.temporary + "/"));
                 const cleanup = Quickshell.commands.filter(command => command[0] === "bash");
-                compare(cleanup.length, 4);
+                compare(cleanup.map(command => command[4]).sort(),
+                        [Directories.coverArt, Directories.booruPreviews, Directories.cliphistDecode].sort());
                 for (const command of cleanup) {
                     compare(command.length, 5);
                     compare(command[3], "cleanup");
                     verify(!command[2].includes(command[4]));
                 }
+                const latexDirectory = Probe.jobs.find(job => job.command?.includes(Directories.latexOutput));
+                verify(latexDirectory !== undefined);
+                compare(latexDirectory.command, ["mkdir", "-p", "--", Directories.latexOutput]);
+                verify(latexDirectory.running);
             }
         ''')
 

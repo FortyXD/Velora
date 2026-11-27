@@ -148,6 +148,19 @@ class StyleSettingsTests(unittest.TestCase):
     property string initialPath
     property string candidate
     FileView {
+        id: wallpaperConfig
+        path: Config.filePath
+        blockLoading: true
+        blockWrites: true
+        function applyPath(path) {
+            // switchwall.sh commits the selected wallpaper to the shared config file.
+            reload();
+            const config = JSON.parse(text());
+            config.background.wallpaperPath = path;
+            setText(JSON.stringify(config));
+        }
+    }
+    FileView {
         id: recorded
         path: CF.FileUtils.trimFileProtocol(Directories.state) + "/recent-wallpapers.json"
         blockLoading: true; printErrors: false
@@ -176,8 +189,8 @@ class StyleSettingsTests(unittest.TestCase):
                 Directories.wallpaperSwitchScriptPath = "record-wallpaper";
                 break;
             case 1:
-                if (recorded.keys()[0] !== Config.options.background.wallpaperPath) return;
-                Config.options.background.wallpaperPath = Directories.defaultWallpaper;
+                if (root.preloading || recorded.keys()[0] !== Config.options.background.wallpaperPath) return;
+                wallpaperConfig.applyPath(Directories.defaultWallpaper);
                 break;
             case 2:
                 if (!sample || gallery.recent.length !== 2 || recorded.keys().length !== 2) return;
@@ -204,7 +217,7 @@ class StyleSettingsTests(unittest.TestCase):
                 if (args.length < 4) return;
                 if (!root.check(args.length === 4 && args[0] === "--mode" && ["dark","light"].includes(args[1]) &&
                     args[2] === "--image" && args[3] === root.candidate, "apply sends only the selected wallpaper")) return;
-                Config.options.background.wallpaperPath = root.candidate;
+                wallpaperConfig.applyPath(root.candidate);
                 root.width = 690;
                 break;
             }

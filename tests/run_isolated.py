@@ -16,7 +16,7 @@ for name in ['tools/target','cache']:(root/name).mkdir(parents=True,exist_ok=Tru
 command=['bwrap','--unshare-all','--die-with-parent','--new-session','--ro-bind','/','/',
          '--tmpfs','/run','--tmpfs','/tmp','--proc','/proc','--dev','/dev','--clearenv',
          '--setenv','PATH','/usr/bin:/bin','--setenv','HOME','/tmp/velora-test-home',
-         '--dir','/tmp/velora-test-runtime','--setenv','XDG_RUNTIME_DIR','/tmp/velora-test-runtime','--setenv','LANG','C.UTF-8','--setenv','VELORA_TEST_PREBUILT','1',
+         '--perms','0700','--dir','/tmp/velora-test-runtime','--setenv','XDG_RUNTIME_DIR','/tmp/velora-test-runtime','--setenv','LANG','C.UTF-8','--setenv','VELORA_TEST_PREBUILT','1',
          '--chdir',str(root)]
 for name in ['tools/target','cache']:command+=['--bind',str(root/name),str(root/name)]
 if gpu:

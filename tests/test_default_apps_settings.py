@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -379,22 +380,38 @@ class DefaultAppsSettingsTests(unittest.TestCase):
         self.assertNotRegex(settings_log, r'Binding loop|recursive rearrange')
 
     def test_quiet_switch_calls_the_running_shell(self):
-        # Register the private test window as the 'ii' instance so its real notification IPC is reachable.
         popen = pages.subprocess.Popen
+        server = None
 
         def run_named_instance(args, **options):
+            nonlocal server
             if args[:2] == [pages.QS, '-p']:
+                # The desktop owns notification IPC. Settings observes the resulting state on disk.
+                shell = Path(args[2]).parent
                 config = Path(options['env']['XDG_CONFIG_HOME']) / 'quickshell' / 'ii'
-                config.parent.mkdir(parents=True, exist_ok=True)
-                config.symlink_to(Path(args[2]).parent, target_is_directory=True)
-                args = [pages.QS, '-c', 'ii', *args[3:]]
+                config.mkdir(parents=True)
+                for child in shell.iterdir():
+                    if child.name != 'shell.qml':
+                        (config / child.name).symlink_to(child)
+                (config / 'shell.qml').write_text('import Quickshell\nimport qs.services\n'
+                    'ShellRoot { readonly property var notifications: Notifications }\n')
+                server = popen([pages.QS, '-c', 'ii', '--no-color'], **options)
+                deadline = time.monotonic() + 12
+                while time.monotonic() < deadline and server.poll() is None:
+                    ipc = pages.subprocess.run([pages.QS, '-c', 'ii', 'ipc', 'show'],
+                        env=options['env'], capture_output=True, text=True, timeout=3)
+                    if ipc.returncode == 0 and 'setSilent' in ipc.stdout + ipc.stderr:
+                        break
+                    time.sleep(0.1)
+                else:
+                    self.fail('The desktop notification IPC did not start')
             return popen(args, **options)
 
         probe = r'''
     property int stage: 0
     readonly property var notificationServer: Notifications
     property bool savedQuiet: false
-    TestCase { id: input; when: false }
+    TestCase { id: input; when: false; windowShown: root.visible }
     FileView {
         path: Persistent.filePath
         watchChanges: true
@@ -428,6 +445,11 @@ class DefaultAppsSettingsTests(unittest.TestCase):
 '''
         host = (pages.SHELL / 'settings.qml').read_text().replace('import QtQuick.Controls', 'import QtTest\nimport QtQuick.Controls', 1)
         host = host.replace('    id: root\n', '    id: root\n' + probe, 1)
-        with patch.object(pages.subprocess, 'Popen', run_named_instance):
-            output = pages.SettingsPagesTests().run_driver(host, settings_page='general')
+        try:
+            with patch.object(pages.subprocess, 'Popen', run_named_instance):
+                output = pages.SettingsPagesTests().run_driver(host, settings_page='general')
+        finally:
+            if server is not None:
+                server.terminate()
+                server.wait(timeout=5)
         self.assertIn('DRIVER_PASS', output, output[-6000:])
