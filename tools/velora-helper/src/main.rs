@@ -111,6 +111,7 @@ fn dispatch(command: &str, argv: Vec<String>) -> anyhow::Result<ExitCode> {
         }
         "keyring" => return keyring::run(argv),
         "toolbox-open" => return toolbox::open(argv),
+        "toolbox-detect" => return toolbox::detect(argv),
         "toolbox-quick" => return toolbox::quick(argv),
         "toolbox" => return toolbox::job(argv),
         "recorder" => return recorder::control::run(argv),
@@ -142,7 +143,6 @@ fn dispatch(command: &str, argv: Vec<String>) -> anyhow::Result<ExitCode> {
         "recorder-status" => recorder::run(argv),
         "recorder-child-gate" => recorder::control::gate(argv),
         "toolbox-caps" => toolbox::caps(),
-        "toolbox-detect" => toolbox::detect(argv),
         "wallpaper-filename" => links::wallpaper(argv.first().map_or("", String::as_str)),
         "terminal-apply" => palette::terminals(),
         "kde-theme" => palette::kde(),

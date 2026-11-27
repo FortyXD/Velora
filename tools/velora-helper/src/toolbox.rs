@@ -160,15 +160,14 @@ async fn identify(path: &str) -> (&'static str, String) {
     (kind_of(path, &extension, &mime), mime)
 }
 
-pub fn detect(files: Vec<String>) -> Result<()> {
+pub fn detect(files: Vec<String>) -> Result<ExitCode> {
     interruptible(
         async {
             detect_files(&files).await?;
             Ok(ExitCode::SUCCESS)
         },
         || {},
-    )?;
-    Ok(())
+    )
 }
 
 async fn detect_files(files: &[String]) -> Result<()> {

@@ -22,7 +22,7 @@ Singleton {
     property list<string> pinnedWidgetIdentifiers: []
     property list<var> clickableWidgets: []
 
-    function pin(identifier: string, pin = true) {
+    function pin(identifier, pin = true) {
         if (pin) {
             if (!root.pinnedWidgetIdentifiers.includes(identifier)) {
                 root.pinnedWidgetIdentifiers.push(identifier)
@@ -32,7 +32,7 @@ Singleton {
         }
     }
 
-    function registerClickableWidget(widget: var, clickable = true) {
+    function registerClickableWidget(widget, clickable = true) {
         if (clickable) {
             if (!root.clickableWidgets.includes(widget)) {
                 root.clickableWidgets.push(widget)

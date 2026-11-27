@@ -184,7 +184,7 @@ Singleton {
         });
     }
 
-    function connectToHiddenNetwork(ssid: string, password: string, security = password ? "wpa-psk" : "none"): void {
+    function connectToHiddenNetwork(ssid, password, security = password ? "wpa-psk" : "none") {
         if (root.connectionPending && root.awaitingPassword) {
             if (root.wifiConnectHidden && ssid === root.wifiConnectSsid) root.submitPassword(password);
             return;
