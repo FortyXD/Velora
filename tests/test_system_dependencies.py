@@ -171,8 +171,10 @@ class DesktopServiceTests(IsolatedTest):
 
     def test_enables_network_audio_and_keyboard_on_a_new_desktop(self):
         args = velora.parser().parse_args(["deps"])
-        with patch.object(velora, "service_active", return_value=False), patch.object(velora, "run") as run:
+        with patch.object(velora, "competing_network_units", return_value=(set(), set())), \
+                patch.object(velora, "service_active", return_value=False), patch.object(velora, "run") as run:
             velora.configure_desktop_services(args)
+            velora.configure_network(args)
         commands = [call.args[0] for call in run.call_args_list]
         self.assertIn(["sudo", "systemctl", "enable", "--now", "NetworkManager.service"], commands)
         enable = next(command for command in commands if command[:4] == ["systemctl", "--user", "--no-reload", "enable"])
@@ -183,10 +185,57 @@ class DesktopServiceTests(IsolatedTest):
 
     def test_keeps_an_existing_network_manager_running(self):
         args = velora.parser().parse_args(["deps"])
-        with patch.object(velora, "service_active", side_effect=lambda unit, **kwargs: unit == "iwd.service"), \
+        with patch.object(velora, "competing_network_units", return_value=({"iwd.service"}, {"iwd.service"})), \
                 patch.object(velora, "run") as run:
-            velora.configure_desktop_services(args)
-        self.assertFalse(any("NetworkManager.service" in call.args[0] for call in run.call_args_list))
+            velora.configure_network(args)
+        run.assert_not_called()
+
+    def test_minimal_install_schedules_one_manager_without_disconnecting_the_live_network(self):
+        units = {"systemd-networkd.socket", "systemd-networkd.service", "iwd.service"}
+        args = velora.parser().parse_args(["install", "--yes"])
+        with patch.object(velora, "competing_network_units", return_value=(units, units)), \
+                patch.object(velora, "run") as run:
+            velora.plan_network(args)
+            velora.configure_network(args)
+        self.assertEqual([call.args[0] for call in run.call_args_list], [
+            ["systemctl", "list-unit-files", "NetworkManager.service", "--no-legend", "--no-pager"],
+            ["sudo", "systemctl", "enable", "NetworkManager.service"],
+            ["sudo", "systemctl", "disable", *sorted(units)],
+        ])
+
+    def test_enabled_but_idle_competitor_is_switched_at_boot(self):
+        args = velora.parser().parse_args(["deps", "--network-manager", "migrate", "--dry-run"])
+        with patch.object(velora, "competing_network_units", return_value=(set(), {"dhcpcd@eth0.service"})), \
+                patch.object(velora, "run") as run:
+            velora.configure_network(args)
+        run.assert_any_call(["sudo", "systemctl", "disable", "dhcpcd@eth0.service"], dry=True)
+        self.assertTrue(all("--now" not in call.args[0] and call.kwargs["dry"] for call in run.call_args_list))
+
+    def test_iwd_used_by_networkmanager_is_a_backend(self):
+        with patch.object(velora, "system_tool", return_value="/usr/bin/NetworkManager"), \
+                patch.object(velora, "run", side_effect=[
+                    "iwd.service loaded active running Wireless service",
+                    "iwd.service enabled disabled\nsystemd-networkd.service enabled disabled",
+                    "[device]\nwifi.backend=iwd\n",
+                ]):
+            self.assertEqual(velora.competing_network_units(), (set(), {"systemd-networkd.service"}))
+
+    def test_keep_and_skip_packages_do_not_touch_network_units(self):
+        for flags in (["--network-manager", "keep"], ["--network-manager", "migrate", "--skip-packages"]):
+            args = velora.parser().parse_args(["install", "--yes", *flags])
+            with patch.object(velora, "competing_network_units") as inspect, patch.object(velora, "run") as run:
+                velora.plan_network(args)
+                velora.configure_network(args)
+            inspect.assert_not_called()
+            run.assert_not_called()
+
+    def test_nm_only_boot_has_no_competing_units(self):
+        def list_units(command, **kwargs):
+            # systemctl list-unit-files returns 1 if all explicit unit names miss the state filter.
+            self.assertTrue(command[-1].startswith("--state="))
+            return "NetworkManager.service enabled disabled\nwpa_supplicant.service active running\n"
+        with patch.object(velora, "run", side_effect=list_units):
+            self.assertEqual(velora.competing_network_units(), (set(), set()))
 
     def test_user_services_are_enabled_even_without_a_running_user_manager(self):
         def run(command, **kwargs):

@@ -240,6 +240,12 @@ async fn start_activation(connection: Connection, shared: SharedState, profile: 
     tokio::spawn(async move {
         {
             let mut state = shared.lock().expect("test state");
+            if matches!(outcome, Outcome::Succeed) {
+                if let Some((plain, _)) = state.profiles.get_mut(&profile) {
+                    plain.entry("connection".into()).or_default().insert("timestamp".into(), value(1234u64));
+                }
+                *state.versions.entry(profile.clone()).or_default() += 1;
+            }
             if let Some(password) = state.concurrent_password.take() {
                 // Another client saves a different password while this activation is running.
                 state.calls.push("ConcurrentUpdate2".into());
@@ -422,7 +428,10 @@ impl Profile {
         if shared.no_secrets {
             return Err(NmError::NoSecrets("No agents were available for this request.".to_string()));
         }
-        if shared.change_during_secrets { *shared.versions.entry(self.path.clone()).or_default() += 1; }
+        // NM updates the in-memory profile when returning secrets. A competing edit
+        // advances it once more, independently of this request.
+        let increments = if shared.change_during_secrets { 2 } else { 1 };
+        *shared.versions.entry(self.path.clone()).or_insert(1) += increments;
         let (_, secrets) = shared.profiles.get(&self.path).ok_or(NmError::UnknownConnection(self.path.clone()))?;
         Ok(secrets.iter().filter(|(name, _)| **name == section).map(|(name, props)| (name.clone(), props.clone())).collect())
     }

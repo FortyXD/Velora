@@ -1,14 +1,126 @@
 """Filesystem safety regressions, confined to temporary installation roots."""
 import json
+import errno
+import os
 import shutil
 from unittest.mock import patch
 
 from test_velora import IsolatedTest, PROJECT, velora
 import builds
+from journal import stage_application_files
+import journal as install_journal
 from runtime import sync_runtime
 
 
 class InstallerAuditTests(IsolatedTest):
+    def test_retry_recovers_committed_changes_after_a_torn_final_append(self):
+        directory = velora.state_dir() / "backups/interrupted"
+        directory.mkdir(parents=True)
+        (directory / "in-progress").touch()
+        journal = directory / "journal.jsonl"
+        journal.touch()
+        target = self.base / "custom"
+        target.write_text("original")
+        velora.journal_file(journal, target, content="installed")
+        with journal.open("ab") as file:
+            file.write(b'{"target": "/interrupted')
+        velora.recover_interrupted_install()
+        self.assertEqual(target.read_text(), "original")
+        self.assertFalse((directory / "in-progress").exists())
+
+    def test_partly_removed_cross_filesystem_directory_uses_the_completed_backup(self):
+        target = self.base / "personal"
+        target.mkdir()
+        (target / "one").write_text("first")
+        (target / "two").write_text("second")
+        journal = self.base / "backup/journal.jsonl"
+        journal.parent.mkdir()
+        saved = journal.parent / "original"
+        velora.record_change(journal, target, saved)
+        rename = os.rename
+        def cross_device(source, dest):
+            if source == target:
+                raise OSError(errno.EXDEV, "Cross-device move")
+            return rename(source, dest)
+        real_run = install_journal.subprocess.run
+        def interrupted(args, **kwargs):
+            if args[0] == "rm":
+                (target / "one").unlink()
+                raise InterruptedError("Interrupted removing the old directory")
+            return real_run(args, **kwargs)
+        with patch.object(install_journal.os, "rename", side_effect=cross_device), \
+                patch.object(install_journal.subprocess, "run", side_effect=interrupted), self.assertRaises(InterruptedError):
+            install_journal.move_to_backup(target, saved)
+        self.assertTrue((saved / "one").exists())
+        self.assertFalse((target / "one").exists())
+        velora.restore_journal(journal)
+        self.assertEqual((target / "one").read_text(), "first")
+        self.assertEqual((target / "two").read_text(), "second")
+
+    def test_full_journal_leaves_original_in_place(self):
+        target = self.base / "personal"
+        target.write_text("original")
+        journal = self.base / "backup/journal.jsonl"
+        journal.parent.mkdir()
+        journal.touch()
+        with patch.object(velora, "record_change", side_effect=OSError(errno.ENOSPC, "No space left")), \
+                self.assertRaises(OSError):
+            velora.journal_file(journal, target, content="incoming")
+        self.assertEqual(target.read_text(), "original")
+        self.assertEqual(journal.read_bytes(), b"")
+
+    def test_retry_recovers_move_interrupted_before_backup_was_published(self):
+        directory = velora.state_dir() / "backups/interrupted"
+        directory.mkdir(parents=True)
+        journal = directory / "journal.jsonl"
+        target = self.base / "config"
+        target.mkdir()
+        (target / "custom").write_text("original")
+        saved = directory / "original"
+        (directory / "in-progress").touch()
+        velora.record_change(journal, target, saved)
+        target.rename(saved.with_suffix(".partial"))
+        velora.recover_interrupted_install()
+        self.assertEqual((target / "custom").read_text(), "original")
+        self.assertFalse((directory / "in-progress").exists())
+        self.assertTrue(journal.with_suffix(".restored").is_file())
+        velora.recover_interrupted_install()
+
+    def test_manual_restore_can_resume_after_a_write_error(self):
+        journal = self.base / "backup/journal.jsonl"
+        journal.parent.mkdir()
+        journal.touch()
+        first, second = self.base / "first", self.base / "second"
+        for target in (first, second):
+            target.write_text("custom")
+            velora.journal_file(journal, target, content="installed")
+        real_move = velora.move_journal_entry
+        def deny_one_move(source, destination):
+            if destination == first:
+                raise PermissionError(errno.EACCES, "Permission denied")
+            real_move(source, destination)
+        with patch.object(velora, "move_journal_entry", side_effect=deny_one_move), self.assertRaises(PermissionError):
+            velora.restore_journal(journal)
+        self.assertEqual(second.read_text(), "custom")
+        velora.restore_journal(journal)
+        self.assertEqual(first.read_text(), "custom")
+        self.assertEqual(second.read_text(), "custom")
+
+    def test_external_application_edits_restore_the_original_link_and_leave_its_referent_intact(self):
+        journal = self.base / "backup/journal.jsonl"
+        journal.parent.mkdir()
+        journal.touch()
+        personal = self.base / "custom KDE settings"
+        personal.write_text("original")
+        settings = self.base / "kdeglobals"
+        settings.symlink_to(personal.name)
+        stage_application_files(journal, [settings])
+        settings.write_text("application updated the staged copy")
+        self.assertEqual(personal.read_text(), "original")
+        velora.restore_journal(journal)
+        self.assertEqual(settings.readlink().name, personal.name)
+        self.assertEqual(settings.read_text(), "original")
+
     def runtime_fixture(self):
         source = self.base / "source"
         template = source / "dots/.config/example/config"

@@ -25,6 +25,7 @@ The following components carry their own notices:
 
 | Component | Source / attribution | License and local notice |
 | --- | --- | --- |
+| Google Sans Flex, Space Grotesk and Readex Pro | [Google Fonts source revision](https://github.com/google/fonts/tree/5026800714d07231937d92eb4cceabf06e05d74e/ofl) | SIL Open Font License 1.1. Each family's copyright and license accompany its font in [resources/fonts](../resources/fonts/). |
 | Illogical Impulse foundation | end-4 and contributors | GNU GPLv3; [LICENSE](../LICENSE) |
 | Fuzzy search | [farzher/fuzzysort](https://github.com/farzher/fuzzysort), Stephen Kamenar | MIT; [MIT.txt](MIT.txt) and the header in `dots/.config/quickshell/ii/modules/common/functions/fuzzysort.js` |
 | Lens encrypted database | [SQLCipher](https://github.com/sqlcipher/sqlcipher), Zetetic | BSD-3-Clause; [SQLCipher notice](SQLCipher-BSD-3-Clause.txt) |

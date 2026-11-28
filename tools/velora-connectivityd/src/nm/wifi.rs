@@ -329,12 +329,17 @@ async fn update(client: &NmClient, path: &str, settings: &Settings, flags: u32, 
 
 // A partial secret read must never be written back as though it were complete.
 // Keep this stricter rule local to credential replacement, not the general connection editor.
-async fn settings_with_secrets(client: &NmClient, path: &str, mut settings: Settings) -> Result<Settings, ApiError> {
+async fn settings_with_secrets(client: &NmClient, path: &str, mut settings: Settings, mut revision: u64) -> Result<(Settings, u64), ApiError> {
     for section in super::client::secret_sections(&settings) {
         let secrets: Settings = client.proxy(path, IFACE_SETTINGS_CONNECTION).await?.call("GetSecrets", &(section.as_str(),)).await.map_err(dbus_error)?;
         for (name, values) in secrets { settings.entry(name).or_default().extend(values); }
+        // NetworkManager merges the returned secrets into its in-memory profile.
+        // Each successful GetSecrets advances VersionId, even for an unchanged PSK.
+        // Account for our own reads only. An additional writer must still fail Update2.
+        revision = revision.checked_add(1).filter(|id| *id != u64::MAX)
+            .ok_or_else(|| ApiError::new(ErrorCode::Conflict, "The Wi-Fi profile revision changed"))?;
     }
-    Ok(settings)
+    Ok((settings, revision))
 }
 
 async fn version(client: &NmClient, path: &str) -> Result<u64, ApiError> {
@@ -343,8 +348,21 @@ async fn version(client: &NmClient, path: &str) -> Result<u64, ApiError> {
     Ok(version)
 }
 
+// NetworkManager updates these observations during activation without changing the
+// user's profile. Everything else, including other credentials, must still match.
+fn same_profile(current: &Settings, staged: &Settings) -> bool {
+    fn comparable(mut settings: Settings) -> Settings {
+        for (section, key) in [("connection", "timestamp"), ("802-11-wireless", "seen-bssids")] {
+            if let Some(values) = settings.get_mut(section) { values.remove(key); }
+        }
+        settings
+    }
+    comparable(current.clone()) == comparable(staged.clone())
+}
+
 async fn run(connection: &Connection, client: &NmClient, operation: &Arc<Operation>, prepared: Prepared, request: &Connect, budget: &mut WorkBudget) -> Result<Value, ApiError> {
     let mut restore = None;
+    let mut staged_settings = None;
     // The profile revision this operation owns. Saving later must write against it, not against
     // whatever a concurrent editor left behind while the connection was activating.
     let mut owned_version: Option<u64> = None;
@@ -364,17 +382,18 @@ async fn run(connection: &Connection, client: &NmClient, operation: &Arc<Operati
                 let (key, flags_key) = secret_key(prepared.security);
                 // Do not even retrieve an external keyring's password to try a replacement.
                 if plain.get(SECURITY).and_then(|section| values::number(section, flags_key)).unwrap_or(0) == 0 {
-                    let original = settings_with_secrets(client, path, plain).await?;
+                    let (original, expected) = settings_with_secrets(client, path, plain, old_version).await?;
                     let mut candidate = original.clone();
                     if prepared.repair_security { candidate.insert(SECURITY.into(), prepared.settings[SECURITY].clone()); }
                     let section = candidate.entry(SECURITY.into()).or_default();
                     if let Some(password) = &request.password { section.insert(key.into(), owned(password.expose())); }
-                    update(client, path, &candidate, 0x2, old_version).await?;
+                    update(client, path, &candidate, 0x2, expected).await?;
+                    staged_settings = Some(candidate);
                     if request.password.is_some() { operation.waiting.lock().expect("operation lock").served = true; }
                     // NM increments VersionId for the update. Reading it again could adopt an intervening
                     // writer's version and then incorrectly roll that writer back on cancellation.
-                    owned_version = Some(old_version + 1);
-                    restore = Some((path.clone(), original, old_version + 1));
+                    owned_version = Some(expected + 1);
+                    restore = Some((path.clone(), original, expected + 1));
                 }
             }
         }
@@ -420,7 +439,21 @@ async fn run(connection: &Connection, client: &NmClient, operation: &Arc<Operati
     let active = match result {
         Ok(active) => active,
         Err(error) => {
-            if let Some((path, original, expected)) = restore { let _ = tokio::time::timeout(WORK_TIMEOUT, update(client, &path, &original, 0x2, expected)).await; }
+            if let Some((path, original, expected)) = restore {
+                let rollback = async {
+                    let current = version(client, &path).await?;
+                    let guard = if current == expected { expected } else {
+                        let plain = client.settings(&path).await?;
+                        let (snapshot, after_read) = settings_with_secrets(client, &path, plain, current).await?;
+                        if staged_settings.as_ref().is_none_or(|staged| !same_profile(&snapshot, staged)) {
+                            return Err(ApiError::new(ErrorCode::Conflict, "The Wi-Fi profile changed during activation"));
+                        }
+                        after_read
+                    };
+                    update(client, &path, &original, 0x2, guard).await
+                };
+                let _ = tokio::time::timeout(WORK_TIMEOUT, rollback).await;
+            }
             return Err(error);
         }
     };
@@ -428,24 +461,34 @@ async fn run(connection: &Connection, client: &NmClient, operation: &Arc<Operati
     let save = tokio::time::timeout(WORK_TIMEOUT, async {
         if prepared.path.is_some() && secret.is_none() { return Ok(()); }
         let path = operation.waiting.lock().expect("operation lock").path.clone().ok_or_else(|| ApiError::new(ErrorCode::NotFound, NOT_SAVED))?;
-        // An existing profile is saved against the revision this operation owned before activating,
-        // so a write that landed in between is refused by NetworkManager rather than overwritten.
-        // A profile this operation only just created has no earlier revision to check against.
-        let expected = match owned_version.filter(|_| prepared.path.as_deref() == Some(path.as_str())) {
-            Some(expected) => expected,
-            None => version(client, &path).await?,
-        };
+        // Activation can advance the revision. In that case compare all the staged
+        // settings and credentials before writing against the new revision.
+        let current = version(client, &path).await?;
+        let changed = prepared.path.is_some() && owned_version != Some(current);
         let plain = client.settings(&path).await?;
-        let (_, flags_key) = secret_key(prepared.security);
+        let (key, flags_key) = secret_key(prepared.security);
         if secret.is_some() && plain.get(SECURITY).and_then(|section| values::number(section, flags_key)).unwrap_or(0) != 0 {
             return Err(ApiError::new(ErrorCode::SecretsRequired, NOT_SAVED));
         }
-        let mut settings = settings_with_secrets(client, &path, plain).await?;
+        let same_public_settings = !changed || staged_settings.is_some() || same_profile(&plain, &prepared.settings);
+        let (mut settings, expected) = settings_with_secrets(client, &path, plain, current).await?;
+        if changed {
+            let still_owned = match &staged_settings {
+                Some(staged) => same_profile(&settings, staged),
+                // NM may already have applied an answer from our scoped password prompt.
+                // Persist it only if it is still the current credential and the public
+                // configuration is intact. All other secrets come from the current snapshot.
+                None => same_public_settings && secret.as_ref().is_some_and(|typed| {
+                    settings.get(SECURITY).is_some_and(|section| values::text_or_empty(section, key) == typed.expose())
+                }),
+            };
+            if !still_owned { return Err(ApiError::new(ErrorCode::Conflict, NOT_SAVED)); }
+        }
         if let Some(secret) = secret {
-            let (key, flags_key) = secret_key(prepared.security);
             let section = settings.entry(SECURITY.into()).or_default();
-            let flags = values::number(section, flags_key).unwrap_or(0);
-            if flags != 0 { return Err(ApiError::new(ErrorCode::SecretsRequired, NOT_SAVED)); }
+            if values::number(section, flags_key).unwrap_or(0) != 0 {
+                return Err(ApiError::new(ErrorCode::SecretsRequired, NOT_SAVED));
+            }
             section.insert(key.into(), owned(secret.expose()));
         }
         if prepared.path.is_none() { settings.get_mut("connection").expect("connection section").insert("autoconnect".into(), owned(true)); }

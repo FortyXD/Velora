@@ -7,6 +7,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 import errno
 import fcntl
+from fnmatch import fnmatchcase
+from functools import partial
 import hashlib
 import json
 import os
@@ -20,6 +22,7 @@ import sys
 import tempfile
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from xml.etree.ElementTree import ParseError
 
 if sys.version_info < (3, 11):
     sys.exit("Velora requires Python 3.11 or newer. Install the Arch 'python' package.")
@@ -31,6 +34,7 @@ import login_manager
 import greeter
 import kde
 import update_gui
+from journal import move_to_backup, read_changes, record_change
 from runtime import sync_runtime
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -66,7 +70,7 @@ def run(command, *, cwd=None, capture=False, dry=False, env=None, timeout=None):
         result = subprocess.run(command, cwd=cwd, env=environment, text=True,
                                 capture_output=capture, check=True, timeout=timeout)
     except subprocess.CalledProcessError as error:
-        detail = (error.stderr or error.stdout or "").strip() if capture else ""
+        detail = "\n".join(part.strip() for part in (error.stdout, error.stderr) if part and part.strip()) if capture else ""
         raise VeloraError(f"Command failed ({error.returncode}): {shlex.join(command)}"
                           + (f"\n{detail}" if detail else "")) from error
     except (OSError, subprocess.TimeoutExpired) as error:
@@ -92,10 +96,15 @@ def read_json(path, default=None):
 def write_json(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as temp:
-        json.dump(data, temp, indent=2)
-        temp.write("\n")
         temp_path = Path(temp.name)
-    os.replace(temp_path, path)
+        try:
+            json.dump(data, temp, indent=2)
+            temp.write("\n")
+            temp.flush()
+            os.fsync(temp.fileno())
+            os.replace(temp_path, path)
+        finally:
+            temp_path.unlink(missing_ok=True)
 
 
 @contextmanager
@@ -324,6 +333,12 @@ def package_plan(features, skip_aur=False, source_packages=()):
     repo = sorted({pkg for item in features.values() for pkg in item.get("repo", [])})
     aur = [] if skip_aur else sorted({pkg for item in features.values() for pkg in item.get("aur", [])})
     missing = set(missing_packages(repo + aur))
+    # A package can still be registered after its font files were lost. Include it
+    # in the repair transaction even when pacman -T accepts the installed version.
+    package_fonts = {family: pkg for family, pkg in FONT_PACKAGES.items() if pkg in repo and pkg not in missing}
+    if package_fonts and (tool := font_tool("fc-list")):
+        installed = font_names(run([tool, "--format", "%{family}\\n"], capture=True))
+        missing.update(pkg for family, pkg in package_fonts.items() if not font_names(family) & installed)
     # pacman -T accepts virtual providers, including builds missing a module or CLI we use.
     if "quickshell" in repo and not POLKIT_QML.is_file():
         missing.add("quickshell")
@@ -340,9 +355,9 @@ def package_plan(features, skip_aur=False, source_packages=()):
 
 FONT_PACKAGES = {
     "Google Sans Flex": None,
-    "Material Symbols Rounded": "ttf-material-symbols-variable-git",
-    "Space Grotesk": "otf-space-grotesk",
-    "Readex Pro": "ttf-readex-pro",
+    "Material Symbols Rounded": "ttf-material-symbols-variable",
+    "Space Grotesk": None,
+    "Readex Pro": None,
     "JetBrains Mono NF": "ttf-jetbrains-mono-nerd",
     "Hack Nerd Font": "ttf-hack-nerd",
     "Noto Sans": "noto-fonts",
@@ -351,19 +366,16 @@ FONT_PACKAGES = {
     "Noto Color Emoji": "noto-fonts-emoji",
 }
 
-# Install the non-repository UI fonts directly when absent, including with --skip-aur.
-# The accompanying license is kept with each downloaded font.
-GOOGLE_FONTS = "https://raw.githubusercontent.com/google/fonts/main/ofl"
-MATERIAL_FONTS = "https://raw.githubusercontent.com/google/material-design-icons/master"
-FONT_DOWNLOADS = {
-    "Google Sans Flex": ("google-sans-flex", f"{GOOGLE_FONTS}/googlesansflex/GoogleSansFlex%5BROND%2Copsz%2Cslnt%2Cwdth%2Cwght%5D.ttf",
-                         f"{GOOGLE_FONTS}/googlesansflex/OFL.txt"),
-    "Material Symbols Rounded": ("material-symbols-rounded", f"{MATERIAL_FONTS}/variablefont/MaterialSymbolsRounded%5BFILL%2CGRAD%2Copsz%2Cwght%5D.ttf",
-                                 f"{MATERIAL_FONTS}/LICENSE"),
-    "Space Grotesk": ("space-grotesk", f"{GOOGLE_FONTS}/spacegrotesk/SpaceGrotesk%5Bwght%5D.ttf",
-                      f"{GOOGLE_FONTS}/spacegrotesk/OFL.txt"),
-    "Readex Pro": ("readex-pro", f"{GOOGLE_FONTS}/readexpro/ReadexPro%5BHEXP%2Cwght%5D.ttf",
-                   f"{GOOGLE_FONTS}/readexpro/OFL.txt"),
+UI_FONT_HASHES = {
+    # SHA-256 of the unmodified typeface and its license (LF line endings).
+    "Google Sans Flex": ("a9ac770798857d5e8ac593ced42b22e40a7c08cec98319f92b0eccc2783a77ba",
+                         "157713e50cf5033c08b79959e2ece86b064daed73cfff8e4cadb8cbf4401414c"),
+    "Space Grotesk": ("acad6de1fc93436f5c0f1f4137751ef04f1aea3063e7036535970ffcfbd79f72",
+                      "c6dec685825f73b18c20926fddc65e8315642e12986f15db0699170940a09efc"),
+    "Readex Pro": ("268bba7e1e8f3b14d798b3fb0e40ebaa3fc39308c9ac0020e2faf6df181cc30e",
+                   "b41267a3903a45955f77b44596e080480c577fb7221df59672d0bc8cd8cd4b6f"),
+    "Material Symbols Rounded": ("7e74e36533ccee12c2b81e75bfcf3ccf123d3bb7e7e46d65d94445f23db0c97c",
+                                 "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"),
 }
 
 
@@ -393,55 +405,89 @@ def font_installed(family):
     return bool(font_names(family) & font_names(run([tool, "--format", "%{family}\\n"], capture=True)))
 
 
-def download_font(family):
-    curl, scanner = font_tool("curl"), font_tool("fc-scan")
-    if not curl or not scanner:
-        raise VeloraError("Font downloads require curl and fontconfig. Run 'velora deps'.")
-    slug, font_url, license_url = FONT_DOWNLOADS[family]
-    target = xdg("XDG_DATA_HOME", ".local/share") / f"fonts/velora-{slug}"
+def ui_font_directory(family):
+    return xdg("XDG_DATA_HOME", ".local/share") / ("fonts/velora-" + family.lower().replace(" ", "-"))
+
+
+def verify_font_files(family, font, license_file):
+    actual = (hashlib.sha256(font.read_bytes()).hexdigest(),
+              hashlib.sha256(license_file.read_bytes().replace(b"\r\n", b"\n")).hexdigest())
+    for path, digest, expected in zip((font, license_file), actual, UI_FONT_HASHES[family]):
+        if digest != expected:
+            raise VeloraError(f"SHA-256 mismatch for {path.name}. The file is incomplete or damaged.")
+
+
+def ui_font_needs_install(family):
+    if not font_installed(family):
+        return True
+    target = ui_font_directory(family)
+    if FONT_PACKAGES[family] is None and target.is_dir():
+        try:
+            verify_font_files(family, target / (family.lower().replace(" ", "-") + ".ttf"), target / "LICENSE.txt")
+        except (OSError, VeloraError):
+            return True
+    return False
+
+
+def install_ui_font(family):
+    # The icon font normally comes from pacman. Keep the fallback for --skip-packages
+    # installations which have the other official fonts but lack this one.
+    slug = family.lower().replace(" ", "-")
+    target = ui_font_directory(family)
+    target.mkdir(parents=True, exist_ok=True)
     print(f"Installing the {family} font...", flush=True)
-    with tempfile.TemporaryDirectory(prefix="velora-font-") as temporary:
+    with tempfile.TemporaryDirectory(prefix=".install-", dir=target) as temporary:
         staging = Path(temporary)
-        for name, url in ((f"{slug}.ttf", font_url), ("LICENSE.txt", license_url)):
-            run([curl, "--fail", "--location", "--silent", "--show-error", "--retry", "2", "--connect-timeout", "15",
-                 "--max-time", "180", "--output", staging / name, "--url", url], timeout=600)
-        actual = run([scanner, "--format", "%{family}\\n", staging / f"{slug}.ttf"], capture=True)
+        font = staging / f"{slug}.ttf"
+        license_file = staging / "LICENSE.txt"
+        if FONT_PACKAGES[family] is None:
+            source = ROOT / "resources/fonts" / slug
+            shutil.copyfile(source / "OFL.txt", license_file)
+            shutil.copyfile(source / font.name, font)
+        else:
+            base = "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7"
+            for path, url in ((license_file, f"{base}/LICENSE"),
+                              (font, f"{base}/variablefont/MaterialSymbolsRounded%5BFILL%2CGRAD%2Copsz%2Cwght%5D.ttf")):
+                run([font_tool("curl") or "curl", "--fail", "--location", "--silent", "--show-error", "--retry", "2",
+                     "--connect-timeout", "15", "--max-time", "180", "--output", path, "--url", url], timeout=600)
+        verify_font_files(family, font, license_file)
+        actual = run([font_tool("fc-scan"), "--format", "%{family}\\n", font], capture=True)
         if not font_names(family) & font_names(actual):
-            raise VeloraError(f"The downloaded file does not provide {family} (found: {actual or 'no font family'}).")
-        target.mkdir(parents=True, exist_ok=True)
-        for path in staging.iterdir():
-            shutil.copy2(path, target / path.name)
+            raise VeloraError(f"The font file does not provide {family} (found: {actual or 'no font family'}).")
+        license_file.replace(target / license_file.name)
+        font.replace(target / font.name)
 
 
 def install_fonts(dry=False):
     """Do not apply desktop configuration until every default font is actually available."""
     if dry:
         print("  Would refresh the font cache and verify: " + ", ".join(FONT_PACKAGES))
-        for family, (slug, url, _) in FONT_DOWNLOADS.items():
-            if not font_installed(family):
-                print(f"  Would download {family} from {url} into "
-                      f"{xdg('XDG_DATA_HOME', '.local/share') / f'fonts/velora-{slug}'}")
+        for family in UI_FONT_HASHES:
+            if ui_font_needs_install(family):
+                source = FONT_PACKAGES[family] or "the bundled font files"
+                print(f"  Would install or repair {family} from {source}.")
         return
     for tool in ("fc-list", "fc-cache", "fc-scan"):
         if not font_tool(tool):
             raise VeloraError(f"Missing command: {tool}. Install fontconfig, then run 'velora deps'.")
     run([font_tool("fc-cache"), "-f"], timeout=180)
     failures = []
-    downloaded = False
-    for family in FONT_DOWNLOADS:
-        if font_installed(family):
+    installed = False
+    for family in UI_FONT_HASHES:
+        if not ui_font_needs_install(family):
             continue
         try:
-            download_font(family)
-            downloaded = True
+            install_ui_font(family)
+            installed = True
         except (VeloraError, OSError) as error:
             failures.append(f"{family}: {error}")
-    if downloaded:
+    if installed:
         run([font_tool("fc-cache"), "-f"], timeout=180)
     missing = [family for family in FONT_PACKAGES if not font_installed(family)]
-    if missing:
+    if missing or failures:
         details = [f"{family}" + (f" ({FONT_PACKAGES[family]})" if FONT_PACKAGES[family] else "") for family in missing]
-        raise VeloraError("Required fonts are missing: " + ", ".join(details) + ".\n"
+        message = "Required fonts are missing: " + ", ".join(details) if missing else "Required font repair failed"
+        raise VeloraError(message + ".\n"
                           + ("\n".join(failures) + "\n" if failures else "")
                           + "Run 'velora deps' to repair fonts before applying the desktop configuration.")
     print("Required fonts: all installed.")
@@ -456,7 +502,7 @@ def preflight(args, features):
         for tool in ("pacman", "sudo"):
             if not shutil.which(tool):
                 errors.append(f"Missing command: {tool}. Package installation supports Arch Linux only.")
-    for source in ("dots/.config/hypr", "dots/.config/quickshell", "home/.zshrc", "home/.tmux.conf",
+    for source in ("dots/.config/hypr/hyprland.lua", "dots/.config/quickshell/ii/shell.qml", "home/.zshrc", "home/.tmux.conf",
                    "dots/.config/velora/config.example.json", "tools/velora-helper/Cargo.toml",
                    "dependencies/system/70-velora-uinput.rules", "dependencies/system/velora-uinput.conf",
                    "dependencies/system/ydotool-user.conf"):
@@ -489,6 +535,106 @@ def ensure_system_service(unit, *, dry=False):
     run(["sudo", "systemctl", "enable", "--now", unit], dry=dry)
 
 
+NETWORK_COMPETITORS = ("systemd-networkd.service", "systemd-networkd.socket", "iwd.service", "connman.service",
+                       "dhcpcd.service", "dhcpcd@*.service", "wpa_supplicant@*.service",
+                       "wpa_supplicant-nl80211@*.service", "wpa_supplicant-wired@*.service")
+
+
+def competing_network_units(*, dry=False):
+    def listed(command, states):
+        # systemctl returns status 1 for an unmatched unit argument, including on a healthy NM-only boot.
+        output = run(["systemctl", command, "--plain", "--no-legend", "--no-pager", f"--state={states}"],
+                     capture=True, timeout=10)
+        units = {line.split()[0] for line in output.splitlines() if line.strip()}
+        return {unit for unit in units if any(fnmatchcase(unit, pattern) for pattern in NETWORK_COMPETITORS)}
+
+    try:
+        active = listed("list-units", "active,activating,reloading")
+        enabled = listed("list-unit-files", "enabled")
+    except VeloraError:
+        if not dry:
+            raise
+        print("  Could not inspect systemd here. The installer will check network services on the running system.")
+        return set(), set()
+    if "iwd.service" in active | enabled and (nm := system_tool("NetworkManager")):
+        config = run([nm, "--print-config"], capture=True, timeout=10)
+        # An iwd backend named in NM's merged device configuration is part of its Wi-Fi stack.
+        if re.search(r"^wifi\.backend\s*=\s*iwd\s*$", config, re.MULTILINE):
+            active.discard("iwd.service")
+            enabled.discard("iwd.service")
+    return active, enabled
+
+
+def plan_network(args):
+    if args.skip_packages:
+        return
+    saved = preferences()
+    if args.network_manager is None and saved.get("network_manager") == "keep":
+        args.network_manager = "keep"
+    if args.network_manager == "keep":
+        print("  Network: keep the existing network service configuration.")
+        return
+    active, enabled = competing_network_units(dry=args.dry_run)
+    if not active and not enabled:
+        print("  Network: enable and start NetworkManager.")
+        return
+    print("  Network services detected: " + ", ".join(sorted(active | enabled)))
+    print("  Switching to NetworkManager takes effect at the next boot. Connections configured only in the"
+          " previous manager may need their password or IP settings entered once.")
+    if args.network_manager is None:
+        if sys.stdin.isatty() and not args.yes and not args.dry_run:
+            answer = input("Use NetworkManager for Velora Wi-Fi at next boot? [Y/n] ").strip().lower()
+            args.network_manager = "migrate" if answer in ("", "y", "yes") else "keep"
+        elif not saved:
+            args.network_manager = "migrate"
+    if args.network_manager == "migrate":
+        print("  Network: schedule NetworkManager for next boot (choose --network-manager keep to opt out).")
+    else:
+        print("  Network: keep existing services (use --network-manager migrate to switch).")
+
+
+def restore_network_boot(plan):
+    units = plan["previous"]
+    if not all(isinstance(unit, str) and not unit.startswith("-") and "/" not in unit
+               and any(fnmatchcase(unit, pattern) for pattern in NETWORK_COMPETITORS) for unit in units):
+        raise VeloraError("Invalid network unit in the configuration backup.")
+    if units:
+        run(["sudo", "systemctl", "enable", "--", *units])
+    if plan["enable_nm"]:
+        run(["sudo", "systemctl", "disable", "--", "NetworkManager.service"])
+    print("Previous network services restored for the next boot.")
+
+
+def configure_network(args, backup=None):
+    if args.skip_packages or args.network_manager == "keep":
+        return
+    active, enabled = competing_network_units(dry=args.dry_run)
+    if not active and not enabled:
+        ensure_system_service("NetworkManager.service", dry=args.dry_run)
+        return
+    units = ", ".join(sorted(active | enabled))
+    if args.network_manager != "migrate":
+        print(f"Existing network services: {units}. To use Velora Wi-Fi, run 'velora deps --network-manager migrate' and reboot.")
+        return
+    # Keep the live installer connection, even if a retry finds both managers already running.
+    # Enable the replacement first so a failed enable cannot leave the next boot without networking.
+    previous = sorted(enabled)
+    if not args.dry_run:
+        status = run(["systemctl", "list-unit-files", "NetworkManager.service", "--no-legend", "--no-pager"], capture=True)
+        plan = {"previous": previous, "enable_nm": "enabled" not in status.split()[:2]}
+        if backup:
+            write_json(backup / "network-boot.json", plan)
+    try:
+        run(["sudo", "systemctl", "enable", "NetworkManager.service"], dry=args.dry_run)
+        if previous:
+            run(["sudo", "systemctl", "disable", *previous], dry=args.dry_run)
+    except (VeloraError, KeyboardInterrupt):
+        if not backup and not args.dry_run:
+            restore_network_boot(plan)
+        raise
+    print("Reboot after installation for NetworkManager to take over from " + units + ".")
+
+
 def files_equal(source, target):
     try:
         return Path(source).read_bytes() == Path(target).read_bytes()
@@ -502,24 +648,34 @@ def input_ready():
     return Path('/dev/uinput').exists()
 
 
-def configure_desktop_services(args):
-    # Preserve an existing network manager rather than taking over a working connection.
-    competitors = [unit for unit in ("systemd-networkd.service", "iwd.service", "connman.service", "dhcpcd.service")
-                   if service_active(unit)]
-    if service_active("NetworkManager.service") or not competitors:
-        ensure_system_service("NetworkManager.service", dry=args.dry_run)
-    else:
-        print("Keeping the existing network manager: " + ", ".join(competitors)
-              + ". Velora's network controls require NetworkManager; switch managers before using them.")
+UINPUT_RULES = {
+    "velora-uinput.conf": Path("/etc/modules-load.d/velora-uinput.conf"),
+    "70-velora-uinput.rules": Path("/etc/udev/rules.d/70-velora-uinput.rules"),
+}
 
+
+def remember_system_change(backup, filename, **changes):
+    path = backup / filename
+    write_json(path, dict(read_json(path), **changes))
+
+
+def configure_desktop_services(args, backup=None):
     # uaccess grants only the active local session access to uinput. Do not add the user to the
     # input group, which would also grant access to physical keyboard event devices.
     input_changed = False
-    for source, target in (("velora-uinput.conf", "/etc/modules-load.d/velora-uinput.conf"),
-                           ("70-velora-uinput.rules", "/etc/udev/rules.d/70-velora-uinput.rules")):
-        source = ROOT / "dependencies/system" / source
+    for name, target in UINPUT_RULES.items():
+        source = ROOT / "dependencies/system" / name
         if not files_equal(source, target):
-            run(["sudo", "install", "-Dm644", source, target], dry=args.dry_run)
+            options = []
+            if os.path.lexists(target):
+                if backup:
+                    old = target.lstat()
+                    remember_system_change(backup, "uinput-files.json", **{name: [old.st_dev, old.st_ino]})
+                    options = ["--backup=simple", "--suffix=.velora-" + backup.name]
+                else:
+                    options = ["--backup=numbered"]
+                print(f"Backing up the existing system configuration at {target} before replacement.")
+            run(["sudo", "install", "-DTm644", *options, source, target], dry=args.dry_run)
             input_changed = True
     if input_changed or not input_ready():
         run(["sudo", "modprobe", "uinput"], dry=args.dry_run)
@@ -530,7 +686,11 @@ def configure_desktop_services(args):
     dropin = xdg("XDG_CONFIG_HOME", ".config") / "systemd/user/ydotool.service.d/velora.conf"
     override = ROOT / "dependencies/system/ydotool-user.conf"
     if not files_equal(override, dropin):
-        run(["install", "-Dm644", override, dropin], dry=args.dry_run)
+        if backup:
+            journal_file(backup / "journal.jsonl", dropin, content=override.read_text())
+        else:
+            options = ["--backup=numbered"] if os.path.lexists(dropin) else []
+            run(["install", "-DTm644", *options, override, dropin], dry=args.dry_run)
     units = ["pipewire.socket", "pipewire-pulse.socket", "wireplumber.service", "ydotool.service"]
     # Enabling works before a graphical login, even without a running user service manager.
     run(["systemctl", "--user", "--no-reload", "enable", *units], dry=args.dry_run)
@@ -643,8 +803,18 @@ def install_dependencies(args, features):
                     run(["makepkg", "-si", "--needed"], cwd=checkout)
             helper = shutil.which("yay") or "yay"
         run([helper, "-S", "--needed", "--", *aur], dry=args.dry_run)
+    if not args.dry_run and (repo or aur or sources):
+        expected = set(repo + aur + list(sources))
+        for item in features.values():
+            expected.update(item.get("repo", ()))
+            if not args.skip_aur:
+                expected.update(item.get("aur", ()))
+        missing = missing_packages(sorted(expected))
+        if missing:
+            raise VeloraError("Package installation is incomplete. Still missing: " + ", ".join(missing)
+                              + ". Check the package manager output, then rerun 'velora deps'.")
     ensure_system_service("power-profiles-daemon", dry=args.dry_run)
-    if "shell" in features:
+    if "shell" in features and args.command != "install":
         configure_desktop_services(args)
     if "shell" in features and bluetooth_adapters_present():
         ensure_system_service("bluetooth.service", dry=args.dry_run)
@@ -685,43 +855,140 @@ def move_journal_entry(source, destination):
 
 def restore_journal(journal):
     if not journal.exists():
+        if journal.with_suffix(".restored").exists() and pending_system_restore(journal.parent):
+            restore_backup_system(journal.parent)
+            (journal.parent / "in-progress").unlink(missing_ok=True)
+            return
         raise VeloraError(f"Installation journal does not exist: {journal}")
-    entries = [json.loads(line) for line in journal.read_text().splitlines() if line.strip()]
-    # Validate the whole journal before restoring any target.
-    for entry in entries:
+    entries = read_changes(journal)
+    journal.with_name("rollback-space").unlink(missing_ok=True)
+    progress = journal.with_suffix(".restore-progress")
+    completed = int(progress.read_bytes() or b"0") if progress.exists() else 0
+    if not 0 <= completed <= len(entries):
+        raise VeloraError(f"Invalid restore progress in {progress}.")
+    pending = []
+    # Validate every remaining backup before changing any target.
+    for entry in list(reversed(entries))[completed:]:
         target, backup = Path(entry["target"]), entry["backup"]
         if not target.is_absolute() or (backup and not Path(os.path.abspath(backup)).is_relative_to(journal.parent.absolute())):
             raise VeloraError("Invalid path in the installation journal.")
         if backup and not os.path.lexists(backup):
-            raise VeloraError(f"Backup is missing: {backup}. No files have been restored.")
+            if entry.get("original") and os.path.lexists(target):
+                current = target.lstat()
+                if entry["original"] == [current.st_dev, current.st_ino, stat.S_IFMT(current.st_mode)]:
+                    # A failed move left the original at its target.
+                    temporary = Path(backup + ".partial")
+                    if os.path.lexists(temporary):
+                        if temporary.is_symlink() or not temporary.is_dir():
+                            temporary.unlink()
+                        else:
+                            shutil.rmtree(temporary)
+                    pending.append(None)
+                    continue
+            temporary = backup + ".partial"
+            if entry.get("original") and not os.path.lexists(target) and os.path.lexists(temporary):
+                os.rename(temporary, backup)
+            else:
+                raise VeloraError(f"Backup is missing: {backup}. No files have been restored.")
+        pending.append(entry)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-    for index, entry in enumerate(reversed(entries)):
-        target = Path(entry["target"])
-        if os.path.lexists(target):
-            # Keep later edits as well, including user-created directories.
-            recovery = journal.parent / f"before-restore-{stamp}" / str(index)
-            recovery.parent.mkdir(parents=True, exist_ok=True)
-            move_journal_entry(target, recovery)
-        if entry["backup"]:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            move_journal_entry(entry["backup"], target)
+    if pending:
+        with progress.open("r+b" if progress.exists() else "w+b", buffering=0) as cursor:
+            def advance(count):
+                value = f"{count:020d}".encode()
+                cursor.seek(0)
+                if cursor.write(value) != len(value):
+                    raise OSError(errno.ENOSPC, "Could not save restore progress", str(progress))
+                os.fsync(cursor.fileno())
+            # Allocate the progress record while the rollback reserve is available.
+            advance(completed)
+            for index, entry in enumerate(pending, completed):
+                if entry:
+                    target = Path(entry["target"])
+                    if os.path.lexists(target):
+                        # Keep later edits as well, including user-created directories.
+                        recovery = journal.parent / f"before-restore-{stamp}" / str(index)
+                        recovery.parent.mkdir(parents=True, exist_ok=True)
+                        move_journal_entry(target, recovery)
+                    if entry["backup"]:
+                        saved = Path(entry["backup"])
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        if saved.parent.stat().st_dev == target.parent.stat().st_dev:
+                            move_journal_entry(saved, target)
+                        elif saved.is_symlink() or not saved.is_dir():
+                            shutil.copy2(saved, target, follow_symlinks=False)
+                        else:
+                            # Keep the backup intact if copying to a different filesystem fills it.
+                            shutil.copytree(saved, target, symlinks=True)
+                advance(index + 1)
     journal.rename(journal.with_suffix(".restored"))
+    progress.unlink(missing_ok=True)
     print(f"Configuration restored. Later files were kept in {journal.parent}.")
+    restore_backup_system(journal.parent)
+    (journal.parent / "in-progress").unlink(missing_ok=True)
+
+
+def pending_system_restore(backup):
+    return any((backup / name).is_file() for name in ("network-boot.json", "login-boot.json", "uinput-files.json"))
+
+
+def restore_backup_system(backup):
+    path = backup / "network-boot.json"
+    if path.is_file():
+        restore_network_boot(read_json(path))
+        path.rename(path.with_suffix(".restored"))
+    path = backup / "login-boot.json"
+    if path.is_file():
+        changes = read_json(path)
+        login_manager.restore_boot(changes, run)
+        if changes.get("new_theme") and (greeter.STATE / "manifest.json").is_file():
+            run(["sudo", "python3", "-I", ROOT / "scripts/greeter.py", "restore"])
+        path.rename(path.with_suffix(".restored"))
+        print("Previous graphical login settings restored for the next boot.")
+    path = backup / "uinput-files.json"
+    if path.is_file():
+        for name, original in read_json(path).items():
+            target = UINPUT_RULES[name]
+            saved = target.with_name(target.name + ".velora-" + backup.name)
+            if os.path.lexists(saved):
+                run(["sudo", "mv", "-T", "--backup=numbered", "--", saved, target])
+            elif not os.path.lexists(target) or [target.lstat().st_dev, target.lstat().st_ino] != original:
+                raise VeloraError(f"Original system configuration is missing: {saved}")
+        run(["sudo", "udevadm", "control", "--reload-rules"])
+        path.rename(path.with_suffix(".restored"))
+
+
+def recover_interrupted_install():
+    for marker in sorted((state_dir() / "backups").glob("*/in-progress"), reverse=True):
+        backup = marker.parent
+        print(f"Recovering the interrupted installation from {backup}.")
+        if (backup / "journal.jsonl").exists():
+            restore_journal(backup / "journal.jsonl")
+        else:
+            restore_backup_system(backup)
+            marker.unlink(missing_ok=True)
+
+
+def journal_target_matches(target, content=None, link=None, remove=False):
+    if link and target.is_symlink():
+        try:
+            return target.readlink() == link or target.samefile(link)
+        except OSError:
+            return False
+    return content is not None and not target.is_symlink() and target.is_file() and target.read_bytes() == content.encode()
 
 
 def journal_file(journal, target, content=None, link=None, remove=False):
+    if journal_target_matches(target, content, link, remove):
+        return
     target.parent.mkdir(parents=True, exist_ok=True)
-    if link and target.is_symlink() and target.resolve() == link.resolve():
-        return
-    if content is not None and target.is_file() and not target.is_symlink() and target.read_text() == content:
-        return
     backup = ""
     if os.path.lexists(target):
         backup = str(journal.parent / "integration" / str(len(journal.read_text().splitlines())))
         Path(backup).parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(target), backup)
-    with journal.open("a") as output:
-        output.write(json.dumps({"target": str(target), "backup": backup}) + "\n")
+    record_change(journal, target, backup)
+    if backup:
+        move_to_backup(target, backup)
     if remove:
         return
     if link:
@@ -824,50 +1091,69 @@ def preview(paths):
                 process.wait(timeout=5)
 
 
-def register_installation(journal, args, without):
+def registration_targets(args, without, write):
     config = xdg("XDG_CONFIG_HOME", ".config")
     data = xdg("XDG_DATA_HOME", ".local/share")
     binary = Path.home() / ".local/bin/velora"
-    journal_file(journal, binary, link=ROOT / "velora")
-    journal_file(journal, data / "applications/velora-update.desktop", content=(
+    write(binary, link=ROOT / "velora")
+    write(data / "applications/velora-update.desktop", content=(
         "[Desktop Entry]\nType=Application\nName=Update Velora\n"
         "Comment=Review and install Velora updates\nIcon=system-software-update\n"
         f"Exec={desktop_quote(ROOT / 'velora')} update --gui --show-progress\nTerminal=false\nCategories=Settings;DesktopSettings;\n"))
     toolbar = data / "kxmlgui5/dolphin/dolphinui.rc"
     template = ROOT / "dots/.local/share/kxmlgui5/dolphin/dolphinui.rc"
-    journal_file(journal, toolbar, content=kde.dolphin_toolbar((toolbar if toolbar.exists() else template).read_text()))
+    try:
+        toolbar_xml = kde.dolphin_toolbar((toolbar if toolbar.is_file() else template).read_text())
+    except (ParseError, UnicodeDecodeError):
+        print(f"  Could not read the custom Dolphin toolbar at {toolbar}. Velora will use its default toolbar.")
+        toolbar_xml = kde.dolphin_toolbar(template.read_text())
+    write(toolbar, content=toolbar_xml)
     plugin_path = data / "velora/qt6/plugins"
     # KDE's portal is D-Bus/systemd activated and does not inherit Hyprland's environment.
     plugin_paths = ":".join(dict.fromkeys([str(plugin_path), *filter(None, os.environ.get("QT_PLUGIN_PATH", "").split(":"))]))
     plugins = ",".join(dict.fromkeys([*filter(None, os.environ.get("QT_QPA_GENERIC_PLUGINS", "").split(",")), "velora-file-dialog"]))
-    journal_file(journal, config / "systemd/user/plasma-xdg-desktop-portal-kde.service.d/velora.conf", content=(
+    write(config / "systemd/user/plasma-xdg-desktop-portal-kde.service.d/velora.conf", content=(
         "[Service]\nEnvironment=" + systemd_quote("QT_PLUGIN_PATH=" + plugin_paths) + "\nEnvironment="
         + systemd_quote("QT_QPA_GENERIC_PLUGINS=" + plugins) + "\n"))
     service, timer = update_units()
-    journal_file(journal, config / "systemd/user/velora-searchd.service", content=lens_service_unit(native_helper_path("velora-searchd")))
-    journal_file(journal, config / "systemd/user/velora-update.service", content=service)
-    journal_file(journal, config / "systemd/user/velora-update.timer", content=timer)
+    write(config / "systemd/user/velora-searchd.service", content=lens_service_unit(native_helper_path("velora-searchd")))
+    write(config / "systemd/user/velora-update.service", content=service)
+    write(config / "systemd/user/velora-update.timer", content=timer)
     timer_link = config / "systemd/user/timers.target.wants/velora-update.timer"
     automatic = not args.no_updates and update_options()["automatic_checks"]
     if not automatic:
         if os.path.lexists(timer_link):
-            journal_file(journal, timer_link, remove=True)
+            write(timer_link, remove=True)
     else:
-        journal_file(journal, timer_link, link=config / "systemd/user/velora-update.timer")
-    journal_file(journal, state_dir() / "installation.json", content=json.dumps({
+        write(timer_link, link=config / "systemd/user/velora-update.timer")
+    write(state_dir() / "installation.json", content=json.dumps({
         "repository": str(ROOT), "without": without, "skip_aur": args.skip_aur,
         "skip_packages": args.skip_packages, "no_updates": args.no_updates,
         "build_from_source": getattr(args, "source_packages", []),
         "installation_type": "package" if package_metadata() else "checkout",
         "login_manager": getattr(args, "login_manager_choice", preferences().get("login_manager", "skip")),
+        "network_manager": "keep" if getattr(args, "network_manager", None) == "keep"
+                           else preferences().get("network_manager") if args.skip_packages else None,
         "login_theme": getattr(args, "login_theme_choice", preferences().get("login_theme", "keep")),
     }, indent=2) + "\n")
+    return automatic
+
+
+def register_installation(journal, args, without):
+    registration_targets(args, without, partial(journal_file, journal))
+
+
+def refresh_user_timer():
     if shutil.which("systemctl"):
         try:
             run(["systemctl", "--user", "daemon-reload"])
-            run(["systemctl", "--user", "start" if automatic else "stop", "velora-update.timer"])
+            timer_link = xdg("XDG_CONFIG_HOME", ".config") / "systemd/user/timers.target.wants/velora-update.timer"
+            if timer_link.exists():
+                run(["systemctl", "--user", "start", "velora-update.timer"])
+            elif service_active("velora-update.timer", user=True):
+                run(["systemctl", "--user", "stop", "velora-update.timer"])
         except VeloraError:
-            print("Automatic checks could not start. After login, run: systemctl --user enable --now velora-update.timer")
+            print("Log in again to apply the update timer configuration.")
 
 
 def link_environment(extra=None):
@@ -876,6 +1162,42 @@ def link_environment(extra=None):
     if package_metadata():
         environment["VELORA_SOURCE_ROOT"] = str(xdg("XDG_DATA_HOME", ".local/share") / "velora/runtime")
     return environment
+
+
+def describe_replacements(args, without):
+    environment = link_environment()
+    setting_up_services = getattr(args, "command", "install") == "install" and not args.skip_packages
+    if setting_up_services:
+        environment["VELORA_PREVIEW_KDE"] = "1"
+    if getattr(args, "build_package", False):
+        environment["VELORA_SOURCE_ROOT"] = str(xdg("XDG_DATA_HOME", ".local/share") / "velora/runtime")
+    paths = run(["bash", ROOT / "scripts/install.sh", "--list-replacements", "--no-reload"],
+                capture=True, env=environment)
+    replacements = {Path(path) for path in paths.split("\0") if path}
+    for marker in (state_dir() / "backups").glob("*/in-progress"):
+        print(f"  Velora will first restore the interrupted installation in {marker.parent}.")
+        journal = marker.parent / "journal.jsonl"
+        if journal.is_file():
+            for entry in read_changes(journal):
+                if entry["backup"]:
+                    replacements.add(Path(entry["target"]))
+
+    def inspect(target, **change):
+        if os.path.lexists(target) and not journal_target_matches(target, **change):
+            replacements.add(target)
+
+    registration_targets(args, without, inspect)
+    if setting_up_services:
+        dropin = xdg("XDG_CONFIG_HOME", ".config") / "systemd/user/ydotool.service.d/velora.conf"
+        for name, target in {**UINPUT_RULES, "ydotool-user.conf": dropin}.items():
+            if os.path.lexists(target) and not files_equal(ROOT / "dependencies/system" / name, target):
+                replacements.add(target)
+    if replacements:
+        print("  Velora will back up and replace these existing configuration paths:")
+        for path in sorted(replacements):
+            print("    " + str(path))
+        print("  Each listed directory is replaced in full. Restore the originals with 'velora restore BACKUP_ID'.")
+    print(f"  Configuration backups: {state_dir() / 'backups'}")
 
 
 def previous_layouts():
@@ -900,7 +1222,7 @@ def link_configuration(args, without):
     """Links the configuration and registers the command, launcher and update timer; a failed step
     restores every file it replaced. Returns the backup directory."""
     backup = state_dir() / "backups" / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-    backup.mkdir(parents=True)
+    backup.mkdir(mode=0o700, parents=True)
     journal = backup / "journal.jsonl"
     journal.touch()
     environment = link_environment({"VELORA_BACKUP_ROOT": str(backup), "VELORA_INSTALL_JOURNAL": str(journal)})
@@ -914,16 +1236,32 @@ def link_configuration(args, without):
     hypr = xdg("XDG_CONFIG_HOME", ".config") / "hypr"
     keyboard = previous_layouts() if hypr.is_dir() and not preferences() else {}
     try:
+        # Release this space before recovery so a full backup filesystem can still
+        # create the directory that keeps the partly installed files.
+        (backup / "rollback-space").write_bytes(bytes(65536))
+        (backup / "in-progress").touch()
         run(["bash", ROOT / "scripts/install.sh", "--skip-packages", "--no-reload"], env=environment)
         migrated = hypr / "custom/previous_keyboard.lua"
         if keyboard and not os.path.lexists(migrated):
             fields = ", ".join(f"{key} = {json.dumps(value)}" for key, value in keyboard.items())
             journal_file(journal, migrated, content="hl.config({ input = { " + fields + " } })\n")
+        if compositor := system_tool("Hyprland"):
+            run([compositor, "--verify-config", "--config", hypr / "hyprland.lua"], capture=True, timeout=30)
+            print("Hyprland verified the installed configuration.")
         register_installation(journal, args, without)
     except (Exception, KeyboardInterrupt):
         print("Installation did not finish. Restoring configuration files...", file=sys.stderr)
         restore_journal(journal)
         raise
+    if not getattr(args, "finish_system_setup", False):
+        (backup / "in-progress").unlink()
+        (backup / "rollback-space").unlink()
+        activate_configuration(args)
+    return backup
+
+
+def activate_configuration(args):
+    refresh_user_timer()
     if not args.no_reload and os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") and shutil.which("hyprctl"):
         try:
             run(["hyprctl", "reload"])
@@ -942,7 +1280,6 @@ def link_configuration(args, without):
                     print("Hyprland could not activate the installed desktop: " + result)
         except VeloraError:
             print("Configuration installed. Hyprland reload failed; log in again to load it.")
-    return backup
 
 
 def stale_links():
@@ -962,13 +1299,15 @@ def relink(args):
     moved_from = saved.get("repository")
     if moved_from and Path(moved_from) != ROOT:
         print(f"Velora moved: {moved_from} -> {ROOT}")
+    options = argparse.Namespace(command="relink", skip_aur=saved.get("skip_aur", False), skip_packages=saved.get("skip_packages", False),
+                                 no_updates=saved.get("no_updates", False), no_reload=args.no_reload,
+                                 source_packages=saved.get("build_from_source", []))
+    describe_replacements(options, saved.get("without", []))
     if args.dry_run:
         run(["bash", ROOT / "scripts/install.sh", "--dry-run", "--skip-packages", "--no-reload"], env=link_environment())
         print("Would register the velora command, update launcher and user timer. No files changed.")
         return
-    options = argparse.Namespace(skip_aur=saved.get("skip_aur", False), skip_packages=saved.get("skip_packages", False),
-                                 no_updates=saved.get("no_updates", False), no_reload=args.no_reload,
-                                 source_packages=saved.get("build_from_source", []))
+    recover_interrupted_install()
     backup = link_configuration(options, saved.get("without", []))
     print(f"\nConfiguration linked to {ROOT}. Backup: {backup}\nRestart Quickshell or log in again to load it.")
 
@@ -1188,13 +1527,15 @@ def install(args):
     print("\nInstallation plan", flush=True)
     print("  Components: " + ", ".join(features))
     print(f"  Configuration: {xdg('XDG_CONFIG_HOME', '.config')}")
-    print("  Existing files: back up before replacing; restore on linking failure")
+    describe_replacements(args, without)
+    print("  Desktop integration: back up MIME and KDE settings before setting default applications and Dolphin shortcuts.")
     print("  Dependencies: " + ("keep installed packages" if args.skip_packages else "install missing packages for the selected components"))
     print("  Bluetooth: " + ("leave system service unchanged (--skip-packages)" if args.skip_packages
                             else "enable service for detected adapter" if bluetooth_adapters_present()
                             else "no adapter detected; leave service unchanged"))
     print("  Desktop services: " + ("leave unchanged (--skip-packages)" if args.skip_packages else
-          "enable PipeWire, WirePlumber and the virtual keyboard; enable NetworkManager unless another manager is active"))
+          "enable PipeWire, WirePlumber and the virtual keyboard"))
+    plan_network(args)
     print("  Login theme: " + args.login_theme_choice)
     if not args.skip_packages and args.login_manager_choice == "gdm" and any(
             item["name"] == "sddm" and item["configured"] for item in login_inventory["managers"]):
@@ -1216,8 +1557,11 @@ def install(args):
         build_window_plugin(dry=True)
         install_fonts(dry=True)
         verify_runtime(features, args)
+        if "shell" in features and not args.skip_packages:
+            configure_desktop_services(args)
+        configure_network(args)
         login_manager.configure(args.login_manager_choice, run, dry=True, skip_packages=args.skip_packages, inventory=login_inventory, prepare_gdm=prepare_gdm)
-        run(["bash", ROOT / "scripts/install.sh", "--dry-run", "--skip-packages", "--no-reload"])
+        run(["bash", ROOT / "scripts/install.sh", "--dry-run", "--skip-packages", "--no-reload"], env=link_environment())
         print("Would register the velora command, update launcher and user timer. No files changed.")
         return
     if sys.stdin.isatty() and not args.yes:
@@ -1226,6 +1570,7 @@ def install(args):
             return
     elif not sys.stdin.isatty() and not args.yes:
         raise VeloraError("For unattended installation, pass --yes. Use --dry-run to inspect the plan.")
+    recover_interrupted_install()
     if args.build_package:
         if package_metadata():
             raise VeloraError("Velora is already installed as a package. Use 'velora package' to rebuild its archive.")
@@ -1244,8 +1589,26 @@ def install(args):
     build_window_plugin()
     install_fonts()
     verify_runtime(features, args)
+    args.finish_system_setup = True
     backup = link_configuration(args, without)
-    login_manager.configure(args.login_manager_choice, run, skip_packages=args.skip_packages, prepare_gdm=prepare_gdm)
+    try:
+        if "shell" in features and not args.skip_packages:
+            configure_desktop_services(args, backup)
+        configure_network(args, backup)
+        remember_login = partial(remember_system_change, backup, "login-boot.json")
+        def apply_theme(theme, *, dry=False):
+            if greeter.version() in greeter.SUPPORTED and not (greeter.STATE / "manifest.json").exists():
+                remember_login(new_theme=True)
+            return configure_greeter(theme, dry=dry)
+        login_manager.configure(args.login_manager_choice, run, skip_packages=args.skip_packages,
+                                prepare_gdm=apply_theme if prepare_gdm else None, remember=remember_login)
+    except (Exception, KeyboardInterrupt):
+        print("System setup did not finish. Restoring the configuration backup...", file=sys.stderr)
+        restore_journal(backup / "journal.jsonl")
+        raise
+    (backup / "in-progress").unlink(missing_ok=True)
+    (backup / "rollback-space").unlink(missing_ok=True)
+    activate_configuration(args)
     print(f"\nVelora installed. Backup: {backup}\nRestore with: velora restore {backup.name}")
     print("Log in to Hyprland: the setup assistant starts on its own (later: Shift+Super+Alt+/).")
     print("Open Settings with Super+I. Update Velora from Settings > General > Software Update, or run: velora update")
@@ -1262,6 +1625,8 @@ def install_command(binary, args, without):
     theme = getattr(args, "login_theme_choice", getattr(args, "login_theme", None))
     if theme is not None:
         command += ["--login-theme", theme]
+    if getattr(args, "network_manager", None):
+        command += ["--network-manager", args.network_manager]
     if getattr(args, "skip_aur", None) is False:
         command.append("--with-aur")
     for attribute, flag in (("skip_aur", "--skip-aur"), ("skip_packages", "--skip-packages"),
@@ -1520,6 +1885,16 @@ def doctor(args):
     runtime_errors = runtime_problems(features, skip_aur=skip_aur)
     print("  Desktop runtime: " + ("\n    " + "\n    ".join(runtime_errors) if runtime_errors else "commands and libraries available"))
     if "shell" in features:
+        try:
+            active_units, enabled_units = competing_network_units()
+            competitors = sorted(active_units | enabled_units)
+            if competitors:
+                print("  Other network services: " + ", ".join(competitors)
+                      + ". For Velora Wi-Fi, run 'velora deps --network-manager migrate' and reboot.")
+                failed = True
+        except VeloraError as error:
+            print(f"  Could not inspect network services: {error}")
+            failed = True
         for unit, user in (("NetworkManager.service", False), ("pipewire.socket", True),
                            ("pipewire-pulse.socket", True), ("wireplumber.service", True), ("ydotool.service", True)):
             active = service_active(unit, user=user)
@@ -1527,8 +1902,8 @@ def doctor(args):
             failed |= not active
     fonts_missing = []
     for family in FONT_PACKAGES:
-        installed = font_installed(family)
-        print(f"  Font {family}: " + ("installed" if installed else "missing; run velora deps"))
+        installed = not ui_font_needs_install(family) if family in UI_FONT_HASHES else font_installed(family)
+        print(f"  Font {family}: " + ("installed" if installed else "missing or damaged; run velora deps"))
         if not installed:
             fonts_missing.append(family)
     helper = shutil.which("velora-helper") or (str(native_helper_path()) if native_helper_path().is_file() else None)
@@ -1560,6 +1935,9 @@ def parser():
         aur.add_argument("--with-aur", dest="skip_aur", action="store_false",
                          help="Enable AUR packages, overriding a saved --skip-aur preference")
         sub.add_argument("--skip-packages", action="store_true")
+        if name != "doctor":
+            sub.add_argument("--network-manager", choices=("migrate", "keep"),
+                             help="Switch competing network services to NetworkManager at next boot, or keep the existing setup")
         sub.add_argument("--yes", action="store_true", help="Accept the installer plan; package managers still ask normally")
         sub.add_argument("--no-reload", action="store_true")
         sub.add_argument("--no-updates", action="store_true", help="Do not enable background update checks")
@@ -1675,6 +2053,9 @@ def main(argv=None):
             build_native_helper(dry=args.dry_run)
             install_fonts(dry=args.dry_run)
             verify_runtime(features, args)
+            if args.network_manager is None and preferences().get("network_manager") == "keep":
+                args.network_manager = "keep"
+            configure_network(args)
         elif args.command == "doctor":
             doctor(args)
         elif args.command == "relink":
@@ -1693,8 +2074,9 @@ def main(argv=None):
             backups = state_dir() / "backups"
             if args.backup is None:
                 print("Available configuration backups:")
-                for journal in sorted(backups.glob("*/journal.jsonl"), reverse=True):
-                    print("  " + journal.parent.name)
+                for backup in sorted(backups.glob("*"), reverse=True):
+                    if (backup / "journal.jsonl").is_file() or pending_system_restore(backup):
+                        print("  " + backup.name)
                 return
             if Path(args.backup).name != args.backup:
                 raise VeloraError("Pass a backup ID from 'velora restore', rather than a path.")
@@ -1704,15 +2086,7 @@ def main(argv=None):
                 if input("Restore configuration from this backup? [y/N] ").lower() not in ("y", "yes"):
                     return
             restore_journal(backups / args.backup / "journal.jsonl")
-            if shutil.which("systemctl"):
-                try:
-                    run(["systemctl", "--user", "stop", "velora-update.timer"])
-                    run(["systemctl", "--user", "daemon-reload"])
-                    timer_link = xdg("XDG_CONFIG_HOME", ".config") / "systemd/user/timers.target.wants/velora-update.timer"
-                    if timer_link.exists():
-                        run(["systemctl", "--user", "start", "velora-update.timer"])
-                except VeloraError:
-                    print("Files restored. Log in again to refresh the user timer state.")
+            refresh_user_timer()
 
     parent_operation = os.environ.get("VELORA_PARENT_OPERATION") == str(os.getppid())
     if getattr(args, "dry_run", False) or args.command == "doctor" or parent_operation or (args.command == "restore" and args.backup is None):
@@ -1728,6 +2102,12 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except (VeloraError, OSError, ValueError) as error:
         print(f"\nVelora: {error}", file=sys.stderr)
+        if sys.argv[1:2] in (["install"], ["deps"], ["relink"]) or len(sys.argv) == 1:
+            if isinstance(error, OSError) and error.errno in (errno.ENOSPC, errno.EDQUOT):
+                print("Free space on the filesystem shown above.", file=sys.stderr)
+            if isinstance(error, PermissionError):
+                print("Check the owner and write permission of the path shown above.", file=sys.stderr)
+            print("After correcting the error, rerun the same command. Completed packages and builds can be reused.", file=sys.stderr)
         raise SystemExit(1)
     except KeyboardInterrupt:
         print("\nVelora: operation interrupted.", file=sys.stderr)

@@ -158,6 +158,7 @@ repo = [
     "qt6-shadertools", # qsb, for the shaders in assets/shaders
     "kdialog",
     "fontconfig",
+    "ttf-material-symbols-variable", # Material Symbols Rounded used throughout the shell
     "ttf-jetbrains-mono-nerd",
     "ttf-hack-nerd", # Kitty's configured family
     "noto-fonts", # Waffle's Noto Sans and fallback glyphs for translated UI
@@ -168,7 +169,7 @@ repo = [
     "git",
     "base-devel",
 ]
-# The four UI font families are downloaded and verified by install_fonts, including with --skip-aur.
+# The other three UI fonts ship with Velora under resources/fonts.
 aur = []
 
 [features.toolbox]

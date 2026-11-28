@@ -200,6 +200,7 @@ class AurPreferenceTests(IsolatedTest):
                                 patch.object(velora, "runtime_problems", return_value=[]), \
                                 patch.object(velora, "font_installed", return_value=True), \
                                 patch.object(velora, "service_active", return_value=True), \
+                                patch.object(velora, "competing_network_units", return_value=(set(), set())), \
                                 patch.object(velora, "connection_service", return_value="/usr/bin/velora-connectivityd"), \
                                 patch.object(velora, "stale_links", return_value=[]), \
                                 patch.object(velora.shutil, "which", return_value="/usr/bin/tool"):

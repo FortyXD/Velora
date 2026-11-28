@@ -65,6 +65,22 @@ class LoginManagerTests(IsolatedTest):
         with self.assertRaisesRegex(ValueError, "Keeping the existing login manager"):
             manager.choose("gdm", None, state, velora_gdm=True)
 
+    def test_failed_boot_target_change_can_restore_sddm_and_original_target(self):
+        state = inventory("sddm", configured="sddm", active="sddm", enabled="sddm", target="multi-user.target")
+        changes = {}
+        def command(args, **kwargs):
+            if "set-default" in args:
+                raise OSError("insufficient permissions")
+            return '{"type":"s","data":"plasma"}'
+        with patch.object(manager, "session_entry", return_value=Path("hyprland.desktop")), self.assertRaises(OSError):
+            manager.configure("gdm", command, inventory=state, prepare_gdm=Mock(return_value=True), remember=changes.update)
+        run = Mock()
+        manager.restore_boot(changes, run)
+        self.assertEqual([call.args[0] for call in run.call_args_list], [
+            ["sudo", "systemctl", "enable", "--force", "--", "sddm.service"],
+            ["sudo", "systemctl", "set-default", "--", "multi-user.target"],
+        ])
+
     @unittest.skipUnless(shutil.which("systemctl"), "requires systemctl")
     def test_systemd_switches_only_the_next_boot_alias_in_a_private_root(self):
         root = self.base / "root"

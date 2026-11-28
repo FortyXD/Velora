@@ -3,6 +3,7 @@ import configparser
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import shutil
 import subprocess
@@ -159,21 +160,30 @@ def session_entry(directory=Path("/usr/share/wayland-sessions")):
     raise ValueError("Hyprland's Wayland session desktop entry is missing or invalid. Reinstall the hyprland package before enabling graphical login.")
 
 
-def prefer_hyprland(entry, run, *, dry=False):
-    """Seed GDM's per-user session when the account has no saved choice."""
-    if dry:
-        print("  Would default this account to Hyprland if it has no saved login session.")
-        return
+def account_session(run):
     account = ["org.freedesktop.Accounts", f"/org/freedesktop/Accounts/User{os.getuid()}",
                "org.freedesktop.Accounts.User"]
     def get(key):
         return json.loads(run(["busctl", "--system", "--json=short", "get-property", *account, key], capture=True))["data"]
-    if not get("Session") and not get("XSession") and get("SessionType") in ("", "wayland"):
-        for key, value in (("SessionType", "wayland"), ("Session", entry.stem)):
-            run(["sudo", "busctl", "--system", "call", *account, "Set" + key, "s", value])
+    def set_value(key, value):
+        run(["sudo", "busctl", "--system", "call", *account, "Set" + key, "s", value])
+    return get, set_value
 
 
-def configure(choice, run, *, dry=False, skip_packages=False, inventory=None, prepare_gdm=None):
+def prefer_hyprland(entry, run, *, dry=False, remember=None):
+    """Seed GDM's per-user session when the account has no saved choice."""
+    if dry:
+        print("  Would default this account to Hyprland if it has no saved login session.")
+        return
+    get, set_value = account_session(run)
+    if not get("Session") and not get("XSession") and (previous := get("SessionType")) in ("", "wayland"):
+        if remember:
+            remember(session=entry.stem, previous_type=previous)
+        set_value("SessionType", "wayland")
+        set_value("Session", entry.stem)
+
+
+def configure(choice, run, *, dry=False, skip_packages=False, inventory=None, prepare_gdm=None, remember=None):
     if choice == "skip" or skip_packages:
         return
     live = inventory is None
@@ -194,7 +204,7 @@ def configure(choice, run, *, dry=False, skip_packages=False, inventory=None, pr
     if prepare_gdm is not None and choice == "gdm":
         if not prepare_gdm("velora", dry=dry) and switching and not dry:
             raise ValueError("Velora's GDM theme is unavailable for this GNOME Shell version. Keeping SDDM enabled.")
-        prefer_hyprland(entry, run, dry=dry)
+        prefer_hyprland(entry, run, dry=dry, remember=remember)
     if switching and live and not dry:
         latest = inspect()
         if (not latest["inspection_complete"] or not any(
@@ -203,7 +213,31 @@ def configure(choice, run, *, dry=False, skip_packages=False, inventory=None, pr
         choose(choice, None, latest, velora_gdm=True)
     if not (selected and selected["enabled"]):
         unit = selected["unit"] if selected else MANAGERS[choice][2]
+        if remember:
+            remember(enabled=unit, replaced_sddm=switching)
         run(["sudo", "systemctl", "enable", *(["--force"] if switching else []), "--", unit], dry=dry)
     if inventory["default_target"] != "graphical.target":
+        if remember:
+            remember(previous_target=inventory["default_target"])
         run(["sudo", "systemctl", "set-default", "graphical.target"], dry=dry)
     print("Hyprland will be available in the login screen's session menu after reboot.")
+
+
+def restore_boot(changes, run):
+    """Undo only choices this installation made. Keep the running login session alive."""
+    if unit := changes.get("enabled"):
+        if unit not in {entry[2] for entry in MANAGERS.values()} and not re.fullmatch(r"ly@tty[0-9]+\.service", unit):
+            raise ValueError("Invalid login service in the configuration backup.")
+        if changes.get("replaced_sddm"):
+            run(["sudo", "systemctl", "enable", "--force", "--", "sddm.service"])
+        else:
+            run(["sudo", "systemctl", "disable", "--", unit])
+    if target := changes.get("previous_target"):
+        if not re.fullmatch(r"[a-zA-Z0-9_][a-zA-Z0-9_.@-]*\.target", target):
+            raise ValueError("Invalid boot target in the configuration backup.")
+        run(["sudo", "systemctl", "set-default", "--", target])
+    if session := changes.get("session"):
+        get, set_value = account_session(run)
+        if get("Session") in (session, "") and get("SessionType") in ("wayland", ""):
+            set_value("Session", "")
+            set_value("SessionType", changes["previous_type"])

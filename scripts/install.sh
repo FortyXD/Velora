@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+template_root=$repo_root
 repo_root=${VELORA_SOURCE_ROOT:-"$repo_root"}
 target_home=${VELORA_TARGET_HOME:-"$HOME"}
 config_home=${XDG_CONFIG_HOME:-"$target_home/.config"}
@@ -9,6 +10,7 @@ data_home=${XDG_DATA_HOME:-"$target_home/.local/share"}
 state_home=${XDG_STATE_HOME:-"$target_home/.local/state"}
 backup_root=${VELORA_BACKUP_ROOT:-"$state_home/velora/backups/$(date +%Y%m%d-%H%M%S)-$$"}
 dry_run=false
+list_replacements=false
 install_packages=false
 reload_hyprland=true
 desktop_integration=false
@@ -30,6 +32,7 @@ HELP
 for arg in "$@"; do
   case "$arg" in
     --dry-run) dry_run=true ;;
+    --list-replacements) list_replacements=true; dry_run=true ;;
     --skip-packages) install_packages=false ;;
     --skip-aur) : ;;
     --no-reload) reload_hyprland=false ;;
@@ -37,6 +40,21 @@ for arg in "$@"; do
     *) printf 'Unknown option: %s\n' "$arg" >&2; usage >&2; exit 2 ;;
   esac
 done
+
+if $list_replacements; then
+  # Only replacement paths go to the caller, including paths containing newlines.
+  exec 3>&1 1>/dev/null
+fi
+
+preview_replacement() {
+  if [[ -e $1 || -L $1 ]]; then
+    if $list_replacements; then
+      printf '%s\0' "$1" >&3
+    else
+      printf '  Will back up and replace %s\n' "$1"
+    fi
+  fi
+}
 
 if [[ $EUID -eq 0 ]]; then
   printf 'Run this script as your normal user, not root.\n' >&2
@@ -47,11 +65,11 @@ fi
 
 record_change() {
   [[ -n ${VELORA_INSTALL_JOURNAL:-} ]] || return 0
-  python3 - "$VELORA_INSTALL_JOURNAL" "$1" "${2:-}" <<'PY'
-import json, sys
-with open(sys.argv[1], "a") as journal:
-    journal.write(json.dumps({"target": sys.argv[2], "backup": sys.argv[3]}) + "\n")
-PY
+  python3 "$template_root/scripts/journal.py" "$VELORA_INSTALL_JOURNAL" "$1" "${2:-}"
+}
+
+back_up() {
+  python3 "$template_root/scripts/journal.py" --back-up "${VELORA_INSTALL_JOURNAL:-}" "$1" "$2"
 }
 
 shapes="$repo_root/dots/.config/quickshell/ii/modules/common/widgets/shapes/ShapeCanvas.qml"
@@ -66,25 +84,28 @@ fi
 
 link_item() {
   local source=$1 target=$2 relative
-  [[ -e $source ]] || { printf 'Missing source: %s\n' "$source" >&2; exit 1; }
+  # A packaged install populates its writable runtime after confirmation.
+  if [[ ! -e $source ]] && ! { $dry_run && [[ $source == "$repo_root/"* && -e "$template_root/${source#"$repo_root/"}" ]]; }; then
+    printf 'Missing source: %s\n' "$source" >&2
+    exit 1
+  fi
   if [[ -L $target && $(readlink -- "$target") == "$source" ]]; then
     printf 'Already linked: %s\n' "$target"
     return
   fi
   printf 'Link %s -> %s\n' "$target" "$source"
-  if $dry_run; then return; fi
+  if $dry_run; then preview_replacement "$target"; return; fi
   mkdir -p -- "$(dirname -- "$target")"
   if [[ -e $target || -L $target ]]; then
     relative=${target#"$target_home"/}
     [[ $relative != /* ]] || relative="external/${target#/}"
     mkdir -p -- "$backup_root/$(dirname -- "$relative")"
-    mv -- "$target" "$backup_root/$relative"
-    record_change "$target" "$backup_root/$relative"
+    back_up "$target" "$backup_root/$relative"
     printf '  Backup: %s\n' "$backup_root/$relative"
   else
     record_change "$target"
   fi
-  ln -s -- "$source" "$target"
+  ln -sT -- "$source" "$target"
 }
 
 for name in hypr quickshell kitty foot fuzzel matugen fish fontconfig Kvantum kde-material-you-colors mpv wlogout xdg-desktop-portal zshrc.d tmux; do
@@ -187,6 +208,7 @@ if [[ ! $legacy_settings -ef $shell_settings && ( -d $previous_settings || $prev
       printf 'Would import shell settings from %s into %s\n' "$previous_settings" "$shell_settings"
     fi
     printf 'Link %s -> %s\n' "$legacy_settings" "$shell_settings"
+    preview_replacement "$legacy_settings"
   else
     if [[ -d $previous_settings && ! $previous_settings -ef $shell_settings ]]; then
       (
@@ -268,7 +290,12 @@ install_generated() {
   local dest=$1 mode=${2:-755} tmp relative
   if $dry_run; then
     printf 'Would install %s\n' "$dest"
-    cat > /dev/null
+    if [[ -f $dest ]]; then
+      cmp -s -- - "$dest" || preview_replacement "$dest"
+    else
+      cat > /dev/null
+      preview_replacement "$dest"
+    fi
     return
   fi
   mkdir -p -- "$(dirname -- "$dest")"
@@ -276,15 +303,14 @@ install_generated() {
   cat > "$tmp"
   chmod "$mode" "$tmp"
   if [[ -e $dest || -L $dest ]]; then
-    if cmp -s -- "$tmp" "$dest"; then
+    if [[ -f $dest ]] && cmp -s -- "$tmp" "$dest"; then
       rm -- "$tmp"
       return
     fi
     relative=${dest#"$target_home"/}
     [[ $relative != /* ]] || relative="external/${dest#/}"
     mkdir -p -- "$backup_root/$(dirname -- "$relative")"
-    mv -- "$dest" "$backup_root/$relative"
-    record_change "$dest" "$backup_root/$relative"
+    back_up "$dest" "$backup_root/$relative"
   else
     record_change "$dest"
   fi
@@ -438,6 +464,18 @@ Name[ru]=Быстрый просмотр
 Icon=preview
 Exec="$HOME/.local/bin/velora" preview %F
 EOF
+
+if $desktop_integration; then
+  app_files=("$config_home/mimeapps.list" "$data_home/applications/mimeapps.list")
+  if command -v kwriteconfig6 >/dev/null 2>&1 || { $dry_run && [[ ${VELORA_PREVIEW_KDE:-} == 1 ]]; }; then
+    app_files+=("$config_home/katerc" "$config_home/dolphinrc" "$config_home/kdeglobals" "$config_home/kservicemenurc")
+  fi
+  if $dry_run; then
+    for path in "${app_files[@]}"; do preview_replacement "$path"; done
+  elif [[ -n ${VELORA_INSTALL_JOURNAL:-} ]]; then
+    python3 "$template_root/scripts/journal.py" --stage-applications "$VELORA_INSTALL_JOURNAL" "${app_files[@]}"
+  fi
+fi
 
 if $desktop_integration && command -v xdg-mime >/dev/null 2>&1 && [[ -f /usr/share/applications/org.kde.dolphin.desktop ]]; then
   if $dry_run; then
